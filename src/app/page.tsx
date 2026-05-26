@@ -19,6 +19,11 @@ const MARQUEE = [
   "Asian Paints at launch · Berger & Nerolac to follow",
   "Pilot dealers · 12 cities",
   "See the wall before the paint",
+  "Two thousand catalogued shades · codes intact",
+  "WebGL 60 fps · zero backend round-trip per swatch",
+  "ΔE ‹ 1.6 · CIELAB fidelity",
+  "Fourteen days · no card · cancel quietly",
+  "Engineered in Belgavi · with care",
 ];
 
 export default function HomePage() {

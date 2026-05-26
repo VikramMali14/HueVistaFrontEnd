@@ -18,11 +18,20 @@ interface RegionState {
   shade?: PaintShade;
 }
 
+type Tool = "select" | "add" | "refine";
+
 const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
   { id: "main", kind: "MAIN_WALL", label: "MAIN_WALL · 01", hex: "#a47148" },
   { id: "accent", kind: "ACCENT_WALL", label: "ACCENT_WALL", hex: "#5b6c5b" },
   { id: "trim", kind: "TRIM", label: "TRIM", hex: "#f3eee4" },
 ];
+
+const REGION_DOT: Record<RegionKind, string> = {
+  MAIN_WALL: "#f3eee4",
+  ACCENT_WALL: "#5b6c5b",
+  TRIM: "#3e4a52",
+  MANUAL: "var(--brass)",
+};
 
 export function Visualizer({ accessToken }: VisualizerProps) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -38,6 +47,8 @@ export function Visualizer({ accessToken }: VisualizerProps) {
   const [activeRegion, setActiveRegion] = useState<string>(DEFAULT_REGIONS[0]!.id);
   const [strength, setStrength] = useState(0.78);
   const [cleanOn, setCleanOn] = useState(true);
+  const [tool, setTool] = useState<Tool>("select");
+  const [compare, setCompare] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -52,8 +63,8 @@ export function Visualizer({ accessToken }: VisualizerProps) {
     if (!rc || !imageUrl) return;
     const active = regions.find((r) => r.id === activeRegion);
     if (!active) return;
-    rc.render(hexToRgb01(active.hex), strength);
-  }, [activeRegion, regions, strength, imageUrl]);
+    rc.render(hexToRgb01(active.hex), compare ? 0 : strength);
+  }, [activeRegion, regions, strength, imageUrl, compare]);
 
   const onFileChosen = useCallback(async (file: File) => {
     setError(null);
@@ -92,10 +103,12 @@ export function Visualizer({ accessToken }: VisualizerProps) {
   const addManual = useCallback(() => {
     const idx = regions.filter((r) => r.kind === "MANUAL").length + 1;
     const id = `manual-${idx}`;
-    setRegions((prev) => [...prev, { id, kind: "MANUAL", label: `MANUAL · 0${idx}`, hex: "#b89968" }]);
+    const labelIdx = String(idx).padStart(2, "0");
+    setRegions((prev) => [...prev, { id, kind: "MANUAL", label: `MANUAL · ${labelIdx}`, hex: "#b89968" }]);
     setActiveRegion(id);
     setStage("refine");
     setDone((d) => ({ ...d, refine: true }));
+    setTool("refine");
   }, [regions]);
 
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
@@ -121,7 +134,9 @@ export function Visualizer({ accessToken }: VisualizerProps) {
 
       <PipelineBar current={stage} done={done} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 0, minHeight: 640 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "64px 1fr 380px", gap: 0, minHeight: 640 }}>
+        <ToolRail tool={tool} setTool={setTool} onAddManual={addManual} compare={compare} setCompare={setCompare} disabled={!imageUrl} />
+
         <div style={{ position: "relative", background: "var(--charcoal-warm)" }}>
           {!imageUrl && (
             <DropZone uploading={uploading} error={error} onChoose={() => fileRef.current?.click()} onDrop={(file) => void onFileChosen(file)} />
@@ -138,11 +153,24 @@ export function Visualizer({ accessToken }: VisualizerProps) {
                   <Mono>{cleanOn ? "On" : "Off"} · Nano Banana Pro</Mono>
                 </div>
               </div>
-              <div style={{ position: "absolute", top: 20, right: 20, padding: "10px 14px", background: "var(--charcoal)", border: "1px solid var(--rule-strong)", zIndex: 5 }}>
-                <Mono>Strength</Mono>
-                <input type="range" min={0} max={1} step={0.01} value={strength} onChange={(e) => setStrength(Number(e.target.value))} style={{ marginTop: 8, width: 160, accentColor: "var(--brass)", display: "block" }} />
-              </div>
+
+              <MaskLegend />
+
+              <RegionTag position="top-left" region={regions.find((r) => r.kind === "MAIN_WALL")} />
+              <RegionTag position="top-right" region={regions.find((r) => r.kind === "ACCENT_WALL")} top={84} />
+
               <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
+
+              {tool === "refine" && (
+                <ClickHint />
+              )}
+
+              <div style={{ position: "absolute", bottom: 84, left: 20, padding: "8px 14px", background: "rgba(21,17,13,.85)", border: "1px solid var(--rule)", zIndex: 5, display: "flex", alignItems: "center", gap: 12 }}>
+                <Mono>Strength</Mono>
+                <input type="range" min={0} max={1} step={0.01} value={strength} onChange={(e) => setStrength(Number(e.target.value))} style={{ width: 140, accentColor: "var(--brass)" }} />
+                <Mono>{Math.round(strength * 100)}</Mono>
+              </div>
+
               <div style={{ position: "absolute", bottom: 20, left: 20, right: 20, background: "var(--charcoal)", border: "1px solid var(--rule-strong)" }}>
                 <div style={{ display: "flex", alignItems: "center", padding: "10px 16px", overflowX: "auto" }}>
                   <Mono>Regions</Mono>
@@ -154,14 +182,126 @@ export function Visualizer({ accessToken }: VisualizerProps) {
                       <Mono>{r.shade?.code ?? "—"}</Mono>
                     </button>
                   ))}
-                  <button type="button" onClick={addManual} style={{ marginLeft: "auto", padding: "4px 14px", background: "transparent", border: "1px solid var(--rule-strong)", color: "var(--ivory-soft)", font: "400 10px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", cursor: "pointer" }}>+ Manual</button>
+                  <button type="button" onClick={addManual} style={{ marginLeft: "auto", padding: "4px 14px", background: "transparent", border: "1px solid var(--rule-strong)", color: "var(--ivory-soft)", font: "400 10px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", cursor: "pointer", whiteSpace: "nowrap" }}>+ Manual</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: 14, paddingLeft: 14, borderLeft: "1px solid var(--rule)" }}>
+                    <Mono>Compare</Mono>
+                    <button type="button" onClick={() => setCompare((v) => !v)} aria-pressed={compare} style={{ width: 28, height: 16, position: "relative", background: compare ? "var(--brass)" : "var(--charcoal-soft)", border: "1px solid " + (compare ? "var(--brass)" : "var(--rule-strong)"), padding: 0, cursor: "pointer" }}>
+                      <span style={{ position: "absolute", top: 1, ...(compare ? { right: 1 } : { left: 1 }), width: 12, height: 12, background: "var(--ivory)" }} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </>
           )}
         </div>
-        <ShadeGrid selected={active.shade?.code} onSelect={onSelectShade} />
+        <ShadeGrid selected={active.shade?.code} onSelect={onSelectShade} activeShade={active.shade} activeRegionLabel={active.label} />
       </div>
+    </div>
+  );
+}
+
+function ToolRail({ tool, setTool, onAddManual, compare, setCompare, disabled }: { tool: Tool; setTool: (t: Tool) => void; onAddManual: () => void; compare: boolean; setCompare: (v: boolean) => void; disabled: boolean; }) {
+  const cellStyle = (active: boolean): React.CSSProperties => ({
+    width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center",
+    background: active ? "var(--brass)" : "transparent",
+    border: active ? "none" : "1px solid var(--rule)",
+    color: active ? "var(--charcoal)" : "var(--ivory-soft)",
+    font: "300 italic 18px/1 var(--serif)",
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.4 : 1,
+  });
+  const tools: ReadonlyArray<{ id: Tool; glyph: string; label: string }> = [
+    { id: "select", glyph: "◉", label: "Select" },
+    { id: "add", glyph: "✦", label: "Add region" },
+    { id: "refine", glyph: "✎", label: "Refine" },
+  ];
+  return (
+    <div style={{ borderRight: "1px solid var(--rule)", padding: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, background: "var(--charcoal-soft)" }}>
+      {tools.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          title={t.label}
+          aria-pressed={tool === t.id}
+          disabled={disabled}
+          onClick={() => {
+            if (disabled) return;
+            setTool(t.id);
+            if (t.id === "add") onAddManual();
+          }}
+          style={cellStyle(tool === t.id)}
+        >
+          {t.glyph}
+        </button>
+      ))}
+      <div style={{ width: 24, height: 1, background: "var(--rule)", margin: "4px 0" }} />
+      {[
+        { glyph: "↶", label: "Undo" },
+        { glyph: "↷", label: "Redo" },
+        { glyph: "⊞", label: "Grid" },
+      ].map((b) => (
+        <button key={b.label} type="button" title={b.label} disabled={disabled} style={cellStyle(false)}>{b.glyph}</button>
+      ))}
+      <button
+        type="button"
+        title="Compare"
+        aria-pressed={compare}
+        disabled={disabled}
+        onClick={() => !disabled && setCompare(!compare)}
+        style={cellStyle(compare)}
+      >
+        ◐
+      </button>
+      <div style={{ width: 24, height: 1, background: "var(--rule)", margin: "4px 0" }} />
+      {[
+        { glyph: "＋", label: "Zoom in" },
+        { glyph: "－", label: "Zoom out" },
+        { glyph: "⊡", label: "Fit" },
+      ].map((b) => (
+        <button key={b.label} type="button" title={b.label} disabled={disabled} style={cellStyle(false)}>{b.glyph}</button>
+      ))}
+    </div>
+  );
+}
+
+function MaskLegend() {
+  const items: ReadonlyArray<[string, string]> = [
+    ["#f3eee4", "main wall"],
+    ["#5b6c5b", "accent wall"],
+    ["#3e4a52", "trim"],
+    ["var(--brass)", "manual · sam 2"],
+  ];
+  return (
+    <div style={{ position: "absolute", top: 20, right: 20, padding: "10px 14px", background: "var(--charcoal)", border: "1px solid var(--rule-strong)", zIndex: 5 }}>
+      <Mono style={{ display: "block", marginBottom: 8 }}>Auto-mask · Nano Banana</Mono>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", maxWidth: 280 }}>
+        {items.map(([color, label]) => (
+          <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 6, font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--ivory-soft)" }}>
+            <span style={{ width: 8, height: 8, background: color, border: "1px solid var(--rule-strong)" }} />
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RegionTag({ position, region, top = 20 }: { position: "top-left" | "top-right"; region?: RegionState; top?: number }) {
+  if (!region) return null;
+  const horiz = position === "top-left" ? { left: 96 } : { right: 96 };
+  return (
+    <div style={{ position: "absolute", top, ...horiz, padding: "6px 10px", background: "var(--charcoal)", border: "1px solid var(--rule)", zIndex: 4, display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ width: 8, height: 8, background: REGION_DOT[region.kind], opacity: 0.85, border: "1px solid var(--rule-strong)" }} />
+      <span style={{ font: "300 italic 13px/1 var(--serif)", color: "var(--ivory)" }}>{region.label}</span>
+      <Mono>{region.shade?.code ?? "—"}</Mono>
+    </div>
+  );
+}
+
+function ClickHint() {
+  return (
+    <div style={{ position: "absolute", top: "44%", left: "50%", transform: "translate(-50%, -50%)", padding: "8px 14px", background: "rgba(21,17,13,.92)", border: "1px solid var(--brass)", zIndex: 4, font: "300 italic 14px/1.3 var(--serif)", color: "var(--ivory)", maxWidth: 320, textAlign: "center", pointerEvents: "none" }}>
+      click any point — SAM 2 segments the surface as a manual region
     </div>
   );
 }
