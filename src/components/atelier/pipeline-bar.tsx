@@ -19,7 +19,7 @@ const STAGES: ReadonlyArray<{ id: PipelineStage; roman: string; name: string; hi
 
 export function PipelineBar({ current, done }: PipelineBarProps) {
   return (
-    <div style={{ display: "flex", alignItems: "center", padding: "14px 24px", borderBottom: "1px solid var(--rule)", background: "rgba(21,17,13,.6)" }}>
+    <div style={{ display: "flex", alignItems: "center", padding: "14px 24px", borderBottom: "1px solid var(--rule)", background: "var(--surface-overlay)" }}>
       {STAGES.map((s, i, arr) => {
         const isDone = done[s.id];
         const isCurrent = s.id === current;
@@ -28,8 +28,8 @@ export function PipelineBar({ current, done }: PipelineBarProps) {
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
                 <span className="roman">{s.roman}.</span>
-                <span style={{ fontFamily: "var(--serif)", fontSize: 16, color: isDone || isCurrent ? "var(--ivory)" : "var(--mute)" }}>{s.name}</span>
-                {(isDone || isCurrent) && (<span style={{ width: 4, height: 4, borderRadius: "50%", background: isDone ? "var(--brass)" : "var(--brass-soft)" }} />)}
+                <span style={{ fontFamily: "var(--serif)", fontSize: 16, color: isDone || isCurrent ? "var(--fg)" : "var(--fg-mute)" }}>{s.name}</span>
+                {(isDone || isCurrent) && (<span style={{ width: 4, height: 4, borderRadius: "50%", background: isDone ? "var(--accent)" : "var(--accent-soft)" }} />)}
               </div>
               <Mono style={{ fontSize: 9, letterSpacing: ".18em" }}>{s.hint}</Mono>
             </div>

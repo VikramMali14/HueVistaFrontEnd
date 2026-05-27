@@ -1,5 +1,7 @@
 export type UserRole = "USER" | "RETAILER" | "DISTRIBUTOR" | "ADMIN";
 export type AuthProvider = "LOCAL" | "GOOGLE";
+export type UiVariant = "premium" | "classic";
+export type UiTheme = "dark" | "light";
 
 export interface AuthUser {
   id: string;
@@ -8,6 +10,10 @@ export interface AuthUser {
   picture?: string | null;
   provider: AuthProvider;
   role: UserRole;
+  /** Backend-controlled UI flavour. premium = HueVista couture look; classic = enterprise/retailer look. */
+  uiVariant?: UiVariant;
+  /** Optional per-user persisted theme preference. Falls back to dark. */
+  uiTheme?: UiTheme;
 }
 
 export interface AuthResponse {

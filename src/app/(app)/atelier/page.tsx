@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { requireAccessToken } from "@/lib/auth";
+import { getUiVariant, requireAccessToken } from "@/lib/auth";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Visualizer } from "@/components/atelier/visualizer";
+import { ClassicAtelierHeader } from "@/components/classic/atelier-header";
 
 export const metadata: Metadata = {
   title: "The Atelier",
@@ -9,7 +10,17 @@ export const metadata: Metadata = {
 };
 
 export default async function AtelierPage() {
-  const accessToken = await requireAccessToken();
+  const [accessToken, variant] = await Promise.all([requireAccessToken(), getUiVariant()]);
+  if (variant === "classic") {
+    return (
+      <>
+        <ClassicAtelierHeader />
+        <div style={{ padding: "20px 24px" }}>
+          <Visualizer accessToken={accessToken} />
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <header style={{ marginBottom: 40 }}>
@@ -28,7 +39,7 @@ export default async function AtelierPage() {
             {[["< 10 s", "Upload to first preview"], ["< 100 ms", "Per swatch change"], ["60 fps", "Mid-range mobile"]].map(([n, l]) => (
               <div key={l} style={{ display: "flex", gap: 20, alignItems: "baseline", borderBottom: "1px solid var(--rule)", paddingBottom: 14 }}>
                 <span className="display" style={{ fontSize: 40, minWidth: 120 }}>{n}</span>
-                <span style={{ font: "300 italic 16px/1.4 var(--serif)", color: "var(--ivory-soft)" }}>{l}</span>
+                <span style={{ font: "300 italic 16px/1.4 var(--serif)", color: "var(--fg-soft)" }}>{l}</span>
               </div>
             ))}
           </div>
@@ -49,10 +60,10 @@ export default async function AtelierPage() {
         </div>
         <div>
           <Mono style={{ marginBottom: 18, display: "block" }}>iii · A note on cost</Mono>
-          <p style={{ font: "300 italic 17px/1.5 var(--serif)", color: "var(--ivory-soft)" }}>Colour application is browser-side WebGL — zero marginal cost. Only generative AI calls (classification, image clean, segmentation, recommendations) count against your monthly quota.</p>
+          <p style={{ font: "300 italic 17px/1.5 var(--serif)", color: "var(--fg-soft)" }}>Colour application is browser-side WebGL — zero marginal cost. Only generative AI calls (classification, image clean, segmentation, recommendations) count against your monthly quota.</p>
           <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--rule)", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <Mono>AI used · this month</Mono>
-            <span style={{ font: "300 italic 22px/1 var(--serif)", color: "var(--brass)" }}>04 / 60</span>
+            <span style={{ font: "300 italic 22px/1 var(--serif)", color: "var(--accent)" }}>04 / 60</span>
           </div>
         </div>
       </section>

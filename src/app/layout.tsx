@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { getUiTheme, getUiVariant } from "@/lib/auth";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -43,9 +44,10 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const [variant, theme] = await Promise.all([getUiVariant(), getUiTheme()]);
   return (
-    <html lang="en">
+    <html lang="en" data-variant={variant} data-theme={theme}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
