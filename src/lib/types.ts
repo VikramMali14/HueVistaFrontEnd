@@ -30,18 +30,15 @@ export interface UserProfile extends AuthUser {
   updatedAt?: string;
 }
 
-export type ImageClassification = "INDOOR" | "OUTDOOR";
+export type ImageClassification = "INDOOR" | "OUTDOOR" | "UNKNOWN";
 
 export interface UploadedImage {
-  id: string;
-  url: string;
-  thumbnailUrl?: string;
-  classification: ImageClassification;
-  width: number;
-  height: number;
-  sizeBytes: number;
-  contentType: string;
-  createdAt: string;
+  imageId: string;
+  imageUrl: string;
+  originalFilename: string;
+  imageType: ImageClassification;
+  fileSize: number;
+  uploadedAt: string;
 }
 
 export interface ApiError {

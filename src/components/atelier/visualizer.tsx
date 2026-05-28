@@ -87,7 +87,7 @@ export function Visualizer({ accessToken }: VisualizerProps) {
   const [stage, setStage] = useState<PipelineStage>("upload");
   const [done, setDone] = useState<Partial<Record<PipelineStage, boolean>>>({});
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [classification, setClassification] = useState<"INDOOR" | "OUTDOOR" | null>(null);
+  const [classification, setClassification] = useState<"INDOOR" | "OUTDOOR" | "UNKNOWN" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [regions, setRegions] = useState<RegionState[]>([...DEFAULT_REGIONS]);
@@ -216,11 +216,17 @@ export function Visualizer({ accessToken }: VisualizerProps) {
       try {
         const { api } = await import("@/lib/api");
         const uploaded = await api.uploadImage(file, accessToken);
-        setClassification(uploaded.classification);
+        if (!uploaded?.imageId) {
+          throw new Error(
+            "Upload response missing imageId — got keys: " +
+              Object.keys(uploaded ?? {}).join(", "),
+          );
+        }
+        setClassification(uploaded.imageType);
         setStage("mask");
         setDone((d) => ({ ...d, upload: true, clean: cleanOn }));
 
-        const project = await api.createProject({ imageId: uploaded.id }, accessToken);
+        const project = await api.createProject({ imageId: uploaded.imageId }, accessToken);
         setProjectId(project.id);
         setSegmenting(true);
         await api.requestSegmentation(project.id, accessToken);
