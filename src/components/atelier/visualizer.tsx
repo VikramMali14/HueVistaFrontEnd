@@ -136,6 +136,7 @@ export function Visualizer({ accessToken }: VisualizerProps) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 0, minHeight: 640 }}>
         <div style={{ position: "relative", background: "var(--surface)" }}>
+          <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", display: imageUrl ? "block" : "none" }} />
           {!imageUrl && (
             <DropZone uploading={uploading} error={error} onChoose={() => fileRef.current?.click()} onDrop={(file) => void onFileChosen(file)} />
           )}
@@ -155,7 +156,6 @@ export function Visualizer({ accessToken }: VisualizerProps) {
                 <Mono>Strength</Mono>
                 <input type="range" min={0} max={1} step={0.01} value={strength} onChange={(e) => setStrength(Number(e.target.value))} style={{ marginTop: 8, width: 160, accentColor: "var(--accent)", display: "block" }} />
               </div>
-              <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
               <div style={{ position: "absolute", bottom: 20, left: 20, right: 20, background: "var(--bg)", border: "1px solid var(--rule-strong)" }}>
                 <div style={{ display: "flex", alignItems: "center", padding: "10px 16px", overflowX: "auto" }}>
                   <Mono>Regions</Mono>
