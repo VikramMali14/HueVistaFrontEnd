@@ -1,4 +1,4 @@
-import type { UiTheme, UiVariant } from "./types";
+import type { UiLocale, UiTheme, UiVariant } from "./types";
 
 export const config = {
   apiOrigin:
@@ -12,10 +12,12 @@ export const config = {
   accessCookie: "hv_access",
   variantCookie: "hv_variant",
   themeCookie: "hv_theme",
+  localeCookie: "hv_locale",
   refreshTtlSeconds: 60 * 60 * 24 * 7,
   preferenceTtlSeconds: 60 * 60 * 24 * 365,
   defaultVariant: "premium" as UiVariant,
   defaultTheme: "dark" as UiTheme,
+  defaultLocale: "en" as UiLocale,
 } as const;
 
 export function isVariant(value: unknown): value is UiVariant {
@@ -23,4 +25,7 @@ export function isVariant(value: unknown): value is UiVariant {
 }
 export function isTheme(value: unknown): value is UiTheme {
   return value === "dark" || value === "light";
+}
+export function isLocale(value: unknown): value is UiLocale {
+  return value === "en" || value === "hi";
 }

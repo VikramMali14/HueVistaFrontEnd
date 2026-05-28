@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Marquee } from "@/components/layout/marquee";
-import { Nav } from "@/components/layout/nav";
+import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
@@ -19,7 +19,7 @@ export default function JournalPage() {
   return (
     <>
       <Marquee items={["The Journal · Letters from the atelier", "Monthly · Belgavi · MMXXVI", "On colour, on craft, on the counter"]} />
-      <Nav />
+      <SiteHeader />
       <main>
         <RevealMount />
         <header className="page-head">

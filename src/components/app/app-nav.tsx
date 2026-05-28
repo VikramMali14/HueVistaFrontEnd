@@ -15,9 +15,10 @@ const TABS = [
 interface AppNavProps {
   user: AuthUser | null;
   themeToggle?: ReactNode;
+  variantToggle?: ReactNode;
 }
 
-export function AppNav({ user, themeToggle }: AppNavProps) {
+export function AppNav({ user, themeToggle, variantToggle }: AppNavProps) {
   const pathname = usePathname();
   const folio = pathname.includes("dashboard") ? "v" : pathname.includes("portal") ? "vi" : "iii";
   return (
@@ -36,6 +37,7 @@ export function AppNav({ user, themeToggle }: AppNavProps) {
         </div>
         <div className="app-nav-meta">
           {user && (<span style={{ font: "300 italic 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>)}
+          {variantToggle}
           {themeToggle}
           <form action={logoutAction}>
             <button type="submit" className="app-tab" style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)" }}>Sign out</button>

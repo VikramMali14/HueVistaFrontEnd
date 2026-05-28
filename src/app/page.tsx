@@ -1,5 +1,5 @@
 import { Marquee } from "@/components/layout/marquee";
-import { Nav } from "@/components/layout/nav";
+import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Hero } from "@/components/home/hero";
 import { Partners } from "@/components/home/partners";
@@ -30,7 +30,7 @@ export default function HomePage() {
   return (
     <>
       <Marquee items={MARQUEE} />
-      <Nav />
+      <SiteHeader />
       <main>
         <RevealMount />
         <Hero />

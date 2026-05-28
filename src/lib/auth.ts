@@ -4,8 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { api, HttpError } from "./api";
-import { config, isTheme, isVariant } from "./config";
-import type { AuthResponse, AuthUser, UiTheme, UiVariant } from "./types";
+import { config, isLocale, isTheme, isVariant } from "./config";
+import type { AuthResponse, AuthUser, UiLocale, UiTheme, UiVariant } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -21,6 +21,23 @@ const preferenceCookieDefaults = {
   maxAge: config.preferenceTtlSeconds,
 };
 
+// Dev-only auth bypass. Gated on both NODE_ENV !== "production" AND the explicit env var
+// so a stray DEV_BYPASS_AUTH=1 in prod still cannot activate. Backend calls
+// (image upload, profile refresh) will fail under bypass; only UI flows that read
+// from local sample data work without a running backend.
+function isDevBypass(): boolean {
+  return process.env.NODE_ENV !== "production" && process.env.DEV_BYPASS_AUTH === "1";
+}
+
+const DEV_BYPASS_TOKEN = "dev-bypass-token";
+const DEV_BYPASS_USER: AuthUser = {
+  id: "dev-bypass",
+  name: "Test Retailer",
+  email: "test@huevista.dev",
+  provider: "LOCAL",
+  role: "RETAILER",
+};
+
 async function persistSession(auth: AuthResponse) {
   const jar = await cookies();
   jar.set(config.sessionCookie, auth.refreshToken, {
@@ -31,12 +48,12 @@ async function persistSession(auth: AuthResponse) {
     ...cookieDefaults,
     maxAge: Math.max(60, auth.expiresIn),
   });
-  // Pin the user's UI variant on every successful auth so subsequent server-side
-  // renders pick the right look without needing a profile round-trip.
-  const variant = isVariant(auth.user.uiVariant) ? auth.user.uiVariant : config.defaultVariant;
-  jar.set(config.variantCookie, variant, preferenceCookieDefaults);
-  // Theme is user-chosen — keep the existing cookie if there is one, otherwise seed it
-  // from the user's saved preference (server-returned) or the default.
+  // Variant and theme are user-chosen — keep any existing cookie (which may be a local
+  // toggle the user set before signing in) and otherwise seed from the backend profile.
+  if (!jar.get(config.variantCookie)) {
+    const variant = isVariant(auth.user.uiVariant) ? auth.user.uiVariant : config.defaultVariant;
+    jar.set(config.variantCookie, variant, preferenceCookieDefaults);
+  }
   if (!jar.get(config.themeCookie)) {
     const theme = isTheme(auth.user.uiTheme) ? auth.user.uiTheme : config.defaultTheme;
     jar.set(config.themeCookie, theme, preferenceCookieDefaults);
@@ -63,6 +80,12 @@ export async function getUiTheme(): Promise<UiTheme> {
   return isTheme(value) ? value : config.defaultTheme;
 }
 
+export async function getUiLocale(): Promise<UiLocale> {
+  const jar = await cookies();
+  const value = jar.get(config.localeCookie)?.value;
+  return isLocale(value) ? value : config.defaultLocale;
+}
+
 export async function setUiThemeAction(theme: UiTheme) {
   "use server";
   if (!isTheme(theme)) return;
@@ -80,7 +103,26 @@ export async function toggleUiThemeAction() {
   revalidatePath("/", "layout");
 }
 
+export async function toggleUiVariantAction() {
+  "use server";
+  const current = await getUiVariant();
+  const next: UiVariant = current === "premium" ? "classic" : "premium";
+  const jar = await cookies();
+  jar.set(config.variantCookie, next, preferenceCookieDefaults);
+  revalidatePath("/", "layout");
+}
+
+export async function toggleUiLocaleAction() {
+  "use server";
+  const current = await getUiLocale();
+  const next: UiLocale = current === "en" ? "hi" : "en";
+  const jar = await cookies();
+  jar.set(config.localeCookie, next, preferenceCookieDefaults);
+  revalidatePath("/", "layout");
+}
+
 export async function getAccessToken(): Promise<string | null> {
+  if (isDevBypass()) return DEV_BYPASS_TOKEN;
   const jar = await cookies();
   const access = jar.get(config.accessCookie)?.value;
   if (access) return access;
@@ -97,12 +139,14 @@ export async function getAccessToken(): Promise<string | null> {
 }
 
 export async function requireAccessToken(): Promise<string> {
+  if (isDevBypass()) return DEV_BYPASS_TOKEN;
   const token = await getAccessToken();
   if (!token) redirect("/sign-in");
   return token;
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
+  if (isDevBypass()) return DEV_BYPASS_USER;
   const token = await getAccessToken();
   if (!token) return null;
   try {

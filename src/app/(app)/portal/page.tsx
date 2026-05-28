@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getUiVariant } from "@/lib/auth";
+import { getUiLocale, getUiVariant } from "@/lib/auth";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { LinkButton } from "@/components/ui/button";
 import { Placeholder } from "@/components/ui/placeholder";
@@ -17,8 +17,8 @@ const CODES = [
 ];
 
 export default async function PortalPage() {
-  const variant = await getUiVariant();
-  if (variant === "classic") return <ClassicPortal />;
+  const [variant, locale] = await Promise.all([getUiVariant(), getUiLocale()]);
+  if (variant === "classic") return <ClassicPortal locale={locale} />;
   return (
     <>
       <header style={{ marginBottom: 48 }}>

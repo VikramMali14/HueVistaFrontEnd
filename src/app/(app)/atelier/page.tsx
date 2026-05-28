@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getUiVariant, requireAccessToken } from "@/lib/auth";
+import { getUiLocale, getUiVariant, requireAccessToken } from "@/lib/auth";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Visualizer } from "@/components/atelier/visualizer";
 import { ClassicAtelierHeader } from "@/components/classic/atelier-header";
@@ -10,11 +10,11 @@ export const metadata: Metadata = {
 };
 
 export default async function AtelierPage() {
-  const [accessToken, variant] = await Promise.all([requireAccessToken(), getUiVariant()]);
+  const [accessToken, variant, locale] = await Promise.all([requireAccessToken(), getUiVariant(), getUiLocale()]);
   if (variant === "classic") {
     return (
       <>
-        <ClassicAtelierHeader />
+        <ClassicAtelierHeader locale={locale} />
         <div style={{ padding: "20px 24px" }}>
           <Visualizer accessToken={accessToken} />
         </div>

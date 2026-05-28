@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { loginAction } from "@/lib/auth";
-import { Nav } from "@/components/layout/nav";
+import { SiteHeader } from "@/components/layout/site-header";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { SignInForm } from "./form";
 
@@ -18,7 +18,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
   const { next } = await searchParams;
   return (
     <>
-      <Nav showSignIn={false} />
+      <SiteHeader showSignIn={false} />
       <div className="auth-shell">
         <aside className="auth-art">
           <div className="corner">

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getCurrentUser, getUiVariant } from "@/lib/auth";
+import { getCurrentUser, getUiLocale, getUiVariant } from "@/lib/auth";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
 import { LinkButton } from "@/components/ui/button";
@@ -18,8 +18,8 @@ const PROJECTS = [
 ];
 
 export default async function DashboardPage() {
-  const [user, variant] = await Promise.all([getCurrentUser(), getUiVariant()]);
-  if (variant === "classic") return <ClassicDashboard user={user} />;
+  const [user, variant, locale] = await Promise.all([getCurrentUser(), getUiVariant(), getUiLocale()]);
+  if (variant === "classic") return <ClassicDashboard user={user} locale={locale} />;
   return (
     <>
       <header style={{ marginBottom: 48 }}>
