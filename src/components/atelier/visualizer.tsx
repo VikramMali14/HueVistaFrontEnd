@@ -78,6 +78,18 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
+async function loadImageAuthed(url: string, accessToken: string): Promise<HTMLImageElement> {
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) throw new Error(`Proxy fetch failed: ${res.status} ${res.statusText}`);
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  try {
+    return await loadImage(blobUrl);
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
 export function Visualizer({ accessToken }: VisualizerProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -108,15 +120,20 @@ export function Visualizer({ accessToken }: VisualizerProps) {
     return () => { recolorRef.current?.dispose(); recolorRef.current = null; };
   }, []);
 
-  const loadMask = useCallback((url: string) => {
+  const loadMask = useCallback((primaryUrl: string, fallbackUrl?: string | null) => {
     const cache = maskCacheRef.current;
-    const cached = cache.get(url);
+    const cacheKey = primaryUrl + "|" + (fallbackUrl ?? "");
+    const cached = cache.get(cacheKey);
     if (cached) return cached;
-    const promise = loadImage(url);
-    cache.set(url, promise);
-    promise.catch(() => cache.delete(url));
+    const promise = loadImage(primaryUrl).catch((err) => {
+      if (!fallbackUrl) throw err;
+      console.warn("Primary mask URL failed, trying same-origin proxy:", err);
+      return loadImageAuthed(fallbackUrl, accessToken);
+    });
+    cache.set(cacheKey, promise);
+    promise.catch(() => cache.delete(cacheKey));
     return promise;
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     const rc = recolorRef.current;
@@ -130,7 +147,11 @@ export function Visualizer({ accessToken }: VisualizerProps) {
       if (!rc) return;
       try {
         if (active && active.maskUrl) {
-          const mask = await loadMask(active.maskUrl);
+          const proxyUrl =
+            projectId && active.backendId !== undefined
+              ? `/api/projects/${encodeURIComponent(projectId)}/regions/${active.backendId}/mask`
+              : null;
+          const mask = await loadMask(active.maskUrl, proxyUrl);
           if (cancelled) return;
           rc.setMask(mask);
         } else {
@@ -147,7 +168,7 @@ export function Visualizer({ accessToken }: VisualizerProps) {
 
     void applyAndRender();
     return () => { cancelled = true; };
-  }, [activeRegion, regions, strength, imageUrl, compare, loadMask]);
+  }, [activeRegion, regions, strength, imageUrl, compare, loadMask, projectId]);
 
   useEffect(() => {
     return () => {
