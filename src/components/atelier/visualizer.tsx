@@ -216,6 +216,12 @@ export function Visualizer({ accessToken }: VisualizerProps) {
       try {
         const { api } = await import("@/lib/api");
         const uploaded = await api.uploadImage(file, accessToken);
+        if (!uploaded?.imageId) {
+          throw new Error(
+            "Upload response missing imageId — got keys: " +
+              Object.keys(uploaded ?? {}).join(", "),
+          );
+        }
         setClassification(uploaded.imageType);
         setStage("mask");
         setDone((d) => ({ ...d, upload: true, clean: cleanOn }));
