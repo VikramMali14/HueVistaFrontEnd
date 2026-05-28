@@ -80,3 +80,39 @@ export interface Region {
   maskUrl?: string;
   shade?: PaintShade;
 }
+
+export type ProjectStatus = "CREATED" | "SEGMENTING" | "SEGMENTED" | "FAILED";
+
+export type RegionCategory = "MAIN_WALL" | "ACCENT_WALL" | "OTHER_WALL" | "TRIM" | "MANUAL";
+
+export interface RegionDetail {
+  id: number;
+  label: string;
+  category: RegionCategory;
+  maskData?: string | null;
+  maskUrl?: string | null;
+  appliedShadeCode?: string | null;
+  appliedHexCode?: string | null;
+  displayOrder?: number | null;
+}
+
+export interface ProjectDetail {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  imageId: string;
+  imageUrl: string;
+  cleanedImageUrl?: string | null;
+  failureReason?: string | null;
+  regions: RegionDetail[];
+  hasShareLink?: boolean;
+  shareExpiresAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RegionColorUpdate {
+  regionId: number;
+  shadeCode?: string | null;
+  hexCode?: string | null;
+}

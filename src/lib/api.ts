@@ -10,7 +10,14 @@
  */
 
 import { config } from "./config";
-import type { ApiError, AuthResponse, UploadedImage, UserProfile } from "./types";
+import type {
+  ApiError,
+  AuthResponse,
+  ProjectDetail,
+  RegionColorUpdate,
+  UploadedImage,
+  UserProfile,
+} from "./types";
 
 class HttpError extends Error {
   status: number;
@@ -119,6 +126,32 @@ export const api = {
     browserFetch<UploadedImage[]>("/api/images", { accessToken }),
   getImage: (id: string, accessToken: string) =>
     browserFetch<UploadedImage>(`/api/images/${encodeURIComponent(id)}`, { accessToken }),
+
+  createProject: (body: { imageId: string; name?: string }, accessToken: string) =>
+    browserFetch<ProjectDetail>("/api/projects", {
+      method: "POST",
+      body: JSON.stringify(body),
+      accessToken,
+    }),
+  requestSegmentation: (projectId: string, accessToken: string) =>
+    browserFetch<ProjectDetail>(`/api/projects/${encodeURIComponent(projectId)}/segment`, {
+      method: "POST",
+      accessToken,
+    }),
+  getProjectStatus: (projectId: string, accessToken: string) =>
+    browserFetch<ProjectDetail>(`/api/projects/${encodeURIComponent(projectId)}/status`, {
+      accessToken,
+    }),
+  getProject: (projectId: string, accessToken: string) =>
+    browserFetch<ProjectDetail>(`/api/projects/${encodeURIComponent(projectId)}`, {
+      accessToken,
+    }),
+  updateRegionColors: (projectId: string, updates: RegionColorUpdate[], accessToken: string) =>
+    browserFetch<ProjectDetail>(`/api/projects/${encodeURIComponent(projectId)}/regions`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+      accessToken,
+    }),
 };
 
 export { HttpError };
