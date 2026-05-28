@@ -38,3 +38,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude code local config
+.claude/
+
+# design reference (kept locally, not versioned)
+HueVista Web Design (2)/
