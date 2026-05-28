@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Marquee } from "@/components/layout/marquee";
-import { Nav } from "@/components/layout/nav";
+import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { RevealMount } from "@/components/ui/reveal-mount";
@@ -18,7 +18,7 @@ export default function CataloguePage() {
   return (
     <>
       <Marquee items={["The Catalogue", "2,481 catalogued shades", "Asian Paints · codes intact · finishes preserved"]} />
-      <Nav />
+      <SiteHeader />
       <main>
         <RevealMount />
         <header className="page-head">

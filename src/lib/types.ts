@@ -2,6 +2,7 @@ export type UserRole = "USER" | "RETAILER" | "DISTRIBUTOR" | "ADMIN";
 export type AuthProvider = "LOCAL" | "GOOGLE";
 export type UiVariant = "premium" | "classic";
 export type UiTheme = "dark" | "light";
+export type UiLocale = "en" | "hi";
 
 export interface AuthUser {
   id: string;

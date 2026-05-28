@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Marquee } from "@/components/layout/marquee";
-import { Nav } from "@/components/layout/nav";
+import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
@@ -72,7 +72,7 @@ export default function MethodPage() {
   return (
     <>
       <Marquee items={["The Method", "From a customer's photograph to a photorealistic preview · under twenty seconds", "Five chapters · five technologies"]} />
-      <Nav />
+      <SiteHeader />
       <main>
         <RevealMount />
         <header className="page-head">

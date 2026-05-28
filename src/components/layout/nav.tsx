@@ -16,9 +16,10 @@ interface NavProps {
   showCta?: boolean;
   showSignIn?: boolean;
   themeToggle?: ReactNode;
+  variantToggle?: ReactNode;
 }
 
-export function Nav({ showCta = true, showSignIn = true, themeToggle }: NavProps) {
+export function Nav({ showCta = true, showSignIn = true, themeToggle, variantToggle }: NavProps) {
   const pathname = usePathname();
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
@@ -41,6 +42,7 @@ export function Nav({ showCta = true, showSignIn = true, themeToggle }: NavProps
             </Link>
           ))}
         </div>
+        {variantToggle}
         {themeToggle}
         {showSignIn && (
           <Link href="/sign-in" className="nav-link" style={{ marginLeft: 0 }}>

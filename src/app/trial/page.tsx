@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { registerAction } from "@/lib/auth";
-import { Nav } from "@/components/layout/nav";
+import { SiteHeader } from "@/components/layout/site-header";
 import { Marquee } from "@/components/layout/marquee";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
@@ -15,7 +15,7 @@ export default function TrialPage() {
   return (
     <>
       <Marquee items={["Begin a trial · Fourteen days · No card · Cancel quietly", "Asian Paints catalogue, day one", "For retailers, not consumers"]} />
-      <Nav showSignIn />
+      <SiteHeader showSignIn />
       <main>
         <div className="trial-shell">
           <aside className="trial-side">

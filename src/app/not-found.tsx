@@ -1,4 +1,4 @@
-import { Nav } from "@/components/layout/nav";
+import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { LinkButton } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { LinkButton } from "@/components/ui/button";
 export default function NotFound() {
   return (
     <>
-      <Nav />
+      <SiteHeader />
       <main style={{ textAlign: "center", padding: "160px 0" }}>
         <Eyebrow>404 · A quiet corner</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(72px, 11vw, 200px)", marginTop: 24 }}>We have <i>misplaced it.</i></h1>
