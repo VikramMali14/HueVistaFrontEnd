@@ -6,49 +6,60 @@ import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
 import { RevealMount } from "@/components/ui/reveal-mount";
+import { JournalFilters } from "@/components/journal/journal-filters";
+import { JournalNewsletter } from "@/components/journal/journal-newsletter";
+import { ENTRIES } from "@/components/journal/journal-entries";
 
 export const metadata: Metadata = {
   title: "Journal",
-  description: "Notes from the counter. Essays on colour, retail and the trade.",
+  description: "Letters from the atelier. Essays on colour, retail and the trade.",
 };
-
-const ENTRIES = [
-  { num: "i", date: "May · MMXXVI", title: "On the counter, and the colour", excerpt: "How a two-centimetre swatch becomes a twelve-foot wall — and the small theatre that decides whether the sale closes.", tone: "terracotta" as const },
-  { num: "ii", date: "April · MMXXVI", title: "Against the generative imagination", excerpt: "Why we replace exactly one thing: the hue. And why the sofa stays where it was.", tone: "slate" as const },
-  { num: "iii", date: "April · MMXXVI", title: "ΔE, and the meaning of close enough", excerpt: "A short essay on colour difference, and why CIELAB is the only measure that matches the eye.", tone: "sage" as const },
-  { num: "iv", date: "March · MMXXVI", title: "Belgavi, paint, and patience", excerpt: "On founding HueVista in a town that knows the trade well — and what we learned from twelve dealers.", tone: "walnut" as const },
-];
 
 export default function JournalPage() {
   return (
     <>
-      <Marquee items={["The Journal", "Notes from the counter", "Essays on colour, retail and the trade"]} />
+      <Marquee items={["The Journal · Letters from the atelier", "Monthly · Belgavi · MMXXVI", "On colour, on craft, on the counter"]} />
       <Nav />
       <main>
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
-            <Eyebrow>Volume VII &nbsp;·&nbsp; The Journal</Eyebrow>
-            <Mono>{ENTRIES.length} essays · MMXXVI</Mono>
+            <Eyebrow>Volume V &nbsp;·&nbsp; The Journal</Eyebrow>
+            <Mono>Letters · Essays · Field notes</Mono>
           </div>
-          <h1 className="display">Notes from <i>the counter.</i></h1>
-          <Lead className="page-lead">Essays on colour, retail and the trade. Written from the room where the work happens.</Lead>
-        </header>
-        <section style={{ paddingTop: 80 }}>
-          <div className="reveal">
-            {ENTRIES.map((e, i) => (
-              <Link key={e.num} href="/journal" style={{ display: "grid", gridTemplateColumns: "80px 1.2fr 2fr 200px", gap: 40, padding: "48px 0", borderTop: "1px solid var(--rule)", borderBottom: i === ENTRIES.length - 1 ? "1px solid var(--rule)" : "none", alignItems: "center", cursor: "pointer" }}>
-                <span style={{ font: "400 italic 24px/1 var(--serif)", color: "var(--brass)" }}>{e.num}.</span>
+          <h1 className="display">Letters from<br /><i>the atelier.</i></h1>
+          <Lead className="page-lead">On colour, on craft, on the quiet economics of the Indian paint counter. A monthly journal, written by the people who built HueVista — and by the retailers who use it.</Lead>
+
+          <div className="reveal d2" style={{ marginTop: 80, display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 64, alignItems: "center" }}>
+            <Placeholder tone="oxblood" grain corners tag="FEATURED · ESSAY" style={{ aspectRatio: "5 / 4" }} />
+            <div>
+              <Eyebrow>Featured essay &nbsp;·&nbsp; No. XVII</Eyebrow>
+              <h2 style={{ fontFamily: "var(--serif)", fontWeight: 300, fontSize: "clamp(40px, 5vw, 72px)", lineHeight: 0.98, color: "var(--ivory)", margin: "24px 0 24px", letterSpacing: "-.015em" }}>
+                The colour of an <i>Indian afternoon.</i>
+              </h2>
+              <p style={{ font: "300 18px/1.55 var(--sans)", color: "var(--ivory-soft)" }}>
+                Why western light reads warmer in Belgavi than in Bengaluru — and what that means for the shade card you place on the counter. A meditation on geography, glazing, and the eye that has grown up watching either.
+              </p>
+              <div style={{ marginTop: 32, display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "linear-gradient(135deg, var(--brass), var(--brass-deep))", border: "1px solid var(--rule-strong)" }} />
                 <div>
-                  <Mono>{e.date}</Mono>
-                  <h2 style={{ marginTop: 8, fontFamily: "var(--serif)", fontWeight: 300, fontSize: 36, lineHeight: 1.1, color: "var(--ivory)" }}>{e.title}</h2>
+                  <div style={{ fontFamily: "var(--serif)", fontSize: 20, color: "var(--ivory)" }}>Ananya R.</div>
+                  <Mono style={{ marginTop: 4, display: "block" }}>10 min read · May MMXXVI</Mono>
                 </div>
-                <p style={{ font: "300 italic 19px/1.5 var(--serif)", color: "var(--ivory-soft)", maxWidth: "44ch", margin: 0 }}>{e.excerpt}</p>
-                <Placeholder tone={e.tone} grain style={{ aspectRatio: "4 / 3" }} />
-              </Link>
-            ))}
+              </div>
+              <Link href="/journal" className="text-link" style={{ marginTop: 32, display: "inline-block" }}>Read the essay &nbsp;→</Link>
+            </div>
+          </div>
+        </header>
+
+        <section style={{ paddingTop: 80 }}>
+          <JournalFilters entries={ENTRIES} />
+          <div style={{ marginTop: 64, textAlign: "center" }}>
+            <Link href="/journal" className="text-link">Read older entries · archive &nbsp;→</Link>
           </div>
         </section>
+
+        <JournalNewsletter />
       </main>
       <Footer />
     </>

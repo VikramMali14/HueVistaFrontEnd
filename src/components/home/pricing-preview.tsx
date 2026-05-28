@@ -1,12 +1,14 @@
 import { LinkButton } from "@/components/ui/button";
 import { Mono } from "@/components/ui/eyebrow";
 
-const TIERS = [
+interface Tier { name: string; price: string; feature: string; featured?: boolean; }
+
+const TIERS: ReadonlyArray<Tier> = [
   { name: "Starter", price: "₹499", feature: "XX AI / month" },
   { name: "Professional", price: "₹999", feature: "LX AI / month", featured: true },
   { name: "Business", price: "₹1,999", feature: "CL · white-label" },
   { name: "Enterprise", price: "On request", feature: "unlimited · API" },
-] as const;
+];
 
 export function PricingPreview() {
   return (
