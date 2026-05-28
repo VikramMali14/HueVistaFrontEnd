@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getUiVariant } from "@/lib/auth";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
 import { LinkButton } from "@/components/ui/button";
+import { ClassicDashboard } from "@/components/classic/dashboard";
 
 export const metadata: Metadata = {
   title: "The Suite",
@@ -17,7 +18,8 @@ const PROJECTS = [
 ];
 
 export default async function DashboardPage() {
-  const user = await getCurrentUser();
+  const [user, variant] = await Promise.all([getCurrentUser(), getUiVariant()]);
+  if (variant === "classic") return <ClassicDashboard user={user} />;
   return (
     <>
       <header style={{ marginBottom: 48 }}>
@@ -54,7 +56,7 @@ export default async function DashboardPage() {
               <span style={{ fontFamily: "var(--serif)", fontSize: 22 }}>{p.title}</span>
               <div><Mono>{p.shade}</Mono></div>
               <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ font: "300 italic 15px/1 var(--serif)", color: "var(--mute)" }}>{p.customer}</span>
+                <span style={{ font: "300 italic 15px/1 var(--serif)", color: "var(--fg-mute)" }}>{p.customer}</span>
                 <Mono>{p.updated}</Mono>
               </div>
             </div>

@@ -114,7 +114,7 @@ export function Visualizer({ accessToken }: VisualizerProps) {
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
   return (
-    <div style={{ border: "1px solid var(--rule-strong)", overflow: "hidden", background: "var(--charcoal)" }}>
+    <div style={{ border: "1px solid var(--rule-strong)", overflow: "hidden", background: "var(--bg)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 24, padding: "18px 24px", borderBottom: "1px solid var(--rule)" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <div className="brand-mark" style={{ width: 12, height: 12 }} />
@@ -134,44 +134,29 @@ export function Visualizer({ accessToken }: VisualizerProps) {
 
       <PipelineBar current={stage} done={done} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "64px 1fr 380px", gap: 0, minHeight: 640 }}>
-        <ToolRail tool={tool} setTool={setTool} onAddManual={addManual} compare={compare} setCompare={setCompare} disabled={!imageUrl} />
-
-        <div style={{ position: "relative", background: "var(--charcoal-warm)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 0, minHeight: 640 }}>
+        <div style={{ position: "relative", background: "var(--surface)" }}>
           {!imageUrl && (
             <DropZone uploading={uploading} error={error} onChoose={() => fileRef.current?.click()} onDrop={(file) => void onFileChosen(file)} />
           )}
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFileChosen(f); }} />
           {imageUrl && (
             <>
-              <div style={{ position: "absolute", top: 20, left: 20, padding: "10px 14px", background: "var(--charcoal)", border: "1px solid var(--rule-strong)", zIndex: 5 }}>
+              <div style={{ position: "absolute", top: 20, left: 20, padding: "10px 14px", background: "var(--bg)", border: "1px solid var(--rule-strong)", zIndex: 5 }}>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                   <Mono>Image clean</Mono>
-                  <button type="button" onClick={() => setCleanOn((v) => !v)} aria-pressed={cleanOn} style={{ width: 34, height: 18, position: "relative", background: cleanOn ? "var(--brass)" : "var(--charcoal-soft)", border: "1px solid " + (cleanOn ? "var(--brass)" : "var(--rule-strong)"), padding: 0, cursor: "pointer" }}>
-                    <span style={{ position: "absolute", top: 1, ...(cleanOn ? { right: 1 } : { left: 1 }), width: 14, height: 14, background: "var(--ivory)" }} />
+                  <button type="button" onClick={() => setCleanOn((v) => !v)} aria-pressed={cleanOn} style={{ width: 34, height: 18, position: "relative", background: cleanOn ? "var(--accent)" : "var(--surface-soft)", border: "1px solid " + (cleanOn ? "var(--accent)" : "var(--rule-strong)"), padding: 0, cursor: "pointer" }}>
+                    <span style={{ position: "absolute", top: 1, ...(cleanOn ? { right: 1 } : { left: 1 }), width: 14, height: 14, background: "var(--fg)" }} />
                   </button>
                   <Mono>{cleanOn ? "On" : "Off"} · Nano Banana Pro</Mono>
                 </div>
               </div>
-
-              <MaskLegend />
-
-              <RegionTag position="top-left" region={regions.find((r) => r.kind === "MAIN_WALL")} />
-              <RegionTag position="top-right" region={regions.find((r) => r.kind === "ACCENT_WALL")} top={84} />
-
-              <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
-
-              {tool === "refine" && (
-                <ClickHint />
-              )}
-
-              <div style={{ position: "absolute", bottom: 84, left: 20, padding: "8px 14px", background: "rgba(21,17,13,.85)", border: "1px solid var(--rule)", zIndex: 5, display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ position: "absolute", top: 20, right: 20, padding: "10px 14px", background: "var(--bg)", border: "1px solid var(--rule-strong)", zIndex: 5 }}>
                 <Mono>Strength</Mono>
-                <input type="range" min={0} max={1} step={0.01} value={strength} onChange={(e) => setStrength(Number(e.target.value))} style={{ width: 140, accentColor: "var(--brass)" }} />
-                <Mono>{Math.round(strength * 100)}</Mono>
+                <input type="range" min={0} max={1} step={0.01} value={strength} onChange={(e) => setStrength(Number(e.target.value))} style={{ marginTop: 8, width: 160, accentColor: "var(--accent)", display: "block" }} />
               </div>
-
-              <div style={{ position: "absolute", bottom: 20, left: 20, right: 20, background: "var(--charcoal)", border: "1px solid var(--rule-strong)" }}>
+              <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
+              <div style={{ position: "absolute", bottom: 20, left: 20, right: 20, background: "var(--bg)", border: "1px solid var(--rule-strong)" }}>
                 <div style={{ display: "flex", alignItems: "center", padding: "10px 16px", overflowX: "auto" }}>
                   <Mono>Regions</Mono>
                   <div style={{ width: 1, height: 16, background: "var(--rule)", marginLeft: 14, marginRight: 14 }} />
@@ -182,13 +167,7 @@ export function Visualizer({ accessToken }: VisualizerProps) {
                       <Mono>{r.shade?.code ?? "—"}</Mono>
                     </button>
                   ))}
-                  <button type="button" onClick={addManual} style={{ marginLeft: "auto", padding: "4px 14px", background: "transparent", border: "1px solid var(--rule-strong)", color: "var(--ivory-soft)", font: "400 10px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", cursor: "pointer", whiteSpace: "nowrap" }}>+ Manual</button>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: 14, paddingLeft: 14, borderLeft: "1px solid var(--rule)" }}>
-                    <Mono>Compare</Mono>
-                    <button type="button" onClick={() => setCompare((v) => !v)} aria-pressed={compare} style={{ width: 28, height: 16, position: "relative", background: compare ? "var(--brass)" : "var(--charcoal-soft)", border: "1px solid " + (compare ? "var(--brass)" : "var(--rule-strong)"), padding: 0, cursor: "pointer" }}>
-                      <span style={{ position: "absolute", top: 1, ...(compare ? { right: 1 } : { left: 1 }), width: 12, height: 12, background: "var(--ivory)" }} />
-                    </button>
-                  </div>
+                  <button type="button" onClick={addManual} style={{ marginLeft: "auto", padding: "4px 14px", background: "transparent", border: "1px solid var(--rule-strong)", color: "var(--fg-soft)", font: "400 10px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", cursor: "pointer" }}>+ Manual</button>
                 </div>
               </div>
             </>
@@ -309,9 +288,9 @@ function ClickHint() {
 function DropZone({ uploading, error, onChoose, onDrop }: { uploading: boolean; error: string | null; onChoose: () => void; onDrop: (file: File) => void; }) {
   return (
     <div onClick={onChoose} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onChoose()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) onDrop(f); }} role="button" tabIndex={0} style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18, cursor: "pointer", padding: 40, textAlign: "center" }}>
-      <span style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".32em", textTransform: "uppercase", color: "var(--brass)" }}>the atelier</span>
-      <h2 style={{ fontFamily: "var(--serif)", fontWeight: 300, fontSize: 64, lineHeight: 0.95, color: "var(--ivory)", margin: 0, maxWidth: "20ch" }}>Drop a photograph <i>here.</i></h2>
-      <p style={{ font: "300 italic 19px/1.5 var(--serif)", color: "var(--ivory-soft)", maxWidth: "44ch" }}>JPEG, PNG, or WebP up to 10 MB. Claude will classify it as indoor or outdoor in under a second.</p>
+      <span style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".32em", textTransform: "uppercase", color: "var(--accent)" }}>the atelier</span>
+      <h2 style={{ fontFamily: "var(--serif)", fontWeight: 300, fontSize: 64, lineHeight: 0.95, color: "var(--fg)", margin: 0, maxWidth: "20ch" }}>Drop a photograph <i>here.</i></h2>
+      <p style={{ font: "300 italic 19px/1.5 var(--serif)", color: "var(--fg-soft)", maxWidth: "44ch" }}>JPEG, PNG, or WebP up to 10 MB. Claude will classify it as indoor or outdoor in under a second.</p>
       <div style={{ display: "flex", gap: 14, marginTop: 12 }}>
         <span className="btn">Choose a photograph</span>
         <span className="btn btn-ghost">Use a sample room</span>

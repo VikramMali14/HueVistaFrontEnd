@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 
 const LINKS = [
   { href: "/method", label: "The Method" },
@@ -14,9 +15,10 @@ const LINKS = [
 interface NavProps {
   showCta?: boolean;
   showSignIn?: boolean;
+  themeToggle?: ReactNode;
 }
 
-export function Nav({ showCta = true, showSignIn = true }: NavProps) {
+export function Nav({ showCta = true, showSignIn = true, themeToggle }: NavProps) {
   const pathname = usePathname();
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
@@ -39,6 +41,7 @@ export function Nav({ showCta = true, showSignIn = true }: NavProps) {
             </Link>
           ))}
         </div>
+        {themeToggle}
         {showSignIn && (
           <Link href="/sign-in" className="nav-link" style={{ marginLeft: 0 }}>
             Sign in

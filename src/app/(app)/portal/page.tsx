@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { getUiVariant } from "@/lib/auth";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { LinkButton } from "@/components/ui/button";
 import { Placeholder } from "@/components/ui/placeholder";
+import { ClassicPortal } from "@/components/classic/portal";
 
 export const metadata: Metadata = {
   title: "The Annex",
@@ -14,7 +16,9 @@ const CODES = [
   { code: "SHARDA-3QRA", customer: "Anita Rao", validity: "3 days", left: "expired", status: "expired" as const },
 ];
 
-export default function PortalPage() {
+export default async function PortalPage() {
+  const variant = await getUiVariant();
+  if (variant === "classic") return <ClassicPortal />;
   return (
     <>
       <header style={{ marginBottom: 48 }}>
@@ -29,7 +33,7 @@ export default function PortalPage() {
         <div>
           <Mono style={{ marginBottom: 18, display: "block" }}>i · what they see</Mono>
           <h2 className="display" style={{ fontSize: 56, marginBottom: 24 }}>Quiet. Branded. <i>Yours.</i></h2>
-          <p style={{ font: "300 italic 19px/1.6 var(--serif)", color: "var(--ivory-soft)", maxWidth: "44ch" }}>The customer sees your shopfront, your logo, your subdomain — and a single instruction: <i>upload a photograph</i>. They never see shade codes; they pick by feel. You get the codes.</p>
+          <p style={{ font: "300 italic 19px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "44ch" }}>The customer sees your shopfront, your logo, your subdomain — and a single instruction: <i>upload a photograph</i>. They never see shade codes; they pick by feel. You get the codes.</p>
         </div>
         <Placeholder tone="terracotta" grain corners tag="STOREFRONT" style={{ aspectRatio: "4 / 5" }} />
       </section>
@@ -38,16 +42,16 @@ export default function PortalPage() {
         <LinkButton href="/portal" variant="ghost" size="sm">Issue a new code <span className="arr">→</span></LinkButton>
       </section>
       <section style={{ border: "1px solid var(--rule)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1.6fr 1fr 1fr 1fr", padding: "18px 24px", borderBottom: "1px solid var(--rule)", background: "var(--charcoal-soft)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1.6fr 1fr 1fr 1fr", padding: "18px 24px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
           {["Code", "Customer", "Validity", "Time left", "Status"].map((h) => (<Mono key={h}>{h}</Mono>))}
         </div>
         {CODES.map((c, i) => (
           <div key={c.code} style={{ display: "grid", gridTemplateColumns: "1.4fr 1.6fr 1fr 1fr 1fr", padding: "22px 24px", borderBottom: i === CODES.length - 1 ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
-            <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--brass)" }}>{c.code}</span>
+            <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{c.code}</span>
             <span style={{ font: "300 italic 18px/1 var(--serif)" }}>{c.customer}</span>
             <Mono>{c.validity}</Mono>
             <Mono>{c.left}</Mono>
-            <span style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: c.status === "active" ? "var(--brass)" : "var(--mute-deep)" }}>{c.status}</span>
+            <span style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: c.status === "active" ? "var(--accent)" : "var(--fg-mute-deep)" }}>{c.status}</span>
           </div>
         ))}
       </section>
