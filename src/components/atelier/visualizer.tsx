@@ -6,16 +6,24 @@ import { Button } from "@/components/ui/button";
 import { PipelineBar, type PipelineStage } from "./pipeline-bar";
 import { ShadeGrid } from "./shade-grid";
 import { hexToRgb01, Recolor } from "@/lib/webgl-recolor";
-import type { PaintShade, RegionKind } from "@/lib/types";
+import type {
+  PaintShade,
+  ProjectDetail,
+  RegionCategory,
+  RegionDetail,
+  RegionKind,
+} from "@/lib/types";
 
 interface VisualizerProps { accessToken: string; }
 
 interface RegionState {
   id: string;
+  backendId?: number;
   kind: RegionKind;
   label: string;
   hex: string;
   shade?: PaintShade;
+  maskUrl?: string | null;
 }
 
 type Tool = "select" | "add" | "refine";
@@ -33,10 +41,49 @@ const REGION_DOT: Record<RegionKind, string> = {
   MANUAL: "var(--brass)",
 };
 
+const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
+  MAIN_WALL: "MAIN_WALL",
+  ACCENT_WALL: "ACCENT_WALL",
+  OTHER_WALL: "ACCENT_WALL",
+  TRIM: "TRIM",
+  MANUAL: "MANUAL",
+};
+
+const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
+  MAIN_WALL: "#a47148",
+  ACCENT_WALL: "#5b6c5b",
+  TRIM: "#f3eee4",
+  MANUAL: "#b89968",
+};
+
+function mapBackendRegion(region: RegionDetail): RegionState {
+  const kind = CATEGORY_TO_KIND[region.category] ?? "MANUAL";
+  return {
+    id: `r-${region.id}`,
+    backendId: region.id,
+    kind,
+    label: region.label || kind,
+    hex: region.appliedHexCode || DEFAULT_HEX_FOR_KIND[kind],
+    maskUrl: region.maskUrl ?? null,
+  };
+}
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load image: " + url));
+    img.src = url;
+  });
+}
+
 export function Visualizer({ accessToken }: VisualizerProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const recolorRef = useRef<Recolor | null>(null);
+  const maskCacheRef = useRef<Map<string, Promise<HTMLImageElement>>>(new Map());
+  const pollAbortRef = useRef<{ cancelled: boolean } | null>(null);
   const [stage, setStage] = useState<PipelineStage>("upload");
   const [done, setDone] = useState<Partial<Record<PipelineStage, boolean>>>({});
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -49,6 +96,9 @@ export function Visualizer({ accessToken }: VisualizerProps) {
   const [cleanOn, setCleanOn] = useState(true);
   const [tool, setTool] = useState<Tool>("select");
   const [compare, setCompare] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [segmenting, setSegmenting] = useState(false);
+  const [masksReady, setMasksReady] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -58,23 +108,108 @@ export function Visualizer({ accessToken }: VisualizerProps) {
     return () => { recolorRef.current?.dispose(); recolorRef.current = null; };
   }, []);
 
+  const loadMask = useCallback((url: string) => {
+    const cache = maskCacheRef.current;
+    const cached = cache.get(url);
+    if (cached) return cached;
+    const promise = loadImage(url);
+    cache.set(url, promise);
+    promise.catch(() => cache.delete(url));
+    return promise;
+  }, []);
+
   useEffect(() => {
     const rc = recolorRef.current;
     if (!rc || !imageUrl) return;
     const active = regions.find((r) => r.id === activeRegion);
     if (!active) return;
-    rc.render(hexToRgb01(active.hex), compare ? 0 : strength);
-  }, [activeRegion, regions, strength, imageUrl, compare]);
+
+    let cancelled = false;
+
+    async function applyAndRender() {
+      if (!rc) return;
+      try {
+        if (active && active.maskUrl) {
+          const mask = await loadMask(active.maskUrl);
+          if (cancelled) return;
+          rc.setMask(mask);
+        } else {
+          rc.setMask(null);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        rc.setMask(null);
+        console.warn("Mask load failed:", err);
+      }
+      if (cancelled || !active) return;
+      rc.render(hexToRgb01(active.hex), compare ? 0 : strength);
+    }
+
+    void applyAndRender();
+    return () => { cancelled = true; };
+  }, [activeRegion, regions, strength, imageUrl, compare, loadMask]);
+
+  useEffect(() => {
+    return () => {
+      if (pollAbortRef.current) pollAbortRef.current.cancelled = true;
+    };
+  }, []);
+
+  const applyProjectDetail = useCallback(async (detail: ProjectDetail) => {
+    const rc = recolorRef.current;
+    const canvasUrl = detail.cleanedImageUrl || detail.imageUrl;
+    if (rc && canvasUrl) {
+      try {
+        const img = await loadImage(canvasUrl);
+        rc.setImage(img);
+        setImageUrl(canvasUrl);
+      } catch (err) {
+        console.warn("Failed to load cleaned image, keeping local preview:", err);
+      }
+    }
+    const mapped = detail.regions
+      .slice()
+      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+      .map(mapBackendRegion);
+    if (mapped.length > 0) {
+      setRegions(mapped);
+      setActiveRegion(mapped[0]!.id);
+    }
+  }, []);
+
+  const pollUntilSegmented = useCallback(async (id: string) => {
+    if (pollAbortRef.current) pollAbortRef.current.cancelled = true;
+    const token = { cancelled: false };
+    pollAbortRef.current = token;
+    const { api } = await import("@/lib/api");
+    const start = Date.now();
+    const timeoutMs = 90_000;
+    const intervalMs = 1500;
+    while (!token.cancelled) {
+      if (Date.now() - start > timeoutMs) {
+        throw new Error("Segmentation timed out. Please try again.");
+      }
+      const status = await api.getProjectStatus(id, accessToken);
+      if (status.status === "SEGMENTED") return status;
+      if (status.status === "FAILED") {
+        throw new Error(status.failureReason || "Segmentation failed.");
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    throw new Error("Segmentation cancelled.");
+  }, [accessToken]);
 
   const onFileChosen = useCallback(async (file: File) => {
     setError(null);
     setUploading(true);
+    setMasksReady(false);
+    setProjectId(null);
+    maskCacheRef.current.clear();
     try {
       const localUrl = URL.createObjectURL(file);
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => resolve(i); i.onerror = reject; i.src = localUrl;
-      });
+      const img = await loadImage(localUrl);
       recolorRef.current?.setImage(img);
+      recolorRef.current?.setMask(null);
       setImageUrl(localUrl);
       setStage("clean");
       setDone((d) => ({ ...d, upload: true }));
@@ -84,21 +219,52 @@ export function Visualizer({ accessToken }: VisualizerProps) {
         setClassification(uploaded.classification);
         setStage("mask");
         setDone((d) => ({ ...d, upload: true, clean: cleanOn }));
+
+        const project = await api.createProject({ imageId: uploaded.id }, accessToken);
+        setProjectId(project.id);
+        setSegmenting(true);
+        await api.requestSegmentation(project.id, accessToken);
+        const segmented = await pollUntilSegmented(project.id);
+        await applyProjectDetail(segmented);
+        setMasksReady(true);
+        setDone((d) => ({ ...d, mask: true }));
       } catch (err) {
         if (err instanceof Error) setError(err.message);
+      } finally {
+        setSegmenting(false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open the image.");
     } finally {
       setUploading(false);
     }
-  }, [accessToken, cleanOn]);
+  }, [accessToken, cleanOn, pollUntilSegmented, applyProjectDetail]);
 
   const onSelectShade = useCallback((shade: PaintShade) => {
-    setRegions((prev) => prev.map((r) => (r.id === activeRegion ? { ...r, hex: shade.hex, shade } : r)));
+    let updatedBackendId: number | undefined;
+    setRegions((prev) => prev.map((r) => {
+      if (r.id !== activeRegion) return r;
+      updatedBackendId = r.backendId;
+      return { ...r, hex: shade.hex, shade };
+    }));
     setStage("recolor");
     setDone((d) => ({ ...d, mask: true, recolor: true }));
-  }, [activeRegion]);
+
+    if (projectId && updatedBackendId !== undefined) {
+      void (async () => {
+        try {
+          const { api } = await import("@/lib/api");
+          await api.updateRegionColors(
+            projectId,
+            [{ regionId: updatedBackendId!, shadeCode: shade.code, hexCode: shade.hex }],
+            accessToken,
+          );
+        } catch (err) {
+          console.warn("Auto-save failed:", err);
+        }
+      })();
+    }
+  }, [activeRegion, projectId, accessToken]);
 
   const addManual = useCallback(() => {
     const idx = regions.filter((r) => r.kind === "MANUAL").length + 1;
@@ -127,6 +293,8 @@ export function Visualizer({ accessToken }: VisualizerProps) {
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
           {classification && <Mono brass>{classification}</Mono>}
+          {segmenting && <Mono>Segmenting…</Mono>}
+          {masksReady && <Mono brass>Masks ready</Mono>}
           {imageUrl && <Mono>Saved · auto</Mono>}
           <Button size="sm" variant="ghost" disabled={!imageUrl} onClick={() => recolorRef.current && downloadPng(recolorRef.current.exportPng())}>Export</Button>
         </div>
