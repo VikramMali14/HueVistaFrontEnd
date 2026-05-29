@@ -62,7 +62,7 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
       </div>
 
       <section style={{ paddingTop: 60 }}>
-        <div className="reveal" style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 24 }}>
+        <div className="reveal hv-gallery-grid" style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 24 }}>
           {filtered.map((p, i) => {
             const colSpan = i % 6 === 0 || i % 6 === 4 ? 6 : 3;
             return (

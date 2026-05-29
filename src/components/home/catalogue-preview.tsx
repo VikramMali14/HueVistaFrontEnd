@@ -12,7 +12,7 @@ const SWATCHES = [
 export function CataloguePreview() {
   return (
     <section>
-      <div className="reveal" style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 80, alignItems: "center" }}>
+      <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 80, alignItems: "center" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <Eyebrow>The catalogue</Eyebrow>
           <h2 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Every shade. <i>Codes intact.</i></h2>
@@ -22,7 +22,7 @@ export function CataloguePreview() {
             <LinkButton href="/catalogue" variant="ghost">View a single shade <span className="arr">→</span></LinkButton>
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
+        <div className="hv-cat-preview" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
           {SWATCHES.map((hex, i) => (
             <div key={i} title={`AP-${String(2104 + i).padStart(4, "0")}`} style={{ background: hex, aspectRatio: "1 / 1" }} />
           ))}

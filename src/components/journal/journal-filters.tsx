@@ -46,6 +46,7 @@ export function JournalFilters({ entries }: { entries: ReadonlyArray<JournalEntr
           <Link
             key={e.num}
             href="/journal"
+            className="hv-journal-row"
             style={{
               display: "grid",
               gridTemplateColumns: "80px 1fr 220px 140px 160px",

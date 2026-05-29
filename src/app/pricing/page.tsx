@@ -130,7 +130,7 @@ export default function PricingPage() {
         </section>
 
         <section style={{ paddingTop: 140 }}>
-          <div className="reveal" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 80, alignItems: "start" }}>
+          <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 80, alignItems: "start" }}>
             <div>
               <Eyebrow>Common questions</Eyebrow>
               <h2 className="display" style={{ fontSize: "clamp(40px, 5.5vw, 80px)", marginTop: 24, lineHeight: 0.95 }}>

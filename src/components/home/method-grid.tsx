@@ -12,7 +12,7 @@ const STEPS = [
 export function MethodGrid() {
   return (
     <section id="method">
-      <div className="reveal" style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr", gap: 48, alignItems: "end", marginBottom: 80 }}>
+      <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr", gap: 48, alignItems: "end", marginBottom: 80 }}>
         <span className="roman" style={{ fontSize: 24 }}>II.</span>
         <div>
           <Eyebrow>The Method</Eyebrow>
@@ -20,7 +20,7 @@ export function MethodGrid() {
         </div>
         <Lead style={{ textAlign: "right" }}>Engineered for the counter — not the consumer. A photograph, a tap, a hue. The original light, the original shadow, the original cornice — preserved.</Lead>
       </div>
-      <div className="reveal d1" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 1, background: "var(--rule)", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
+      <div className="reveal d1 r-cols-lg-3 r-cols-md-2 r-cols-sm-1" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 1, background: "var(--rule)", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
         {STEPS.map((s) => (
           <div key={s.num} style={{ background: "var(--charcoal)", padding: "32px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ font: "300 italic 22px/1 var(--serif)", color: "var(--brass)" }}>{s.num}</div>

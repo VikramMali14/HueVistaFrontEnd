@@ -17,20 +17,44 @@ const PROJECTS = [
   { plate: "IV", title: "Camp Road Studio", customer: "Pooja D.", shade: "Slate · AP-9904", updated: "Last week", tone: "slate" as const },
 ];
 
-export default async function DashboardPage() {
-  const [user, variant, locale] = await Promise.all([getCurrentUser(), getUiVariant(), getUiLocale()]);
+interface DashboardPageProps {
+  searchParams: Promise<{ denied?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  const [{ denied }, user, variant, locale] = await Promise.all([
+    searchParams,
+    getCurrentUser(),
+    getUiVariant(),
+    getUiLocale(),
+  ]);
   if (variant === "classic") return <ClassicDashboard user={user} locale={locale} />;
   return (
     <>
+      {denied === "role" && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: 24,
+            padding: "12px 16px",
+            border: "1px solid var(--rule-strong)",
+            background: "var(--surface-soft)",
+            color: "var(--fg)",
+            font: "300 italic 16px/1.4 var(--serif)",
+          }}
+        >
+          That page is reserved for retailers and administrators. We brought you back to the Suite.
+        </div>
+      )}
       <header style={{ marginBottom: 48 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
           <Eyebrow>v · the suite</Eyebrow>
-          <Mono>Sharda Paints · Professional tier</Mono>
+          <Mono>{user?.role === "ADMIN" ? "Administrator" : "Sharda Paints · Professional tier"}</Mono>
         </div>
         <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Good morning,<br /><i>{user?.name?.split(" ")[0] ?? "Friend"}.</i></h1>
         <Lead style={{ marginTop: 24 }}>{PROJECTS.length} projects in the room. {user?.name ? "Welcome back to the counter." : "Welcome to HueVista."}</Lead>
       </header>
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, marginBottom: 64 }}>
+      <section className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, marginBottom: 64 }}>
         {[
           { n: "60", l: "AI renders this month", sub: "Of 60 · Professional" },
           { n: "04", l: "Renders used", sub: "94% remaining" },
@@ -48,7 +72,7 @@ export default async function DashboardPage() {
         <h2 className="display" style={{ fontSize: 48 }}>Recent <i>projects.</i></h2>
         <LinkButton href="/atelier" variant="ghost" size="sm">New project <span className="arr">→</span></LinkButton>
       </section>
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24 }}>
+      <section className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24 }}>
         {PROJECTS.map((p) => (
           <article key={p.plate}>
             <Placeholder tone={p.tone} grain corners tag={`No. ${p.plate}`} style={{ aspectRatio: "4 / 5" }} />

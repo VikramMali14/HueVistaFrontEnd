@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <>
-      <AppNav user={user} themeToggle={themeToggle} variantToggle={variantToggle} />
+      <AppNav user={user} themeToggle={themeToggle} variantToggle={variantToggle} localeToggle={localeToggle} />
       <main style={{ maxWidth: "var(--max)", margin: "0 auto", padding: "40px var(--gutter) 96px" }}>{children}</main>
     </>
   );
