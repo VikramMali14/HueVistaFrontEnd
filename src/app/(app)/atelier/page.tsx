@@ -10,13 +10,15 @@ export const metadata: Metadata = {
 };
 
 export default async function AtelierPage() {
-  const [accessToken, variant, locale] = await Promise.all([requireAccessToken(), getUiVariant(), getUiLocale()]);
+  // Gate the route — the BFF proxy will pick up the cookie itself; we don't pass the token.
+  await requireAccessToken();
+  const [variant, locale] = await Promise.all([getUiVariant(), getUiLocale()]);
   if (variant === "classic") {
     return (
       <>
         <ClassicAtelierHeader locale={locale} />
-        <div style={{ padding: "20px 24px" }}>
-          <Visualizer accessToken={accessToken} />
+        <div style={{ padding: "16px 24px" }}>
+          <Visualizer variant="classic" locale={locale} />
         </div>
       </>
     );
@@ -31,7 +33,7 @@ export default async function AtelierPage() {
         <h1 className="display" style={{ fontSize: "clamp(40px, 5vw, 72px)" }}>The Atelier</h1>
         <Lead style={{ marginTop: 16 }}>The room — quiet on the left, the catalogue at hand on the right. Upload, clean, segment, recolour.</Lead>
       </header>
-      <Visualizer accessToken={accessToken} />
+      <Visualizer variant="premium" locale={locale} />
       <section style={{ marginTop: 56, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
         <div>
           <Mono style={{ marginBottom: 18, display: "block" }}>i · Performance</Mono>

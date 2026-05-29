@@ -18,7 +18,7 @@ export function Harmonies() {
   return (
     <section style={{ background: "#0a0805", padding: "160px 0", marginTop: 120 }} className="full-bleed">
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
-        <div className="reveal" style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr", gap: 48, alignItems: "end", marginBottom: 64 }}>
+        <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr", gap: 48, alignItems: "end", marginBottom: 64 }}>
           <span className="roman" style={{ fontSize: 24 }}>II.</span>
           <div>
             <Eyebrow>Curated harmonies</Eyebrow>
@@ -29,10 +29,10 @@ export function Harmonies() {
           <Lead style={{ textAlign: "right" }}>Claude proposes a triad. ΔE snaps each to a real, in-stock catalogue shade. Tap to apply across main wall, accent, and trim.</Lead>
         </div>
 
-        <div className="reveal d1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24 }}>
+        <div className="reveal d1 r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24 }}>
           {HARMONIES.map((h) => (
             <article key={h.num} style={{ border: "1px solid var(--rule)", padding: 0 }}>
-              <div style={{ display: "flex", height: 300 }}>
+              <div className="hv-harmony-stack" style={{ display: "flex", height: 300 }}>
                 {h.stack.map(([from, to], i) => (
                   <div key={i} style={{ flex: i === 0 ? 2 : 1, background: `linear-gradient(160deg, ${from}, ${to})` }} />
                 ))}

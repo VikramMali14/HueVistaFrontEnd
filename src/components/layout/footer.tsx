@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/ui/logo";
 
 const COLUMNS = [
   {
@@ -36,9 +37,8 @@ export function Footer() {
     <footer>
       <div className="footer-inner">
         <div className="footer-col">
-          <Link href="/" className="brand" style={{ fontSize: 34, marginBottom: 24 }}>
-            <span className="brand-mark" />
-            HueVista
+          <Link href="/" aria-label="HueVista — home" style={{ display: "inline-block", marginBottom: 24 }}>
+            <Logo size="md" ariaLabel={null} />
           </Link>
           <p className="body" style={{ fontStyle: "italic", fontFamily: "var(--serif)", fontSize: 19, maxWidth: "34ch", marginTop: 16 }}>
             An AI-powered paint shade visualiser for the Indian paint retail trade. Engineered in Belgavi, with care.

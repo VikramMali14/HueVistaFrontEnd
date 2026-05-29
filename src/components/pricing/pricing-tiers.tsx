@@ -54,7 +54,7 @@ export function PricingTiers() {
       </div>
 
       <section style={{ paddingTop: 60 }}>
-        <div className="reveal" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
+        <div className="reveal r-cols-lg-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
           {TIERS.map((t) => {
             const price = period === "monthly" ? t.monthly : t.annual;
             const perLabel = price === "On request" ? "" : period === "monthly" ? "/ month" : "/ year";

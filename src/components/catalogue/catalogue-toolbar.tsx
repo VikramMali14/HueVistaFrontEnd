@@ -58,14 +58,14 @@ interface FilterDropdownProps {
 function FilterDropdown({ label, value, options, onChange }: FilterDropdownProps) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ position: "relative", padding: "18px 20px", borderRight: "1px solid var(--rule)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: "var(--ivory-soft)" }} onClick={() => setOpen((v) => !v)}>
+    <div style={{ position: "relative", padding: "18px 20px", borderRight: "1px solid var(--rule)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: "var(--fg-soft)" }} onClick={() => setOpen((v) => !v)}>
       <span>{label}</span>
-      <span style={{ color: "var(--brass)", fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 15, letterSpacing: ".01em", textTransform: "none" }}>{value}</span>
-      <span style={{ color: "var(--mute)", fontSize: 10 }}>▾</span>
+      <span style={{ color: "var(--accent)", fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 15, letterSpacing: ".01em", textTransform: "none" }}>{value}</span>
+      <span style={{ color: "var(--fg-mute)", fontSize: 10 }}>▾</span>
       {open && (
-        <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: -1, right: -1, background: "var(--charcoal-soft)", border: "1px solid var(--rule-strong)", borderTop: "none", zIndex: 20 }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: -1, right: -1, background: "var(--surface-soft)", border: "1px solid var(--rule-strong)", borderTop: "none", zIndex: 20 }}>
           {options.map((o) => (
-            <div key={o} onClick={() => { onChange(o); setOpen(false); }} style={{ padding: "12px 20px", borderTop: "1px solid var(--rule)", color: o === value ? "var(--ivory)" : "var(--ivory-soft)", background: o === value ? "var(--charcoal-warm)" : "transparent", fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 15, letterSpacing: ".01em", textTransform: "none" }}>
+            <div key={o} onClick={() => { onChange(o); setOpen(false); }} style={{ padding: "12px 20px", borderTop: "1px solid var(--rule)", color: o === value ? "var(--fg)" : "var(--fg-soft)", background: o === value ? "var(--surface)" : "transparent", fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 15, letterSpacing: ".01em", textTransform: "none" }}>
               {o}
             </div>
           ))}
@@ -105,29 +105,29 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
 
   return (
     <>
-      <div className="reveal" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr 1fr auto", border: "1px solid var(--rule)", background: "var(--charcoal-soft)" }}>
+      <div className="reveal hv-cat-toolbar" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr 1fr auto", border: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
         <div style={{ padding: "18px 20px", borderRight: "1px solid var(--rule)", display: "flex", alignItems: "center", gap: 12 }}>
           <Mono brass style={{ marginRight: 8 }}>⌕</Mono>
           <input
             value={query}
             onChange={(e) => { setQuery(e.target.value); setVisible(PAGE_SIZE); }}
             placeholder="shade, code, or hex…"
-            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--ivory)", font: "300 italic 16px/1 var(--serif)" }}
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--fg)", font: "300 italic 16px/1 var(--serif)" }}
           />
         </div>
         <FilterDropdown label="Brand" value={brand} options={BRANDS} onChange={(v) => { setBrand(v as never); setVisible(PAGE_SIZE); }} />
         <FilterDropdown label="Finish" value={finish} options={FINISHES} onChange={(v) => { setFinish(v as never); setVisible(PAGE_SIZE); }} />
         <FilterDropdown label="LRV" value={lrv} options={LRV_RANGES.map((r) => r.id)} onChange={(v) => { setLrv(v as never); setVisible(PAGE_SIZE); }} />
         <FilterDropdown label="Style" value={style} options={STYLES} onChange={(v) => { setStyle(v as never); setVisible(PAGE_SIZE); }} />
-        <button type="button" onClick={clearAll} style={{ padding: "18px 20px", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: "var(--mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase" }}>Clear ·</button>
+        <button type="button" onClick={clearAll} style={{ padding: "18px 20px", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase" }}>Clear ·</button>
       </div>
 
-      <div className="reveal d1" style={{ marginTop: 24, display: "flex", border: "1px solid var(--rule)", background: "var(--rule)", overflowX: "auto", gap: 1 }}>
+      <div className="reveal d1 r-scroll-x" style={{ marginTop: 24, display: "flex", border: "1px solid var(--rule)", background: "var(--rule)", gap: 1 }}>
         {FAMILIES.map((f) => {
           const active = f.id === family;
           return (
-            <button key={f.id} type="button" onClick={() => { setFamily(f.id); setVisible(PAGE_SIZE); }} style={{ flexShrink: 0, padding: "16px 22px", border: "none", background: active ? "var(--charcoal-soft)" : "var(--charcoal)", color: active ? "var(--ivory)" : "var(--ivory-soft)", font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", cursor: "pointer" }}>
-              <span style={{ width: 10, height: 10, background: f.dot, boxShadow: active ? "0 0 0 2px var(--brass-soft)" : "none" }} />
+            <button key={f.id} type="button" onClick={() => { setFamily(f.id); setVisible(PAGE_SIZE); }} style={{ flexShrink: 0, padding: "16px 22px", border: "none", background: active ? "var(--surface-soft)" : "var(--bg)", color: active ? "var(--fg)" : "var(--fg-soft)", font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", cursor: "pointer" }}>
+              <span style={{ width: 10, height: 10, background: f.dot, boxShadow: active ? "0 0 0 2px var(--accent-soft)" : "none" }} />
               {f.id}
             </button>
           );
@@ -135,11 +135,11 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
       </div>
 
       <div className="reveal d2" style={{ marginTop: 32, display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 16 }}>
-        <Mono>Showing <span style={{ color: "var(--ivory)" }}>{shown.length}</span> of {filtered.length} · sorted by hue</Mono>
+        <Mono>Showing <span style={{ color: "var(--fg)" }}>{shown.length}</span> of {filtered.length} · sorted by hue</Mono>
         <Mono>Sort: hue · lightness · family · code</Mono>
       </div>
 
-      <div className="reveal d3" style={{ marginTop: 48, display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 24 }}>
+      <div className="reveal d3 hv-cat-grid" style={{ marginTop: 48, display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 24 }}>
         {shown.map((s) => (
           <article key={s.code} style={{ cursor: "pointer", transition: "transform .35s var(--ease)" }}>
             <div style={{ aspectRatio: "1 / 1.1", position: "relative", background: s.hex, overflow: "hidden", boxShadow: "0 1px 0 rgba(255,255,255,.06) inset, 0 20px 40px -20px rgba(0,0,0,.6)" }}>
@@ -147,7 +147,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
               <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 9px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: "rgba(255,255,255,.65)" }}>LRV {s.lrv}</span>
             </div>
             <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--ivory)", lineHeight: 1.05 }}>{s.name}</span>
+              <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{s.name}</span>
               <Mono>{s.code} · {s.hex}</Mono>
             </div>
           </article>

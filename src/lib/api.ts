@@ -2,11 +2,12 @@
  * Typed API client for the HueVista backend.
  *
  * Two flavours:
- *  - `serverFetch` for use inside server components / server actions
- *    (talks directly to the backend, reads cookies for tokens)
- *  - `browserFetch` for client components (goes through `/api/*` rewrites
- *    so the API origin never reaches the browser bundle, and the access
- *    token is held in memory only)
+ *  - `serverFetch` for use inside server actions (auth flows). Talks directly
+ *    to the backend with the access token read server-side from cookies.
+ *  - `browserFetch` for client components. Calls `/bff/*` on the same origin;
+ *    the BFF route attaches the Authorization header from the HttpOnly cookie,
+ *    so the access token NEVER reaches the browser bundle. This preserves the
+ *    security guarantee that the token can't be read by client-side JS.
  */
 
 import { config } from "./config";
@@ -50,19 +51,19 @@ async function parseError(res: Response): Promise<ApiError> {
   return { status: res.status, message, fieldErrors };
 }
 
-export async function browserFetch<T>(
-  path: string,
-  init: RequestInit & { accessToken?: string } = {},
-): Promise<T> {
-  const { accessToken, headers, ...rest } = init;
-  const res = await fetch(path.startsWith("/") ? path : `/${path}`, {
+/**
+ * Client-side fetch through the BFF proxy. `path` must be the underlying backend
+ * path (e.g. "api/images/upload"); we prefix `/bff/` so the proxy attaches auth.
+ */
+async function browserFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const { headers, ...rest } = init;
+  const clean = path.replace(/^\/+/, "");
+  const isForm = rest.body instanceof FormData;
+  const res = await fetch(`/bff/${clean}`, {
     ...rest,
     headers: {
       Accept: "application/json",
-      ...(rest.body && !(rest.body instanceof FormData)
-        ? { "Content-Type": "application/json" }
-        : {}),
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(rest.body && !isForm ? { "Content-Type": "application/json" } : {}),
       ...headers,
     },
     credentials: "same-origin",
@@ -76,7 +77,7 @@ export async function browserFetch<T>(
   return (await res.json()) as T;
 }
 
-export async function serverFetch<T>(
+async function serverFetch<T>(
   path: string,
   init: RequestInit & { accessToken?: string } = {},
 ): Promise<T> {
@@ -103,7 +104,11 @@ export async function serverFetch<T>(
   return (await res.json()) as T;
 }
 
-export const api = {
+/**
+ * Auth API — only ever used from server actions (auth.ts). Goes directly to
+ * the backend with the cookie-resident access token.
+ */
+export const authApi = {
   register: (body: { name: string; email: string; password: string }) =>
     serverFetch<AuthResponse>("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
   login: (body: { email: string; password: string }) =>
@@ -116,41 +121,38 @@ export const api = {
     serverFetch<{ userId: string }>("/api/auth/me", { accessToken }),
   profile: (accessToken: string) =>
     serverFetch<UserProfile>("/api/auth/profile", { accessToken }),
+};
 
-  uploadImage: async (file: File, accessToken: string) => {
+/**
+ * Browser API — used from client components. Calls the same-origin BFF proxy
+ * which handles auth, refresh and rate limiting.
+ */
+export const api = {
+  uploadImage: async (file: File) => {
     const form = new FormData();
     form.append("file", file);
-    return browserFetch<UploadedImage>("/api/images/upload", { method: "POST", body: form, accessToken });
+    return browserFetch<UploadedImage>("api/images/upload", { method: "POST", body: form });
   },
-  listImages: (accessToken: string) =>
-    browserFetch<UploadedImage[]>("/api/images", { accessToken }),
-  getImage: (id: string, accessToken: string) =>
-    browserFetch<UploadedImage>(`/api/images/${encodeURIComponent(id)}`, { accessToken }),
-
-  createProject: (body: { imageId: string; name?: string }, accessToken: string) =>
-    browserFetch<ProjectDetail>("/api/projects", {
+  listImages: () => browserFetch<UploadedImage[]>("api/images"),
+  getImage: (id: string) =>
+    browserFetch<UploadedImage>(`api/images/${encodeURIComponent(id)}`),
+  createProject: (body: { imageId: string; name?: string }) =>
+    browserFetch<ProjectDetail>("api/projects", {
       method: "POST",
       body: JSON.stringify(body),
-      accessToken,
     }),
-  requestSegmentation: (projectId: string, accessToken: string) =>
-    browserFetch<ProjectDetail>(`/api/projects/${encodeURIComponent(projectId)}/segment`, {
+  requestSegmentation: (projectId: string) =>
+    browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/segment`, {
       method: "POST",
-      accessToken,
     }),
-  getProjectStatus: (projectId: string, accessToken: string) =>
-    browserFetch<ProjectDetail>(`/api/projects/${encodeURIComponent(projectId)}/status`, {
-      accessToken,
-    }),
-  getProject: (projectId: string, accessToken: string) =>
-    browserFetch<ProjectDetail>(`/api/projects/${encodeURIComponent(projectId)}`, {
-      accessToken,
-    }),
-  updateRegionColors: (projectId: string, updates: RegionColorUpdate[], accessToken: string) =>
-    browserFetch<ProjectDetail>(`/api/projects/${encodeURIComponent(projectId)}/regions`, {
+  getProjectStatus: (projectId: string) =>
+    browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/status`),
+  getProject: (projectId: string) =>
+    browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}`),
+  updateRegionColors: (projectId: string, updates: RegionColorUpdate[]) =>
+    browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/regions`, {
       method: "PUT",
       body: JSON.stringify(updates),
-      accessToken,
     }),
 };
 

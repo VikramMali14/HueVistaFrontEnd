@@ -85,7 +85,7 @@ export default function MethodPage() {
         </header>
 
         {CHAPTERS.map((c, i) => (
-          <article key={c.num} className="reveal" style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr", gap: 64, padding: "140px 0", borderTop: i === 0 ? "none" : "1px solid var(--rule)", alignItems: "start" }}>
+          <article key={c.num} className="reveal hv-method-chapter" style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr", gap: 64, padding: "140px 0", borderTop: i === 0 ? "none" : "1px solid var(--rule)", alignItems: "start" }}>
             <span style={{ fontFamily: "var(--serif)", fontWeight: 300, fontStyle: "italic", fontSize: 56, lineHeight: 1, color: "var(--brass)" }}>{c.num}</span>
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               <Eyebrow>{c.eyebrow}</Eyebrow>
@@ -94,7 +94,7 @@ export default function MethodPage() {
             </div>
             <div>
               <Placeholder tone={c.tone} grain corners tag={c.tag} style={{ aspectRatio: "4 / 5" }} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 12 }}>
+              <div className="r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 12 }}>
                 {c.pairs.map(([k, v]) => (
                   <div key={k} style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 14, borderTop: "1px solid var(--rule)" }}>
                     <Mono>{k}</Mono>
@@ -114,7 +114,7 @@ export default function MethodPage() {
             </h2>
             <div style={{ display: "flex", flexDirection: "column" }}>
               {STACK.map(([lbl, ttl, dsc], i) => (
-                <div key={lbl} style={{ display: "grid", gridTemplateColumns: "60px 320px 1fr", gap: 32, padding: "32px 0", borderTop: i === 0 ? "1px solid var(--rule-strong)" : "1px solid var(--rule)", alignItems: "baseline" }}>
+                <div key={lbl} className="hv-stack-row" style={{ display: "grid", gridTemplateColumns: "60px 320px 1fr", gap: 32, padding: "32px 0", borderTop: i === 0 ? "1px solid var(--rule-strong)" : "1px solid var(--rule)", alignItems: "baseline" }}>
                   <span style={{ font: "300 italic 22px/1 var(--serif)", color: "var(--brass)" }}>{lbl}</span>
                   <span style={{ font: "300 28px/1.1 var(--serif)", color: "var(--ivory)" }}>{ttl}</span>
                   <span style={{ font: "300 17px/1.5 var(--sans)", color: "var(--ivory-soft)" }}>{dsc}</span>

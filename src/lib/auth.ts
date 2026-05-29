@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { api, HttpError } from "./api";
+import { authApi, HttpError } from "./api";
 import { config, isLocale, isTheme, isVariant } from "./config";
 import type { AuthResponse, AuthUser, UiLocale, UiTheme, UiVariant } from "./types";
 
@@ -129,7 +129,7 @@ export async function getAccessToken(): Promise<string | null> {
   const refresh = jar.get(config.sessionCookie)?.value;
   if (!refresh) return null;
   try {
-    const auth = await api.refresh(refresh);
+    const auth = await authApi.refresh(refresh);
     await persistSession(auth);
     return auth.accessToken;
   } catch {
@@ -150,7 +150,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   const token = await getAccessToken();
   if (!token) return null;
   try {
-    return await api.profile(token);
+    return await authApi.profile(token);
   } catch {
     return null;
   }
@@ -166,7 +166,7 @@ export async function loginAction(formData: FormData) {
     return { error: "Please enter your email and passphrase." };
   }
   try {
-    const auth = await api.login({ email, password });
+    const auth = await authApi.login({ email, password });
     await persistSession(auth);
   } catch (err) {
     if (err instanceof HttpError) {
@@ -191,7 +191,7 @@ export async function registerAction(formData: FormData) {
   if (password.length < 8) return { error: "Choose a passphrase of at least eight characters." };
 
   try {
-    const auth = await api.register({ name, email, password });
+    const auth = await authApi.register({ name, email, password });
     await persistSession(auth);
   } catch (err) {
     if (err instanceof HttpError) {
@@ -208,8 +208,22 @@ export async function logoutAction() {
   const jar = await cookies();
   const access = jar.get(config.accessCookie)?.value;
   if (access) {
-    try { await api.logout(access); } catch { /* ignore */ }
+    try { await authApi.logout(access); } catch { /* ignore */ }
   }
   await clearSession();
   redirect("/");
+}
+
+/**
+ * Server-side role guard. Use inside server components to gate pages by role.
+ * Redirects to /dashboard with a flash hint if the user lacks the role.
+ * If no user is loaded yet, redirects to /sign-in.
+ */
+export async function requireRole(
+  allowed: ReadonlyArray<NonNullable<AuthUser["role"]>>,
+): Promise<AuthUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/sign-in");
+  if (!allowed.includes(user.role)) redirect("/dashboard?denied=role");
+  return user;
 }

@@ -17,7 +17,7 @@ export function PricingPreview() {
         <h2 className="display" style={{ fontSize: "clamp(48px, 7vw, 84px)", maxWidth: "14ch" }}>For retailers, <i>not consumers.</i></h2>
         <LinkButton href="/pricing" size="lg">See all tiers <span className="arr">→</span></LinkButton>
       </div>
-      <div className="reveal d1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
+      <div className="reveal d1 r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
         {TIERS.map((t) => (
           <div key={t.name} style={{ background: t.featured ? "var(--ivory)" : "var(--charcoal)", color: t.featured ? "var(--charcoal)" : "var(--ivory)", padding: "48px 36px", display: "flex", flexDirection: "column", gap: 18 }}>
             <Mono style={{ color: t.featured ? "var(--brass-deep)" : "var(--mute)" }}>{t.name}</Mono>

@@ -21,7 +21,7 @@ export function Hero() {
           <i>before</i> the paint.
         </span>
       </h1>
-      <div className="reveal d1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 64, marginTop: 72, paddingTop: 40, borderTop: "1px solid var(--rule)" }}>
+      <div className="reveal d1 r-cols-md-3 r-cols-sm-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 64, marginTop: 72, paddingTop: 40, borderTop: "1px solid var(--rule)" }}>
         {META.map((m, i) => (
           <div key={i}>
             <div style={{ fontFamily: "var(--serif)", fontWeight: 300, fontSize: 56, color: "var(--brass-soft)", lineHeight: 1, letterSpacing: "-.02em" }}>{m.num}</div>

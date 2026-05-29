@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { GoogleButton } from "@/components/auth/google-button";
 
 interface TrialFormProps {
   action: (formData: FormData) => Promise<{ error?: string } | void>;
@@ -16,28 +18,98 @@ const TIERS = [
 export function TrialForm({ action }: TrialFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [showPassword, setShowPassword] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   return (
     <form
       style={{ display: "flex", flexDirection: "column", gap: 0 }}
       onSubmit={(e) => {
         e.preventDefault();
+        if (!agreed) {
+          setError("Please accept the terms to begin a trial.");
+          return;
+        }
         const fd = new FormData(e.currentTarget);
         startTransition(async () => {
           setError(null);
-          const res = await action(fd);
-          if (res && "error" in res && res.error) setError(res.error);
+          try {
+            const res = await action(fd);
+            if (res && "error" in res && res.error) setError(res.error);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Could not start the trial.");
+          }
         });
       }}
       noValidate
+      aria-busy={pending}
     >
+      <div style={{ marginBottom: 32, maxWidth: 480 }}>
+        <GoogleButton next="/atelier" label="Begin trial with Google" />
+        <div
+          aria-hidden
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            color: "var(--fg-mute)",
+            font: "400 10px/1 var(--mono)",
+            letterSpacing: ".24em",
+            textTransform: "uppercase",
+            marginTop: 24,
+          }}
+        >
+          <span style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+          or fill in the details
+          <span style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+        </div>
+      </div>
+
       <Step num="I." title={<>Tell us <i>about you.</i></>}>
         <div className="form-grid">
           <Field label="First name" name="firstName" required placeholder="Suresh" autoComplete="given-name" />
           <Field label="Last name" name="lastName" required placeholder="Kulkarni" autoComplete="family-name" />
           <Field label="Email" name="email" type="email" required placeholder="suresh@shardapaints.in" autoComplete="email" />
           <Field label="Phone · WhatsApp" name="phone" type="tel" required placeholder="+91 98 8654 7321" autoComplete="tel" />
-          <Field label="Passphrase" name="password" type="password" required minLength={8} placeholder="At least eight characters" autoComplete="new-password" full />
+          <div className="field full">
+            <label className="field-label" htmlFor="password">Passphrase</label>
+            <div style={{ position: "relative" }}>
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={8}
+                placeholder="At least eight characters"
+                autoComplete="new-password"
+                style={{ paddingRight: 56 }}
+                aria-describedby="pw-hint"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-pressed={showPassword}
+                aria-label={showPassword ? "Hide passphrase" : "Show passphrase"}
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  bottom: 8,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--fg-mute)",
+                  font: "400 10px/1 var(--mono)",
+                  letterSpacing: ".22em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+            <span id="pw-hint" style={{ font: "300 italic 14px/1.3 var(--serif)", color: "var(--fg-mute)" }}>
+              Use at least 8 characters. A mixture of words is the strongest, kindest passphrase.
+            </span>
+          </div>
         </div>
       </Step>
       <Step num="II." title={<>And the <i>shop.</i></>}>
@@ -59,7 +131,7 @@ export function TrialForm({ action }: TrialFormProps) {
             </label>
           ))}
         </div>
-        <p style={{ marginTop: 20, fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 17, color: "var(--mute)" }}>You won't be charged today. You're picking the shape of your trial.</p>
+        <p style={{ marginTop: 20, fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 17, color: "var(--fg-mute)" }}>You won't be charged today. You're picking the shape of your trial.</p>
       </Step>
       <Step num="IV." title={<>A word, <i>if you'd like.</i></>}>
         <div className="field">
@@ -67,29 +139,64 @@ export function TrialForm({ action }: TrialFormProps) {
           <textarea id="notes" name="notes" rows={3} placeholder="Counter footfall, catalogues you stock, languages your customers speak, anything else." style={{ resize: "vertical" }} />
         </div>
       </Step>
-      {error && <div className="field-error" role="alert">{error}</div>}
-      <div style={{ marginTop: 56, display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
-        <Button variant="brass" type="submit" disabled={pending}>{pending ? "Beginning…" : <>Begin the trial <span className="arr">→</span></>}</Button>
-        <p className="mono" style={{ margin: 0 }}>By beginning a trial you agree to our <a style={{ color: "var(--brass-soft)", textDecoration: "underline", textUnderlineOffset: 4 }}>terms</a> and <a style={{ color: "var(--brass-soft)", textDecoration: "underline", textUnderlineOffset: 4 }}>privacy</a>.</p>
+      <label
+        style={{
+          marginTop: 32,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 12,
+          font: "300 italic 16px/1.5 var(--serif)",
+          color: "var(--fg-soft)",
+          cursor: "pointer",
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={agreed}
+          onChange={(e) => setAgreed(e.target.checked)}
+          aria-invalid={!agreed && error ? "true" : undefined}
+          style={{ accentColor: "var(--accent)", marginTop: 4, flexShrink: 0 }}
+          required
+        />
+        <span>
+          I agree to the{" "}
+          <a href="/legal/terms" style={{ color: "var(--accent-soft)", textDecoration: "underline", textUnderlineOffset: 4 }}>terms</a>{" "}
+          and{" "}
+          <a href="/legal/privacy" style={{ color: "var(--accent-soft)", textDecoration: "underline", textUnderlineOffset: 4 }}>privacy policy</a>.
+        </span>
+      </label>
+      {error && <div className="field-error" role="alert" aria-live="assertive" style={{ marginTop: 24 }}>{error}</div>}
+      <div style={{ marginTop: 40, display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
+        <Button variant="brass" type="submit" disabled={pending}>
+          {pending ? (
+            <>
+              <Spinner size={14} color="currentColor" />
+              <span>Beginning…</span>
+            </>
+          ) : (
+            <>
+              Begin the trial <span className="arr">→</span>
+            </>
+          )}
+        </Button>
       </div>
       <style>{`
         .step { padding: 56px 0; border-top: 1px solid var(--rule); }
-        .step:first-child { border-top: none; padding-top: 0; }
+        .step:first-of-type { border-top: none; padding-top: 0; }
         .step-head { display: flex; align-items: baseline; gap: 24px; margin-bottom: 40px; }
-        .step-num { font: 300 italic 22px/1 var(--serif); color: var(--brass); }
-        .step-title { font-family: var(--serif); font-weight: 300; font-size: 36px; line-height: 1; color: var(--ivory); }
-        .step-title i { color: var(--brass-soft); }
+        .step-num { font: 300 italic 22px/1 var(--serif); color: var(--accent); }
+        .step-title { font-family: var(--serif); font-weight: 300; font-size: 36px; line-height: 1; color: var(--fg); }
+        .step-title i { color: var(--accent-soft); }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
         .form-grid .field.full { grid-column: span 2; }
         .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .seg label { display: flex; flex-direction: column; padding: 18px 20px; border: 1px solid var(--rule-strong); cursor: pointer; transition: all .25s var(--ease); }
-        .seg label:hover { border-color: var(--brass); }
+        .seg label { display: flex; flex-direction: column; padding: 18px 20px; border: 1px solid var(--rule-strong); cursor: pointer; transition: all .25s var(--ease); background: var(--surface); }
+        .seg label:hover { border-color: var(--accent); }
         .seg input[type="radio"] { display: none; }
-        .seg label:has(input:checked) { background: var(--ivory); border-color: var(--ivory); color: var(--charcoal); }
-        .seg label:has(input:checked) .l { color: var(--charcoal); }
-        .seg label:has(input:checked) .d { color: var(--mute-deep); }
-        .seg .l { font: 400 10px/1 var(--mono); letter-spacing: .28em; text-transform: uppercase; color: var(--ivory); }
-        .seg .d { font: 300 italic 16px/1.3 var(--serif); color: var(--ivory-soft); margin-top: 8px; }
+        .seg label:has(input:checked) { background: var(--accent); border-color: var(--accent); }
+        .seg label:has(input:checked) .l, .seg label:has(input:checked) .d { color: var(--bg); }
+        .seg .l { font: 400 10px/1 var(--mono); letter-spacing: .28em; text-transform: uppercase; color: var(--fg); }
+        .seg .d { font: 300 italic 16px/1.3 var(--serif); color: var(--fg-soft); margin-top: 8px; }
         @media (max-width: 1100px) {
           .form-grid { grid-template-columns: 1fr; gap: 24px; }
           .form-grid .field.full { grid-column: span 1; }
