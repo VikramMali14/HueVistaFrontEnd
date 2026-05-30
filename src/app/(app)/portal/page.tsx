@@ -4,6 +4,7 @@ import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { LinkButton } from "@/components/ui/button";
 import { Placeholder } from "@/components/ui/placeholder";
 import { ClassicPortal } from "@/components/classic/portal";
+import { RetailerCustomers } from "@/components/app/retailer-customers";
 
 export const metadata: Metadata = {
   title: "The Annex",
@@ -56,6 +57,16 @@ export default async function PortalPage() {
             <span data-label="Status" style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: c.status === "active" ? "var(--accent)" : "var(--fg-mute-deep)" }}>{c.status}</span>
           </div>
         ))}
+      </section>
+      <section style={{ marginTop: 56 }}>
+        <h2 className="display" style={{ fontSize: 48, marginBottom: 8 }}>
+          Customers &amp; <i>projects.</i>
+        </h2>
+        <p style={{ font: "300 italic 18px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+          Each customer gets one project with their access code. Grant another when they want a second
+          room — or they can pay for one themselves from the visualiser.
+        </p>
+        <RetailerCustomers />
       </section>
     </>
   );

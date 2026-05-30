@@ -11,13 +11,18 @@ const extraImageHosts = (process.env.IMAGE_REMOTE_HOSTS ?? "")
 // CSP — keep tight in prod, loosen for dev tooling (HMR websocket, eval).
 // connect-src for the browser only ever talks to the same origin via /bff/*,
 // so the public API origin is *not* listed in prod connect-src.
+// Razorpay Checkout loads its script and opens an iframe to these hosts.
+const RAZORPAY_SCRIPT = "https://checkout.razorpay.com";
+const RAZORPAY_FRAME = "https://api.razorpay.com https://checkout.razorpay.com";
+const RAZORPAY_CONNECT = "https://*.razorpay.com https://lumberjack.razorpay.com";
+
 const scriptSrc = isDev
-  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-  : "script-src 'self' 'unsafe-inline'";
+  ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${RAZORPAY_SCRIPT}`
+  : `script-src 'self' 'unsafe-inline' ${RAZORPAY_SCRIPT}`;
 
 const connectSrc = isDev
-  ? `connect-src 'self' ${apiOrigin} ws: wss:`
-  : "connect-src 'self'";
+  ? `connect-src 'self' ${apiOrigin} ${RAZORPAY_CONNECT} ws: wss:`
+  : `connect-src 'self' ${RAZORPAY_CONNECT}`;
 
 // img-src: same-origin + data/blob for uploads + backend host for served images.
 const apiHost = (() => {
@@ -37,7 +42,7 @@ const cspDirectives = [
   imgSrc,
   connectSrc,
   "frame-ancestors 'none'",
-  "frame-src 'none'",
+  `frame-src ${RAZORPAY_FRAME}`,
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
@@ -51,7 +56,7 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(self), microphone=(), geolocation=(), interest-cohort=(), payment=()",
+    value: "camera=(self), microphone=(), geolocation=(), interest-cohort=(), payment=(self \"https://checkout.razorpay.com\")",
   },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },

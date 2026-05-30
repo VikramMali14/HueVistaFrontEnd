@@ -1,4 +1,5 @@
-export type UserRole = "USER" | "RETAILER" | "DISTRIBUTOR" | "ADMIN";
+// Must match the backend UserRole enum exactly (auth/model/UserRole.java).
+export type UserRole = "ADMIN" | "DISTRIBUTOR" | "RETAILER" | "PAINTER" | "CUSTOMER";
 export type AuthProvider = "LOCAL" | "GOOGLE";
 export type UiVariant = "premium" | "classic";
 export type UiTheme = "dark" | "light";
@@ -112,4 +113,36 @@ export interface RegionColorUpdate {
   regionId: number;
   shadeCode?: string | null;
   hexCode?: string | null;
+}
+
+/** A customer's project entitlement (allowance + day-validity), managed by their retailer. */
+export interface CustomerEntitlement {
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  retailerOrgId?: string | null;
+  accessExpiresAt?: string | null;
+  expired: boolean;
+  projectAllowance: number;
+  projectsCreated: number;
+  projectsRemaining: number;
+  updatedAt?: string;
+}
+
+/** Minimal organization shape (backend OrgResponse). */
+export interface OrgResponse {
+  id: string;
+  name: string;
+  slug: string;
+  type: "DISTRIBUTOR" | "RETAILER";
+  ownerUserId?: string;
+  ownerName?: string;
+}
+
+/** Razorpay order details returned by the backend to open Checkout for a one-time project purchase. */
+export interface ProjectCreditOrder {
+  orderId: string;
+  amount: number; // in paise
+  currency: string;
+  razorpayKeyId: string;
 }
