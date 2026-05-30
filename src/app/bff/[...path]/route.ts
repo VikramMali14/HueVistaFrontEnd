@@ -14,7 +14,15 @@ import { getAccessToken } from "@/lib/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED_PREFIXES = ["api/images", "api/projects", "api/auth/profile", "api/auth/me"] as const;
+const ALLOWED_PREFIXES = [
+  "api/images",
+  "api/projects",
+  "api/auth/profile",
+  "api/auth/me",
+  "api/me/entitlement",
+  "api/billing/project-credit",
+  "api/organizations",
+] as const;
 
 async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;

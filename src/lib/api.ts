@@ -14,6 +14,9 @@ import { config } from "./config";
 import type {
   ApiError,
   AuthResponse,
+  CustomerEntitlement,
+  OrgResponse,
+  ProjectCreditOrder,
   ProjectDetail,
   RegionColorUpdate,
   UploadedImage,
@@ -154,6 +157,25 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(updates),
     }),
+  // --- Customer project entitlement (allowance + day-validity) ---
+  getMyEntitlement: () => browserFetch<CustomerEntitlement | null>("api/me/entitlement"),
+  // One-time purchase of an extra project (Razorpay): order -> Checkout -> verify.
+  createProjectCreditOrder: () =>
+    browserFetch<ProjectCreditOrder>("api/billing/project-credit/order", { method: "POST" }),
+  verifyProjectCredit: (body: { orderId: string; paymentId: string; signature: string }) =>
+    browserFetch<CustomerEntitlement>("api/billing/project-credit/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  // --- Retailer: manage the customers they onboarded ---
+  listMyOrgs: () => browserFetch<OrgResponse[]>("api/organizations/mine"),
+  listCustomers: (orgId: string) =>
+    browserFetch<CustomerEntitlement[]>(`api/organizations/${encodeURIComponent(orgId)}/customers`),
+  grantProject: (orgId: string, customerId: string) =>
+    browserFetch<CustomerEntitlement>(
+      `api/organizations/${encodeURIComponent(orgId)}/customers/${encodeURIComponent(customerId)}/grant-project`,
+      { method: "POST" },
+    ),
 };
 
 export { HttpError };

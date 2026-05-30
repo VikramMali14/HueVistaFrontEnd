@@ -9,6 +9,8 @@ import { PipelineBar, type PipelineStage } from "./pipeline-bar";
 import { ShadeGrid } from "./shade-grid";
 import { hexToRgb01, Recolor } from "@/lib/webgl-recolor";
 import { api, HttpError } from "@/lib/api";
+import { resolveMediaUrl } from "@/lib/media";
+import { buyExtraProject } from "@/lib/payments";
 import { t } from "@/lib/i18n";
 import type {
   PaintShade,
@@ -81,7 +83,9 @@ function mapBackendRegion(region: RegionDetail, isClassic: boolean): RegionState
     kind,
     label: region.label || fallback,
     hex: region.appliedHexCode || DEFAULT_HEX_FOR_KIND[kind],
-    maskUrl: region.maskUrl ?? null,
+    // Route relative backend mask URLs through the BFF so auth is attached and the canvas
+    // stays untainted; S3 presigned URLs pass through unchanged.
+    maskUrl: resolveMediaUrl(region.maskUrl),
   };
 }
 
@@ -121,6 +125,10 @@ export function Visualizer({ variant = "premium", locale = "en" }: VisualizerPro
   const [segmenting, setSegmenting] = useState(false);
   const [masksReady, setMasksReady] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [limitReached, setLimitReached] = useState(false);
+  const [accessExpired, setAccessExpired] = useState(false);
+  const [buying, setBuying] = useState(false);
+  const [pendingImageId, setPendingImageId] = useState<string | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -188,7 +196,7 @@ export function Visualizer({ variant = "premium", locale = "en" }: VisualizerPro
   const applyProjectDetail = useCallback(
     async (detail: ProjectDetail) => {
       const rc = recolorRef.current;
-      const canvasUrl = detail.cleanedImageUrl || detail.imageUrl;
+      const canvasUrl = resolveMediaUrl(detail.cleanedImageUrl || detail.imageUrl);
       if (rc && canvasUrl) {
         try {
           const img = await loadImage(canvasUrl);
@@ -243,6 +251,47 @@ export function Visualizer({ variant = "premium", locale = "en" }: VisualizerPro
     return null;
   }, []);
 
+  // Create the project + run segmentation for an already-uploaded image. Extracted so it
+  // can be retried after the customer buys an extra project. Surfaces the new
+  // entitlement errors: 402 = allowance used, 403 = access window expired.
+  const createAndSegment = useCallback(
+    async (imageId: string) => {
+      setError(null);
+      setLimitReached(false);
+      setAccessExpired(false);
+      setSegmenting(true);
+      try {
+        const project = await api.createProject({ imageId });
+        setProjectId(project.id);
+        await api.requestSegmentation(project.id);
+        const segmented = await pollUntilSegmented(project.id);
+        await applyProjectDetail(segmented);
+        setMasksReady(true);
+        setDone((d) => ({ ...d, mask: true }));
+      } catch (err) {
+        if (err instanceof HttpError && err.status === 401) {
+          setError("Your session expired. Please sign in again.");
+          setTimeout(() => {
+            window.location.href = "/sign-in?next=/atelier";
+          }, 1200);
+        } else if (err instanceof HttpError && err.status === 402) {
+          setLimitReached(true);
+          setError(err.message);
+        } else if (err instanceof HttpError && err.status === 403) {
+          setAccessExpired(true);
+          setError(err.message);
+        } else if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Something went wrong.");
+        }
+      } finally {
+        setSegmenting(false);
+      }
+    },
+    [pollUntilSegmented, applyProjectDetail],
+  );
+
   const onFileChosen = useCallback(
     async (file: File) => {
       setError(null);
@@ -270,17 +319,11 @@ export function Visualizer({ variant = "premium", locale = "en" }: VisualizerPro
             throw new Error("Upload failed. Please try again.");
           }
           setClassification(uploaded.imageType);
+          setPendingImageId(uploaded.imageId);
           setStage("mask");
           setDone((d) => ({ ...d, upload: true, clean: cleanOn }));
 
-          const project = await api.createProject({ imageId: uploaded.imageId });
-          setProjectId(project.id);
-          setSegmenting(true);
-          await api.requestSegmentation(project.id);
-          const segmented = await pollUntilSegmented(project.id);
-          await applyProjectDetail(segmented);
-          setMasksReady(true);
-          setDone((d) => ({ ...d, mask: true }));
+          await createAndSegment(uploaded.imageId);
         } catch (err) {
           if (err instanceof HttpError && err.status === 401) {
             setError("Your session expired. Please sign in again.");
@@ -292,8 +335,6 @@ export function Visualizer({ variant = "premium", locale = "en" }: VisualizerPro
           } else {
             setError("Something went wrong.");
           }
-        } finally {
-          setSegmenting(false);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not open the image.");
@@ -301,8 +342,23 @@ export function Visualizer({ variant = "premium", locale = "en" }: VisualizerPro
         setUploading(false);
       }
     },
-    [cleanOn, pollUntilSegmented, applyProjectDetail, validateFile],
+    [cleanOn, createAndSegment, validateFile],
   );
+
+  const handleBuyAndRetry = useCallback(async () => {
+    setError(null);
+    setBuying(true);
+    try {
+      const purchased = await buyExtraProject();
+      if (!purchased) return; // user dismissed the payment modal
+      setLimitReached(false);
+      if (pendingImageId) await createAndSegment(pendingImageId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Payment could not be completed.");
+    } finally {
+      setBuying(false);
+    }
+  }, [pendingImageId, createAndSegment]);
 
   const onSelectShade = useCallback(
     (shade: PaintShade) => {
@@ -713,6 +769,56 @@ export function Visualizer({ variant = "premium", locale = "en" }: VisualizerPro
             </>
           )}
           <LoaderOverlay show={uploading || segmenting} label={overlayLabel} hint={overlayHint} />
+          {(limitReached || accessExpired) && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(0,0,0,0.55)",
+                zIndex: 10,
+                padding: 24,
+              }}
+            >
+              <div
+                style={{
+                  maxWidth: 420,
+                  background: "var(--bg)",
+                  border: "1px solid var(--rule-strong)",
+                  padding: 28,
+                  textAlign: "center",
+                  borderRadius: isClassic ? 10 : 0,
+                }}
+              >
+                <Mono brass>{accessExpired ? "Access ended" : "Project limit reached"}</Mono>
+                <p style={{ font: "300 italic 19px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "14px 0 22px" }}>
+                  {error ||
+                    (accessExpired
+                      ? "Your access has ended. Ask your retailer for a new code."
+                      : "You've used your included project.")}
+                </p>
+                {!accessExpired && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
+                    <Button variant="brass" onClick={() => void handleBuyAndRetry()} disabled={buying}>
+                      {buying ? (
+                        <>
+                          <Spinner size={14} color="currentColor" />
+                          <span>Opening payment…</span>
+                        </>
+                      ) : (
+                        <>
+                          Buy another project <span className="arr">→</span>
+                        </>
+                      )}
+                    </Button>
+                    <Mono>or ask your retailer to add one</Mono>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <ShadeGrid
           variant={variant}

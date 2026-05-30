@@ -1,14 +1,16 @@
 /**
  * Kicks off the Google OAuth flow.
  *
- * We redirect the browser to the backend's well-known OAuth start endpoint
- * (`${apiOrigin}/api/auth/google`). The backend issues the upstream
- * redirect to Google, handles the callback, and is responsible for setting
- * the session cookies on the same eTLD before bouncing the user back to
- * `${appOrigin}/<next>` (or `/atelier` by default).
+ * We redirect the browser to Spring Security's OAuth2 entry point
+ * (`${apiOrigin}/oauth2/authorization/google`) — that is the real start URL the backend
+ * exposes (there is no `/api/auth/google` endpoint).
  *
- * We keep the `next` parameter for post-login routing and forward it as a
- * query string so the backend can echo it on the callback redirect.
+ * IMPORTANT — known gap (see audit report): the backend's OAuth2 success handler currently
+ * writes the JWT as a JSON *response body* rather than redirecting back to the frontend with
+ * the tokens. So this first hop is correct, but end-to-end Google sign-in will only complete
+ * once the backend success handler redirects to a frontend callback (e.g.
+ * `${appOrigin}/sign-in/callback#accessToken=...&refreshToken=...`) that persists the session.
+ * Email/password sign-in is the fully working path today.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,7 +27,7 @@ export function GET(req: NextRequest) {
   // an external URL, which would otherwise enable an open-redirect attack.
   const next = SAFE_PATH.test(requested) ? requested : "/atelier";
 
-  const url = new URL(`${config.apiOrigin}/api/auth/google`);
+  const url = new URL(`${config.apiOrigin}/oauth2/authorization/google`);
   url.searchParams.set("next", next);
   return NextResponse.redirect(url.toString(), 302);
 }
