@@ -109,6 +109,18 @@ export interface ProjectDetail {
   updatedAt?: string;
 }
 
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  imageId: string;
+  imageUrl: string;
+  regionCount: number;
+  hasShareLink?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface RegionColorUpdate {
   regionId: number;
   shadeCode?: string | null;

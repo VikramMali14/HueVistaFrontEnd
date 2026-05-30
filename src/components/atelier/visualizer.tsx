@@ -25,6 +25,9 @@ import type {
 interface VisualizerProps {
   variant?: UiVariant;
   locale?: UiLocale;
+  /** When set, open this existing project: loads its SAVED masks + cleaned image from
+   *  storage instead of re-running segmentation (no extra AI cost). */
+  projectId?: string;
 }
 
 interface RegionState {
@@ -101,7 +104,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";
 
-export function Visualizer({ variant = "premium", locale = "en" }: VisualizerProps) {
+export function Visualizer({ variant = "premium", locale = "en", projectId: openProjectId }: VisualizerProps) {
   const isClassic = variant === "classic";
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -219,6 +222,40 @@ export function Visualizer({ variant = "premium", locale = "en" }: VisualizerPro
     },
     [isClassic],
   );
+
+  // Open an existing project: fetch it and render its SAVED cleaned image + masks from
+  // storage (S3/local). This does NOT call segmentation again — the masks are reused,
+  // so there is no extra AI/Replicate cost when revisiting a project.
+  useEffect(() => {
+    if (!openProjectId) return;
+    let cancelled = false;
+    (async () => {
+      setError(null);
+      setUploading(true);
+      try {
+        const detail = await api.getProject(openProjectId);
+        if (cancelled) return;
+        setProjectId(detail.id);
+        await applyProjectDetail(detail);
+        if (cancelled) return;
+        setStage("recolor");
+        setDone({ upload: true, clean: true, mask: true, recolor: true });
+        setMasksReady(true);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof HttpError && err.status === 401) {
+          window.location.href = "/sign-in?next=/dashboard";
+          return;
+        }
+        setError(err instanceof Error ? err.message : "Could not open this project.");
+      } finally {
+        if (!cancelled) setUploading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [openProjectId, applyProjectDetail]);
 
   const pollUntilSegmented = useCallback(async (id: string) => {
     if (pollAbortRef.current) pollAbortRef.current.cancelled = true;

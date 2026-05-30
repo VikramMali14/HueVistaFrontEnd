@@ -160,7 +160,7 @@ export async function loginAction(formData: FormData) {
   "use server";
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "/atelier");
+  const next = String(formData.get("next") ?? "/dashboard");
 
   if (!email || !password) {
     return { error: "Please enter your email and passphrase." };
@@ -200,7 +200,7 @@ export async function registerAction(formData: FormData) {
     }
     return { error: "Could not create the account. Please try again." };
   }
-  redirect("/atelier");
+  redirect("/dashboard");
 }
 
 export async function logoutAction() {

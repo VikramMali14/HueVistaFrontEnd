@@ -6,7 +6,10 @@ import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { RevealMount } from "@/components/ui/reveal-mount";
 import { SHADES } from "@/lib/shades";
+import { fetchCatalogue } from "@/lib/catalogue";
+import type { PaintShade } from "@/lib/types";
 import { CatalogueToolbar } from "@/components/catalogue/catalogue-toolbar";
+import { ColorMatch } from "@/components/catalogue/color-match";
 import { Harmonies } from "@/components/catalogue/harmonies";
 
 export const metadata: Metadata = {
@@ -14,7 +17,15 @@ export const metadata: Metadata = {
   description: "Every shade. Codes intact. Filter by family, finish, LRV.",
 };
 
-export default function CataloguePage() {
+export default async function CataloguePage() {
+  // Live catalogue from the backend; fall back to the bundled sample if it's unreachable.
+  let shades: PaintShade[];
+  try {
+    const live = await fetchCatalogue();
+    shades = live.length > 0 ? live : [...SHADES];
+  } catch {
+    shades = [...SHADES];
+  }
   return (
     <>
       <Marquee items={["The Catalogue", "2,481 catalogued shades", "Asian Paints · codes intact · finishes preserved"]} />
@@ -31,7 +42,8 @@ export default function CataloguePage() {
         </header>
 
         <section style={{ paddingTop: 80 }}>
-          <CatalogueToolbar shades={SHADES} />
+          <ColorMatch />
+          <CatalogueToolbar shades={shades} />
         </section>
 
         <Harmonies />
