@@ -1,21 +1,14 @@
 import type { Metadata } from "next";
 import { getCurrentUser, getUiLocale, getUiVariant } from "@/lib/auth";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
-import { Placeholder } from "@/components/ui/placeholder";
 import { LinkButton } from "@/components/ui/button";
 import { ClassicDashboard } from "@/components/classic/dashboard";
+import { ProjectsGrid } from "@/components/app/projects-grid";
 
 export const metadata: Metadata = {
   title: "The Suite",
   description: "Your retailer dashboard.",
 };
-
-const PROJECTS = [
-  { plate: "I", title: "Belgavi 3 BHK", customer: "Suresh K.", shade: "Terracotta · AP-2118", updated: "2 min ago", tone: "terracotta" as const },
-  { plate: "II", title: "Park Place Façade", customer: "Anita R.", shade: "Bone China · AP-N101", updated: "Yesterday", tone: "ivory" as const },
-  { plate: "III", title: "Patil Bungalow", customer: "Mohan P.", shade: "Sage · AP-7706", updated: "3 days ago", tone: "sage" as const },
-  { plate: "IV", title: "Camp Road Studio", customer: "Pooja D.", shade: "Slate · AP-9904", updated: "Last week", tone: "slate" as const },
-];
 
 interface DashboardPageProps {
   searchParams: Promise<{ denied?: string }>;
@@ -52,7 +45,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <Mono>{user?.role === "ADMIN" ? "Administrator" : "Sharda Paints · Professional tier"}</Mono>
         </div>
         <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Good morning,<br /><i>{user?.name?.split(" ")[0] ?? "Friend"}.</i></h1>
-        <Lead style={{ marginTop: 24 }}>{PROJECTS.length} projects in the room. {user?.name ? "Welcome back to the counter." : "Welcome to HueVista."}</Lead>
+        <Lead style={{ marginTop: 24 }}>{user?.name ? "Welcome back to the counter." : "Welcome to HueVista."} Pick up a saved project, or start a new one.</Lead>
       </header>
       <section className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, marginBottom: 64 }}>
         {[
@@ -72,21 +65,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <h2 className="display" style={{ fontSize: 48 }}>Recent <i>projects.</i></h2>
         <LinkButton href="/atelier" variant="ghost" size="sm">New project <span className="arr">→</span></LinkButton>
       </section>
-      <section className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24 }}>
-        {PROJECTS.map((p) => (
-          <article key={p.plate}>
-            <Placeholder tone={p.tone} grain corners tag={`No. ${p.plate}`} style={{ aspectRatio: "4 / 5" }} />
-            <div style={{ marginTop: 14 }}>
-              <span style={{ fontFamily: "var(--serif)", fontSize: 22 }}>{p.title}</span>
-              <div><Mono>{p.shade}</Mono></div>
-              <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ font: "300 italic 15px/1 var(--serif)", color: "var(--fg-mute)" }}>{p.customer}</span>
-                <Mono>{p.updated}</Mono>
-              </div>
-            </div>
-          </article>
-        ))}
-      </section>
+      <ProjectsGrid />
     </>
   );
 }

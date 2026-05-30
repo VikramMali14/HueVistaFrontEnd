@@ -122,6 +122,12 @@ const nextConfig: NextConfig = {
         source: "/api/auth/:path*",
         destination: `${apiOrigin}/api/auth/:path*`,
       },
+      {
+        // Public paint catalogue + nearest-colour match. No auth, so it's a plain
+        // same-origin proxy (keeps the browser's connect-src 'self' happy).
+        source: "/api/shades/:path*",
+        destination: `${apiOrigin}/api/shades/:path*`,
+      },
     ];
   },
   experimental: {

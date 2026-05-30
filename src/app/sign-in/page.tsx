@@ -46,7 +46,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
           <Eyebrow>Welcome back</Eyebrow>
           <h1>Sign in to <br /><i>your atelier.</i></h1>
           <Lead style={{ maxWidth: "42ch" }}>The counter, the catalogue, the saved scenes — all where you left them.</Lead>
-          <SignInForm action={loginAction} next={next ?? "/atelier"} />
+          <SignInForm action={loginAction} next={next ?? "/dashboard"} />
           <p className="auth-foot">New to HueVista? <Link href="/trial">Begin a fourteen-day trial.</Link></p>
         </section>
       </div>

@@ -18,6 +18,7 @@ import type {
   OrgResponse,
   ProjectCreditOrder,
   ProjectDetail,
+  ProjectSummary,
   RegionColorUpdate,
   UploadedImage,
   UserProfile,
@@ -139,6 +140,7 @@ export const api = {
   listImages: () => browserFetch<UploadedImage[]>("api/images"),
   getImage: (id: string) =>
     browserFetch<UploadedImage>(`api/images/${encodeURIComponent(id)}`),
+  listProjects: () => browserFetch<ProjectSummary[]>("api/projects"),
   createProject: (body: { imageId: string; name?: string }) =>
     browserFetch<ProjectDetail>("api/projects", {
       method: "POST",
