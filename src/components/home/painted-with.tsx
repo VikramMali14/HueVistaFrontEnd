@@ -13,10 +13,10 @@ const CARDS = [
 
 export function PaintedWith() {
   return (
-    <section style={{ padding: "160px 0", overflow: "hidden" }}>
+    <section id="painted-with" style={{ padding: "160px 0", overflow: "hidden" }}>
       <div className="reveal" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 24 }}>
         <div>
-          <Eyebrow>vi · painted with</Eyebrow>
+          <Eyebrow><span className="roman">vi · </span>painted with</Eyebrow>
           <h2 className="display" style={{ fontSize: "clamp(48px, 7vw, 84px)", marginTop: 24 }}>Picked at the counter,<br /><i>finished on the wall.</i></h2>
         </div>
         <Mono>← drag</Mono>
@@ -29,7 +29,7 @@ export function PaintedWith() {
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(255,255,255,.16), transparent 35%, transparent 70%, rgba(0,0,0,.18))", pointerEvents: "none" }} />
             </div>
             <div style={{ marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--ivory)" }}>{c.name}</span>
+              <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)" }}>{c.name}</span>
               <Mono>{c.code}</Mono>
             </div>
           </div>

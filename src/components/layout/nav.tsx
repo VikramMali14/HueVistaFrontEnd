@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { Logo } from "@/components/ui/logo";
 
 const LINKS = [
   { href: "/method", label: "The Method" },
@@ -27,9 +28,8 @@ export function Nav({ showCta = true, showSignIn = true, themeToggle, variantTog
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <Link href="/" className="brand">
-          <span className="brand-mark" />
-          HueVista
+        <Link href="/" className="brand-logo" aria-label="HueVista — home">
+          <Logo size="sm" inverted ariaLabel={null} />
         </Link>
         <div className="nav-links">
           {LINKS.map((l) => (

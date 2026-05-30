@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { Logo } from "@/components/ui/logo";
 import { t } from "@/lib/i18n";
 import type { AuthUser, UiLocale } from "@/lib/types";
 
@@ -64,10 +65,9 @@ export function Sidebar({ user, locale, themeToggle, variantToggle, localeToggle
         >
           {open ? <CloseIcon /> : <MenuIcon />}
         </button>
-        <span className="brand-name">
-          <span className="dot" />
-          HueVista
-        </span>
+        <Link href="/dashboard" className="brand-logo" aria-label="HueVista — home">
+          <Logo size="sm" inverted ariaLabel={null} />
+        </Link>
         <div style={{ display: "flex", gap: 6 }}>
           {localeToggle}
           {themeToggle}
@@ -75,8 +75,9 @@ export function Sidebar({ user, locale, themeToggle, variantToggle, localeToggle
       </div>
       <aside id="classic-sidebar" className={`csidebar ${open ? "is-open" : ""}`}>
         <div className="csidebar-brand">
-          <span className="dot" />
-          HueVista
+          <Link href="/dashboard" className="brand-logo" aria-label="HueVista — home">
+            <Logo size="sm" inverted ariaLabel={null} />
+          </Link>
         </div>
         <nav aria-label="Primary">
           {links.map((l) => {
@@ -136,18 +137,6 @@ export function Sidebar({ user, locale, themeToggle, variantToggle, localeToggle
       )}
       <style>{`
         .mobile-app-bar { display: none; }
-        .mobile-app-bar .brand-name {
-          font: 600 16px/1 var(--sans, system-ui);
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          color: var(--fg);
-        }
-        .mobile-app-bar .brand-name .dot {
-          width: 10px; height: 10px;
-          background: var(--accent);
-          border-radius: 50%;
-        }
         .csidebar-user {
           display: flex;
           align-items: center;

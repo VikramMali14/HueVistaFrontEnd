@@ -10,14 +10,14 @@ const BRANDS = [
 
 export function Partners() {
   return (
-    <section style={{ padding: "80px 0", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
+    <section id="partners" style={{ padding: "80px 0", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
       <div className="reveal" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 48, flexWrap: "wrap" }}>
-        <Mono>In partnership with the catalogues of</Mono>
+        <Mono>Built for the catalogues of</Mono>
         <div style={{ display: "flex", gap: 56, alignItems: "baseline", flexWrap: "wrap" }}>
           {BRANDS.map((b, i) => (
-            <span key={b.name} style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 32, color: i === 0 ? "var(--ivory)" : "var(--mute)" }}>
+            <span key={b.name} style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 32, color: i === 0 ? "var(--fg)" : "var(--fg-mute)" }}>
               {b.name}
-              <sup style={{ fontSize: 11, marginLeft: 2, color: i === 0 ? "var(--brass)" : "inherit" }}>{b.mark}</sup>
+              <sup style={{ fontSize: 11, marginLeft: 2, color: i === 0 ? "var(--accent)" : "inherit" }}>{b.mark}</sup>
             </span>
           ))}
         </div>

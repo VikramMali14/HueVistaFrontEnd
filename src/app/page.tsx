@@ -20,8 +20,8 @@ const MARQUEE = [
   "Pilot dealers · 12 cities",
   "See the wall before the paint",
   "Two thousand catalogued shades · codes intact",
-  "WebGL 60 fps · zero backend round-trip per swatch",
-  "ΔE ‹ 1.6 · CIELAB fidelity",
+  "Instant preview · no waiting at the counter",
+  "True-to-the-can colour",
   "Fourteen days · no card · cancel quietly",
   "Engineered in Belgavi · with care",
 ];

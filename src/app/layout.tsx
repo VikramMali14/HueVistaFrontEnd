@@ -1,6 +1,31 @@
 import type { Metadata, Viewport } from "next";
+import { Cormorant_Garamond, Hanken_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import { getUiTheme, getUiVariant } from "@/lib/auth";
 import "./globals.css";
+
+// Self-hosted via next/font — replaces the render-blocking Google Fonts <link>
+// and removes the no-page-custom-font warning. Each exposes a CSS variable that
+// globals.css feeds into --serif / --sans / --mono.
+const serif = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
+  style: ["normal", "italic"],
+  variable: "--font-serif",
+  display: "swap",
+});
+
+const sans = Hanken_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const mono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://huevista.com"),
@@ -53,15 +78,12 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [variant, theme] = await Promise.all([getUiVariant(), getUiTheme()]);
   return (
-    <html lang="en" data-variant={variant} data-theme={theme}>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@300;400;500&display=swap"
-        />
-      </head>
+    <html
+      lang="en"
+      data-variant={variant}
+      data-theme={theme}
+      className={`${serif.variable} ${sans.variable} ${mono.variable}`}
+    >
       <body>{children}</body>
     </html>
   );

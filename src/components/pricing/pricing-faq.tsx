@@ -4,7 +4,7 @@ import { useState } from "react";
 
 const FAQ: ReadonlyArray<{ q: string; a: string }> = [
   { q: "Do I need any special hardware to use HueVista?", a: "No. HueVista runs in any modern browser — your existing counter tablet, the customer's phone, a laptop in the back room. The recolour shader runs on the device's GPU; nothing to install, nothing to provision." },
-  { q: "How is “AI render” counted?", a: "A render is one scene processed through the segmentation stack (chapter III of the Method). Recolouring that scene afterwards — to any number of shades — does not consume a render. A customer testing forty colours on one room counts as one render." },
+  { q: "How is “AI render” counted?", a: "A render is one photograph turned into a recolour-ready preview. Trying any number of shades on that same photo afterwards does not count as another render — a customer testing forty colours on one room is still a single render." },
   { q: "What about brands beyond Asian Paints?", a: "Berger and Nerolac catalogues are in ingestion now, with Dulux to follow. Enterprise customers can have any catalogue ingested in three to five working days, with code, name, and finish preserved." },
   { q: "Does the customer see my branding or HueVista's?", a: "On Starter and Professional, the share carries a small HueVista byline. On Business and Enterprise, you receive a white-label subdomain ({your-shop}.huevista.com) with your wordmark, your palette, and no mention of HueVista to the customer." },
   { q: "What happens after the fourteen-day trial?", a: "Nothing automatic. We do not ask for a card to begin. On the fifteenth day, your saved scenes remain accessible for thirty days; you choose if and when to subscribe." },

@@ -18,7 +18,7 @@ export function Harmonies() {
   return (
     <section style={{ background: "#0a0805", padding: "160px 0", marginTop: 120 }} className="full-bleed">
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
-        <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr", gap: 48, alignItems: "end", marginBottom: 64 }}>
+        <div className="reveal r-stack-md hv-harmonies-head" style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr", gap: 48, alignItems: "end", marginBottom: 64 }}>
           <span className="roman" style={{ fontSize: 24 }}>II.</span>
           <div>
             <Eyebrow>Curated harmonies</Eyebrow>
@@ -26,7 +26,7 @@ export function Harmonies() {
               Three-shade <i>combinations.</i>
             </h2>
           </div>
-          <Lead style={{ textAlign: "right" }}>Claude proposes a triad. ΔE snaps each to a real, in-stock catalogue shade. Tap to apply across main wall, accent, and trim.</Lead>
+          <Lead style={{ textAlign: "right" }}>A ready triad, each one snapped to a real, in-stock catalogue shade. Tap to apply across main wall, accent, and trim.</Lead>
         </div>
 
         <div className="reveal d1 r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24 }}>
@@ -39,7 +39,7 @@ export function Harmonies() {
               </div>
               <div style={{ padding: 24 }}>
                 <Mono style={{ marginBottom: 10, display: "block" }}>{h.num}</Mono>
-                <div style={{ fontFamily: "var(--serif)", fontSize: 28, color: "var(--ivory)" }}>{h.name}</div>
+                <div className="hv-harmony-name" style={{ fontFamily: "var(--serif)", fontSize: 28, color: "var(--ivory)" }}>{h.name}</div>
                 <div style={{ marginTop: 8, font: "300 italic 15px/1.4 var(--serif)", color: "var(--ivory-soft)" }}>{h.codes}</div>
               </div>
             </article>
