@@ -53,9 +53,9 @@
   /* ----- 3. Non-color tokens ----- */
   --hairline: 1px;
   --ease: cubic-bezier(.2,.7,.2,1);
-  --serif: 'Cormorant Garamond', 'Times New Roman', serif;
-  --sans: 'Hanken Grotesk', system-ui, sans-serif;
-  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --serif: var(--font-serif), 'Cormorant Garamond', 'Times New Roman', serif;
+  --sans: var(--font-sans), 'Hanken Grotesk', system-ui, sans-serif;
+  --mono: var(--font-mono), 'IBM Plex Mono', ui-monospace, monospace;
 
   --gutter: 40px;
   --max: 1440px;
@@ -215,6 +215,9 @@ button { font-family: inherit; }
   border-radius: 50%;
   box-shadow: 0 0 0 1px var(--fg), 0 0 18px rgba(184,153,104,.4);
 }
+/* Wrapper for the full <Logo> lockup when it stands in for the plain wordmark
+   in a nav/header. Keeps the link tight to the chip and free of underline. */
+.brand-logo { display: inline-flex; align-items: center; text-decoration: none; flex-shrink: 0; }
 .nav-links { display: flex; gap: 4px; margin-left: auto; }
 .nav-link {
   font: 400 14px/1 var(--sans);
@@ -482,12 +485,9 @@ footer { background: var(--bg-deep); border-top: 1px solid var(--rule); padding:
 }
 .csidebar-brand {
   padding: 0 20px 20px;
-  font: 700 18px/1 var(--sans);
-  color: var(--fg);
   border-bottom: 1px solid var(--rule);
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center;
 }
-.csidebar-brand .dot { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; }
 .csidebar-section { padding: 14px 20px 6px; font: 600 11px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--fg-mute); }
 .csidebar-link {
   display: flex; align-items: center; gap: 10px;
@@ -987,6 +987,63 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 }
 
 /* =========================================================
+   CLASSIC variant — marketing home / catalogue simplifications
+   The premium home ships every section; classic shows a leaner,
+   plainer cut. Sections are hidden with display:none rather than
+   branched in JSX, in keeping with the CSS-driven variant system.
+========================================================= */
+
+/* Classic only shows the result, not the method — hide the process
+   grid and the "engine" essay. */
+[data-variant="classic"] #method,
+[data-variant="classic"] #engine { display: none; }
+
+/* Hero — far smaller and plainer for the enterprise look, and the
+   three editorial stats give way to the simpler classic pair. */
+[data-variant="classic"] .hv-hero { padding-top: 56px !important; padding-bottom: 48px !important; }
+[data-variant="classic"] .hv-hero-title { font-size: clamp(38px, 6vw, 68px) !important; }
+.hv-classic-eyebrow { display: none; }
+[data-variant="classic"] .hv-classic-eyebrow { display: inline; }
+.hv-hero-stats-classic { display: none; }
+[data-variant="classic"] .hv-hero-stats-premium { display: none; }
+[data-variant="classic"] .hv-hero-stats-classic { display: grid; }
+[data-variant="classic"] .hv-hero-stat-num { font-size: 32px !important; font-weight: 600 !important; }
+[data-variant="classic"] .hv-hero-stat-label { font-style: normal !important; font-size: 15px !important; }
+
+/* Capabilities — the index runs too tall in classic; tighten the rows
+   and drop the oversized serif headings. */
+[data-variant="classic"] .hv-capabilities { padding-top: 72px !important; padding-bottom: 72px !important; }
+[data-variant="classic"] .hv-cap-head { margin-bottom: 28px !important; }
+[data-variant="classic"] .hv-cap-row { padding: 14px 0 !important; gap: 24px !important; }
+[data-variant="classic"] .hv-cap-name { font-size: 17px !important; font-weight: 600 !important; }
+[data-variant="classic"] .hv-cap-desc { font-size: 14px !important; font-style: normal !important; }
+
+/* Curated harmonies — the empty roman column plus the right-aligned lead
+   collide with the big title in the classic shell. Stack the header and
+   shrink the heading so nothing overlaps. */
+[data-variant="classic"] .hv-harmonies-head { grid-template-columns: 1fr !important; gap: 12px !important; align-items: start !important; }
+[data-variant="classic"] .hv-harmonies-head .lead { text-align: left !important; }
+[data-variant="classic"] .hv-harmonies-head .display { font-size: clamp(28px, 4vw, 40px) !important; }
+[data-variant="classic"] .hv-harmony-name { font-size: 18px !important; }
+
+/* =========================================================
+   MOBILE — keep only the essential sections. The home page is too
+   tall and heavy on a phone, so the decorative / long-form sections
+   are dropped and the hero type is reined in.
+========================================================= */
+@media (max-width: 768px) {
+  #partners,
+  #method,
+  #engine,
+  #painted-with { display: none; }
+  .hv-hero-title { font-size: clamp(38px, 11vw, 58px) !important; }
+  .hv-hero { padding-top: 56px !important; padding-bottom: 40px !important; }
+  .hv-hero-stats { margin-top: 40px !important; gap: 28px !important; }
+  .hv-cap-name { font-size: 22px !important; }
+  .hv-cap-desc { font-size: 15px !important; }
+}
+
+/* =========================================================
    LOGO  ·  the HueVista wordmark + dot + rule + subtitle
 
    Reads `var(--fg)` for text/rule/frame colour and `var(--accent)`
@@ -1018,6 +1075,20 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   opacity: 0.55;
   pointer-events: none;
 }
+/* ----- Inverted plate — used for the nav/header lockup. The fill is the page
+   foreground and the text the page background, so the chip flips automatically:
+   dark plate on a light theme, light plate on a dark theme. Works in both the
+   premium and classic variants because it rides the same --fg / --bg tokens. */
+.hv-logo.is-inverted {
+  background: var(--fg);
+  color: var(--bg);
+  border-radius: 999px;
+  box-shadow: 0 10px 30px -16px rgba(0, 0, 0, 0.4);
+}
+.hv-logo.is-inverted.is-framed::before {
+  /* the solid plate is the shape — the outline border is redundant */
+  display: none;
+}
 .hv-logo-inner {
   display: inline-flex;
   align-items: center;
@@ -1034,17 +1105,15 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   /* faint halo, mirrors the .brand-mark in the nav */
   box-shadow: 0 0 0 1px currentColor, 0 0 calc(var(--logo-dot) * 1.4) rgba(184, 153, 104, 0.32);
 }
-[data-variant="classic"] .hv-logo-dot {
-  box-shadow: 0 0 0 1px currentColor;
-}
 .hv-logo-text {
   display: inline-flex;
   flex-direction: column;
   align-items: stretch;
+  gap: var(--logo-rule-mt);
   min-width: 0;
 }
 .hv-logo-word {
-  font-family: "Cormorant Garamond", "Times New Roman", serif;
+  font-family: var(--font-serif), "Cormorant Garamond", "Times New Roman", serif;
   font-weight: 300;
   font-size: var(--logo-word);
   line-height: 1;
@@ -1052,14 +1121,16 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   white-space: nowrap;
   color: currentColor;
 }
+/* Two of these sandwich the wordmark — one above, one below. The flex `gap`
+   on .hv-logo-text supplies the spacing, so the rule itself carries no margin. */
 .hv-logo-rule {
   height: 1px;
   background: currentColor;
   opacity: 0.45;
-  margin: var(--logo-rule-mt) 0 var(--logo-rule-mb);
+  margin: 0;
 }
 .hv-logo-sub {
-  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-family: var(--font-sans), "Hanken Grotesk", system-ui, sans-serif;
   font-weight: 400;
   font-size: var(--logo-sub);
   letter-spacing: 0.36em;
@@ -1122,25 +1193,10 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   --logo-pad-x: 96px;
 }
 
-/* ----- Classic variant — drop the Didone serif for the sans wordmark,
-   keep the dot + frame + auto-inversion ----- */
-[data-variant="classic"] .hv-logo-word {
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-}
-[data-variant="classic"] .hv-logo-sub {
-  letter-spacing: 0.18em;
-  font-weight: 500;
-}
-[data-variant="classic"] .hv-logo.is-framed {
-  /* enterprise feel — rounded rectangle, not a pill */
-  --logo-pad-y: calc(var(--logo-pad-y) * 0.65);
-  --logo-pad-x: calc(var(--logo-pad-x) * 0.7);
-}
-[data-variant="classic"] .hv-logo.is-framed::before {
-  border-radius: 10px;
-}
+/* ----- Classic variant uses the identical premium lockup — the Didone serif
+   wordmark, pill frame, dot halo and inverted plate are all shared. (The former
+   classic-specific sans/rounded-rectangle overrides were removed so the two
+   variants render the same refined mark.) ----- */
 
 /* ----- Tighter on phones (we already clamp, but extra room is needed) ----- */
 @media (max-width: 480px) {

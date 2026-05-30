@@ -5,7 +5,18 @@ type LogoSize = "sm" | "md" | "lg" | "xl";
 interface LogoProps {
   /** Whether to render the pill frame around the wordmark. Defaults to true. */
   framed?: boolean;
-  /** Subtitle under the wordmark. Pass `false` to hide. Defaults to "AI SHADE VISUALISER". */
+  /**
+   * Render the logo on a solid plate that inverts against the page theme —
+   * a dark plate on a light theme, a light plate on a dark theme. The wordmark,
+   * rule and dot ring all sit on `var(--bg)` for guaranteed contrast in both
+   * the premium and classic variants. Used for the nav/header lockup.
+   */
+  inverted?: boolean;
+  /**
+   * Controls the framing rules. When truthy (the default), the wordmark is
+   * sandwiched between a horizontal rule above and below. Pass `false` for the
+   * bare wordmark with no rules (compact lockups).
+   */
   subtitle?: string | false;
   /** Preset size — sm: nav-chip, md: footer, lg: header, xl: hero. Defaults to "md". */
   size?: LogoSize;
@@ -22,6 +33,7 @@ interface LogoProps {
 
 export function Logo({
   framed = true,
+  inverted = false,
   subtitle = "AI SHADE VISUALISER",
   size = "md",
   className = "",
@@ -32,18 +44,20 @@ export function Logo({
   return (
     <span
       {...ariaProps}
-      className={`hv-logo hv-logo-${size} ${framed ? "is-framed" : ""} ${className}`.trim()}
+      className={`hv-logo hv-logo-${size} ${framed ? "is-framed" : ""} ${inverted ? "is-inverted" : ""} ${className}`.replace(/\s+/g, " ").trim()}
       style={style}
     >
       <span className="hv-logo-inner">
         <span className="hv-logo-dot" aria-hidden />
         <span className="hv-logo-text">
-          <span className="hv-logo-word">HueVista</span>
-          {subtitle !== false && subtitle && (
+          {subtitle !== false && subtitle ? (
             <>
               <span className="hv-logo-rule" aria-hidden />
-              <span className="hv-logo-sub">{subtitle}</span>
+              <span className="hv-logo-word">HueVista</span>
+              <span className="hv-logo-rule" aria-hidden />
             </>
+          ) : (
+            <span className="hv-logo-word">HueVista</span>
           )}
         </span>
       </span>

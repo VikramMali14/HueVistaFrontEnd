@@ -38,7 +38,7 @@ export function Footer() {
       <div className="footer-inner">
         <div className="footer-col">
           <Link href="/" aria-label="HueVista — home" style={{ display: "inline-block", marginBottom: 24 }}>
-            <Logo size="md" ariaLabel={null} />
+            <Logo size="sm" inverted ariaLabel={null} />
           </Link>
           <p className="body" style={{ fontStyle: "italic", fontFamily: "var(--serif)", fontSize: 19, maxWidth: "34ch", marginTop: 16 }}>
             An AI-powered paint shade visualiser for the Indian paint retail trade. Engineered in Belgavi, with care.

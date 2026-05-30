@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { Logo } from "@/components/ui/logo";
 import type { AuthUser } from "@/lib/types";
 
 const TABS = [
@@ -55,9 +56,8 @@ export function AppNav({ user, themeToggle, variantToggle, localeToggle }: AppNa
         <span>folio · {folio}</span>
       </div>
       <div className="app-nav-inner">
-        <Link href="/" className="brand" style={{ fontSize: 24 }}>
-          <span className="brand-mark" />
-          HueVista
+        <Link href="/" className="brand-logo" aria-label="HueVista — home">
+          <Logo size="sm" inverted ariaLabel={null} />
         </Link>
         <button
           type="button"
