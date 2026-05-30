@@ -8,6 +8,14 @@ const extraImageHosts = (process.env.IMAGE_REMOTE_HOSTS ?? "")
   .map((h) => h.trim())
   .filter(Boolean);
 
+// Backend stores images in S3 and returns presigned URLs like
+// `https://<bucket>.s3.<region>.amazonaws.com/...`. Allow any bucket in the
+// configured region so the browser can fetch them. CSP only supports one
+// wildcard label, so we key off the region (matches backend `app.s3.region`,
+// default `ap-south-1`).
+const s3Region = (process.env.S3_REGION ?? "ap-south-1").trim();
+const s3ImageHost = `https://*.s3.${s3Region}.amazonaws.com`;
+
 // CSP — keep tight in prod, loosen for dev tooling (HMR websocket, eval).
 // connect-src for the browser only ever talks to the same origin via /bff/*,
 // so the public API origin is *not* listed in prod connect-src.
@@ -32,7 +40,8 @@ const apiHost = (() => {
     return apiOrigin;
   }
 })();
-const imgSrc = `img-src 'self' data: blob: ${apiHost} ${extraImageHosts.join(" ")}`.trim();
+const imgSrc =
+  `img-src 'self' data: blob: ${apiHost} ${s3ImageHost} ${extraImageHosts.join(" ")}`.trim();
 
 const cspDirectives = [
   "default-src 'self'",
