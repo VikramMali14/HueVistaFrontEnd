@@ -6,6 +6,10 @@ import { SHADES } from "@/lib/shades";
 import { t } from "@/lib/i18n";
 import type { ColorFamily, PaintShade, UiLocale, UiVariant } from "@/lib/types";
 
+function pickShade(shades: ReadonlyArray<PaintShade>, idx: number): PaintShade {
+  return shades[idx] ?? shades[idx % shades.length] ?? shades[0]!;
+}
+
 const FAMILIES: ReadonlyArray<ColorFamily | "All"> = [
   "All",
   "Whites",
@@ -29,6 +33,8 @@ interface ShadeGridProps {
   activeRegionLabel?: string;
   variant?: UiVariant;
   locale?: UiLocale;
+  /** Shades fetched from the backend; falls back to the bundled sample. */
+  shades?: ReadonlyArray<PaintShade>;
 }
 
 export function ShadeGrid({
@@ -38,20 +44,26 @@ export function ShadeGrid({
   activeRegionLabel,
   variant = "premium",
   locale = "en",
+  shades,
 }: ShadeGridProps) {
   const isClassic = variant === "classic";
   const [family, setFamily] = useState<(typeof FAMILIES)[number]>("All");
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("Catalogue");
 
+  const catalogue = useMemo<ReadonlyArray<PaintShade>>(
+    () => (shades && shades.length > 0 ? shades : SHADES),
+    [shades],
+  );
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return SHADES.filter((s) => {
+    return catalogue.filter((s) => {
       if (family !== "All" && s.family !== family) return false;
       if (!q) return true;
       return s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.hex.toLowerCase().includes(q);
     });
-  }, [family, query]);
+  }, [catalogue, family, query]);
 
   const tabLabel = (tabId: Tab) => {
     if (!isClassic) return tabId;
@@ -222,7 +234,7 @@ export function ShadeGrid({
                       marginTop: 4,
                     }}
                   >
-                    {t(locale, "shades.shown", { shown: shown.length, total: SHADES.length })}
+                    {t(locale, "shades.shown", { shown: shown.length, total: catalogue.length })}
                   </div>
                 ) : (
                   <Mono style={{ display: "block" }}>{shown.length} shades</Mono>
@@ -281,7 +293,9 @@ export function ShadeGrid({
         </>
       )}
 
-      {tab === "AI Suggest" && <AISuggestPanel onSelect={onSelect} variant={variant} locale={locale} />}
+      {tab === "AI Suggest" && (
+        <AISuggestPanel onSelect={onSelect} variant={variant} locale={locale} catalogue={catalogue} />
+      )}
 
       {tab === "Regions" && <RegionsListPanel selected={selected} variant={variant} locale={locale} />}
 
@@ -460,22 +474,24 @@ function AISuggestPanel({
   onSelect,
   variant,
   locale,
+  catalogue,
 }: {
   onSelect: (shade: PaintShade) => void;
   variant: UiVariant;
   locale: UiLocale;
+  catalogue: ReadonlyArray<PaintShade>;
 }) {
   const isClassic = variant === "classic";
   const combos = isClassic
     ? [
-        { name: "Quiet morning", rationale: "Soft ivory main, sage accent, slate trim.", shades: [SHADES[0]!, SHADES[14]!, SHADES[16]!] },
-        { name: "Warm afternoon", rationale: "Earthy and warm; reads well in sun.", shades: [SHADES[5]!, SHADES[12]!, SHADES[0]!] },
-        { name: "Cool evening", rationale: "For studies and reading rooms.", shades: [SHADES[17]!, SHADES[15]!, SHADES[3]!] },
+        { name: "Quiet morning", rationale: "Soft ivory main, sage accent, slate trim.", shades: [pickShade(catalogue, 0), pickShade(catalogue, 14), pickShade(catalogue, 16)] },
+        { name: "Warm afternoon", rationale: "Earthy and warm; reads well in sun.", shades: [pickShade(catalogue, 5), pickShade(catalogue, 12), pickShade(catalogue, 0)] },
+        { name: "Cool evening", rationale: "For studies and reading rooms.", shades: [pickShade(catalogue, 17), pickShade(catalogue, 15), pickShade(catalogue, 3)] },
       ]
     : [
-        { name: "Counter Quiet", rationale: "Ivory main, sage accent, slate trim — a Belgavi morning.", shades: [SHADES[0]!, SHADES[14]!, SHADES[16]!] },
-        { name: "Spice Veranda", rationale: "Earthbound and warm; reads well in afternoon sun.", shades: [SHADES[5]!, SHADES[12]!, SHADES[0]!] },
-        { name: "Twilight Atelier", rationale: "For studies and reading rooms — cool, low LRV.", shades: [SHADES[17]!, SHADES[15]!, SHADES[3]!] },
+        { name: "Counter Quiet", rationale: "Ivory main, sage accent, slate trim — a Belgavi morning.", shades: [pickShade(catalogue, 0), pickShade(catalogue, 14), pickShade(catalogue, 16)] },
+        { name: "Spice Veranda", rationale: "Earthbound and warm; reads well in afternoon sun.", shades: [pickShade(catalogue, 5), pickShade(catalogue, 12), pickShade(catalogue, 0)] },
+        { name: "Twilight Atelier", rationale: "For studies and reading rooms — cool, low LRV.", shades: [pickShade(catalogue, 17), pickShade(catalogue, 15), pickShade(catalogue, 3)] },
       ];
   return (
     <div style={{ padding: isClassic ? 16 : 20, flex: 1, overflow: "auto" }}>
