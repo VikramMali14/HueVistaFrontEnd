@@ -28,6 +28,8 @@ interface VisualizerProps {
   /** When set, open this existing project: loads its SAVED masks + cleaned image from
    *  storage instead of re-running segmentation (no extra AI cost). */
   projectId?: string;
+  /** Shades fetched server-side from the backend catalogue. */
+  shades?: ReadonlyArray<PaintShade>;
 }
 
 interface RegionState {
@@ -104,7 +106,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";
 
-export function Visualizer({ variant = "premium", locale = "en", projectId: openProjectId }: VisualizerProps) {
+export function Visualizer({ variant = "premium", locale = "en", projectId: openProjectId, shades }: VisualizerProps) {
   const isClassic = variant === "classic";
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -864,6 +866,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           onSelect={onSelectShade}
           activeShade={active.shade}
           activeRegionLabel={active.label}
+          shades={shades}
         />
       </div>
       <style>{`

@@ -3,6 +3,9 @@ import { getUiLocale, getUiVariant, requireAccessToken } from "@/lib/auth";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Visualizer } from "@/components/atelier/visualizer";
 import { ClassicAtelierHeader } from "@/components/classic/atelier-header";
+import { fetchCatalogue } from "@/lib/catalogue";
+import { SHADES } from "@/lib/shades";
+import type { PaintShade } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "The Atelier",
@@ -17,12 +20,20 @@ export default async function AtelierPage({
   // Gate the route — the BFF proxy will pick up the cookie itself; we don't pass the token.
   await requireAccessToken();
   const [{ project }, variant, locale] = await Promise.all([searchParams, getUiVariant(), getUiLocale()]);
+  // Live catalogue from the backend; fall back to the bundled sample if it's unreachable.
+  let shades: PaintShade[];
+  try {
+    const live = await fetchCatalogue();
+    shades = live.length > 0 ? live : [...SHADES];
+  } catch {
+    shades = [...SHADES];
+  }
   if (variant === "classic") {
     return (
       <>
         <ClassicAtelierHeader locale={locale} />
         <div style={{ padding: "16px 24px" }}>
-          <Visualizer variant="classic" locale={locale} projectId={project} />
+          <Visualizer variant="classic" locale={locale} projectId={project} shades={shades} />
         </div>
       </>
     );
@@ -37,7 +48,7 @@ export default async function AtelierPage({
         <h1 className="display" style={{ fontSize: "clamp(40px, 5vw, 72px)" }}>The Atelier</h1>
         <Lead style={{ marginTop: 16 }}>The room — quiet on the left, the catalogue at hand on the right. Upload, clean, segment, recolour.</Lead>
       </header>
-      <Visualizer variant="premium" locale={locale} projectId={project} />
+      <Visualizer variant="premium" locale={locale} projectId={project} shades={shades} />
       <section style={{ marginTop: 56, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
         <div>
           <Mono style={{ marginBottom: 18, display: "block" }}>i · Performance</Mono>
