@@ -7,6 +7,7 @@ import { LoaderOverlay } from "@/components/ui/loader-overlay";
 import { Spinner } from "@/components/ui/spinner";
 import { PipelineBar, type PipelineStage } from "./pipeline-bar";
 import { ShadeGrid } from "./shade-grid";
+import { PhoneHandoff } from "@/components/shared/phone-handoff";
 import { hexToRgb01, Recolor } from "@/lib/webgl-recolor";
 import { api, HttpError } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
@@ -40,6 +41,9 @@ interface RegionState {
   hex: string;
   shade?: PaintShade;
   maskUrl?: string | null;
+  /** In-memory mask for a hand-drawn (polygon) region — takes precedence over
+   *  maskUrl so the preview is instant and survives a failed backend save. */
+  maskCanvas?: HTMLCanvasElement | null;
 }
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -113,6 +117,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
   const recolorRef = useRef<Recolor | null>(null);
   const maskCacheRef = useRef<Map<string, Promise<HTMLImageElement>>>(new Map());
   const pollAbortRef = useRef<{ cancelled: boolean } | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const [stage, setStage] = useState<PipelineStage>("upload");
   const [done, setDone] = useState<Partial<Record<PipelineStage, boolean>>>({});
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -123,7 +128,6 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
     isClassic ? [...DEFAULT_REGIONS_CLASSIC] : [...DEFAULT_REGIONS_PREMIUM],
   );
   const [activeRegion, setActiveRegion] = useState<string>(regions[0]!.id);
-  const [strength, setStrength] = useState(0.78);
   const [cleanOn, setCleanOn] = useState(true);
   const [compare, setCompare] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -134,6 +138,13 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
   const [accessExpired, setAccessExpired] = useState(false);
   const [buying, setBuying] = useState(false);
   const [pendingImageId, setPendingImageId] = useState<string | null>(null);
+  // --- Manual polygon mask drawing ---
+  const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(null);
+  const [wrapSize, setWrapSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  const [drawMode, setDrawMode] = useState(false);
+  const [polygon, setPolygon] = useState<Array<{ x: number; y: number }>>([]);
+  const [drawCategory, setDrawCategory] = useState<RegionKind>("MAIN_WALL");
+  const [savingMask, setSavingMask] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -170,7 +181,10 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
     async function applyAndRender() {
       if (!rc) return;
       try {
-        if (active && active.maskUrl) {
+        if (active && active.maskCanvas) {
+          // Hand-drawn polygon mask — already at image resolution, use directly.
+          rc.setMask(active.maskCanvas);
+        } else if (active && active.maskUrl) {
           const mask = await loadMask(active.maskUrl);
           if (cancelled) return;
           rc.setMask(mask);
@@ -183,20 +197,43 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         if (process.env.NODE_ENV !== "production") console.warn("Mask load failed:", err);
       }
       if (cancelled || !active) return;
-      rc.render(hexToRgb01(active.hex), compare ? 0 : strength);
+      // Always full strength: paint the exact shade. `compare` shows the original.
+      rc.render(hexToRgb01(active.hex), compare ? 0 : 1);
     }
 
     void applyAndRender();
     return () => {
       cancelled = true;
     };
-  }, [activeRegion, regions, strength, imageUrl, compare, loadMask]);
+  }, [activeRegion, regions, imageUrl, compare, loadMask]);
 
   useEffect(() => {
     return () => {
       if (pollAbortRef.current) pollAbortRef.current.cancelled = true;
     };
   }, []);
+
+  // Track the canvas wrapper's pixel size so the polygon overlay can map between
+  // displayed coordinates and the letterboxed (object-fit: contain) image.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => setWrapSize({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // The image's displayed rectangle inside the wrapper (object-fit: contain
+  // letterboxes it). Used to place polygon points and map clicks → image space.
+  const contained = useMemo(() => {
+    if (!imageDims || wrapSize.w === 0 || wrapSize.h === 0) return null;
+    const scale = Math.min(wrapSize.w / imageDims.w, wrapSize.h / imageDims.h);
+    const dispW = imageDims.w * scale;
+    const dispH = imageDims.h * scale;
+    return { dispW, dispH, offX: (wrapSize.w - dispW) / 2, offY: (wrapSize.h - dispH) / 2 };
+  }, [imageDims, wrapSize]);
 
   const applyProjectDetail = useCallback(
     async (detail: ProjectDetail) => {
@@ -207,6 +244,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           const img = await loadImage(canvasUrl);
           rc.setImage(img);
           setImageUrl(canvasUrl);
+          setImageDims({ w: img.naturalWidth, h: img.naturalHeight });
         } catch (err) {
           if (process.env.NODE_ENV !== "production") {
             console.warn("Failed to load cleaned image, keeping local preview:", err);
@@ -350,6 +388,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         recolorRef.current?.setImage(img);
         recolorRef.current?.setMask(null);
         setImageUrl(localUrl);
+        setImageDims({ w: img.naturalWidth, h: img.naturalHeight });
         setStage("clean");
         setDone((d) => ({ ...d, upload: true }));
         try {
@@ -430,16 +469,151 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
     [activeRegion, projectId],
   );
 
-  const addManual = useCallback(() => {
-    const idx = regions.filter((r) => r.kind === "MANUAL").length + 1;
-    const id = `manual-${idx}`;
-    const labelIdx = String(idx).padStart(2, "0");
-    const label = isClassic ? `Wall ${idx}` : `MANUAL · ${labelIdx}`;
-    setRegions((prev) => [...prev, { id, kind: "MANUAL", label, hex: "#b89968" }]);
+  // Apply a custom-picked colour EXACTLY (no catalogue shade). Clears any shade
+  // and persists hex with a null shadeCode so the saved region carries the raw colour.
+  const onApplyCustom = useCallback(
+    (hex: string) => {
+      let updatedBackendId: number | undefined;
+      setRegions((prev) =>
+        prev.map((r) => {
+          if (r.id !== activeRegion) return r;
+          updatedBackendId = r.backendId;
+          return { ...r, hex, shade: undefined };
+        }),
+      );
+      setStage("recolor");
+      setDone((d) => ({ ...d, mask: true, recolor: true }));
+
+      if (projectId && updatedBackendId !== undefined) {
+        setSaveStatus("saving");
+        void (async () => {
+          try {
+            await api.updateRegionColors(projectId, [
+              { regionId: updatedBackendId!, shadeCode: null, hexCode: hex },
+            ]);
+            setSaveStatus("saved");
+          } catch (err) {
+            if (process.env.NODE_ENV !== "production") console.warn("Auto-save failed:", err);
+            setSaveStatus("failed");
+          }
+        })();
+      }
+    },
+    [activeRegion, projectId],
+  );
+
+  // --- Manual polygon mask drawing -----------------------------------------
+  const startDraw = useCallback(() => {
+    if (!imageDims) return;
+    setCompare(false);
+    setPolygon([]);
+    setDrawMode(true);
+  }, [imageDims]);
+
+  const cancelDraw = useCallback(() => {
+    setDrawMode(false);
+    setPolygon([]);
+  }, []);
+
+  const undoPoint = useCallback(() => setPolygon((p) => p.slice(0, -1)), []);
+
+  // Map a click on the overlay → normalized image coordinates (0–1), accounting
+  // for the object-fit: contain letterboxing. Returns null if outside the image.
+  const addPoint = useCallback(
+    (clientX: number, clientY: number) => {
+      const wrap = wrapRef.current;
+      if (!wrap || !imageDims) return;
+      const rect = wrap.getBoundingClientRect();
+      const scale = Math.min(rect.width / imageDims.w, rect.height / imageDims.h);
+      const dispW = imageDims.w * scale;
+      const dispH = imageDims.h * scale;
+      const offX = (rect.width - dispW) / 2;
+      const offY = (rect.height - dispH) / 2;
+      const x = (clientX - rect.left - offX) / dispW;
+      const y = (clientY - rect.top - offY) / dispH;
+      if (x < 0 || x > 1 || y < 0 || y > 1) return;
+      setPolygon((p) => [...p, { x, y }]);
+    },
+    [imageDims],
+  );
+
+  // Rasterize the polygon into a white-on-black mask at the image's resolution,
+  // add it as a new region of the chosen category, paint it, and persist it.
+  const finishPolygon = useCallback(async () => {
+    if (!imageDims || polygon.length < 3) return;
+    const mask = document.createElement("canvas");
+    mask.width = imageDims.w;
+    mask.height = imageDims.h;
+    const ctx = mask.getContext("2d");
+    if (!ctx) return;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, mask.width, mask.height);
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    polygon.forEach((p, i) => {
+      const X = p.x * mask.width;
+      const Y = p.y * mask.height;
+      if (i === 0) ctx.moveTo(X, Y);
+      else ctx.lineTo(X, Y);
+    });
+    ctx.closePath();
+    ctx.fill();
+
+    const kind = drawCategory;
+    const id = `drawn-${Date.now()}`;
+    const label = isClassic ? CLASSIC_KIND_LABEL[kind] : kind;
+    const newRegion: RegionState = {
+      id,
+      kind,
+      label,
+      hex: DEFAULT_HEX_FOR_KIND[kind],
+      maskCanvas: mask,
+    };
+    setRegions((prev) => [...prev, newRegion]);
     setActiveRegion(id);
-    setStage("refine");
-    setDone((d) => ({ ...d, refine: true }));
-  }, [regions, isClassic]);
+    setDrawMode(false);
+    setPolygon([]);
+    setStage("recolor");
+    setDone((d) => ({ ...d, refine: true, recolor: true }));
+
+    if (projectId) {
+      setSavingMask(true);
+      setSaveStatus("saving");
+      try {
+        const detail = await api.createCustomMask(projectId, {
+          maskBase64: mask.toDataURL("image/png"),
+          category: kind,
+          label,
+        });
+        // The region may have been recoloured while this save was in flight (its
+        // backendId was still undefined, so onSelectShade couldn't persist). Capture
+        // any applied shade and save it now that we finally have the backendId.
+        let appliedShade: PaintShade | undefined;
+        setRegions((prev) =>
+          prev.map((r) => {
+            if (r.id !== id) return r;
+            appliedShade = r.shade;
+            return { ...r, backendId: detail.id, maskUrl: resolveMediaUrl(detail.maskUrl) };
+          }),
+        );
+        if (appliedShade) {
+          try {
+            await api.updateRegionColors(projectId, [
+              { regionId: detail.id, shadeCode: appliedShade.code, hexCode: appliedShade.hex },
+            ]);
+          } catch (err) {
+            if (process.env.NODE_ENV !== "production") console.warn("Deferred colour save failed:", err);
+          }
+        }
+        setSaveStatus("saved");
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") console.warn("Custom mask save failed:", err);
+        setSaveStatus("failed");
+      } finally {
+        setSavingMask(false);
+      }
+    }
+  }, [imageDims, polygon, drawCategory, isClassic, projectId]);
 
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
@@ -558,7 +732,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
       <PipelineBar current={stage} done={done} variant={variant} locale={locale} />
 
       <div className="hv-vis-body" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 0, minHeight: 640 }}>
-        <div className="hv-vis-canvas-wrap" style={{ position: "relative", background: "var(--surface)" }}>
+        <div ref={wrapRef} className="hv-vis-canvas-wrap" style={{ position: "relative", background: "var(--surface)" }}>
           <canvas
             ref={canvasRef}
             style={{
@@ -647,42 +821,6 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                 </div>
               </div>
 
-              {/* INTENSITY CONTROL */}
-              <div
-                className="hv-vis-control"
-                style={{
-                  position: "absolute",
-                  top: 20,
-                  right: 20,
-                  padding: "10px 14px",
-                  background: "var(--bg)",
-                  border: "1px solid var(--rule-strong)",
-                  zIndex: 5,
-                  borderRadius: isClassic ? 8 : 0,
-                }}
-              >
-                <label htmlFor="hv-strength" style={isClassic ? controlChipStyle : undefined}>
-                  {isClassic ? (
-                    <span>{t(locale, "atelier.control.intensity")}</span>
-                  ) : (
-                    <Mono>Strength</Mono>
-                  )}
-                </label>
-                <input
-                  id="hv-strength"
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={strength}
-                  onChange={(e) => setStrength(Number(e.target.value))}
-                  aria-valuemin={0}
-                  aria-valuemax={1}
-                  aria-valuenow={strength}
-                  style={{ marginTop: 8, width: 160, accentColor: "var(--accent)", display: "block" }}
-                />
-              </div>
-
               {/* REGION TABS */}
               <div
                 className="hv-vis-control hv-vis-regions"
@@ -757,7 +895,9 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                   ))}
                   <button
                     type="button"
-                    onClick={addManual}
+                    onClick={startDraw}
+                    disabled={!imageDims}
+                    title="Draw a wall mask by clicking its corners"
                     style={{
                       marginLeft: "auto",
                       padding: isClassic ? "6px 12px" : "4px 14px",
@@ -765,6 +905,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                       border: "1px solid var(--rule-strong)",
                       borderRadius: isClassic ? 6 : 0,
                       color: "var(--fg-soft)",
+                      opacity: imageDims ? 1 : 0.5,
                       ...(isClassic
                         ? { font: "500 12px/1 var(--sans, system-ui)" }
                         : {
@@ -772,10 +913,10 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                             letterSpacing: ".22em",
                             textTransform: "uppercase",
                           }),
-                      cursor: "pointer",
+                      cursor: imageDims ? "pointer" : "not-allowed",
                     }}
                   >
-                    + {isClassic ? t(locale, "atelier.control.addRegion") : "Manual"}
+                    ✎ {isClassic ? t(locale, "atelier.control.addRegion") : "Draw"}
                   </button>
                 </div>
               </div>
@@ -805,6 +946,117 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                   ? (isClassic ? t(locale, "atelier.control.before") : "Before")
                   : (isClassic ? t(locale, "atelier.control.compare") : "Compare")}
               </button>
+
+              {/* POLYGON DRAW OVERLAY — clicks drop corner points */}
+              {drawMode && contained && (
+                <div
+                  role="presentation"
+                  onClick={(e) => addPoint(e.clientX, e.clientY)}
+                  style={{ position: "absolute", inset: 0, zIndex: 7, cursor: "crosshair" }}
+                >
+                  <svg
+                    width={wrapSize.w}
+                    height={wrapSize.h}
+                    style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+                  >
+                    {polygon.length >= 2 && (
+                      <polygon
+                        points={polygon
+                          .map(
+                            (p) =>
+                              `${contained.offX + p.x * contained.dispW},${contained.offY + p.y * contained.dispH}`,
+                          )
+                          .join(" ")}
+                        fill="rgba(29,78,216,0.22)"
+                        stroke="var(--accent)"
+                        strokeWidth={2}
+                      />
+                    )}
+                    {polygon.map((p, i) => (
+                      <circle
+                        key={i}
+                        cx={contained.offX + p.x * contained.dispW}
+                        cy={contained.offY + p.y * contained.dispH}
+                        r={5}
+                        fill={i === 0 ? "var(--accent)" : "#fff"}
+                        stroke="var(--accent)"
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </svg>
+                </div>
+              )}
+
+              {/* DRAW TOOLBAR — category + finish/undo/cancel */}
+              {drawMode && (
+                <div
+                  className="hv-vis-control"
+                  style={{
+                    position: "absolute",
+                    top: 20,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    zIndex: 8,
+                    background: "var(--bg)",
+                    border: "1px solid var(--rule-strong)",
+                    borderRadius: isClassic ? 8 : 0,
+                    padding: "10px 14px",
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    maxWidth: "calc(100% - 40px)",
+                  }}
+                >
+                  {isClassic ? (
+                    <span style={controlChipStyle}>Draw a wall · click corners</span>
+                  ) : (
+                    <Mono>Draw · click corners</Mono>
+                  )}
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {([
+                      ["MAIN_WALL", "Main"],
+                      ["ACCENT_WALL", "Accent"],
+                      ["TRIM", "Trim"],
+                    ] as ReadonlyArray<readonly [RegionKind, string]>).map(([k, lbl]) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => setDrawCategory(k)}
+                        aria-pressed={drawCategory === k}
+                        style={{
+                          padding: "5px 10px",
+                          cursor: "pointer",
+                          borderRadius: isClassic ? 6 : 0,
+                          border: "1px solid " + (drawCategory === k ? "var(--accent)" : "var(--rule-strong)"),
+                          color: drawCategory === k ? "var(--accent)" : "var(--fg-soft)",
+                          background: "transparent",
+                          ...(isClassic
+                            ? { font: "500 12px/1 var(--sans, system-ui)" }
+                            : { font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }),
+                        }}
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                  <Mono>{polygon.length} pts</Mono>
+                  <button type="button" onClick={undoPoint} disabled={polygon.length === 0} style={drawToolBtn(false, polygon.length === 0)}>
+                    Undo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void finishPolygon()}
+                    disabled={polygon.length < 3 || savingMask}
+                    style={drawToolBtn(true, polygon.length < 3 || savingMask)}
+                  >
+                    {savingMask ? "Saving…" : "Finish"}
+                  </button>
+                  <button type="button" onClick={cancelDraw} style={drawToolBtn(false, false)}>
+                    Cancel
+                  </button>
+                </div>
+              )}
             </>
           )}
           <LoaderOverlay show={uploading || segmenting} label={overlayLabel} hint={overlayHint} />
@@ -864,6 +1116,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           locale={locale}
           selected={active.shade?.code}
           onSelect={onSelectShade}
+          onApplyExact={onApplyCustom}
           activeShade={active.shade}
           activeRegionLabel={active.label}
           shades={shades}
@@ -1019,6 +1272,22 @@ function DropZone({
           </div>
         </>
       )}
+
+      {/* Shoot the room on a phone and have it land here. Stop propagation so the
+          QR button / modal don't trigger the dropzone's click-to-choose. */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}
+      >
+        {isClassic ? (
+          <span style={{ font: "400 13px/1 var(--sans, system-ui)", color: "var(--fg-mute)" }}>or</span>
+        ) : (
+          <Mono>or</Mono>
+        )}
+        <PhoneHandoff onImage={onDrop} />
+      </div>
+
       {uploading && (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--accent)" }}>
           <Spinner size={14} color="var(--accent)" />
@@ -1045,4 +1314,17 @@ function downloadPng(dataUrl: string) {
   a.href = dataUrl;
   a.download = `huevista-${Date.now()}.png`;
   a.click();
+}
+
+function drawToolBtn(accent: boolean, disabled: boolean): React.CSSProperties {
+  return {
+    padding: "5px 12px",
+    cursor: disabled ? "not-allowed" : "pointer",
+    background: "transparent",
+    border: "1px solid " + (accent ? "var(--accent)" : "var(--rule-strong)"),
+    color: accent ? "var(--accent)" : "var(--fg-soft)",
+    opacity: disabled ? 0.5 : 1,
+    font: "500 12px/1 var(--sans, system-ui)",
+    borderRadius: 6,
+  };
 }

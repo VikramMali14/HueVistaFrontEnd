@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { SHADES } from "@/lib/shades";
 import { t } from "@/lib/i18n";
+import { CustomMatchPanel } from "./color-wheel";
 import type { ColorFamily, PaintShade, UiLocale, UiVariant } from "@/lib/types";
 
 function pickShade(shades: ReadonlyArray<PaintShade>, idx: number): PaintShade {
@@ -23,12 +24,14 @@ const FAMILIES: ReadonlyArray<ColorFamily | "All"> = [
   "Browns",
 ];
 
-const TABS = ["Catalogue", "AI Suggest", "Regions"] as const;
+const TABS = ["Catalogue", "AI Suggest", "Custom", "Regions"] as const;
 type Tab = (typeof TABS)[number];
 
 interface ShadeGridProps {
   selected?: string;
   onSelect: (shade: PaintShade) => void;
+  /** Apply a picked colour exactly (Custom tab), without snapping to a shade. */
+  onApplyExact?: (hex: string) => void;
   activeShade?: PaintShade;
   activeRegionLabel?: string;
   variant?: UiVariant;
@@ -40,6 +43,7 @@ interface ShadeGridProps {
 export function ShadeGrid({
   selected,
   onSelect,
+  onApplyExact,
   activeShade,
   activeRegionLabel,
   variant = "premium",
@@ -69,6 +73,7 @@ export function ShadeGrid({
     if (!isClassic) return tabId;
     if (tabId === "Catalogue") return t(locale, "shades.tab.catalogue");
     if (tabId === "AI Suggest") return t(locale, "shades.tab.suggest");
+    if (tabId === "Custom") return "Custom";
     return t(locale, "shades.tab.regions");
   };
 
@@ -295,6 +300,17 @@ export function ShadeGrid({
 
       {tab === "AI Suggest" && (
         <AISuggestPanel onSelect={onSelect} variant={variant} locale={locale} catalogue={catalogue} />
+      )}
+
+      {tab === "Custom" && (
+        <CustomMatchPanel
+          onSelect={onSelect}
+          onApplyExact={onApplyExact}
+          catalogue={catalogue}
+          variant={variant}
+          locale={locale}
+          activeRegionLabel={activeRegionLabel}
+        />
       )}
 
       {tab === "Regions" && <RegionsListPanel selected={selected} variant={variant} locale={locale} />}
