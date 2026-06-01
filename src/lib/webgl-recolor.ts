@@ -1,9 +1,11 @@
 /**
- * WebGL2 luminance-preserving recolor engine.
+ * WebGL2 exact-shade recolor engine.
  * Uploads the source photograph + an optional per-region mask; the
- * fragment shader replaces hue & saturation while preserving the
- * original luminance — 60 fps on mid-range mobile, with zero backend
- * round-trip per swatch change.
+ * fragment shader fills the masked region with the EXACT target colour
+ * (the true paint swatch), not a luminance-blended approximation — so the
+ * preview matches the can. 60 fps on mid-range mobile, with zero backend
+ * round-trip per swatch change. The mask's soft (anti-aliased) edge is the
+ * only place the colour blends, which keeps region boundaries clean.
  */
 
 const VERT = `#version 300 es
@@ -25,48 +27,20 @@ uniform vec3 u_target;
 uniform float u_strength;
 uniform int u_useMask;
 
-vec3 rgb2hsl(vec3 c) {
-  float mx = max(max(c.r, c.g), c.b);
-  float mn = min(min(c.r, c.g), c.b);
-  float h = 0.0, s = 0.0;
-  float l = (mx + mn) * 0.5;
-  float d = mx - mn;
-  if (d > 1e-5) {
-    s = l < 0.5 ? d / (mx + mn) : d / (2.0 - mx - mn);
-    if (mx == c.r)      h = (c.g - c.b) / d + (c.g < c.b ? 6.0 : 0.0);
-    else if (mx == c.g) h = (c.b - c.r) / d + 2.0;
-    else                h = (c.r - c.g) / d + 4.0;
-    h /= 6.0;
-  }
-  return vec3(h, s, l);
-}
-float hue2rgb(float p, float q, float t) {
-  if (t < 0.0) t += 1.0;
-  if (t > 1.0) t -= 1.0;
-  if (t < 1.0/6.0) return p + (q - p) * 6.0 * t;
-  if (t < 1.0/2.0) return q;
-  if (t < 2.0/3.0) return p + (q - p) * (2.0/3.0 - t) * 6.0;
-  return p;
-}
-vec3 hsl2rgb(vec3 c) {
-  float h = c.x, s = c.y, l = c.z;
-  if (s == 0.0) return vec3(l);
-  float q = l < 0.5 ? l * (1.0 + s) : l + s - l * s;
-  float p = 2.0 * l - q;
-  return vec3(hue2rgb(p, q, h + 1.0/3.0), hue2rgb(p, q, h), hue2rgb(p, q, h - 1.0/3.0));
-}
-
 void main() {
   vec4 src = texture(u_image, v_uv);
-  vec3 orig = rgb2hsl(src.rgb);
-  vec3 tgt = rgb2hsl(u_target);
-  vec3 mixed = hsl2rgb(vec3(tgt.x, tgt.y, orig.z));
-  float w = u_strength;
-  if (u_useMask == 1) {
-    float m = texture(u_mask, v_uv).r;
-    w *= m;
+  // Only paint inside a region mask. With no mask (failed load, manual region,
+  // or pre-segmentation) leave the photo untouched rather than flooding the
+  // whole canvas with a flat colour.
+  if (u_useMask == 0) {
+    outColor = src;
+    return;
   }
-  outColor = vec4(mix(src.rgb, mixed, w), src.a);
+  // Fill with the EXACT target colour — no luminance preservation, so the
+  // painted wall reads as the true swatch everywhere, never lighter or darker.
+  float m = texture(u_mask, v_uv).r;
+  float w = u_strength * m;
+  outColor = vec4(mix(src.rgb, u_target, w), src.a);
 }`;
 
 export class Recolor {

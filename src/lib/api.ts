@@ -20,6 +20,7 @@ import type {
   ProjectDetail,
   ProjectSummary,
   RegionColorUpdate,
+  RegionDetail,
   UploadedImage,
   UserProfile,
 } from "./types";
@@ -158,6 +159,16 @@ export const api = {
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/regions`, {
       method: "PUT",
       body: JSON.stringify(updates),
+    }),
+  // Persist a hand-drawn (polygon) mask as a new region. maskBase64 may be a bare
+  // base64 string or a data URL; category is MAIN_WALL | ACCENT_WALL | TRIM | MANUAL.
+  createCustomMask: (
+    projectId: string,
+    body: { maskBase64: string; category?: string; label?: string },
+  ) =>
+    browserFetch<RegionDetail>(`api/projects/${encodeURIComponent(projectId)}/regions/custom-mask`, {
+      method: "POST",
+      body: JSON.stringify(body),
     }),
   // --- Customer project entitlement (allowance + day-validity) ---
   getMyEntitlement: () => browserFetch<CustomerEntitlement | null>("api/me/entitlement"),

@@ -145,6 +145,19 @@ export async function requireAccessToken(): Promise<string> {
   return token;
 }
 
+/**
+ * Lightweight, render-safe check for whether a session exists. Only READS the
+ * refresh cookie (7-day TTL) — never refreshes or mutates cookies — so it is
+ * safe to call from any Server Component (e.g. the public site header) without
+ * a backend round-trip. Use this for "is the visitor signed in?" UI decisions;
+ * use getCurrentUser() when you actually need the profile.
+ */
+export async function hasSession(): Promise<boolean> {
+  if (isDevBypass()) return true;
+  const jar = await cookies();
+  return Boolean(jar.get(config.sessionCookie)?.value);
+}
+
 export async function getCurrentUser(): Promise<AuthUser | null> {
   if (isDevBypass()) return DEV_BYPASS_USER;
   const token = await getAccessToken();

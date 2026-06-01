@@ -74,3 +74,61 @@ export function nearestShade<T extends { hex: string }>(target: string, pool: Re
   }
   return best;
 }
+
+/**
+ * The `n` catalogue entries closest to `target` (lowest ΔE76 first), each with
+ * its perceptual distance. Used by the colour-wheel "match any colour" panel.
+ */
+export function nearestShades<T extends { hex: string }>(
+  target: string,
+  pool: ReadonlyArray<T>,
+  n = 5,
+): Array<{ shade: T; deltaE: number }> {
+  const t = hexToLab(target);
+  return pool
+    .map((shade) => ({ shade, deltaE: deltaE(t, hexToLab(shade.hex)) }))
+    .sort((a, b) => a.deltaE - b.deltaE)
+    .slice(0, Math.max(1, n));
+}
+
+// ── HSV ⇄ RGB (for the colour wheel picker) ────────────────────────────────
+// h in [0,360), s and v in [0,1].
+export interface HSV { h: number; s: number; v: number }
+
+export function hsvToRgb({ h, s, v }: HSV): RGB {
+  const c = v * s;
+  const hp = ((h % 360) + 360) % 360 / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r = 0, g = 0, b = 0;
+  if (hp < 1) [r, g, b] = [c, x, 0];
+  else if (hp < 2) [r, g, b] = [x, c, 0];
+  else if (hp < 3) [r, g, b] = [0, c, x];
+  else if (hp < 4) [r, g, b] = [0, x, c];
+  else if (hp < 5) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const m = v - c;
+  return { r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 };
+}
+
+export function rgbToHsv({ r, g, b }: RGB): HSV {
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+  const d = max - min;
+  let h = 0;
+  if (d > 1e-6) {
+    if (max === rn) h = ((gn - bn) / d) % 6;
+    else if (max === gn) h = (bn - rn) / d + 2;
+    else h = (rn - gn) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return { h, s: max === 0 ? 0 : d / max, v: max };
+}
+
+export function hsvToHex(hsv: HSV): string {
+  return rgbToHex(hsvToRgb(hsv));
+}
+
+export function hexToHsv(hex: string): HSV {
+  return rgbToHsv(hexToRgb(hex));
+}
