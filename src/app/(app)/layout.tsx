@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/classic/sidebar";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { VariantToggle } from "@/components/shared/variant-toggle";
 import { LocaleToggle } from "@/components/shared/locale-toggle";
+import { SupportWidget } from "@/components/support/support-widget";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   await requireAccessToken();
@@ -28,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           localeToggle={localeToggle}
         />
         <main style={{ flex: 1, minWidth: 0 }}>{children}</main>
+        <SupportWidget />
       </div>
     );
   }
@@ -36,6 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <>
       <AppNav user={user} themeToggle={themeToggle} variantToggle={variantToggle} localeToggle={localeToggle} />
       <main style={{ maxWidth: "var(--max)", margin: "0 auto", padding: "40px var(--gutter) 96px" }}>{children}</main>
+      <SupportWidget />
     </>
   );
 }

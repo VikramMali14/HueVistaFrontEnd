@@ -22,6 +22,9 @@ const ALLOWED_PREFIXES = [
   "api/me/entitlement",
   "api/billing/project-credit",
   "api/organizations",
+  "api/access-codes",
+  "api/support",
+  "api/paint",
 ] as const;
 
 async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {

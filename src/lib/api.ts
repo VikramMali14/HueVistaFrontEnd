@@ -12,15 +12,23 @@
 
 import { config } from "./config";
 import type {
+  AccessCode,
   ApiError,
   AuthResponse,
   CustomerEntitlement,
   OrgResponse,
+  PaintBrand,
+  PaintLine,
+  ProductCategory,
   ProjectCreditOrder,
+  QualityTier,
+  ShopProduct,
   ProjectDetail,
   ProjectSummary,
   RegionColorUpdate,
   RegionDetail,
+  SupportConversation,
+  SupportConversationSummary,
   UploadedImage,
   UserProfile,
 } from "./types";
@@ -180,8 +188,91 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  // --- Retailer: manage the customers they onboarded ---
+  // --- Paint product catalogue (shopkeeper-managed) ---
+  listPaintBrands: () => browserFetch<PaintBrand[]>("api/paint/brands"),
+  addPaintBrand: (body: { name: string }) =>
+    browserFetch<PaintBrand>("api/paint/brands", { method: "POST", body: JSON.stringify(body) }),
+  listPaintLines: (brandId: number, category: ProductCategory) =>
+    browserFetch<PaintLine[]>(`api/paint/brands/${brandId}/lines?category=${category}`),
+  addPaintLine: (
+    brandId: number,
+    body: { name: string; category: ProductCategory; qualityTier?: QualityTier; defaultFinish?: string },
+  ) =>
+    browserFetch<PaintLine>(`api/paint/brands/${brandId}/lines`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  listShopProducts: (orgId: string) =>
+    browserFetch<ShopProduct[]>(`api/organizations/${encodeURIComponent(orgId)}/products`),
+  createShopProduct: (
+    orgId: string,
+    body: {
+      lineId: number;
+      price?: number;
+      priceUnit?: string;
+      packSize?: string;
+      coverage?: string;
+      finish?: string;
+      qualityTier?: QualityTier;
+      brightness?: number;
+      imageUrl?: string;
+      features?: string;
+      description?: string;
+    },
+  ) =>
+    browserFetch<ShopProduct>(`api/organizations/${encodeURIComponent(orgId)}/products`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  deleteShopProduct: (orgId: string, productId: string) =>
+    browserFetch<void>(`api/organizations/${encodeURIComponent(orgId)}/products/${encodeURIComponent(productId)}`, {
+      method: "DELETE",
+    }),
+  // --- Retailer: organizations + customer access codes ---
   listMyOrgs: () => browserFetch<OrgResponse[]>("api/organizations/mine"),
+  createOrganization: (body: { name: string; slug: string; type: "RETAILER" | "DISTRIBUTOR" }) =>
+    browserFetch<OrgResponse>("api/organizations", { method: "POST", body: JSON.stringify(body) }),
+  listAccessCodes: (orgId: string) =>
+    browserFetch<AccessCode[]>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`),
+  createAccessCode: (orgId: string, body: { validDays: number }) =>
+    browserFetch<AccessCode>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  // --- Customer: redeem a retailer's code (flips this account to CUSTOMER) ---
+  redeemAccessCode: (body: { code: string }) =>
+    browserFetch<AccessCode>("api/access-codes/redeem", { method: "POST", body: JSON.stringify(body) }),
+  // --- Support: AI conversations with human handoff ---
+  startSupport: (body: { message: string; subject?: string }) =>
+    browserFetch<SupportConversation>("api/support/conversations", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  listSupport: () => browserFetch<SupportConversationSummary[]>("api/support/conversations"),
+  getSupport: (id: string) =>
+    browserFetch<SupportConversation>(`api/support/conversations/${encodeURIComponent(id)}`),
+  postSupport: (id: string, body: { body: string }) =>
+    browserFetch<SupportConversation>(`api/support/conversations/${encodeURIComponent(id)}/messages`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  requestHumanSupport: (id: string) =>
+    browserFetch<SupportConversation>(`api/support/conversations/${encodeURIComponent(id)}/request-human`, {
+      method: "POST",
+    }),
+  // --- Support staff inbox (ADMIN) ---
+  listSupportInbox: () => browserFetch<SupportConversationSummary[]>("api/support/inbox"),
+  getSupportInbox: (id: string) =>
+    browserFetch<SupportConversation>(`api/support/inbox/${encodeURIComponent(id)}`),
+  replySupport: (id: string, body: { body: string }) =>
+    browserFetch<SupportConversation>(`api/support/inbox/${encodeURIComponent(id)}/reply`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  resolveSupport: (id: string) =>
+    browserFetch<SupportConversation>(`api/support/inbox/${encodeURIComponent(id)}/resolve`, {
+      method: "POST",
+    }),
   listCustomers: (orgId: string) =>
     browserFetch<CustomerEntitlement[]>(`api/organizations/${encodeURIComponent(orgId)}/customers`),
   grantProject: (orgId: string, customerId: string) =>

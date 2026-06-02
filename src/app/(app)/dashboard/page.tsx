@@ -46,6 +46,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </div>
         <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Good morning,<br /><i>{user?.name?.split(" ")[0] ?? "Friend"}.</i></h1>
         <Lead style={{ marginTop: 24 }}>{user?.name ? "Welcome back to the counter." : "Welcome to HueVista."} Pick up a saved project, or start a new one.</Lead>
+        <div style={{ marginTop: 16 }}>
+          <LinkButton href="/redeem" variant="ghost" size="sm">Have a shop access code? Redeem it <span className="arr">→</span></LinkButton>
+        </div>
       </header>
       <section className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, marginBottom: 64 }}>
         {[

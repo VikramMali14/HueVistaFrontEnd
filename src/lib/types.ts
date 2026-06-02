@@ -151,6 +151,91 @@ export interface OrgResponse {
   ownerName?: string;
 }
 
+// --- Customer support ---
+export type SupportSender = "USER" | "AI" | "AGENT" | "SYSTEM";
+export type SupportConversationStatus = "OPEN" | "NEEDS_HUMAN" | "RESOLVED";
+export type SupportChannel = "IN_APP" | "WHATSAPP" | "VOICE" | "EMAIL";
+
+export interface SupportMessage {
+  id: string;
+  sender: SupportSender;
+  body: string;
+  createdAt?: string | null;
+}
+
+export interface SupportConversation {
+  id: string;
+  channel: SupportChannel;
+  status: SupportConversationStatus;
+  subject?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  messages: SupportMessage[];
+}
+
+export interface SupportConversationSummary {
+  id: string;
+  channel: SupportChannel;
+  status: SupportConversationStatus;
+  subject?: string | null;
+  requesterName?: string | null;
+  requesterEmail?: string | null;
+  requesterRole?: string | null;
+  lastMessage?: string | null;
+  updatedAt?: string | null;
+}
+
+// --- Paint product catalogue (shopkeeper-managed) ---
+export type ProductCategory = "INTERIOR" | "EXTERIOR";
+export type QualityTier = "ECONOMY" | "PREMIUM" | "LUXURY";
+
+export interface PaintBrand {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+export interface PaintLine {
+  id: number;
+  name: string;
+  category: ProductCategory;
+  qualityTier: QualityTier;
+  defaultFinish?: string | null;
+}
+
+export interface ShopProduct {
+  id: string;
+  lineId: number;
+  brandName?: string | null;
+  lineName?: string | null;
+  category?: ProductCategory | null;
+  price?: number | null;
+  priceUnit?: string | null;
+  packSize?: string | null;
+  coverage?: string | null;
+  finish?: string | null;
+  qualityTier?: QualityTier | null;
+  brightness?: number | null;
+  imageUrl?: string | null;
+  features?: string | null;
+  description?: string | null;
+  createdAt?: string | null;
+}
+
+/** A customer access code a retailer issues (backend AccessCodeResponse). */
+export interface AccessCode {
+  id: string;
+  code: string;
+  organizationId: string;
+  organizationName?: string;
+  validDays: number;
+  expiresAt?: string | null;
+  used: boolean;
+  expired: boolean;
+  usedAt?: string | null;
+  createdAt?: string | null;
+}
+
 /** Razorpay order details returned by the backend to open Checkout for a one-time project purchase. */
 export interface ProjectCreditOrder {
   orderId: string;
