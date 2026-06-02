@@ -12,6 +12,7 @@
 
 import { config } from "./config";
 import type {
+  AccessCode,
   ApiError,
   AuthResponse,
   CustomerEntitlement,
@@ -180,8 +181,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  // --- Retailer: manage the customers they onboarded ---
+  // --- Retailer: organizations + customer access codes ---
   listMyOrgs: () => browserFetch<OrgResponse[]>("api/organizations/mine"),
+  createOrganization: (body: { name: string; slug: string; type: "RETAILER" | "DISTRIBUTOR" }) =>
+    browserFetch<OrgResponse>("api/organizations", { method: "POST", body: JSON.stringify(body) }),
+  listAccessCodes: (orgId: string) =>
+    browserFetch<AccessCode[]>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`),
+  createAccessCode: (orgId: string, body: { validDays: number }) =>
+    browserFetch<AccessCode>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  // --- Customer: redeem a retailer's code (flips this account to CUSTOMER) ---
+  redeemAccessCode: (body: { code: string }) =>
+    browserFetch<AccessCode>("api/access-codes/redeem", { method: "POST", body: JSON.stringify(body) }),
   listCustomers: (orgId: string) =>
     browserFetch<CustomerEntitlement[]>(`api/organizations/${encodeURIComponent(orgId)}/customers`),
   grantProject: (orgId: string, customerId: string) =>

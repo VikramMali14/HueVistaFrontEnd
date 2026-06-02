@@ -1,21 +1,15 @@
 import type { Metadata } from "next";
 import { getUiLocale, getUiVariant, requireRole } from "@/lib/auth";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
-import { LinkButton } from "@/components/ui/button";
 import { Placeholder } from "@/components/ui/placeholder";
 import { ClassicPortal } from "@/components/classic/portal";
 import { RetailerCustomers } from "@/components/app/retailer-customers";
+import { AccessCodes } from "@/components/app/access-codes";
 
 export const metadata: Metadata = {
   title: "The Annex",
   description: "Customer portal — your white-label storefront.",
 };
-
-const CODES = [
-  { code: "SHARDA-7K2N", customer: "Pooja Deshmukh", validity: "7 days", left: "5 d 14 h", status: "active" as const },
-  { code: "SHARDA-9PXM", customer: "Mohan Patil", validity: "14 days", left: "11 d 02 h", status: "active" as const },
-  { code: "SHARDA-3QRA", customer: "Anita Rao", validity: "3 days", left: "expired", status: "expired" as const },
-];
 
 export default async function PortalPage() {
   // The portal is a retailer/admin-only feature; deny shoppers and distributors.
@@ -40,23 +34,13 @@ export default async function PortalPage() {
         </div>
         <Placeholder tone="terracotta" grain corners tag="STOREFRONT" style={{ aspectRatio: "4 / 5" }} />
       </section>
-      <section style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 32 }}>
-        <h2 className="display" style={{ fontSize: 48 }}>Active <i>codes.</i></h2>
-        <LinkButton href="/portal" variant="ghost" size="sm">Issue a new code <span className="arr">→</span></LinkButton>
-      </section>
-      <section className="hv-portal-table" style={{ border: "1px solid var(--rule)" }}>
-        <div className="hv-portal-row hv-portal-head" style={{ display: "grid", gridTemplateColumns: "1.4fr 1.6fr 1fr 1fr 1fr", padding: "18px 24px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
-          {["Code", "Customer", "Validity", "Time left", "Status"].map((h) => (<Mono key={h}>{h}</Mono>))}
-        </div>
-        {CODES.map((c, i) => (
-          <div key={c.code} className="hv-portal-row" style={{ display: "grid", gridTemplateColumns: "1.4fr 1.6fr 1fr 1fr 1fr", padding: "22px 24px", borderBottom: i === CODES.length - 1 ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
-            <span data-label="Code" style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{c.code}</span>
-            <span data-label="Customer" style={{ font: "300 italic 18px/1 var(--serif)" }}>{c.customer}</span>
-            <Mono><span data-label="Validity">{c.validity}</span></Mono>
-            <Mono><span data-label="Time left">{c.left}</span></Mono>
-            <span data-label="Status" style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: c.status === "active" ? "var(--accent)" : "var(--fg-mute-deep)" }}>{c.status}</span>
-          </div>
-        ))}
+      <section style={{ marginBottom: 32 }}>
+        <h2 className="display" style={{ fontSize: 48, marginBottom: 8 }}>Active <i>codes.</i></h2>
+        <p style={{ font: "300 italic 18px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+          Issue a code and share it with a customer. They redeem it at <Mono>/redeem</Mono> to start
+          visualising — with one project and a validity window you control.
+        </p>
+        <AccessCodes />
       </section>
       <section style={{ marginTop: 56 }}>
         <h2 className="display" style={{ fontSize: 48, marginBottom: 8 }}>

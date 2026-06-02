@@ -151,6 +151,20 @@ export interface OrgResponse {
   ownerName?: string;
 }
 
+/** A customer access code a retailer issues (backend AccessCodeResponse). */
+export interface AccessCode {
+  id: string;
+  code: string;
+  organizationId: string;
+  organizationName?: string;
+  validDays: number;
+  expiresAt?: string | null;
+  used: boolean;
+  expired: boolean;
+  usedAt?: string | null;
+  createdAt?: string | null;
+}
+
 /** Razorpay order details returned by the backend to open Checkout for a one-time project purchase. */
 export interface ProjectCreditOrder {
   orderId: string;
