@@ -185,6 +185,43 @@ export interface SupportConversationSummary {
   updatedAt?: string | null;
 }
 
+// --- Paint product catalogue (shopkeeper-managed) ---
+export type ProductCategory = "INTERIOR" | "EXTERIOR";
+export type QualityTier = "ECONOMY" | "PREMIUM" | "LUXURY";
+
+export interface PaintBrand {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+export interface PaintLine {
+  id: number;
+  name: string;
+  category: ProductCategory;
+  qualityTier: QualityTier;
+  defaultFinish?: string | null;
+}
+
+export interface ShopProduct {
+  id: string;
+  lineId: number;
+  brandName?: string | null;
+  lineName?: string | null;
+  category?: ProductCategory | null;
+  price?: number | null;
+  priceUnit?: string | null;
+  packSize?: string | null;
+  coverage?: string | null;
+  finish?: string | null;
+  qualityTier?: QualityTier | null;
+  brightness?: number | null;
+  imageUrl?: string | null;
+  features?: string | null;
+  description?: string | null;
+  createdAt?: string | null;
+}
+
 /** A customer access code a retailer issues (backend AccessCodeResponse). */
 export interface AccessCode {
   id: string;

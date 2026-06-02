@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 // where cookies are writable — Server Components must not mutate cookies, so the
 // refresh that used to happen during render (and crashed) now happens up here.
 
-const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/redeem"];
+const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/redeem", "/inbox", "/products"];
 const ACCESS_COOKIE = "hv_access";
 const SESSION_COOKIE = "hv_refresh";
 const REFRESH_TTL = 60 * 60 * 24 * 7; // 7 days, matches the backend
@@ -91,5 +91,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/atelier/:path*", "/dashboard/:path*", "/portal/:path*", "/redeem/:path*", "/bff/:path*"],
+  matcher: ["/atelier/:path*", "/dashboard/:path*", "/portal/:path*", "/redeem/:path*", "/inbox/:path*", "/products/:path*", "/bff/:path*"],
 };

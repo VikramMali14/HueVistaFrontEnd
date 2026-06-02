@@ -11,6 +11,8 @@ const TABS = [
   { href: "/atelier", label: "iii · Atelier" },
   { href: "/dashboard", label: "v · Suite" },
   { href: "/portal", label: "vi · Annex" },
+  { href: "/products", label: "Products" },
+  { href: "/inbox", label: "Inbox" },
 ] as const;
 
 interface AppNavProps {
@@ -26,6 +28,8 @@ export function AppNav({ user, themeToggle, variantToggle, localeToggle }: AppNa
   const folio = pathname.includes("dashboard") ? "v" : pathname.includes("portal") ? "vi" : "iii";
   const visibleTabs = TABS.filter((t) => {
     if (t.href === "/portal" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
+    if (t.href === "/products" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
+    if (t.href === "/inbox" && (!user || user.role !== "ADMIN")) return false;
     return true;
   });
 

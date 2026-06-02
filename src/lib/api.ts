@@ -17,7 +17,12 @@ import type {
   AuthResponse,
   CustomerEntitlement,
   OrgResponse,
+  PaintBrand,
+  PaintLine,
+  ProductCategory,
   ProjectCreditOrder,
+  QualityTier,
+  ShopProduct,
   ProjectDetail,
   ProjectSummary,
   RegionColorUpdate,
@@ -183,6 +188,46 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // --- Paint product catalogue (shopkeeper-managed) ---
+  listPaintBrands: () => browserFetch<PaintBrand[]>("api/paint/brands"),
+  addPaintBrand: (body: { name: string }) =>
+    browserFetch<PaintBrand>("api/paint/brands", { method: "POST", body: JSON.stringify(body) }),
+  listPaintLines: (brandId: number, category: ProductCategory) =>
+    browserFetch<PaintLine[]>(`api/paint/brands/${brandId}/lines?category=${category}`),
+  addPaintLine: (
+    brandId: number,
+    body: { name: string; category: ProductCategory; qualityTier?: QualityTier; defaultFinish?: string },
+  ) =>
+    browserFetch<PaintLine>(`api/paint/brands/${brandId}/lines`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  listShopProducts: (orgId: string) =>
+    browserFetch<ShopProduct[]>(`api/organizations/${encodeURIComponent(orgId)}/products`),
+  createShopProduct: (
+    orgId: string,
+    body: {
+      lineId: number;
+      price?: number;
+      priceUnit?: string;
+      packSize?: string;
+      coverage?: string;
+      finish?: string;
+      qualityTier?: QualityTier;
+      brightness?: number;
+      imageUrl?: string;
+      features?: string;
+      description?: string;
+    },
+  ) =>
+    browserFetch<ShopProduct>(`api/organizations/${encodeURIComponent(orgId)}/products`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  deleteShopProduct: (orgId: string, productId: string) =>
+    browserFetch<void>(`api/organizations/${encodeURIComponent(orgId)}/products/${encodeURIComponent(productId)}`, {
+      method: "DELETE",
+    }),
   // --- Retailer: organizations + customer access codes ---
   listMyOrgs: () => browserFetch<OrgResponse[]>("api/organizations/mine"),
   createOrganization: (body: { name: string; slug: string; type: "RETAILER" | "DISTRIBUTOR" }) =>
@@ -213,6 +258,19 @@ export const api = {
     }),
   requestHumanSupport: (id: string) =>
     browserFetch<SupportConversation>(`api/support/conversations/${encodeURIComponent(id)}/request-human`, {
+      method: "POST",
+    }),
+  // --- Support staff inbox (ADMIN) ---
+  listSupportInbox: () => browserFetch<SupportConversationSummary[]>("api/support/inbox"),
+  getSupportInbox: (id: string) =>
+    browserFetch<SupportConversation>(`api/support/inbox/${encodeURIComponent(id)}`),
+  replySupport: (id: string, body: { body: string }) =>
+    browserFetch<SupportConversation>(`api/support/inbox/${encodeURIComponent(id)}/reply`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  resolveSupport: (id: string) =>
+    browserFetch<SupportConversation>(`api/support/inbox/${encodeURIComponent(id)}/resolve`, {
       method: "POST",
     }),
   listCustomers: (orgId: string) =>
