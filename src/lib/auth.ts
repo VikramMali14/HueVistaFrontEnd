@@ -123,19 +123,12 @@ export async function toggleUiLocaleAction() {
 
 export async function getAccessToken(): Promise<string | null> {
   if (isDevBypass()) return DEV_BYPASS_TOKEN;
+  // READ-ONLY. Token refresh (and the cookie writes it needs) happens in
+  // middleware.ts, which runs before render where cookies ARE writable. A Server
+  // Component / Route Handler must never mutate cookies during render — doing so
+  // throws "Cookies can only be modified in a Server Action or Route Handler".
   const jar = await cookies();
-  const access = jar.get(config.accessCookie)?.value;
-  if (access) return access;
-  const refresh = jar.get(config.sessionCookie)?.value;
-  if (!refresh) return null;
-  try {
-    const auth = await authApi.refresh(refresh);
-    await persistSession(auth);
-    return auth.accessToken;
-  } catch {
-    await clearSession();
-    return null;
-  }
+  return jar.get(config.accessCookie)?.value ?? null;
 }
 
 export async function requireAccessToken(): Promise<string> {
