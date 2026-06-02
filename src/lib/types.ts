@@ -151,6 +151,40 @@ export interface OrgResponse {
   ownerName?: string;
 }
 
+// --- Customer support ---
+export type SupportSender = "USER" | "AI" | "AGENT" | "SYSTEM";
+export type SupportConversationStatus = "OPEN" | "NEEDS_HUMAN" | "RESOLVED";
+export type SupportChannel = "IN_APP" | "WHATSAPP" | "VOICE" | "EMAIL";
+
+export interface SupportMessage {
+  id: string;
+  sender: SupportSender;
+  body: string;
+  createdAt?: string | null;
+}
+
+export interface SupportConversation {
+  id: string;
+  channel: SupportChannel;
+  status: SupportConversationStatus;
+  subject?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  messages: SupportMessage[];
+}
+
+export interface SupportConversationSummary {
+  id: string;
+  channel: SupportChannel;
+  status: SupportConversationStatus;
+  subject?: string | null;
+  requesterName?: string | null;
+  requesterEmail?: string | null;
+  requesterRole?: string | null;
+  lastMessage?: string | null;
+  updatedAt?: string | null;
+}
+
 /** A customer access code a retailer issues (backend AccessCodeResponse). */
 export interface AccessCode {
   id: string;

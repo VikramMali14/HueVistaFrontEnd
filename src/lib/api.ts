@@ -22,6 +22,8 @@ import type {
   ProjectSummary,
   RegionColorUpdate,
   RegionDetail,
+  SupportConversation,
+  SupportConversationSummary,
   UploadedImage,
   UserProfile,
 } from "./types";
@@ -195,6 +197,24 @@ export const api = {
   // --- Customer: redeem a retailer's code (flips this account to CUSTOMER) ---
   redeemAccessCode: (body: { code: string }) =>
     browserFetch<AccessCode>("api/access-codes/redeem", { method: "POST", body: JSON.stringify(body) }),
+  // --- Support: AI conversations with human handoff ---
+  startSupport: (body: { message: string; subject?: string }) =>
+    browserFetch<SupportConversation>("api/support/conversations", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  listSupport: () => browserFetch<SupportConversationSummary[]>("api/support/conversations"),
+  getSupport: (id: string) =>
+    browserFetch<SupportConversation>(`api/support/conversations/${encodeURIComponent(id)}`),
+  postSupport: (id: string, body: { body: string }) =>
+    browserFetch<SupportConversation>(`api/support/conversations/${encodeURIComponent(id)}/messages`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  requestHumanSupport: (id: string) =>
+    browserFetch<SupportConversation>(`api/support/conversations/${encodeURIComponent(id)}/request-human`, {
+      method: "POST",
+    }),
   listCustomers: (orgId: string) =>
     browserFetch<CustomerEntitlement[]>(`api/organizations/${encodeURIComponent(orgId)}/customers`),
   grantProject: (orgId: string, customerId: string) =>
