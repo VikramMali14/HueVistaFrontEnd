@@ -22,7 +22,7 @@ export function PricingFaq() {
             <button
               type="button"
               onClick={() => setOpen(isOpen ? null : i)}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", width: "100%", background: "transparent", border: "none", cursor: "pointer", color: "var(--ivory)", fontFamily: "var(--serif)", fontSize: 28, padding: 0, textAlign: "left", lineHeight: 1.2 }}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", width: "100%", background: "transparent", border: "none", cursor: "pointer", color: "var(--fg)", fontFamily: "var(--serif)", fontSize: 28, padding: 0, textAlign: "left", lineHeight: 1.2 }}
               aria-expanded={isOpen}
             >
               <span>{item.q}</span>
@@ -35,7 +35,7 @@ export function PricingFaq() {
                 transition: "max-height .5s var(--ease), margin-top .3s var(--ease)",
                 marginTop: isOpen ? 20 : 0,
                 font: "300 italic 19px/1.55 var(--serif)",
-                color: "var(--ivory-soft)",
+                color: "var(--fg-soft)",
                 maxWidth: "70ch",
               }}
             >

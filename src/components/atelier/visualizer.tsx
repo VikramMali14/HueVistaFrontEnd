@@ -1140,14 +1140,16 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           padding-left: 20px;
         }
         .hv-visualizer.is-classic .hv-vis-project { border-left: none; padding-left: 0; }
+        /* Largest breakpoint first: at <=768 the single-column rule below must win
+           over the <=1024 two-column rule (equal specificity → source order decides). */
+        @media (max-width: 1024px) {
+          .hv-vis-body { grid-template-columns: 1fr 320px !important; }
+        }
         @media (max-width: 768px) {
           .hv-vis-topbar { gap: 12px; padding: 12px 16px; }
           .hv-vis-project { padding-left: 12px; }
           .hv-vis-body { grid-template-columns: 1fr !important; min-height: 0 !important; }
           .hv-vis-canvas-wrap { min-height: 60vh; }
-        }
-        @media (max-width: 1024px) {
-          .hv-vis-body { grid-template-columns: 1fr 320px !important; }
         }
         @media (max-width: 480px) {
           .hv-vis-topbar { padding: 10px 12px; }
@@ -1254,7 +1256,7 @@ function DropZone({
             style={{
               fontFamily: "var(--serif)",
               fontWeight: 300,
-              fontSize: 64,
+              fontSize: "clamp(34px, 7vw, 64px)",
               lineHeight: 0.95,
               color: "var(--fg)",
               margin: 0,

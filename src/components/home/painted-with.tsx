@@ -25,7 +25,7 @@ export function PaintedWith() {
         {CARDS.map((c) => (
           <div key={c.num} style={{ flex: "0 0 320px", scrollSnapAlign: "start" }}>
             <div style={{ height: 440, position: "relative", background: c.hex, boxShadow: "0 1px 0 rgba(255,255,255,.06) inset, 0 40px 80px -30px rgba(0,0,0,.6), 0 12px 30px -12px rgba(0,0,0,.4)" }}>
-              <span style={{ position: "absolute", top: 22, right: 22, font: "400 italic 18px/1 var(--serif)", color: "rgba(255,255,255,.7)" }}>{c.num}</span>
+              <span className="hv-ornament" style={{ position: "absolute", top: 22, right: 22, font: "400 italic 18px/1 var(--serif)", color: "rgba(255,255,255,.7)" }}>{c.num}</span>
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(255,255,255,.16), transparent 35%, transparent 70%, rgba(0,0,0,.18))", pointerEvents: "none" }} />
             </div>
             <div style={{ marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>

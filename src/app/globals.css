@@ -225,6 +225,8 @@ button { font-family: inherit; }
   letter-spacing: .01em;
   padding: 10px 18px;
   position: relative;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: color .25s var(--ease);
 }
 .nav-link:hover, .nav-link.active { color: var(--fg); }
@@ -247,8 +249,59 @@ button { font-family: inherit; }
   margin-left: 12px;
 }
 .nav-cta:hover { background: var(--accent); color: var(--bg); }
+.nav-cta { white-space: nowrap; flex-shrink: 0; }
 .nav-cta .arr { transition: transform .3s var(--ease); }
 .nav-cta:hover .arr { transform: translateX(4px); }
+
+/* ====== PUBLIC-NAV MOBILE MENU (hamburger + drawer) ====== */
+.nav-menu-toggle {
+  display: none;
+  width: 44px; height: 44px;
+  align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  color: var(--fg);
+  cursor: pointer;
+}
+.nav-menu-toggle:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.nav-mobile { display: none; }
+
+@media (max-width: 768px) {
+  .nav-menu-toggle { display: inline-flex; }
+  .nav-inner > .variant-toggle { display: none; }     /* declutter — premium/classic switch is desktop-only */
+  .nav-signin,
+  .nav-inner > .nav-cta { display: none; }             /* relocated into the drawer */
+  .nav-inner > .theme-toggle { margin-left: auto; }    /* push toggle + hamburger to the right */
+  .nav-inner { gap: 12px; }
+
+  .nav-mobile {
+    display: flex; flex-direction: column;
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: min(82vw, 360px);
+    background: var(--nav-bg-strong);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    backdrop-filter: blur(24px) saturate(140%);
+    border-left: 1px solid var(--rule);
+    box-shadow: -24px 0 48px -24px rgba(0,0,0,.5);
+    padding: 92px 28px 32px;
+    gap: 2px;
+    transform: translateX(100%);
+    transition: transform .3s var(--ease);
+    z-index: 90;
+    overflow-y: auto;
+  }
+  .nav-mobile.is-open { transform: translateX(0); }
+  .nav-mobile-link {
+    font: 300 26px/1 var(--serif);
+    color: var(--fg);
+    padding: 16px 2px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .nav-mobile-link.active { color: var(--accent); }
+  .nav-mobile-foot { margin-top: auto; padding-top: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .nav-mobile-foot .nav-mobile-link { border-bottom: none; padding: 6px 2px; }
+  .nav-mobile-cta { display: inline-flex; justify-content: center; }
+}
 
 /* ====== LAYOUT ====== */
 main { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
@@ -674,7 +727,7 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   :root { --gutter: 22px; }
   section { padding: 80px 0; }
   .nav-links { display: none; }
-  .footer-inner { grid-template-columns: 1fr; }
+  /* keep a 2-up footer on tablet; it collapses to one column on phones (<=480) */
   .footer-bottom { flex-direction: column; align-items: flex-start; gap: 12px; }
   .page-head { padding: 56px 0 48px; }
   .page-head h1 { font-size: clamp(40px, 12vw, 80px); }
@@ -698,7 +751,7 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   .page-head .eyebrow-row { margin-bottom: 32px; }
   .page-head .page-lead { margin-top: 32px; }
   .nav-inner { padding: 14px var(--gutter); }
-  .nav-cta { display: none; }
+  /* header CTA already hidden at <=768 (.nav-inner > .nav-cta); the drawer CTA stays visible */
   .marquee-track { gap: 32px; padding: 8px 0; }
   .footer-col a { font-size: 17px; }
   .field input, .field select, .field textarea { font-size: 18px; padding: 10px 0; }
@@ -718,6 +771,7 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   .marquee { font-size: 9px; }
   .lead { font-size: 17px; }
   .brand { font-size: 22px; }
+  .footer-inner { grid-template-columns: 1fr; }
   .footer-bottom .mono { font-size: 9px; letter-spacing: .24em; }
   .btn, .btn-ghost, .btn-brass { width: 100%; justify-content: center; }
 }
@@ -791,25 +845,39 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
 /* ----- High-density displays: keep canvas crisp ----- */
 canvas { image-rendering: -webkit-optimize-contrast; }
 
-/* ----- Premium Portal table → card list on phones ----- */
-@media (max-width: 768px) {
-  .hv-portal-head { display: none !important; }
-  .hv-portal-row {
+/* ----- Premium Portal "Active codes" + "Customers" tables → card list on phones.
+   Reflow only <=640: the 4-5 column tables still fit fine at tablet (768), where
+   card mode would leave sparse, half-empty boxes. ----- */
+@media (max-width: 640px) {
+  /* Compound selector (0,2,0) beats .hv-portal-row (0,1,0) regardless of source order,
+     so the header row stays hidden in card mode. */
+  .hv-portal-row.hv-portal-head,
+  .hv-cust-row.hv-cust-head { display: none !important; }
+  .hv-portal-row, .hv-cust-row {
     display: flex !important;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     padding: 18px 18px !important;
   }
-  .hv-portal-row > * { display: flex; justify-content: space-between; gap: 16px; }
-  .hv-portal-row > *::before {
+  .hv-portal-row > *, .hv-cust-row > * {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  }
+  /* Only cells that carry a data-label get an inline label — keeps lead/action cells clean. */
+  .hv-portal-row > [data-label]::before,
+  .hv-cust-row > [data-label]::before {
     content: attr(data-label);
     color: var(--fg-mute);
     font: 400 10px/1 var(--mono, ui-monospace);
     letter-spacing: .26em;
     text-transform: uppercase;
+    flex-shrink: 0;
+    text-align: left;
   }
-  .hv-portal-row > [data-label]::before { content: attr(data-label); }
-  .hv-portal-row [data-label]::before { content: attr(data-label); color: var(--fg-mute); font: 400 10px/1 var(--mono, ui-monospace); letter-spacing: .26em; text-transform: uppercase; margin-right: auto; }
+  /* The customer name/email cell spans full width as a header, no inline label. */
+  .hv-cust-row > .hv-cust-lead { flex-direction: column; align-items: stretch; gap: 2px; }
+  .hv-cust-row > .hv-cust-action { display: block; }
+  .hv-cust-row > .hv-cust-action .btn,
+  .hv-cust-row > .hv-cust-action button { width: 100%; justify-content: center; }
 }
 
 /* ----- Classic .ctable → card list on phones ----- */
@@ -858,6 +926,31 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   .hv-cat-toolbar > :first-child,
   .hv-cat-toolbar > :last-child { grid-column: span 1; }
   .hv-cat-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+}
+
+/* ----- Pricing comparison matrix: a wide table can't honestly fit 5 columns on a phone.
+   Keep it horizontally scrollable but pin the capability column and signpost the swipe. ----- */
+.hv-matrix-hint { display: none; }
+@media (max-width: 768px) {
+  .hv-matrix-hint {
+    display: block;
+    font: 400 10px/1.4 var(--mono);
+    letter-spacing: .26em;
+    text-transform: uppercase;
+  }
+  .hv-matrix { min-width: 660px !important; }
+  .hv-matrix th, .hv-matrix td { padding: 14px 14px !important; font-size: 13px !important; }
+  .hv-matrix thead th:first-child,
+  .hv-matrix tbody td:first-child {
+    position: sticky; left: 0; z-index: 2;
+    background: #0a0805;                 /* matches the dark matrix band so rows don't bleed through */
+    box-shadow: 1px 0 0 var(--rule);
+  }
+  .hv-matrix tbody td[colspan] { position: static; box-shadow: none; background: transparent; }
+}
+@media (max-width: 480px) {
+  .hv-matrix { min-width: 560px !important; }
+  .hv-matrix th, .hv-matrix td { padding: 12px 10px !important; font-size: 12px !important; }
 }
 
 /* =========================================================
@@ -1005,8 +1098,9 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-classic-eyebrow { display: none; }
 [data-variant="classic"] .hv-classic-eyebrow { display: inline; }
 .hv-hero-stats-classic { display: none; }
-[data-variant="classic"] .hv-hero-stats-premium { display: none; }
-[data-variant="classic"] .hv-hero-stats-classic { display: grid; }
+/* !important so it beats the components' inline display:grid */
+[data-variant="classic"] .hv-hero-stats-premium { display: none !important; }
+[data-variant="classic"] .hv-hero-stats-classic { display: grid !important; }
 [data-variant="classic"] .hv-hero-stat-num { font-size: 32px !important; font-weight: 600 !important; }
 [data-variant="classic"] .hv-hero-stat-label { font-style: normal !important; font-size: 15px !important; }
 
@@ -1025,6 +1119,88 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 [data-variant="classic"] .hv-harmonies-head .lead { text-align: left !important; }
 [data-variant="classic"] .hv-harmonies-head .display { font-size: clamp(28px, 4vw, 40px) !important; }
 [data-variant="classic"] .hv-harmony-name { font-size: 18px !important; }
+
+/* Colour finder — drop the premium serif-italic editorial flourishes in classic so the
+   tool reads as a plain, enterprise utility. (Classic already remaps --serif to Inter;
+   here we just kill the italics and round the card to match the classic surfaces.) */
+[data-variant="classic"] .hv-finder :is(.finder-lead, .finder-drop, .finder-shade-name, .finder-empty-hint),
+[data-variant="classic"] .finder-foot {
+  font-style: normal !important;
+  font-family: var(--sans) !important;
+}
+[data-variant="classic"] .hv-finder .finder-hex {
+  font-style: normal !important;
+  font-family: var(--mono) !important;   /* a hex code reads better as mono in the classic UI */
+  font-size: 18px !important;
+  letter-spacing: .04em;
+}
+[data-variant="classic"] .hv-finder { border-radius: 8px; }
+
+/* =========================================================
+   CLASSIC variant — public-page + app-shell hardening.
+   The marketing pages ship the premium editorial treatment; classic strips the
+   flourishes (marquee, italics, ornaments, oversized display) so they read as
+   plain enterprise pages, and the app shell stacks correctly on phones.
+========================================================= */
+
+/* App shell: on phones the sidebar collapses to a drawer, so the mobile app-bar
+   must sit on TOP of the content (column), not beside it as a flex-row column. */
+@media (max-width: 768px) {
+  .capp-shell { flex-direction: column; }
+  [data-variant="classic"] .ctopbar { position: static; }
+  /* fully hide the off-screen drawer when closed so no sliver peeks at the edge */
+  .csidebar:not(.is-open) { visibility: hidden; }
+}
+
+/* Kill the decorative scrolling ticker on every classic page. */
+[data-variant="classic"] .marquee { display: none; }
+
+/* Brand wordmark uses the sans face, not the Didone serif. */
+[data-variant="classic"] .hv-logo-word { font-family: var(--sans) !important; letter-spacing: -0.01em; }
+
+/* No italics in classic — de-italicise every inline-italic editorial bit + i/em/blockquote. */
+[data-variant="classic"] [style*="italic"] { font-style: normal !important; }
+[data-variant="classic"] :is(i, em, blockquote, cite, q) { font-style: normal !important; }
+
+/* Tame the oversized editorial display headings to an enterprise scale, and bolden the
+   thin (weight-300) editorial headings — including the inline-styled bare h2/h3 that
+   don't carry the .display class — so they read as solid SaaS headings. */
+[data-variant="classic"] .display { font-size: clamp(26px, 4.2vw, 50px) !important; letter-spacing: -0.01em !important; }
+[data-variant="classic"] .page-head h1 { font-size: clamp(30px, 5vw, 54px) !important; }
+[data-variant="classic"] main :is(h1, h2, h3, .display) { font-weight: 600 !important; }
+[data-variant="classic"] main h2:not(.display) { font-size: clamp(20px, 3vw, 32px) !important; line-height: 1.25 !important; letter-spacing: -0.01em; }
+[data-variant="classic"] main h3:not(.display) { font-size: clamp(17px, 2.2vw, 22px) !important; }
+
+/* Drop the premium decorative ornaments (fleurons, quill/leaf glyphs) in classic. */
+[data-variant="classic"] .hv-ornament { display: none !important; }
+
+/* Drop the decorative superscript roman numerals on the partner brands. */
+[data-variant="classic"] #partners sup { display: none; }
+
+/* Sign-in art panel: classic blue/slate instead of the premium terracotta plate. */
+[data-variant="classic"] .auth-art {
+  background: linear-gradient(160deg, var(--accent-deep) 0%, var(--bg-deep) 100%) !important;
+  color: #f1f5f9 !important;
+}
+
+/* Re-point the raw brass/gold accent tokens at the classic blue accent so every
+   component that hardcoded var(--brass*) (stat figures, eyebrows, ticks, links)
+   reads blue in classic — theme-aware, since --accent is set per classic theme. */
+[data-variant="classic"] {
+  --brass: var(--accent);
+  --brass-soft: var(--accent-soft);
+  --brass-deep: var(--accent-deep);
+  /* Premium warm charcoal/cream card surfaces become cool slate in classic. These raw
+     tokens only feed hardcoded component styles (pricing cards, method cards); the
+     semantic --bg/--surface/--fg are already overridden per classic theme. */
+  --charcoal: #1e293b;
+  --ivory: #f8fafc;
+  --ivory-soft: #cbd5e1;
+}
+
+/* The premium warm-black full-bleed bands (#0a0805) become a cool classic slate
+   band so they don't read as luxury editorial panels (text inside stays light). */
+[data-variant="classic"] [style*="#0a0805"] { background: #0f172a !important; }
 
 /* =========================================================
    MOBILE — keep only the essential sections. The home page is too

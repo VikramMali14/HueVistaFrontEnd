@@ -39,7 +39,7 @@ export function Hero() {
           <i>before</i> the paint.
         </span>
       </h1>
-      <div className="reveal d1 hv-hero-stats hv-hero-stats-premium r-cols-md-3 r-cols-sm-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 64, marginTop: 72, paddingTop: 40, borderTop: "1px solid var(--rule)" }}>
+      <div className="reveal d1 hv-hero-stats hv-hero-stats-premium r-cols-md-3 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 64, marginTop: 72, paddingTop: 40, borderTop: "1px solid var(--rule)" }}>
         {PREMIUM_META.map((m, i) => (
           <StatCell key={i} num={m.num} label={m.label} />
         ))}

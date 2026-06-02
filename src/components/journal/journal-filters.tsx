@@ -29,7 +29,7 @@ export function JournalFilters({ entries }: { entries: ReadonlyArray<JournalEntr
                   textTransform: "uppercase",
                   padding: "8px 14px",
                   background: active ? "rgba(184,153,104,.08)" : "transparent",
-                  color: active ? "var(--brass)" : "var(--ivory-soft)",
+                  color: active ? "var(--brass)" : "var(--fg-soft)",
                   border: "1px solid " + (active ? "var(--rule-brass)" : "transparent"),
                   cursor: "pointer",
                 }}
@@ -59,8 +59,8 @@ export function JournalFilters({ entries }: { entries: ReadonlyArray<JournalEntr
             }}
           >
             <span style={{ font: "400 italic 22px/1 var(--serif)", color: "var(--brass)" }}>{e.num}</span>
-            <span style={{ fontFamily: "var(--serif)", fontSize: 26, color: "var(--ivory)", lineHeight: 1.2 }}>{e.title}</span>
-            <Mono style={{ color: "var(--ivory-soft)" }}>{e.meta}</Mono>
+            <span style={{ fontFamily: "var(--serif)", fontSize: 26, color: "var(--fg)", lineHeight: 1.2 }}>{e.title}</span>
+            <Mono style={{ color: "var(--fg-soft)" }}>{e.meta}</Mono>
             <Mono>{e.category}</Mono>
             <Mono brass style={{ textAlign: "right" }}>{e.date} →</Mono>
           </Link>

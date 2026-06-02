@@ -47,7 +47,7 @@ export default function GalleryPage() {
 
         <section style={{ background: "#0a0805", padding: "120px 0", marginTop: 80 }} className="full-bleed">
           <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
-            <div className="reveal" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
+            <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
               <Placeholder tone="oxblood" grain corners tag="CASE STUDY · NO. I" label="Sharda Paints, Belgavi" style={{ aspectRatio: "5 / 4" }} />
               <div>
                 <Eyebrow>Case Study &nbsp;·&nbsp; No. I</Eyebrow>

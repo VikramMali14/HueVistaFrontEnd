@@ -95,8 +95,12 @@ export default function PricingPage() {
                 Every line item, <i>compared.</i>
               </h2>
             </div>
-            <div className="reveal d1" style={{ marginTop: 64, overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
+            <div className="reveal d1" style={{ marginTop: 64 }}>
+              <p className="mono hv-matrix-hint" style={{ marginBottom: 14, color: "var(--brass-soft)" }}>
+                Swipe to compare every tier →
+              </p>
+              <div className="r-scroll-x" style={{ overflowX: "auto" }}>
+                <table className="hv-matrix" style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
                 <thead>
                   <tr>
                     <th style={{ ...headStyle, width: "34%" }}>Capability</th>
@@ -124,7 +128,8 @@ export default function PricingPage() {
                     )),
                   ])}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
           </div>
         </section>
@@ -136,7 +141,7 @@ export default function PricingPage() {
               <h2 className="display" style={{ fontSize: "clamp(40px, 5.5vw, 80px)", marginTop: 24, lineHeight: 0.95 }}>
                 Quietly <i>answered.</i>
               </h2>
-              <p style={{ font: "300 italic 18px/1.5 var(--serif)", color: "var(--ivory-soft)", marginTop: 32 }}>
+              <p style={{ font: "300 italic 18px/1.5 var(--serif)", color: "var(--fg-soft)", marginTop: 32 }}>
                 If your question isn't here, write to us. We answer within an afternoon.
               </p>
               <Link href="/trial" className="text-link" style={{ marginTop: 32, display: "inline-block" }}>Write to us &nbsp;→</Link>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { deltaE, nearestShades, rgbToHex, rgbToLab, type RGB } from "@/lib/color";
 import { SHADES } from "@/lib/shades";
@@ -44,6 +44,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [hasImage, setHasImage] = useState(false);
+  const [loadedImg, setLoadedImg] = useState<HTMLImageElement | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [hover, setHover] = useState<{ hex: string; x: number; y: number } | null>(null);
   const [palette, setPalette] = useState<string[]>([]);
@@ -52,9 +53,14 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
 
   const matches = useMemo(() => (picked ? nearestShades(picked, catalogue, 6) : []), [picked, catalogue]);
 
-  const drawAndAnalyze = useCallback((img: HTMLImageElement) => {
+  // Draw + analyse runs in an effect *after* the canvas has mounted. The canvas only
+  // renders once `hasImage` is true, so drawing straight from the image-load callback
+  // would hit a not-yet-mounted ref (canvasRef.current === null) and the upload would
+  // silently do nothing. Setting `loadedImg` mounts the canvas, then this effect paints.
+  useEffect(() => {
+    const img = loadedImg;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!img || !canvas) return;
     const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight));
     const w = Math.max(1, Math.round(img.naturalWidth * scale));
     const h = Math.max(1, Math.round(img.naturalHeight * scale));
@@ -70,10 +76,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
     } catch {
       setPalette([]);
     }
-    setHasImage(true);
-    setPicked(null);
-    setHover(null);
-  }, []);
+  }, [loadedImg]);
 
   const onFile = useCallback(
     (file: File) => {
@@ -97,7 +100,11 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
       };
       const img = new Image();
       img.onload = () => {
-        drawAndAnalyze(img);
+        // Mount the canvas (hasImage) and hand the decoded image to the draw effect.
+        setHasImage(true);
+        setPicked(null);
+        setHover(null);
+        setLoadedImg(img);
         revoke();
       };
       img.onerror = () => {
@@ -108,7 +115,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
       // Fallback so the object URL can't leak if the image element never settles.
       setTimeout(revoke, 15000);
     },
-    [drawAndAnalyze],
+    [],
   );
 
   const sampleAt = useCallback((clientX: number, clientY: number): string | null => {
@@ -136,9 +143,9 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
   }, []);
 
   return (
-    <div style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px" }}>
+    <div className="hv-finder" style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px" }}>
       <Mono brass>Find a colour in a photo</Mono>
-      <p style={{ font: "300 italic 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 20px", maxWidth: "56ch" }}>
+      <p className="finder-lead" style={{ font: "300 italic 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 20px", maxWidth: "56ch" }}>
         Upload a photograph, then click anywhere on it to sample a colour — we match it to the nearest real
         catalogue shade by perceptual distance. We also pull a palette from the image automatically.
       </p>
@@ -185,7 +192,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
               <path d="M4 20h16" />
             </svg>
           </span>
-          <span style={{ font: "300 italic 22px/1.2 var(--serif)", color: "var(--fg)" }}>
+          <span className="finder-drop" style={{ font: "300 italic 22px/1.2 var(--serif)", color: "var(--fg)" }}>
             Drop a photograph here
           </span>
           <span className="btn">Choose a photograph</span>
@@ -316,7 +323,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
                   <span style={{ width: 48, height: 48, background: picked, border: "1px solid var(--rule-strong)", flexShrink: 0 }} />
                   <div>
                     <Mono>Sampled colour</Mono>
-                    <div style={{ font: "300 italic 22px/1 var(--serif)", color: "var(--fg)", marginTop: 4 }}>{picked}</div>
+                    <div className="finder-hex" style={{ font: "300 italic 22px/1 var(--serif)", color: "var(--fg)", marginTop: 4 }}>{picked}</div>
                   </div>
                 </div>
                 <Mono style={{ display: "block", marginBottom: 10 }}>Nearest catalogue shades</Mono>
@@ -342,7 +349,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
                     >
                       <span style={{ width: 36, height: 36, background: shade.hex, border: "1px solid var(--rule-strong)", flexShrink: 0 }} />
                       <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
-                        <span style={{ font: "300 italic 16px/1.1 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <span className="finder-shade-name" style={{ font: "300 italic 16px/1.1 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {shade.name}
                         </span>
                         <Mono>{shade.code} · {shade.hex} · ΔE {dE.toFixed(1)}</Mono>
@@ -355,7 +362,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
             ) : (
               <div style={{ border: "1px solid var(--rule)", padding: 22, background: "var(--surface-soft)" }}>
                 <Mono>No colour sampled yet</Mono>
-                <p style={{ font: "300 italic 15px/1.5 var(--serif)", color: "var(--fg-mute)", margin: "8px 0 0" }}>
+                <p className="finder-empty-hint" style={{ font: "300 italic 15px/1.5 var(--serif)", color: "var(--fg-mute)", margin: "8px 0 0" }}>
                   Click anywhere on the photo, or pick from the palette, and we&apos;ll list the nearest shade codes.
                 </p>
               </div>

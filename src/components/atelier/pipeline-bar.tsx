@@ -149,9 +149,14 @@ export function PipelineBar({ current, done, variant = "premium", locale = "en" 
         );
       })}
       <style>{`
+        /* On tablet/phone the 5 steps + sub-line hints are wider than the panel and would
+           clip. Wrap the steps onto multiple rows and drop the supplementary hint line so
+           every stage stays visible and legible. */
         @media (max-width: 768px) {
-          .hv-pipeline { padding: 10px 12px !important; }
-          .hv-pipeline-rule { display: none; }
+          .hv-pipeline { padding: 12px !important; gap: 10px 16px !important; flex-wrap: wrap !important; }
+          .hv-pipeline-rule { display: none !important; }
+          .hv-pipeline-step { min-width: 0 !important; flex: 0 0 auto !important; }
+          .hv-pipeline-step .mono { display: none !important; }
         }
       `}</style>
     </div>

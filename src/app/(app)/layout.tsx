@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (variant === "classic") {
     return (
-      <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
+      <div className="capp-shell" style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
         <Sidebar
           user={user}
           locale={locale}
