@@ -5,7 +5,7 @@ export function Testimonial() {
     <section style={{ textAlign: "center" }}>
       <div className="reveal" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 40, maxWidth: 880, margin: "0 auto" }}>
         <Mono><span className="roman">vii · </span>in the words of a pilot retailer</Mono>
-        <span style={{ fontFamily: "var(--serif)", fontStyle: "italic", color: "var(--accent)", fontSize: 32 }}>❦</span>
+        <span className="hv-ornament" style={{ fontFamily: "var(--serif)", fontStyle: "italic", color: "var(--accent)", fontSize: 32 }}>❦</span>
         <blockquote style={{ fontFamily: "var(--serif)", fontWeight: 300, fontStyle: "italic", fontSize: "clamp(36px, 5vw, 72px)", lineHeight: 1.15, letterSpacing: "-.01em", color: "var(--fg)", maxWidth: "22ch", margin: 0 }}>
           “Earlier I would lose two of every five walk-ins to <i>let me think</i>. Now they pick the colour at the counter — and place the order the same afternoon.”
         </blockquote>

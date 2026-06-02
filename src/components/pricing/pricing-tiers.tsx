@@ -48,7 +48,7 @@ export function PricingTiers() {
             </button>
           ))}
         </div>
-        <span style={{ font: "300 italic 16px/1 var(--serif)", color: "var(--ivory-soft)" }}>
+        <span style={{ font: "300 italic 16px/1 var(--serif)", color: "var(--fg-soft)" }}>
           {period === "annual" ? "Two months at our cost when paid annually." : "Fourteen days · no card · cancel quietly."}
         </span>
       </div>

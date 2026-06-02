@@ -76,7 +76,7 @@ export default function MethodPage() {
             <span style={{ fontFamily: "var(--serif)", fontWeight: 300, fontStyle: "italic", fontSize: 56, lineHeight: 1, color: "var(--brass)" }}>{c.num}</span>
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               <Eyebrow>{c.eyebrow}</Eyebrow>
-              <h2 style={{ fontFamily: "var(--serif)", fontWeight: 300, fontSize: "clamp(48px, 6vw, 84px)", lineHeight: 0.95, letterSpacing: "-.02em", color: "var(--ivory)", margin: 0 }}>{c.title}</h2>
+              <h2 style={{ fontFamily: "var(--serif)", fontWeight: 300, fontSize: "clamp(48px, 6vw, 84px)", lineHeight: 0.95, letterSpacing: "-.02em", color: "var(--fg)", margin: 0 }}>{c.title}</h2>
               <Lead>{c.body}</Lead>
             </div>
             <div>

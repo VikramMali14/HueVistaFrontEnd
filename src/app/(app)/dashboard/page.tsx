@@ -64,7 +64,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         ))}
       </section>
-      <section style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 32 }}>
+      <section style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
         <h2 className="display" style={{ fontSize: 48 }}>Recent <i>projects.</i></h2>
         <LinkButton href="/atelier" variant="ghost" size="sm">New project <span className="arr">→</span></LinkButton>
       </section>

@@ -105,6 +105,7 @@ export function RetailerCustomers() {
   return (
     <div style={{ border: "1px solid var(--rule)" }}>
       <div
+        className="hv-cust-row hv-cust-head"
         style={{
           display: "grid",
           gridTemplateColumns: "1.8fr 1fr 1fr 1.1fr",
@@ -121,6 +122,7 @@ export function RetailerCustomers() {
       {rows.map((c, i) => (
         <div
           key={c.customerId}
+          className="hv-cust-row"
           style={{
             display: "grid",
             gridTemplateColumns: "1.8fr 1fr 1fr 1.1fr",
@@ -130,14 +132,15 @@ export function RetailerCustomers() {
             gap: 12,
           }}
         >
-          <div>
+          <div className="hv-cust-lead">
             <div style={{ font: "300 italic 18px/1.2 var(--serif)", color: "var(--fg)" }}>{c.customerName}</div>
             <Mono>{c.customerEmail}</Mono>
           </div>
-          <Mono>
+          <span className="mono" data-label="Projects">
             {c.projectsCreated} / {c.projectAllowance}
-          </Mono>
+          </span>
           <span
+            data-label="Access left"
             style={{
               font: "400 9.5px/1 var(--mono)",
               letterSpacing: ".18em",
@@ -147,7 +150,7 @@ export function RetailerCustomers() {
           >
             {c.expired ? "expired" : formatAccessLeft(c.accessExpiresAt)}
           </span>
-          <div style={{ justifySelf: "end" }}>
+          <div className="hv-cust-action" style={{ justifySelf: "end" }}>
             <Button
               size="sm"
               variant="ghost"

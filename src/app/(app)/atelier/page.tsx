@@ -49,7 +49,7 @@ export default async function AtelierPage({
         <Lead style={{ marginTop: 16 }}>The room — quiet on the left, the catalogue at hand on the right. Upload, clean, segment, recolour.</Lead>
       </header>
       <Visualizer variant="premium" locale={locale} projectId={project} shades={shades} />
-      <section style={{ marginTop: 56, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+      <section className="r-cols-sm-1" style={{ marginTop: 56, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
         <div>
           <Mono style={{ marginBottom: 18, display: "block" }}>i · Performance</Mono>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>

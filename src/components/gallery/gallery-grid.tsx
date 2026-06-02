@@ -47,7 +47,7 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
                 letterSpacing: ".26em",
                 textTransform: "uppercase",
                 background: active ? "rgba(184,153,104,.08)" : "transparent",
-                color: active ? "var(--brass)" : "var(--ivory-soft)",
+                color: active ? "var(--brass)" : "var(--fg-soft)",
                 border: "1px solid " + (active ? "var(--rule-brass)" : "transparent"),
                 cursor: "pointer",
               }}
@@ -71,7 +71,7 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
                 <span style={{ position: "absolute", top: 16, right: 18, font: "400 italic 14px/1 var(--serif)", color: "rgba(255,255,255,.6)" }}>{p.num}</span>
                 <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: "var(--serif)", fontSize: 24, color: "var(--ivory)", lineHeight: 1.2 }}>{p.title}</div>
+                    <div style={{ fontFamily: "var(--serif)", fontSize: 24, color: "var(--fg)", lineHeight: 1.2 }}>{p.title}</div>
                     <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 10 }}>
                       <span style={{ width: 14, height: 14, background: p.swatch, border: "1px solid var(--rule-strong)" }} />
                       <Mono>{p.code}</Mono>
