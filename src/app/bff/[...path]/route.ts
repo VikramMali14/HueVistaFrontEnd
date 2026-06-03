@@ -19,6 +19,9 @@ const ALLOWED_PREFIXES = [
   "api/projects",
   "api/auth/profile",
   "api/auth/me",
+  // Email/mobile verification (send + confirm OTP). NOT "api/auth" — that would
+  // also expose login/register/refresh/logout through the BFF.
+  "api/auth/verify",
   "api/me/entitlement",
   "api/billing/project-credit",
   "api/organizations",
@@ -62,10 +65,9 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   try {
     upstream = await fetch(target, init);
   } catch (err) {
-    return NextResponse.json(
-      { message: "Upstream unreachable", detail: err instanceof Error ? err.message : String(err) },
-      { status: 502 },
-    );
+    // Log internally; don't leak the internal origin/host to the browser.
+    console.error("BFF upstream fetch failed:", err);
+    return NextResponse.json({ message: "Upstream unreachable" }, { status: 502 });
   }
 
   const resHeaders = new Headers();

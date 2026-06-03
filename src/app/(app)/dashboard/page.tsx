@@ -4,6 +4,7 @@ import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { LinkButton } from "@/components/ui/button";
 import { ClassicDashboard } from "@/components/classic/dashboard";
 import { ProjectsGrid } from "@/components/app/projects-grid";
+import { AccountVerification } from "@/components/app/account-verification";
 
 export const metadata: Metadata = {
   title: "The Suite",
@@ -50,6 +51,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <LinkButton href="/redeem" variant="ghost" size="sm">Have a shop access code? Redeem it <span className="arr">→</span></LinkButton>
         </div>
       </header>
+      <AccountVerification user={user} />
       <section className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, marginBottom: 64 }}>
         {[
           { n: "60", l: "AI renders this month", sub: "Of 60 · Professional" },

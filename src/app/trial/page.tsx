@@ -11,7 +11,14 @@ export const metadata: Metadata = {
   description: "Fourteen days. No card. Cancel quietly when you wish.",
 };
 
-export default function TrialPage() {
+export default async function TrialPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  // Only forward a same-origin relative path (open-redirect guard).
+  const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : undefined;
   return (
     <>
       <Marquee items={["Begin a trial · Fourteen days · No card · Cancel quietly", "Asian Paints catalogue, day one", "For retailers, not consumers"]} />
@@ -38,7 +45,7 @@ export default function TrialPage() {
               <Mono style={{ marginTop: 18, display: "block" }}>Suresh K. &nbsp;·&nbsp; Sharda Paints, Belgavi</Mono>
             </div>
           </aside>
-          <TrialForm action={registerAction} />
+          <TrialForm action={registerAction} next={safeNext} />
         </div>
       </main>
       <Footer />

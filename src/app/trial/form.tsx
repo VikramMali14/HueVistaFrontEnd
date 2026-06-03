@@ -7,6 +7,8 @@ import { GoogleButton } from "@/components/auth/google-button";
 
 interface TrialFormProps {
   action: (formData: FormData) => Promise<{ error?: string } | void>;
+  /** Where to land after sign-up (e.g. "/redeem"); defaults to the dashboard. */
+  next?: string;
 }
 
 const TIERS = [
@@ -15,7 +17,7 @@ const TIERS = [
   { v: "business", l: "Business · ₹1,999", d: "Multi-shop, white-label, CL renders, painter portal." },
 ];
 
-export function TrialForm({ action }: TrialFormProps) {
+export function TrialForm({ action, next }: TrialFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [showPassword, setShowPassword] = useState(false);
@@ -44,8 +46,9 @@ export function TrialForm({ action }: TrialFormProps) {
       noValidate
       aria-busy={pending}
     >
+      {next && <input type="hidden" name="next" value={next} />}
       <div style={{ marginBottom: 32, maxWidth: 480 }}>
-        <GoogleButton next="/atelier" label="Begin trial with Google" />
+        <GoogleButton next={next ?? "/atelier"} label="Begin trial with Google" />
         <div
           aria-hidden
           style={{

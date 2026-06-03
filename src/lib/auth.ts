@@ -162,11 +162,19 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   }
 }
 
+/** Open-redirect guard: only allow same-origin relative paths (start with a
+ *  single "/", not "//" or "/\\" which browsers treat as protocol-relative). */
+function safeNext(raw: FormDataEntryValue | null, fallback = "/dashboard"): string {
+  const next = typeof raw === "string" ? raw.trim() : "";
+  if (next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")) return next;
+  return fallback;
+}
+
 export async function loginAction(formData: FormData) {
   "use server";
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "/dashboard");
+  const next = safeNext(formData.get("next"));
 
   if (!email || !password) {
     return { error: "Please enter your email and passphrase." };
@@ -191,6 +199,7 @@ export async function registerAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const name = [firstName, lastName].filter(Boolean).join(" ");
+  const next = safeNext(formData.get("next"));
 
   if (!name) return { error: "Please tell us your name." };
   if (!email) return { error: "Please enter your email." };
@@ -206,7 +215,7 @@ export async function registerAction(formData: FormData) {
     }
     return { error: "Could not create the account. Please try again." };
   }
-  redirect("/dashboard");
+  redirect(next);
 }
 
 export async function logoutAction() {

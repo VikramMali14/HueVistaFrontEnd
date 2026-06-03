@@ -31,6 +31,7 @@ import type {
   SupportConversationSummary,
   UploadedImage,
   UserProfile,
+  VerificationStatus,
 } from "./types";
 
 class HttpError extends Error {
@@ -146,11 +147,30 @@ export const api = {
     form.append("file", file);
     return browserFetch<UploadedImage>("api/images/upload", { method: "POST", body: form });
   },
+  // --- Account profile + email/mobile verification (6-digit OTP) ---
+  getMyProfile: () => browserFetch<UserProfile>("api/auth/profile"),
+  sendEmailCode: () =>
+    browserFetch<VerificationStatus>("api/auth/verify/email/send", { method: "POST" }),
+  confirmEmailCode: (code: string) =>
+    browserFetch<UserProfile>("api/auth/verify/email/confirm", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+  sendPhoneCode: (phoneNumber?: string) =>
+    browserFetch<VerificationStatus>("api/auth/verify/phone/send", {
+      method: "POST",
+      body: JSON.stringify({ phoneNumber }),
+    }),
+  confirmPhoneCode: (code: string) =>
+    browserFetch<UserProfile>("api/auth/verify/phone/confirm", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
   listImages: () => browserFetch<UploadedImage[]>("api/images"),
   getImage: (id: string) =>
     browserFetch<UploadedImage>(`api/images/${encodeURIComponent(id)}`),
   listProjects: () => browserFetch<ProjectSummary[]>("api/projects"),
-  createProject: (body: { imageId: string; name?: string }) =>
+  createProject: (body: { imageId: string; name?: string; roomType?: string; notes?: string }) =>
     browserFetch<ProjectDetail>("api/projects", {
       method: "POST",
       body: JSON.stringify(body),

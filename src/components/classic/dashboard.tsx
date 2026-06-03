@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { t } from "@/lib/i18n";
+import { AccountVerification } from "@/components/app/account-verification";
 import type { AuthUser, UiLocale } from "@/lib/types";
 
 interface ClassicDashboardProps {
@@ -52,6 +53,8 @@ export function ClassicDashboard({ user, locale }: ClassicDashboardProps) {
             {t(locale, "dashboard.summary", { count: PROJECTS.length, used: RENDERS_USED })}
           </p>
         </header>
+
+        <AccountVerification user={user} />
 
         <section className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
           {kpis.map((k) => (
