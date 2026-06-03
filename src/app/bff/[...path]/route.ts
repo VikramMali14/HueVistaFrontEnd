@@ -24,6 +24,8 @@ const ALLOWED_PREFIXES = [
   "api/auth/verify",
   "api/me/entitlement",
   "api/billing/project-credit",
+  "api/billing/subscriptions",
+  "api/billing/plans",
   "api/organizations",
   "api/access-codes",
   "api/support",

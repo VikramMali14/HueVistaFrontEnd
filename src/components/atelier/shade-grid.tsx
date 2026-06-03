@@ -71,6 +71,8 @@ export function ShadeGrid({
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("Catalogue");
   const [section, setSection] = useState<Section>("top50");
+  // Seed colour for the Custom (nearest-match) panel, set by a shade's "Find similar".
+  const [customSeed, setCustomSeed] = useState<string | undefined>(undefined);
 
   const catalogue = useMemo<ReadonlyArray<PaintShade>>(
     () => (shades && shades.length > 0 ? shades : SHADES),
@@ -386,12 +388,26 @@ export function ShadeGrid({
           variant={variant}
           locale={locale}
           activeRegionLabel={activeRegionLabel}
+          initialHex={customSeed}
         />
       )}
 
       {tab === "Regions" && <RegionsListPanel selected={selected} variant={variant} locale={locale} />}
 
-      <SelectedShadeDetail shade={activeShade} variant={variant} locale={locale} />
+      <SelectedShadeDetail
+        shade={activeShade}
+        variant={variant}
+        locale={locale}
+        onFindSimilar={
+          activeShade
+            ? () => {
+                setCustomSeed(activeShade.hex);
+                setTab("Custom");
+              }
+            : undefined
+        }
+        onApply={activeShade ? () => onSelect(activeShade) : undefined}
+      />
     </div>
   );
 }
@@ -447,10 +463,14 @@ function SelectedShadeDetail({
   shade,
   variant,
   locale,
+  onFindSimilar,
+  onApply,
 }: {
   shade?: PaintShade;
   variant: UiVariant;
   locale: UiLocale;
+  onFindSimilar?: () => void;
+  onApply?: () => void;
 }) {
   const isClassic = variant === "classic";
   if (!shade) {
@@ -556,6 +576,7 @@ function SelectedShadeDetail({
       <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
         <button
           type="button"
+          onClick={onFindSimilar}
           style={{
             padding: isClassic ? "8px 12px" : 0,
             ...(isClassic
@@ -583,6 +604,8 @@ function SelectedShadeDetail({
         </button>
         <button
           type="button"
+          onClick={onApply}
+          title="Apply this shade to the active wall"
           style={{
             padding: isClassic ? "8px 12px" : 0,
             ...(isClassic
@@ -604,7 +627,7 @@ function SelectedShadeDetail({
             cursor: "pointer",
           }}
         >
-          {isClassic ? t(locale, "shades.addToProject") : "Add to project"}
+          {isClassic ? t(locale, "shades.addToProject") : "Apply to wall"}
         </button>
       </div>
     </div>
@@ -650,7 +673,7 @@ function AISuggestPanel({
           Three suggestions
         </span>
       ) : (
-        <Mono style={{ display: "block", marginBottom: 14 }}>Three suggestions · Claude Sonnet</Mono>
+        <Mono style={{ display: "block", marginBottom: 14 }}>Three curated triads</Mono>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {combos.map((c) => (

@@ -159,6 +159,9 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
   const [accessExpired, setAccessExpired] = useState(false);
   const [buying, setBuying] = useState(false);
   const [pendingImageId, setPendingImageId] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(null);
   // Step 0 — project details captured before anything is created on the backend.
   const [details, setDetails] = useState<ProjectDetails | null>(
@@ -600,6 +603,29 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
     [projectId],
   );
 
+  // Generate a public, code-hidden share link for this project and copy it.
+  const handleShare = useCallback(async () => {
+    if (!projectId) return;
+    setSharing(true);
+    setError(null);
+    try {
+      const res = await api.generateShareLink(projectId, 7);
+      const url = `${window.location.origin}/share/${res.shareToken}`;
+      setShareUrl(url);
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 1600);
+      } catch {
+        /* clipboard blocked — the link is still shown for manual copy */
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create a share link.");
+    } finally {
+      setSharing(false);
+    }
+  }, [projectId]);
+
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
   // Slim region list for the shade grid's coordinate suggestions.
@@ -719,6 +745,32 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
               {t(locale, "atelier.status.saveFailed")}
             </span>
           )}
+          {shareUrl && (
+            <span
+              title={shareUrl}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                maxWidth: 220,
+                overflow: "hidden",
+              }}
+            >
+              <Mono brass>{shareCopied ? "Link copied" : "Share link"}</Mono>
+              <span style={{ font: "400 11px/1 var(--mono)", color: "var(--fg-mute)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {shareUrl.replace(/^https?:\/\//, "")}
+              </span>
+            </span>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!projectId || sharing}
+            onClick={() => void handleShare()}
+            title={projectId ? "Create a public link (colours shown, codes hidden)" : "Save the project first"}
+          >
+            {sharing ? "Sharing…" : "Share"}
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -1208,7 +1260,6 @@ function DropZone({
           </p>
           <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", justifyContent: "center" }}>
             <span className="btn">{t(locale, "atelier.dropzone.choose")}</span>
-            <span className="btn btn-ghost">{t(locale, "atelier.dropzone.sample")}</span>
           </div>
         </>
       ) : (
@@ -1241,7 +1292,6 @@ function DropZone({
           </p>
           <div style={{ display: "flex", gap: 14, marginTop: 12 }}>
             <span className="btn">Choose a photograph</span>
-            <span className="btn btn-ghost">Use a sample room</span>
           </div>
         </>
       )}

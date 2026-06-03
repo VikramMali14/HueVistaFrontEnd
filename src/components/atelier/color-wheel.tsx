@@ -194,6 +194,7 @@ export function CustomMatchPanel({
   variant = "premium",
   locale = "en",
   activeRegionLabel,
+  initialHex,
 }: {
   onSelect: (shade: PaintShade) => void;
   /** Apply the picked colour exactly, without snapping to a catalogue shade. */
@@ -202,10 +203,13 @@ export function CustomMatchPanel({
   variant?: UiVariant;
   locale?: UiLocale;
   activeRegionLabel?: string;
+  /** Seed colour, e.g. when arriving from a shade's "Find similar" button. */
+  initialHex?: string;
 }) {
   const isClassic = variant === "classic";
-  const [hex, setHex] = useState("#7C9CBF");
-  const [text, setText] = useState("#7C9CBF");
+  const seed = initialHex && HEX_RE.test(initialHex) ? initialHex : "#7C9CBF";
+  const [hex, setHex] = useState(seed);
+  const [text, setText] = useState(seed);
 
   // Keep the free-text field in sync when the wheel drives the colour.
   useEffect(() => setText(hex), [hex]);
