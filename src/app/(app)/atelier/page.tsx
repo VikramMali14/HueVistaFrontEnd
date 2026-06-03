@@ -15,11 +15,11 @@ export const metadata: Metadata = {
 export default async function AtelierPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string }>;
+  searchParams: Promise<{ project?: string; name?: string }>;
 }) {
   // Gate the route — the BFF proxy will pick up the cookie itself; we don't pass the token.
   await requireAccessToken();
-  const [{ project }, variant, locale] = await Promise.all([searchParams, getUiVariant(), getUiLocale()]);
+  const [{ project, name }, variant, locale] = await Promise.all([searchParams, getUiVariant(), getUiLocale()]);
   // Live catalogue from the backend; fall back to the bundled sample if it's unreachable.
   let shades: PaintShade[];
   try {
@@ -33,7 +33,7 @@ export default async function AtelierPage({
       <>
         <ClassicAtelierHeader locale={locale} />
         <div style={{ padding: "16px 24px" }}>
-          <Visualizer variant="classic" locale={locale} projectId={project} shades={shades} />
+          <Visualizer variant="classic" locale={locale} projectId={project} shades={shades} initialName={name} />
         </div>
       </>
     );
@@ -48,7 +48,7 @@ export default async function AtelierPage({
         <h1 className="display" style={{ fontSize: "clamp(40px, 5vw, 72px)" }}>The Atelier</h1>
         <Lead style={{ marginTop: 16 }}>The room — quiet on the left, the catalogue at hand on the right. Upload, clean, segment, recolour.</Lead>
       </header>
-      <Visualizer variant="premium" locale={locale} projectId={project} shades={shades} />
+      <Visualizer variant="premium" locale={locale} projectId={project} shades={shades} initialName={name} />
       <section className="r-cols-sm-1" style={{ marginTop: 56, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
         <div>
           <Mono style={{ marginBottom: 18, display: "block" }}>i · Performance</Mono>

@@ -5,6 +5,7 @@ import { Mono } from "@/components/ui/eyebrow";
 import { SHADES } from "@/lib/shades";
 import { t } from "@/lib/i18n";
 import { CustomMatchPanel } from "./color-wheel";
+import { CoordinateSuggestions, type RegionLite } from "./coordinate-suggestions";
 import type { ColorFamily, PaintShade, UiLocale, UiVariant } from "@/lib/types";
 
 function pickShade(shades: ReadonlyArray<PaintShade>, idx: number): PaintShade {
@@ -27,6 +28,10 @@ const FAMILIES: ReadonlyArray<ColorFamily | "All"> = [
 const TABS = ["Catalogue", "AI Suggest", "Custom", "Regions"] as const;
 type Tab = (typeof TABS)[number];
 
+/** How the Catalogue tab groups its shades. */
+type Section = "top50" | "company";
+const TOP_N = 50;
+
 interface ShadeGridProps {
   selected?: string;
   onSelect: (shade: PaintShade) => void;
@@ -38,6 +43,13 @@ interface ShadeGridProps {
   locale?: UiLocale;
   /** Shades fetched from the backend; falls back to the bundled sample. */
   shades?: ReadonlyArray<PaintShade>;
+  // --- Coordinate suggestions ("complete the look") ---
+  /** Applied colour of the active region; drives the pairing suggestions. */
+  baseHex?: string;
+  activeRegionId?: string;
+  regions?: ReadonlyArray<RegionLite>;
+  /** Apply a coordinating shade to a specific region (not just the active one). */
+  onApplyToRegion?: (regionId: string, shade: PaintShade) => void;
 }
 
 export function ShadeGrid({
@@ -49,11 +61,16 @@ export function ShadeGrid({
   variant = "premium",
   locale = "en",
   shades,
+  baseHex,
+  activeRegionId,
+  regions,
+  onApplyToRegion,
 }: ShadeGridProps) {
   const isClassic = variant === "classic";
   const [family, setFamily] = useState<(typeof FAMILIES)[number]>("All");
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("Catalogue");
+  const [section, setSection] = useState<Section>("top50");
 
   const catalogue = useMemo<ReadonlyArray<PaintShade>>(
     () => (shades && shades.length > 0 ? shades : SHADES),
@@ -69,6 +86,19 @@ export function ShadeGrid({
     });
   }, [catalogue, family, query]);
 
+  const top = useMemo(() => shown.slice(0, TOP_N), [shown]);
+
+  // Group the filtered shades by brand, preserving first-seen order.
+  const byCompany = useMemo(() => {
+    const map = new Map<string, PaintShade[]>();
+    for (const s of shown) {
+      const list = map.get(s.brand);
+      if (list) list.push(s);
+      else map.set(s.brand, [s]);
+    }
+    return Array.from(map, ([brand, list]) => ({ brand, list }));
+  }, [shown]);
+
   const tabLabel = (tabId: Tab) => {
     if (!isClassic) return tabId;
     if (tabId === "Catalogue") return t(locale, "shades.tab.catalogue");
@@ -77,10 +107,13 @@ export function ShadeGrid({
     return t(locale, "shades.tab.regions");
   };
 
+  const showCoordinate =
+    Boolean(baseHex) && Boolean(activeRegionId) && Boolean(onApplyToRegion) && (regions?.length ?? 0) > 0;
+
   return (
     <div
       className={`hv-shade-grid ${isClassic ? "is-classic" : ""}`}
-      style={{ display: "flex", flexDirection: "column", borderLeft: "1px solid var(--rule)", height: "100%" }}
+      style={{ display: "flex", flexDirection: "column", borderLeft: "1px solid var(--rule)", height: "100%", minHeight: 0 }}
     >
       <div
         role="tablist"
@@ -88,6 +121,7 @@ export function ShadeGrid({
           borderBottom: "1px solid var(--rule)",
           display: "flex",
           background: isClassic ? "var(--surface)" : undefined,
+          flexShrink: 0,
         }}
       >
         {TABS.map((tabId) => {
@@ -125,7 +159,7 @@ export function ShadeGrid({
 
       {tab === "Catalogue" && (
         <>
-          <div style={{ padding: isClassic ? 16 : 20, borderBottom: "1px solid var(--rule)" }}>
+          <div style={{ padding: isClassic ? 16 : 20, borderBottom: "1px solid var(--rule)", flexShrink: 0 }}>
             <div
               style={{
                 display: "flex",
@@ -168,7 +202,8 @@ export function ShadeGrid({
               />
             </div>
           </div>
-          <div style={{ padding: isClassic ? 12 : 16, borderBottom: "1px solid var(--rule)" }}>
+
+          <div style={{ padding: isClassic ? 12 : 16, borderBottom: "1px solid var(--rule)", flexShrink: 0 }}>
             {isClassic ? (
               <span
                 style={{
@@ -212,70 +247,111 @@ export function ShadeGrid({
               ))}
             </div>
           </div>
-          <div style={{ padding: isClassic ? 16 : 20, flex: 1, overflow: "auto" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 16,
-              }}
-            >
-              <div>
-                {isClassic ? (
-                  <span style={{ font: "600 14px/1 var(--sans, system-ui)", color: "var(--fg)" }}>
-                    Asian Paints
-                  </span>
-                ) : (
-                  <span style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 17 }}>
-                    Asian Paints
-                  </span>
-                )}
-                {isClassic ? (
-                  <div
-                    style={{
-                      font: "400 12px/1.4 var(--sans, system-ui)",
-                      color: "var(--fg-mute)",
-                      marginTop: 4,
-                    }}
-                  >
-                    {t(locale, "shades.shown", { shown: shown.length, total: catalogue.length })}
-                  </div>
-                ) : (
-                  <Mono style={{ display: "block" }}>{shown.length} shades</Mono>
-                )}
-              </div>
-            </div>
-            <div className="hv-swatches" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 }}>
-              {shown.map((s) => (
+
+          {/* TOP 50 ↔ BY COMPANY toggle */}
+          <div
+            style={{
+              padding: isClassic ? "12px 16px" : "14px 20px",
+              borderBottom: "1px solid var(--rule)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: "flex", gap: 4 }}>
+              {([
+                ["top50", isClassic ? "Top 50" : "Top 50"],
+                ["company", isClassic ? "By company" : "By company"],
+              ] as ReadonlyArray<readonly [Section, string]>).map(([key, lbl]) => (
                 <button
-                  key={s.code}
+                  key={key}
                   type="button"
-                  onClick={() => onSelect(s)}
-                  title={`${s.name} · ${s.code}`}
-                  aria-label={`${s.name}, code ${s.code}`}
+                  onClick={() => setSection(key)}
+                  aria-pressed={section === key}
                   style={{
-                    background: s.hex,
-                    aspectRatio: "1 / 1",
-                    border: "none",
+                    padding: isClassic ? "6px 12px" : "6px 12px",
+                    border: "1px solid " + (section === key ? "var(--accent)" : "var(--rule)"),
+                    borderRadius: isClassic ? 999 : 0,
+                    color: section === key ? "var(--accent)" : "var(--fg-mute)",
+                    background: section === key && isClassic ? "rgba(29,78,216,.06)" : "transparent",
                     cursor: "pointer",
-                    padding: 0,
-                    outline: selected === s.code ? "2px solid var(--accent)" : "none",
-                    outlineOffset: isClassic ? 2 : 3,
-                    borderRadius: isClassic ? 4 : 0,
+                    ...(isClassic
+                      ? { font: "500 12px/1 var(--sans, system-ui)" }
+                      : { font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }),
                   }}
-                />
+                >
+                  {lbl}
+                </button>
               ))}
             </div>
+            {isClassic ? (
+              <span style={{ font: "400 12px/1 var(--sans, system-ui)", color: "var(--fg-mute)" }}>
+                {section === "top50"
+                  ? `${top.length} of ${shown.length}`
+                  : `${byCompany.length} ${byCompany.length === 1 ? "brand" : "brands"}`}
+              </span>
+            ) : (
+              <Mono>
+                {section === "top50"
+                  ? `${top.length} / ${shown.length}`
+                  : `${byCompany.length} ${byCompany.length === 1 ? "brand" : "brands"}`}
+              </Mono>
+            )}
+          </div>
+
+          {/* Scrolling colour area — fixed-size swatches, the IMAGE never resizes. */}
+          <div style={{ padding: isClassic ? 16 : 20, flex: 1, minHeight: 0, overflow: "auto" }}>
+            {shown.length === 0 ? (
+              <p style={{ font: "300 italic 14px/1.4 var(--serif)", color: "var(--fg-mute)" }}>
+                No shades match. Clear the search or family filter.
+              </p>
+            ) : section === "top50" ? (
+              <SwatchGrid shades={top} selected={selected} onSelect={onSelect} isClassic={isClassic} />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                {byCompany.map(({ brand, list }) => (
+                  <div key={brand}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "baseline",
+                        justifyContent: "space-between",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <span
+                        style={{
+                          ...(isClassic
+                            ? { font: "600 14px/1 var(--sans, system-ui)" }
+                            : { font: "300 italic 17px/1 var(--serif)" }),
+                          color: "var(--fg)",
+                        }}
+                      >
+                        {brand}
+                      </span>
+                      <Mono>{list.length}</Mono>
+                    </div>
+                    <SwatchGrid shades={list} selected={selected} onSelect={onSelect} isClassic={isClassic} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showCoordinate && (
+              <CoordinateSuggestions
+                baseHex={baseHex!}
+                activeRegionId={activeRegionId!}
+                regions={regions!}
+                catalogue={catalogue}
+                onApplyToRegion={onApplyToRegion!}
+                variant={variant}
+              />
+            )}
+
             {activeRegionLabel && (
-              <div
-                style={{
-                  marginTop: 18,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
+              <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 8 }}>
                 {!isClassic && (
                   <span style={{ color: "var(--accent)" }} aria-hidden>
                     ⁂
@@ -320,6 +396,53 @@ export function ShadeGrid({
   );
 }
 
+/** A scrolling block of fixed-size square swatches. */
+function SwatchGrid({
+  shades,
+  selected,
+  onSelect,
+  isClassic,
+}: {
+  shades: ReadonlyArray<PaintShade>;
+  selected?: string;
+  onSelect: (shade: PaintShade) => void;
+  isClassic: boolean;
+}) {
+  const tile = isClassic ? 50 : 54;
+  return (
+    <div
+      className="hv-swatches"
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(auto-fill, ${tile}px)`,
+        gap: 6,
+        justifyContent: "space-between",
+      }}
+    >
+      {shades.map((s) => (
+        <button
+          key={s.code}
+          type="button"
+          onClick={() => onSelect(s)}
+          title={`${s.name} · ${s.code}`}
+          aria-label={`${s.name}, code ${s.code}`}
+          style={{
+            background: s.hex,
+            width: "100%",
+            height: tile,
+            border: "none",
+            cursor: "pointer",
+            padding: 0,
+            outline: selected === s.code ? "2px solid var(--accent)" : "none",
+            outlineOffset: isClassic ? 2 : 3,
+            borderRadius: isClassic ? 4 : 0,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function SelectedShadeDetail({
   shade,
   variant,
@@ -337,6 +460,7 @@ function SelectedShadeDetail({
           borderTop: "1px solid var(--rule)",
           padding: isClassic ? 16 : 22,
           background: "var(--surface-soft)",
+          flexShrink: 0,
         }}
       >
         {isClassic ? (
@@ -385,6 +509,7 @@ function SelectedShadeDetail({
         borderTop: "1px solid var(--rule)",
         padding: isClassic ? 16 : 22,
         background: "var(--surface-soft)",
+        flexShrink: 0,
       }}
     >
       <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
@@ -510,7 +635,7 @@ function AISuggestPanel({
         { name: "Twilight Atelier", rationale: "For studies and reading rooms — cool, low LRV.", shades: [pickShade(catalogue, 17), pickShade(catalogue, 15), pickShade(catalogue, 3)] },
       ];
   return (
-    <div style={{ padding: isClassic ? 16 : 20, flex: 1, overflow: "auto" }}>
+    <div style={{ padding: isClassic ? 16 : 20, flex: 1, minHeight: 0, overflow: "auto" }}>
       {isClassic ? (
         <span
           style={{
@@ -619,7 +744,7 @@ function RegionsListPanel({
 }) {
   const isClassic = variant === "classic";
   return (
-    <div style={{ padding: isClassic ? 16 : 20, flex: 1, overflow: "auto" }}>
+    <div style={{ padding: isClassic ? 16 : 20, flex: 1, minHeight: 0, overflow: "auto" }}>
       {isClassic ? (
         <>
           <span
@@ -643,8 +768,8 @@ function RegionsListPanel({
         <>
           <Mono style={{ display: "block", marginBottom: 14 }}>Defined regions</Mono>
           <p style={{ font: "300 italic 13px/1.4 var(--serif)", color: "var(--fg-mute)" }}>
-            Regions are auto-detected from your photograph. Click any point on the canvas with the refine tool to add a
-            manual region. {selected ? `Currently painting with ${selected}.` : ""}
+            Regions are auto-detected from your photograph. Use the Draw tool to add a manual region.{" "}
+            {selected ? `Currently painting with ${selected}.` : ""}
           </p>
         </>
       )}

@@ -2,9 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
-import { deltaE, nearestShades, rgbToHex, rgbToLab, type RGB } from "@/lib/color";
+import { deltaE, hexToLab, nearestShades, rgbToHex, rgbToLab, type RGB } from "@/lib/color";
+import { mapToPaintShade } from "@/lib/catalogue";
 import { SHADES } from "@/lib/shades";
 import type { PaintShade } from "@/lib/types";
+
+interface ShadeMatch {
+  shade: PaintShade;
+  deltaE: number;
+}
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
 
 const MAX_DIM = 1400; // cap the canvas backing store so getImageData stays fast
@@ -51,7 +57,49 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
-  const matches = useMemo(() => (picked ? nearestShades(picked, catalogue, 6) : []), [picked, catalogue]);
+  const [matches, setMatches] = useState<ShadeMatch[]>([]);
+  // Where the matches came from: the backend matches against the FULL seeded
+  // catalogue; "offline" is the bundled client-side fallback if the backend is
+  // unreachable so the page still works with no server.
+  const [matchSource, setMatchSource] = useState<"backend" | "offline" | null>(null);
+
+  // Match the sampled colour against the backend's full catalogue (ΔE in CIELAB),
+  // falling back to the bundled client-side matcher if the backend is unreachable.
+  useEffect(() => {
+    if (!picked) {
+      setMatches([]);
+      setMatchSource(null);
+      return;
+    }
+    let cancelled = false;
+    const fallbackOffline = () => {
+      if (cancelled) return;
+      setMatches(nearestShades(picked, catalogue, 6));
+      setMatchSource("offline");
+    };
+    (async () => {
+      try {
+        const res = await fetch(`/api/shade-match?hex=${encodeURIComponent(picked)}&limit=6`, { cache: "no-store" });
+        if (!res.ok) return fallbackOffline();
+        const data = (await res.json()) as Array<Parameters<typeof mapToPaintShade>[0]>;
+        if (cancelled) return;
+        if (!Array.isArray(data) || data.length === 0) return fallbackOffline();
+        const pickedLab = hexToLab(picked);
+        setMatches(
+          data.map((b) => {
+            const shade = mapToPaintShade(b);
+            return { shade, deltaE: deltaE(pickedLab, hexToLab(shade.hex)) };
+          }),
+        );
+        setMatchSource("backend");
+      } catch {
+        fallbackOffline();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [picked, catalogue]);
 
   // Draw + analyse runs in an effect *after* the canvas has mounted. The canvas only
   // renders once `hasImage` is true, so drawing straight from the image-load callback
@@ -326,7 +374,9 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
                     <div className="finder-hex" style={{ font: "300 italic 22px/1 var(--serif)", color: "var(--fg)", marginTop: 4 }}>{picked}</div>
                   </div>
                 </div>
-                <Mono style={{ display: "block", marginBottom: 10 }}>Nearest catalogue shades</Mono>
+                <Mono style={{ display: "block", marginBottom: 10 }}>
+                  Nearest catalogue shades{matchSource === "offline" ? " · offline" : ""}
+                </Mono>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {matches.map(({ shade, deltaE: dE }, i) => (
                     <button

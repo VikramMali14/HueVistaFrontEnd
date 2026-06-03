@@ -16,6 +16,18 @@ export interface AuthUser {
   uiVariant?: UiVariant;
   /** Optional per-user persisted theme preference. Falls back to dark. */
   uiTheme?: UiTheme;
+  emailVerified?: boolean;
+  phoneNumber?: string | null;
+  phoneVerified?: boolean;
+}
+
+/** Returned after a verification code is sent. */
+export interface VerificationStatus {
+  channel: "EMAIL" | "PHONE";
+  /** Masked destination, e.g. "j***@gmail.com" or "******321". */
+  destination: string;
+  expiresInSeconds: number;
+  cooldownSeconds: number;
 }
 
 export interface AuthResponse {
@@ -97,6 +109,8 @@ export interface RegionDetail {
 export interface ProjectDetail {
   id: string;
   name: string;
+  roomType?: string | null;
+  notes?: string | null;
   status: ProjectStatus;
   imageId: string;
   imageUrl: string;
