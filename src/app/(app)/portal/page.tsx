@@ -5,6 +5,7 @@ import { Placeholder } from "@/components/ui/placeholder";
 import { ClassicPortal } from "@/components/classic/portal";
 import { RetailerCustomers } from "@/components/app/retailer-customers";
 import { AccessCodes } from "@/components/app/access-codes";
+import { PortalSubdomain } from "@/components/app/portal-subdomain";
 
 export const metadata: Metadata = {
   title: "The Annex",
@@ -21,7 +22,7 @@ export default async function PortalPage() {
       <header style={{ marginBottom: 48 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
           <Eyebrow>vi · the annex</Eyebrow>
-          <Mono>shardapaints.huevista.com</Mono>
+          <PortalSubdomain />
         </div>
         <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Your white-label<br /><i>customer portal.</i></h1>
         <Lead style={{ marginTop: 24 }}>Issue temporary access codes for your customers. They visualise colours on your subdomain — without seeing shade codes. When they're ready, they "Send to retailer" and you receive the full project.</Lead>

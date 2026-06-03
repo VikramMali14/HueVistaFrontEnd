@@ -23,10 +23,8 @@ const COLUMNS = [
   {
     title: "House",
     links: [
-      { href: "/journal", label: "About" },
+      { href: "/method", label: "About" },
       { href: "/journal", label: "Journal" },
-      { href: "/journal", label: "Press" },
-      { href: "/journal", label: "Careers" },
       { href: "/trial", label: "Contact" },
     ],
   },
@@ -57,7 +55,10 @@ export function Footer() {
       <div className="footer-bottom">
         <span className="mono">© HueVista Atelier · MMXXVI</span>
         <span className="mono">Belgavi &nbsp;·&nbsp; Bengaluru &nbsp;·&nbsp; Mumbai</span>
-        <span className="mono">Privacy &nbsp;·&nbsp; Terms &nbsp;·&nbsp; Imprint</span>
+        <span className="mono" style={{ display: "inline-flex", gap: 8 }}>
+          <Link href="/legal/privacy" style={{ color: "inherit" }}>Privacy</Link>·
+          <Link href="/legal/terms" style={{ color: "inherit" }}>Terms</Link>
+        </span>
       </div>
     </footer>
   );

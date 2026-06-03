@@ -141,6 +141,13 @@ export interface RegionColorUpdate {
   hexCode?: string | null;
 }
 
+/** A time-limited public share link for a project (backend ShareResponse). */
+export interface ShareLink {
+  shareUrl: string;
+  shareToken: string;
+  expiresAt?: string | null;
+}
+
 /** A customer's project entitlement (allowance + day-validity), managed by their retailer. */
 export interface CustomerEntitlement {
   customerId: string;
@@ -248,6 +255,19 @@ export interface AccessCode {
   expired: boolean;
   usedAt?: string | null;
   createdAt?: string | null;
+}
+
+/** Current subscription summary (backend SubscriptionResponse). */
+export interface SubscriptionSummary {
+  id: string;
+  plan: "STARTER" | "PROFESSIONAL" | "BUSINESS" | "ENTERPRISE";
+  planDisplayName: string;
+  status: "CREATED" | "ACTIVE" | "HALTED" | "CANCELLED" | "COMPLETED" | "EXPIRED";
+  trial: boolean;
+  currentPeriodEnd?: string | null;
+  aiGenerationsUsed: number;
+  aiGenerationsLimit: number;
+  aiGenerationsRemaining: number;
 }
 
 /** Razorpay order details returned by the backend to open Checkout for a one-time project purchase. */

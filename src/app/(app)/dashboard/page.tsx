@@ -5,6 +5,8 @@ import { LinkButton } from "@/components/ui/button";
 import { ClassicDashboard } from "@/components/classic/dashboard";
 import { ProjectsGrid } from "@/components/app/projects-grid";
 import { AccountVerification } from "@/components/app/account-verification";
+import { DashboardStats } from "@/components/app/dashboard-stats";
+import { PlanBanner } from "@/components/app/plan-banner";
 
 export const metadata: Metadata = {
   title: "The Suite",
@@ -51,21 +53,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <LinkButton href="/redeem" variant="ghost" size="sm">Have a shop access code? Redeem it <span className="arr">→</span></LinkButton>
         </div>
       </header>
+      <PlanBanner />
       <AccountVerification user={user} />
-      <section className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, marginBottom: 64 }}>
-        {[
-          { n: "60", l: "AI renders this month", sub: "Of 60 · Professional" },
-          { n: "04", l: "Renders used", sub: "94% remaining" },
-          { n: "23", l: "Projects saved", sub: "Across 18 customers" },
-          { n: "₹37,400", l: "Closed at the counter", sub: "This month · est." },
-        ].map((m, i) => (
-          <div key={i} style={{ border: "1px solid var(--rule)", padding: 28 }}>
-            <Mono>{m.l}</Mono>
-            <div className="display" style={{ fontSize: 56, marginTop: 12 }}>{m.n}</div>
-            <Mono style={{ marginTop: 8 }}>{m.sub}</Mono>
-          </div>
-        ))}
-      </section>
+      <DashboardStats />
       <section style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
         <h2 className="display" style={{ fontSize: 48 }}>Recent <i>projects.</i></h2>
         <LinkButton href="/atelier" variant="ghost" size="sm">New project <span className="arr">→</span></LinkButton>

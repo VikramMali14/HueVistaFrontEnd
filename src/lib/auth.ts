@@ -200,13 +200,23 @@ export async function registerAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const name = [firstName, lastName].filter(Boolean).join(" ");
   const next = safeNext(formData.get("next"));
+  // Retailer trial-signup context (the trial form collects these; a plain register omits them).
+  const str = (k: string) => {
+    const v = String(formData.get(k) ?? "").trim();
+    return v || undefined;
+  };
+  const shopName = str("shopName");
+  const city = str("city");
+  const state = str("state");
+  const phone = str("phone");
+  const tier = str("tier");
 
   if (!name) return { error: "Please tell us your name." };
   if (!email) return { error: "Please enter your email." };
   if (password.length < 8) return { error: "Choose a passphrase of at least eight characters." };
 
   try {
-    const auth = await authApi.register({ name, email, password });
+    const auth = await authApi.register({ name, email, password, shopName, city, state, phone, tier });
     await persistSession(auth);
   } catch (err) {
     if (err instanceof HttpError) {

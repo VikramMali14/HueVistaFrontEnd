@@ -123,7 +123,17 @@ async function serverFetch<T>(
  * the backend with the cookie-resident access token.
  */
 export const authApi = {
-  register: (body: { name: string; email: string; password: string }) =>
+  register: (body: {
+    name: string;
+    email: string;
+    password: string;
+    // Optional retailer trial-signup fields (provision shop org + trial subscription).
+    shopName?: string;
+    city?: string;
+    state?: string;
+    phone?: string;
+    tier?: string;
+  }) =>
     serverFetch<AuthResponse>("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
   login: (body: { email: string; password: string }) =>
     serverFetch<AuthResponse>("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
@@ -183,6 +193,11 @@ export const api = {
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/status`),
   getProject: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}`),
+  generateShareLink: (projectId: string, days = 7) =>
+    browserFetch<import("./types").ShareLink>(
+      `api/projects/${encodeURIComponent(projectId)}/share?days=${days}`,
+      { method: "POST" },
+    ),
   updateRegionColors: (projectId: string, updates: RegionColorUpdate[]) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/regions`, {
       method: "PUT",
@@ -198,6 +213,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // --- Subscription (retailer AI plan / trial) ---
+  getCurrentSubscription: () =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/subscriptions/current"),
   // --- Customer project entitlement (allowance + day-validity) ---
   getMyEntitlement: () => browserFetch<CustomerEntitlement | null>("api/me/entitlement"),
   // One-time purchase of an extra project (Razorpay): order -> Checkout -> verify.
