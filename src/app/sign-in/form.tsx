@@ -91,6 +91,7 @@ export function SignInForm({ action, next }: SignInFormProps) {
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-pressed={showPassword}
+            aria-controls="password"
             aria-label={showPassword ? "Hide passphrase" : "Show passphrase"}
             style={{
               position: "absolute",

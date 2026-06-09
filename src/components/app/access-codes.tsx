@@ -15,7 +15,8 @@ function slugify(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
     .slice(0, 40) || "shop";
-  const suffix = Math.random().toString(36).slice(2, 6);
+  const bytes = crypto.getRandomValues(new Uint8Array(3));
+  const suffix = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   return `${base}-${suffix}`;
 }
 
