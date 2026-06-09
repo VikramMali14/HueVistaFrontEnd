@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { authApi, billingApi, HttpError } from "./api";
@@ -215,12 +215,21 @@ export async function registerAction(formData: FormData) {
   if (!email) return { error: "Please enter your email." };
   if (password.length < 8) return { error: "Choose a passphrase of at least eight characters." };
 
+  // Real visitor IP (set by the hosting proxy), forwarded so the backend's
+  // per-IP signup rate limiter doesn't see every request as the frontend server.
+  const hdrs = await headers();
+  const clientIp =
+    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    hdrs.get("x-real-ip")?.trim() ||
+    undefined;
+
   try {
-    const auth = await authApi.register({ name, email, password, shopName, city, state, phone, tier });
+    const auth = await authApi.register({ name, email, password, shopName, city, state, phone, tier }, clientIp);
     await persistSession(auth);
   } catch (err) {
     if (err instanceof HttpError) {
       if (err.status === 409) return { error: "An account with that email already exists." };
+      if (err.status === 429) return { error: err.message };
       return { error: err.message };
     }
     return { error: "Could not create the account. Please try again." };

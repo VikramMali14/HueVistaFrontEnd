@@ -123,18 +123,28 @@ async function serverFetch<T>(
  * the backend with the cookie-resident access token.
  */
 export const authApi = {
-  register: (body: {
-    name: string;
-    email: string;
-    password: string;
-    // Optional retailer trial-signup fields (provision shop org + trial subscription).
-    shopName?: string;
-    city?: string;
-    state?: string;
-    phone?: string;
-    tier?: string;
-  }) =>
-    serverFetch<AuthResponse>("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
+  register: (
+    body: {
+      name: string;
+      email: string;
+      password: string;
+      // Optional retailer trial-signup fields (provision shop org + trial subscription).
+      shopName?: string;
+      city?: string;
+      state?: string;
+      phone?: string;
+      tier?: string;
+    },
+    // The browser hits this via a server action, so the backend would otherwise
+    // only ever see the frontend server's IP. Forward the real client IP so the
+    // backend's per-IP signup rate limiter buckets by the actual visitor.
+    clientIp?: string,
+  ) =>
+    serverFetch<AuthResponse>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
   login: (body: { email: string; password: string }) =>
     serverFetch<AuthResponse>("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
   refresh: (refreshToken: string) =>
