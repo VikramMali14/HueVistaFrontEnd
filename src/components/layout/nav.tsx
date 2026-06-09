@@ -7,10 +7,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Logo } from "@/components/ui/logo";
 import { LogoutButton } from "@/components/auth/logout-button";
 
+// NOTE: "/color-finder" is intentionally NOT here — it's a subscriber-only tool
+// now (gated in middleware + the page), so it must not be advertised publicly.
 const LINKS = [
   { href: "/method", label: "The Method" },
   { href: "/catalogue", label: "Catalogue" },
-  { href: "/color-finder", label: "Colour finder" },
   { href: "/gallery", label: "Gallery" },
   { href: "/pricing", label: "Pricing" },
   { href: "/journal", label: "Journal" },

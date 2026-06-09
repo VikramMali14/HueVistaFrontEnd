@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { authApi, HttpError } from "./api";
+import { authApi, billingApi, HttpError } from "./api";
 import { config, isLocale, isTheme, isVariant } from "./config";
 import type { AuthResponse, AuthUser, UiLocale, UiTheme, UiVariant } from "./types";
 
@@ -237,6 +237,25 @@ export async function logoutAction() {
   }
   await clearSession();
   redirect("/");
+}
+
+/**
+ * Subscription guard for subscriber-only pages (e.g. the colour finder). Any
+ * ACTIVE subscription — free trial OR paid — passes. Anything else (no
+ * subscription, a lapsed one, or a customer who only has an access-code
+ * entitlement) is sent to pricing. Use inside server components.
+ */
+export async function requireActiveSubscription(): Promise<void> {
+  if (isDevBypass()) return;
+  const token = await getAccessToken();
+  if (!token) redirect("/sign-in");
+  try {
+    const sub = await billingApi.currentSubscription(token);
+    if (sub?.status === "ACTIVE") return;
+  } catch {
+    /* 404 = no subscription → fall through to the redirect below */
+  }
+  redirect("/pricing?need=subscription");
 }
 
 /**

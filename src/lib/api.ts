@@ -148,6 +148,18 @@ export const authApi = {
 };
 
 /**
+ * Billing API for SERVER components (e.g. gating subscriber-only pages). Goes
+ * directly to the backend with the cookie-resident access token. The browser
+ * equivalent is `api.getCurrentSubscription()` via the BFF.
+ */
+export const billingApi = {
+  currentSubscription: (accessToken: string) =>
+    serverFetch<import("./types").SubscriptionSummary>("/api/billing/subscriptions/current", {
+      accessToken,
+    }),
+};
+
+/**
  * Browser API — used from client components. Calls the same-origin BFF proxy
  * which handles auth, refresh and rate limiting.
  */
