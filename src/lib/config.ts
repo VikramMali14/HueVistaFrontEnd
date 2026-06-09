@@ -10,6 +10,9 @@ export const config = {
     "http://localhost:8080",
   sessionCookie: "hv_refresh",
   accessCookie: "hv_access",
+  // Anonymous guest token (redeemed a shop access code, no account). Scopes the
+  // /api/guest/* endpoints. Lives only as long as the code is valid.
+  guestCookie: "hv_guest",
   variantCookie: "hv_variant",
   themeCookie: "hv_theme",
   localeCookie: "hv_locale",

@@ -63,6 +63,15 @@ export interface ApiError {
   code?: string;
 }
 
+/** Result of an anonymous guest redeeming a shop access code. */
+export interface GuestRedeemResult {
+  guestToken: string;
+  code: string;
+  shopName: string;
+  validDays: number;
+  expiresAt: string;
+}
+
 export type ColorFamily =
   | "Whites"
   | "Neutrals"

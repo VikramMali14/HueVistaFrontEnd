@@ -12,7 +12,7 @@ import { ProjectDetailsGate, type ProjectDetails } from "./project-details-gate"
 import type { RegionLite } from "./coordinate-suggestions";
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
-import { api, HttpError } from "@/lib/api";
+import { api, guestApi, HttpError } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraProject } from "@/lib/payments";
 import { t } from "@/lib/i18n";
@@ -36,6 +36,10 @@ interface VisualizerProps {
   shades?: ReadonlyArray<PaintShade>;
   /** Pre-seeded project name (e.g. from the dashboard "New project" form). */
   initialName?: string;
+  /** Anonymous guest mode (redeemed a shop code, no account): CRUD goes to the
+   *  guest endpoints, there's no AI auto-segment or share link, and the single
+   *  project is owned by the access code. The shop resolves real shade codes. */
+  guest?: boolean;
 }
 
 interface RegionState {
@@ -125,8 +129,16 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";
 
-export function Visualizer({ variant = "premium", locale = "en", projectId: openProjectId, shades, initialName }: VisualizerProps) {
+export function Visualizer({ variant = "premium", locale = "en", projectId: openProjectId, shades, initialName, guest = false }: VisualizerProps) {
   const isClassic = variant === "classic";
+  // Guest mode swaps the CRUD calls to the access-code-scoped endpoints. Signatures
+  // match the user `api`, so the rest of the flow is identical. User-only calls
+  // (segmentation, share) are guarded by `!guest` at their call sites.
+  const uploadImageCall = guest ? guestApi.uploadImage : api.uploadImage;
+  const createProjectCall = guest ? guestApi.createProject : api.createProject;
+  const getProjectCall = guest ? guestApi.getProject : api.getProject;
+  const updateRegionColorsCall = guest ? guestApi.updateRegionColors : api.updateRegionColors;
+  const createCustomMaskCall = guest ? guestApi.createCustomMask : api.createCustomMask;
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const recolorRef = useRef<Recolor | null>(null);
@@ -302,7 +314,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
       setError(null);
       setUploading(true);
       try {
-        const detail = await api.getProject(openProjectId);
+        const detail = await getProjectCall(openProjectId);
         if (cancelled) return;
         setProjectId(detail.id);
         await applyProjectDetail(detail);
@@ -324,7 +336,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
     return () => {
       cancelled = true;
     };
-  }, [openProjectId, applyProjectDetail]);
+  }, [openProjectId, applyProjectDetail, getProjectCall]);
 
   const pollUntilSegmented = useCallback(async (id: string) => {
     if (pollAbortRef.current) pollAbortRef.current.cancelled = true;
@@ -369,7 +381,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
       setNeedSubscription(false);
       setSegmenting(true);
       try {
-        const project = await api.createProject({
+        const project = await createProjectCall({
           imageId,
           name: details?.name,
           roomType: details?.roomType,
@@ -377,11 +389,18 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         });
         setProjectId(project.id);
         if (project.name) setProjectName(project.name);
-        await api.requestSegmentation(project.id);
-        const segmented = await pollUntilSegmented(project.id);
-        await applyProjectDetail(segmented);
-        setMasksReady(true);
-        setDone((d) => ({ ...d, mask: true }));
+        if (guest) {
+          // No AI auto-segment for guests — they outline walls by hand. Mark the
+          // canvas ready so the manual mask tools open.
+          setMasksReady(true);
+          setDone((d) => ({ ...d, mask: true }));
+        } else {
+          await api.requestSegmentation(project.id);
+          const segmented = await pollUntilSegmented(project.id);
+          await applyProjectDetail(segmented);
+          setMasksReady(true);
+          setDone((d) => ({ ...d, mask: true }));
+        }
       } catch (err) {
         if (err instanceof HttpError && err.status === 401) {
           setError("Your session expired. Please sign in again.");
@@ -407,7 +426,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         setSegmenting(false);
       }
     },
-    [pollUntilSegmented, applyProjectDetail, details],
+    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall],
   );
 
   const onFileChosen = useCallback(
@@ -435,7 +454,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         setStage("clean");
         setDone((d) => ({ ...d, upload: true }));
         try {
-          const uploaded = await api.uploadImage(file);
+          const uploaded = await uploadImageCall(file);
           if (!uploaded?.imageId) {
             throw new Error("Upload failed. Please try again.");
           }
@@ -463,7 +482,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         setUploading(false);
       }
     },
-    [cleanOn, createAndSegment, validateFile],
+    [cleanOn, createAndSegment, validateFile, uploadImageCall],
   );
 
   const handleBuyAndRetry = useCallback(async () => {
@@ -501,7 +520,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         setSaveStatus("saving");
         void (async () => {
           try {
-            await api.updateRegionColors(projectId, [
+            await updateRegionColorsCall(projectId, [
               { regionId: updatedBackendId!, shadeCode: shade.code, hexCode: shade.hex },
             ]);
             if (saveSeqRef.current === seq) setSaveStatus("saved");
@@ -512,7 +531,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         })();
       }
     },
-    [projectId],
+    [projectId, updateRegionColorsCall],
   );
 
   const onSelectShade = useCallback(
@@ -539,7 +558,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         setSaveStatus("saving");
         void (async () => {
           try {
-            await api.updateRegionColors(projectId, [
+            await updateRegionColorsCall(projectId, [
               { regionId: updatedBackendId!, shadeCode: null, hexCode: hex },
             ]);
             if (saveSeqRef.current === seq) setSaveStatus("saved");
@@ -550,7 +569,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         })();
       }
     },
-    [activeRegion, projectId],
+    [activeRegion, projectId, updateRegionColorsCall],
   );
 
   const customMaskCount = useMemo(() => regions.filter((r) => r.custom).length, [regions]);
@@ -591,7 +610,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
       setSavingMask(true);
       setSaveStatus("saving");
       try {
-        const detail = await api.createCustomMask(projectId, {
+        const detail = await createCustomMaskCall(projectId, {
           maskBase64: mask.toDataURL("image/png"),
           category,
           label,
@@ -610,7 +629,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         setMaskStudioOpen(false);
       }
     },
-    [projectId],
+    [projectId, createCustomMaskCall],
   );
 
   // Generate a public, code-hidden share link for this project and copy it.
@@ -772,15 +791,17 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
               </span>
             </span>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={!projectId || sharing}
-            onClick={() => void handleShare()}
-            title={projectId ? "Create a public link (colours shown, codes hidden)" : "Save the project first"}
-          >
-            {sharing ? "Sharing…" : "Share"}
-          </Button>
+          {!guest && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!projectId || sharing}
+              onClick={() => void handleShare()}
+              title={projectId ? "Create a public link (colours shown, codes hidden)" : "Save the project first"}
+            >
+              {sharing ? "Sharing…" : "Share"}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
@@ -1111,6 +1132,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           activeRegionId={activeRegion}
           regions={regionLites}
           onApplyToRegion={applyShadeTo}
+          hideCodes={guest}
         />
       </div>
 

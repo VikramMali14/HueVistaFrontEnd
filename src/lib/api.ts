@@ -174,6 +174,25 @@ export const billingApi = {
 };
 
 /**
+ * Server-side guest helpers. `redeemGuest` is anonymous (no token); `claimGuest`
+ * runs right after a user signs in to re-point their guest projects to the account.
+ */
+export const guestServerApi = {
+  redeem: (code: string, clientIp?: string) =>
+    serverFetch<import("./types").GuestRedeemResult>("/api/access-codes/redeem-guest", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
+  claim: (accessToken: string, guestToken: string) =>
+    serverFetch<{ linked: number }>("/api/projects/claim-guest", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({ guestToken }),
+    }),
+};
+
+/**
  * Browser API — used from client components. Calls the same-origin BFF proxy
  * which handles auth, refresh and rate limiting.
  */
@@ -344,6 +363,38 @@ export const api = {
       `api/organizations/${encodeURIComponent(orgId)}/customers/${encodeURIComponent(customerId)}/grant-project`,
       { method: "POST" },
     ),
+};
+
+/**
+ * Guest (anonymous, access-code-scoped) creator API. Same shapes as the relevant
+ * `api` methods but hitting /api/guest/* (the BFF attaches the guest token). The
+ * guest gets ONE project, builds regions by hand (no AI auto-segment), and sees
+ * masked responses — real shade codes are hidden from them.
+ */
+export const guestApi = {
+  uploadImage: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return browserFetch<UploadedImage>("api/guest/images/upload", { method: "POST", body: form });
+  },
+  createProject: (body: { imageId: string; name?: string; roomType?: string; notes?: string }) =>
+    browserFetch<ProjectDetail>("api/guest/projects", { method: "POST", body: JSON.stringify(body) }),
+  getProject: (projectId: string) =>
+    browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}`),
+  listProjects: () => browserFetch<ProjectSummary[]>("api/guest/projects"),
+  updateRegionColors: (projectId: string, updates: RegionColorUpdate[]) =>
+    browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/regions`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    }),
+  createCustomMask: (
+    projectId: string,
+    body: { maskBase64: string; category?: string; label?: string },
+  ) =>
+    browserFetch<RegionDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/regions/custom-mask`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
 
 export { HttpError };
