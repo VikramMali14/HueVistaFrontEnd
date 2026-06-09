@@ -37,10 +37,13 @@ import type {
 class HttpError extends Error {
   status: number;
   fieldErrors?: Record<string, string>;
-  constructor(status: number, message: string, fieldErrors?: Record<string, string>) {
+  /** Backend machine-readable hint, e.g. "VERIFICATION_REQUIRED" / "SUBSCRIPTION_REQUIRED". */
+  code?: string;
+  constructor(status: number, message: string, fieldErrors?: Record<string, string>, code?: string) {
     super(message);
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.code = code;
   }
 }
 
@@ -62,7 +65,8 @@ async function parseError(res: Response): Promise<ApiError> {
     typeof obj.fieldErrors === "object" && obj.fieldErrors !== null
       ? (obj.fieldErrors as Record<string, string>)
       : undefined;
-  return { status: res.status, message, fieldErrors };
+  const code = typeof obj.code === "string" ? obj.code : undefined;
+  return { status: res.status, message, fieldErrors, code };
 }
 
 /**
@@ -85,7 +89,7 @@ async function browserFetch<T>(path: string, init: RequestInit = {}): Promise<T>
 
   if (!res.ok) {
     const err = await parseError(res);
-    throw new HttpError(err.status, err.message, err.fieldErrors);
+    throw new HttpError(err.status, err.message, err.fieldErrors, err.code);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -112,7 +116,7 @@ async function serverFetch<T>(
 
   if (!res.ok) {
     const err = await parseError(res);
-    throw new HttpError(err.status, err.message, err.fieldErrors);
+    throw new HttpError(err.status, err.message, err.fieldErrors, err.code);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;

@@ -157,6 +157,10 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [limitReached, setLimitReached] = useState(false);
   const [accessExpired, setAccessExpired] = useState(false);
+  // Retailer funnel gates (distinct from the customer entitlement ones above):
+  // verification required before the first project, and "subscribe to a plan".
+  const [needVerification, setNeedVerification] = useState(false);
+  const [needSubscription, setNeedSubscription] = useState(false);
   const [buying, setBuying] = useState(false);
   const [pendingImageId, setPendingImageId] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -361,6 +365,8 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
       setError(null);
       setLimitReached(false);
       setAccessExpired(false);
+      setNeedVerification(false);
+      setNeedSubscription(false);
       setSegmenting(true);
       try {
         const project = await api.createProject({
@@ -383,10 +389,14 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
             window.location.href = "/sign-in?next=/atelier";
           }, 1200);
         } else if (err instanceof HttpError && err.status === 402) {
-          setLimitReached(true);
+          // Retailer "subscribe to a plan" (coded) vs customer "buy one extra project".
+          if (err.code === "SUBSCRIPTION_REQUIRED") setNeedSubscription(true);
+          else setLimitReached(true);
           setError(err.message);
         } else if (err instanceof HttpError && err.status === 403) {
-          setAccessExpired(true);
+          // Retailer "verify email + mobile" (coded) vs customer access window ended.
+          if (err.code === "VERIFICATION_REQUIRED") setNeedVerification(true);
+          else setAccessExpired(true);
           setError(err.message);
         } else if (err instanceof Error) {
           setError(err.message);
@@ -1015,7 +1025,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
             </>
           )}
           <LoaderOverlay show={uploading || segmenting} label={overlayLabel} hint={overlayHint} />
-          {(limitReached || accessExpired) && (
+          {(limitReached || accessExpired || needVerification || needSubscription) && (
             <div
               style={{
                 position: "absolute",
@@ -1038,14 +1048,36 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                   borderRadius: isClassic ? 10 : 0,
                 }}
               >
-                <Mono brass>{accessExpired ? "Access ended" : "Project limit reached"}</Mono>
+                <Mono brass>
+                  {needVerification
+                    ? "Verify your account"
+                    : needSubscription
+                      ? "Subscribe to continue"
+                      : accessExpired
+                        ? "Access ended"
+                        : "Project limit reached"}
+                </Mono>
                 <p style={{ font: "300 italic 19px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "14px 0 22px" }}>
                   {error ||
-                    (accessExpired
-                      ? "Your access has ended. Ask your retailer for a new code."
-                      : "You've used your included project.")}
+                    (needVerification
+                      ? "Verify your email and mobile number before creating your project."
+                      : needSubscription
+                        ? "Your free trial includes one project. Subscribe to a plan to create more."
+                        : accessExpired
+                          ? "Your access has ended. Ask your retailer for a new code."
+                          : "You've used your included project.")}
                 </p>
-                {!accessExpired && (
+                {needVerification && (
+                  <a className="btn btn-brass" href="/dashboard">
+                    Verify my account <span className="arr">→</span>
+                  </a>
+                )}
+                {needSubscription && (
+                  <a className="btn btn-brass" href="/pricing">
+                    See plans <span className="arr">→</span>
+                  </a>
+                )}
+                {limitReached && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
                     <Button variant="brass" onClick={() => void handleBuyAndRetry()} disabled={buying}>
                       {buying ? (

@@ -58,6 +58,9 @@ export interface ApiError {
   status: number;
   message: string;
   fieldErrors?: Record<string, string>;
+  // Machine-readable hint for specific cases (e.g. "VERIFICATION_REQUIRED",
+  // "SUBSCRIPTION_REQUIRED") so the UI can branch beyond the HTTP status.
+  code?: string;
 }
 
 export type ColorFamily =
