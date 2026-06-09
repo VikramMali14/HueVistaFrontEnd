@@ -9,6 +9,7 @@ import { SHADES } from "@/lib/shades";
 import { fetchCatalogue } from "@/lib/catalogue";
 import type { PaintShade } from "@/lib/types";
 import { ColorFinder } from "@/components/catalogue/color-finder";
+import { requireActiveSubscription } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Colour finder",
@@ -16,6 +17,9 @@ export const metadata: Metadata = {
 };
 
 export default async function ColorFinderPage() {
+  // Subscriber-only tool: any ACTIVE subscription (trial or paid) may enter;
+  // everyone else is redirected to pricing (or sign-in if unauthenticated).
+  await requireActiveSubscription();
   // Live catalogue from the backend; fall back to the bundled sample if unreachable.
   let shades: PaintShade[];
   try {

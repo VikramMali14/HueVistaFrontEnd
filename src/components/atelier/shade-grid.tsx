@@ -50,6 +50,8 @@ interface ShadeGridProps {
   regions?: ReadonlyArray<RegionLite>;
   /** Apply a coordinating shade to a specific region (not just the active one). */
   onApplyToRegion?: (regionId: string, shade: PaintShade) => void;
+  /** Guest mode: hide real shade codes (guests pick by colour; the shop reads codes). */
+  hideCodes?: boolean;
 }
 
 export function ShadeGrid({
@@ -65,6 +67,7 @@ export function ShadeGrid({
   activeRegionId,
   regions,
   onApplyToRegion,
+  hideCodes = false,
 }: ShadeGridProps) {
   const isClassic = variant === "classic";
   const [family, setFamily] = useState<(typeof FAMILIES)[number]>("All");
@@ -310,7 +313,7 @@ export function ShadeGrid({
                 No shades match. Clear the search or family filter.
               </p>
             ) : section === "top50" ? (
-              <SwatchGrid shades={top} selected={selected} onSelect={onSelect} isClassic={isClassic} />
+              <SwatchGrid shades={top} selected={selected} onSelect={onSelect} isClassic={isClassic} hideCodes={hideCodes} />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {byCompany.map(({ brand, list }) => (
@@ -335,7 +338,7 @@ export function ShadeGrid({
                       </span>
                       <Mono>{list.length}</Mono>
                     </div>
-                    <SwatchGrid shades={list} selected={selected} onSelect={onSelect} isClassic={isClassic} />
+                    <SwatchGrid shades={list} selected={selected} onSelect={onSelect} isClassic={isClassic} hideCodes={hideCodes} />
                   </div>
                 ))}
               </div>
@@ -407,6 +410,7 @@ export function ShadeGrid({
             : undefined
         }
         onApply={activeShade ? () => onSelect(activeShade) : undefined}
+        hideCodes={hideCodes}
       />
     </div>
   );
@@ -418,11 +422,13 @@ function SwatchGrid({
   selected,
   onSelect,
   isClassic,
+  hideCodes = false,
 }: {
   shades: ReadonlyArray<PaintShade>;
   selected?: string;
   onSelect: (shade: PaintShade) => void;
   isClassic: boolean;
+  hideCodes?: boolean;
 }) {
   const tile = isClassic ? 50 : 54;
   return (
@@ -440,8 +446,8 @@ function SwatchGrid({
           key={s.code}
           type="button"
           onClick={() => onSelect(s)}
-          title={`${s.name} · ${s.code}`}
-          aria-label={`${s.name}, code ${s.code}`}
+          title={hideCodes ? s.name : `${s.name} · ${s.code}`}
+          aria-label={hideCodes ? s.name : `${s.name}, code ${s.code}`}
           style={{
             background: s.hex,
             width: "100%",
@@ -465,12 +471,14 @@ function SelectedShadeDetail({
   locale,
   onFindSimilar,
   onApply,
+  hideCodes = false,
 }: {
   shade?: PaintShade;
   variant: UiVariant;
   locale: UiLocale;
   onFindSimilar?: () => void;
   onApply?: () => void;
+  hideCodes?: boolean;
 }) {
   const isClassic = variant === "classic";
   if (!shade) {
@@ -557,10 +565,10 @@ function SelectedShadeDetail({
           </span>
           {isClassic ? (
             <span style={{ font: "400 13px/1.4 var(--sans, system-ui)", color: "var(--fg-mute)" }}>
-              {shade.code} · {shade.hex} · LRV {shade.lrv}
+              {hideCodes ? `${shade.hex} · LRV ${shade.lrv}` : `${shade.code} · ${shade.hex} · LRV ${shade.lrv}`}
             </span>
           ) : (
-            <Mono>{shade.code} · {shade.hex} · LRV {shade.lrv}</Mono>
+            <Mono>{hideCodes ? `${shade.hex} · LRV ${shade.lrv}` : `${shade.code} · ${shade.hex} · LRV ${shade.lrv}`}</Mono>
           )}
           <span
             style={{

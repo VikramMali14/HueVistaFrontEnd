@@ -1,9 +1,9 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { authApi, HttpError } from "./api";
+import { authApi, billingApi, guestServerApi, HttpError } from "./api";
 import { config, isLocale, isTheme, isVariant } from "./config";
 import type { AuthResponse, AuthUser, UiLocale, UiTheme, UiVariant } from "./types";
 
@@ -66,6 +66,29 @@ export async function clearSession() {
   jar.delete(config.accessCookie);
   jar.delete(config.variantCookie);
   // hv_theme is intentionally NOT cleared — a user's preferred theme should survive logout.
+}
+
+/** Whether an anonymous guest session (redeemed shop code) is active. */
+export async function hasGuestSession(): Promise<boolean> {
+  const jar = await cookies();
+  return Boolean(jar.get(config.guestCookie)?.value);
+}
+
+/**
+ * Right after a user signs in/up, fold any active guest session into their
+ * account: re-point the guest's projects to the new user, then drop the guest
+ * cookie. Best-effort — a failure here must never block the auth redirect.
+ */
+async function maybeClaimGuestProjects(accessToken: string) {
+  const jar = await cookies();
+  const guestToken = jar.get(config.guestCookie)?.value;
+  if (!guestToken) return;
+  try {
+    await guestServerApi.claim(accessToken, guestToken);
+  } catch {
+    /* best-effort */
+  }
+  jar.delete(config.guestCookie);
 }
 
 export async function getUiVariant(): Promise<UiVariant> {
@@ -182,6 +205,7 @@ export async function loginAction(formData: FormData) {
   try {
     const auth = await authApi.login({ email, password });
     await persistSession(auth);
+    await maybeClaimGuestProjects(auth.accessToken);
   } catch (err) {
     if (err instanceof HttpError) {
       if (err.status === 401) return { error: "Incorrect email or passphrase." };
@@ -190,6 +214,36 @@ export async function loginAction(formData: FormData) {
     return { error: "Could not sign in. Please try again." };
   }
   redirect(next);
+}
+
+/**
+ * Public, anonymous guest redemption of a shop access code. Stores the guest
+ * token in an httpOnly cookie (valid until the code expires) and returns the shop
+ * context for the "continue as guest / sign in to save" choice screen.
+ */
+export async function redeemGuestAction(
+  code: string,
+): Promise<{ shopName: string; code: string; validDays: number } | { error: string }> {
+  "use server";
+  const value = code.trim();
+  if (!value) return { error: "Enter the code from your shop." };
+  const hdrs = await headers();
+  const clientIp =
+    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("x-real-ip")?.trim() || undefined;
+  try {
+    const res = await guestServerApi.redeem(value, clientIp);
+    const jar = await cookies();
+    const ttlSeconds = Math.max(60, Math.floor((new Date(res.expiresAt).getTime() - Date.now()) / 1000));
+    jar.set(config.guestCookie, res.guestToken, { ...cookieDefaults, maxAge: ttlSeconds });
+    return { shopName: res.shopName, code: res.code, validDays: res.validDays };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 404) return { error: "That code wasn't found. Check it and try again." };
+      if (err.status === 409) return { error: "That code has already been used." };
+      return { error: err.message };
+    }
+    return { error: "Could not redeem that code. Please try again." };
+  }
 }
 
 export async function registerAction(formData: FormData) {
@@ -215,12 +269,22 @@ export async function registerAction(formData: FormData) {
   if (!email) return { error: "Please enter your email." };
   if (password.length < 8) return { error: "Choose a passphrase of at least eight characters." };
 
+  // Real visitor IP (set by the hosting proxy), forwarded so the backend's
+  // per-IP signup rate limiter doesn't see every request as the frontend server.
+  const hdrs = await headers();
+  const clientIp =
+    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    hdrs.get("x-real-ip")?.trim() ||
+    undefined;
+
   try {
-    const auth = await authApi.register({ name, email, password, shopName, city, state, phone, tier });
+    const auth = await authApi.register({ name, email, password, shopName, city, state, phone, tier }, clientIp);
     await persistSession(auth);
+    await maybeClaimGuestProjects(auth.accessToken);
   } catch (err) {
     if (err instanceof HttpError) {
       if (err.status === 409) return { error: "An account with that email already exists." };
+      if (err.status === 429) return { error: err.message };
       return { error: err.message };
     }
     return { error: "Could not create the account. Please try again." };
@@ -237,6 +301,25 @@ export async function logoutAction() {
   }
   await clearSession();
   redirect("/");
+}
+
+/**
+ * Subscription guard for subscriber-only pages (e.g. the colour finder). Any
+ * ACTIVE subscription — free trial OR paid — passes. Anything else (no
+ * subscription, a lapsed one, or a customer who only has an access-code
+ * entitlement) is sent to pricing. Use inside server components.
+ */
+export async function requireActiveSubscription(): Promise<void> {
+  if (isDevBypass()) return;
+  const token = await getAccessToken();
+  if (!token) redirect("/sign-in");
+  try {
+    const sub = await billingApi.currentSubscription(token);
+    if (sub?.status === "ACTIVE") return;
+  } catch {
+    /* 404 = no subscription → fall through to the redirect below */
+  }
+  redirect("/pricing?need=subscription");
 }
 
 /**

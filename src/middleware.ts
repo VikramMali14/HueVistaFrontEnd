@@ -5,7 +5,13 @@ import { NextRequest, NextResponse } from "next/server";
 // where cookies are writable — Server Components must not mutate cookies, so the
 // refresh that used to happen during render (and crashed) now happens up here.
 
-const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/products"];
+const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/products", "/color-finder"];
+// Pages that only make sense for a signed-OUT visitor. A signed-in user landing
+// here (e.g. following an old "Begin a trial" link) is bounced home — they can't
+// register or sign in again without signing out first. The Google OAuth callback
+// at /sign-in/google is deliberately NOT listed: it runs mid-login, before the
+// session cookies exist, and must be allowed through.
+const GUEST_ONLY_PATHS = ["/sign-in", "/sign-in/forgot", "/trial"];
 const ACCESS_COOKIE = "hv_access";
 const SESSION_COOKIE = "hv_refresh";
 const REFRESH_TTL = 60 * 60 * 24 * 7; // 7 days, matches the backend
@@ -32,10 +38,23 @@ export async function middleware(req: NextRequest) {
   const isProtected = PROTECTED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
-  if (!isBff && !isProtected) return NextResponse.next();
+  const isGuestOnly = GUEST_ONLY_PATHS.includes(pathname);
 
   const access = req.cookies.get(ACCESS_COOKIE)?.value;
   const refresh = req.cookies.get(SESSION_COOKIE)?.value;
+
+  // Signed-in visitors have no business on sign-in / trial: send them home.
+  if (isGuestOnly) {
+    if (access || refresh) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
+  if (!isBff && !isProtected) return NextResponse.next();
 
   // Browser still holds a (non-expired) access cookie → let it through.
   if (access) return NextResponse.next();
@@ -91,5 +110,17 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/atelier/:path*", "/dashboard/:path*", "/portal/:path*", "/inbox/:path*", "/products/:path*", "/bff/:path*"],
+  matcher: [
+    "/atelier/:path*",
+    "/dashboard/:path*",
+    "/portal/:path*",
+    "/inbox/:path*",
+    "/products/:path*",
+    "/color-finder/:path*",
+    "/bff/:path*",
+    // Guest-only auth pages (exact — keep /sign-in/google out of the bounce).
+    "/sign-in",
+    "/sign-in/forgot",
+    "/trial",
+  ],
 };
