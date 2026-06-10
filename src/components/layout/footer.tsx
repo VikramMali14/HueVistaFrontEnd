@@ -7,6 +7,7 @@ const COLUMNS = [
     links: [
       { href: "/method", label: "How it works" },
       { href: "/catalogue", label: "Colour library" },
+      { href: "/work", label: "Our work" },
       { href: "/pricing", label: "Pricing" },
     ],
   },

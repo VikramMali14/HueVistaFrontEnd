@@ -4,9 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 interface CompareSliderProps {
   afterShade?: string;
+  /** CSS background for the untouched room (left pane). */
+  beforeBg?: string;
+  /** CSS background for the recoloured room (right pane). */
+  afterBg?: string;
 }
 
-export function CompareSlider({ afterShade = "Terracotta · AP-1428" }: CompareSliderProps) {
+const DEFAULT_BEFORE = "radial-gradient(ellipse at 50% 35%, rgba(255,250,235,.16), transparent 60%), linear-gradient(165deg, #5a5044 0%, #3a3127 55%, #1c1612 100%)";
+const DEFAULT_AFTER = "radial-gradient(ellipse at 50% 35%, rgba(255,235,210,.28), transparent 60%), linear-gradient(160deg, #c87a55 0%, #9d5236 55%, #4d2618 100%)";
+
+export function CompareSlider({
+  afterShade = "Terracotta · AP-1428",
+  beforeBg = DEFAULT_BEFORE,
+  afterBg = DEFAULT_AFTER,
+}: CompareSliderProps) {
   const [pos, setPos] = useState(55);
   const ref = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -53,8 +64,10 @@ export function CompareSlider({ afterShade = "Terracotta · AP-1428" }: CompareS
         updateFromClient(e.clientX);
       }}
     >
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 35%, rgba(255,250,235,.16), transparent 60%), linear-gradient(165deg, #5a5044 0%, #3a3127 55%, #1c1612 100%)" }} />
-      <div style={{ position: "absolute", inset: 0, clipPath: `inset(0 calc(100% - ${pos}%) 0 0)`, background: "radial-gradient(ellipse at 50% 35%, rgba(255,235,210,.28), transparent 60%), linear-gradient(160deg, #c87a55 0%, #9d5236 55%, #4d2618 100%)" }} />
+      {/* Base layer = recoloured room; the clipped layer on the left reveals the
+          untouched "before" under its tag. */}
+      <div style={{ position: "absolute", inset: 0, background: afterBg }} />
+      <div style={{ position: "absolute", inset: 0, clipPath: `inset(0 calc(100% - ${pos}%) 0 0)`, background: beforeBg }} />
       <span style={tagStyle("left")}>Before</span>
       <span style={tagStyle("right")}>{afterShade}</span>
       <button
