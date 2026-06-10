@@ -48,7 +48,7 @@ export function TrialForm({ action, next }: TrialFormProps) {
     >
       {next && <input type="hidden" name="next" value={next} />}
       <div style={{ marginBottom: 32, maxWidth: 480 }}>
-        <GoogleButton next={next ?? "/atelier"} label="Begin trial with Google" />
+        <GoogleButton next={next ?? "/atelier"} label="Start free trial with Google" />
         <div
           aria-hidden
           style={{
