@@ -9,7 +9,6 @@ import { PaintRoom } from "@/components/home/paint-room";
 import { Toolkit } from "@/components/home/toolkit";
 import { Moods } from "@/components/home/moods";
 import { CataloguePreview } from "@/components/home/catalogue-preview";
-import { PaintedWith } from "@/components/home/painted-with";
 import { Testimonial } from "@/components/home/testimonial";
 import { PricingPreview } from "@/components/home/pricing-preview";
 import { Closing } from "@/components/home/closing";
@@ -28,9 +27,8 @@ export default function HomePage() {
         <Services />
         <PaintRoom />
         <Toolkit />
-        <CataloguePreview />
         <Moods />
-        <PaintedWith />
+        <CataloguePreview />
         <Testimonial />
         <PricingPreview />
         <Closing />

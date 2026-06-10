@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
@@ -6,14 +7,10 @@ import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { config } from "@/lib/config";
 import type { ProjectDetail } from "@/lib/types";
 
-export const metadata: Metadata = {
-  title: "Shared colour preview",
-  description: "A colour mockup shared from HueVista.",
-};
-
 // Public, read-only view of a shared project — colours are shown, shade codes hidden
 // (the backend's /api/share endpoint serves the code-hidden projection).
-async function fetchShared(token: string): Promise<ProjectDetail | null> {
+// cache() dedupes the call between generateMetadata and the page render.
+const fetchShared = cache(async (token: string): Promise<ProjectDetail | null> => {
   try {
     const res = await fetch(`${config.internalApiOrigin}/api/share/${encodeURIComponent(token)}`, {
       headers: { Accept: "application/json" },
@@ -24,11 +21,28 @@ async function fetchShared(token: string): Promise<ProjectDetail | null> {
   } catch {
     return null;
   }
-}
+});
 
 function absUrl(u?: string | null): string | null {
   if (!u) return null;
   return u.startsWith("http") ? u : `${config.apiOrigin}${u.startsWith("/") ? "" : "/"}${u}`;
+}
+
+// The share link travels by WhatsApp — give the recipient the painted room in the
+// link preview, not a bare text card.
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const project = await fetchShared(token);
+  if (!project) {
+    return { title: "Shared colour preview", description: "A colour preview shared from HueVista." };
+  }
+  const img = absUrl(project.cleanedImageUrl) ?? absUrl(project.imageUrl);
+  return {
+    title: `${project.name} · HueVista colour preview`,
+    description: "A colour preview shared from HueVista. Your retailer has the exact shades.",
+    openGraph: { images: img ? [{ url: img }] : [] },
+    twitter: { card: "summary_large_image" },
+  };
 }
 
 export default async function SharePage({ params }: { params: Promise<{ token: string }> }) {
@@ -62,7 +76,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         <header style={{ marginBottom: 32 }}>
           <Eyebrow>Shared colour preview</Eyebrow>
           <h1 className="display" style={{ fontSize: "clamp(36px, 5vw, 64px)", marginTop: 12 }}>{project.name}</h1>
-          <Lead style={{ marginTop: 16 }}>A colour mockup shared with you. Pick the look you love — your retailer has the exact shades.</Lead>
+          <Lead style={{ marginTop: 16 }}>A colour preview shared with you. Pick the look you love — your retailer has the exact shades.</Lead>
         </header>
 
         <div className="r-cols-md-1" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 32, alignItems: "start" }}>
@@ -93,6 +107,26 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               Shade codes are kept with your retailer. Visit them to order the exact colours.
             </p>
           </aside>
+        </div>
+
+        <div
+          className="r-cols-md-1"
+          style={{ marginTop: 64, paddingTop: 40, borderTop: "1px solid var(--rule)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}
+        >
+          <div>
+            <Mono brass style={{ display: "block", marginBottom: 12 }}>For your room</Mono>
+            <p style={{ font: "400 19px/1.45 var(--serif)", color: "var(--fg)", margin: "0 0 18px", maxWidth: "36ch" }}>
+              Want to see colours on your own walls? Ask your paint shop for a HueVista code.
+            </p>
+            <Link className="btn btn-ghost" href="/redeem">I have a code <span className="arr">→</span></Link>
+          </div>
+          <div>
+            <Mono brass style={{ display: "block", marginBottom: 12 }}>For your counter</Mono>
+            <p style={{ font: "400 19px/1.45 var(--serif)", color: "var(--fg)", margin: "0 0 18px", maxWidth: "36ch" }}>
+              Run a paint shop? Put previews like this on your counter. Fourteen days free, no card.
+            </p>
+            <Link className="btn btn-brass" href="/trial">Start a trial <span className="arr">→</span></Link>
+          </div>
         </div>
       </main>
       <Footer />

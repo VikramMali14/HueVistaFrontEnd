@@ -65,27 +65,38 @@ export function WorkSpiral() {
     if (view !== "spiral") return;
     let raf = 0;
     let vw = window.innerWidth;
-    const onResize = () => { vw = window.innerWidth; };
+    let dirty = true;
+    const onResize = () => { vw = window.innerWidth; dirty = true; };
     window.addEventListener("resize", onResize);
-    const max = WORKS.length - 1;
+    // Includes the finale card appended after the projects.
+    const max = WORKS.length;
+    // CSS blur() forces expensive repaints — skip it on touch / small screens
+    // where the spiral otherwise stutters.
+    const fancy = window.matchMedia("(hover: hover) and (min-width: 769px)").matches;
 
     const tick = () => {
       const target = Math.max(0, Math.min(max, window.scrollY / PX_PER_ITEM));
+      // Settled and already painted once → skip all DOM writes while idle.
+      if (!dirty && helixRef.current?.dataset.ready && Math.abs(target - progress.current) < 0.0005) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      dirty = false;
       progress.current += (target - progress.current) * 0.09;
       const p = progress.current;
       const radius = Math.min(vw * 0.42, BASE_RADIUS);
-      for (let i = 0; i < WORKS.length; i++) {
+      for (let i = 0; i <= WORKS.length; i++) {
         const el = cardRefs.current[i];
         if (!el) continue;
         const s = pose(i, p, radius);
         el.style.transform = s.transform;
         el.style.opacity = String(s.opacity);
-        el.style.filter = `blur(${s.blur.toFixed(2)}px)`;
+        el.style.filter = fancy ? `blur(${s.blur.toFixed(2)}px)` : "";
         el.style.zIndex = String(2000 + Math.round(s.z));
         el.style.pointerEvents = s.opacity < 0.3 ? "none" : "auto";
       }
       if (counterRef.current) {
-        counterRef.current.textContent = String(Math.min(max, Math.round(p)) + 1).padStart(2, "0");
+        counterRef.current.textContent = String(Math.min(WORKS.length - 1, Math.round(p)) + 1).padStart(2, "0");
       }
       // First frame done → fade the helix in (hides the radius snap on small screens).
       if (helixRef.current && !helixRef.current.dataset.ready) helixRef.current.dataset.ready = "1";
@@ -99,9 +110,22 @@ export function WorkSpiral() {
   }, [view]);
 
   const switchView = (v: "spiral" | "list") => {
+    // Re-clicking the active toggle would reset scroll/progress WITHOUT the
+    // [view] effect re-running — the settled-state early-out would then freeze
+    // the helix at a stale pose until the next scroll.
+    if (v === view) return;
     setView(v);
     window.scrollTo({ top: 0 });
     progress.current = 0;
+  };
+
+  // Scroll-sync is for KEYBOARD focus only — mouse clicks also focus links
+  // (on mousedown), and an instant scroll jump would slide the card out from
+  // under the pointer and swallow the navigation.
+  const syncOnKeyboardFocus = (index: number) => (e: React.FocusEvent<HTMLAnchorElement>) => {
+    if (e.currentTarget.matches(":focus-visible")) {
+      window.scrollTo({ top: index * PX_PER_ITEM });
+    }
   };
 
   return (
@@ -118,6 +142,7 @@ export function WorkSpiral() {
                   className="hv-work-card ph ph-grain"
                   data-tone={w.tone}
                   style={initialStyle(i, w.aspect)}
+                  onFocus={syncOnKeyboardFocus(i)}
                   aria-label={`${w.title} — ${w.category}, ${w.location}. View project.`}
                 >
                   <span className="hv-work-card-tag">{w.code} · {w.shadeName}</span>
@@ -125,24 +150,38 @@ export function WorkSpiral() {
                   <span className="hv-work-card-meta">{w.category} · {w.location} · {w.year}</span>
                 </Link>
               ))}
+              {/* Finale card — the spiral ends on a next step, not a dead stop. */}
+              <Link
+                href="/trial"
+                ref={(el) => { cardRefs.current[WORKS.length] = el; }}
+                className="hv-work-card ph ph-grain"
+                data-tone="brass"
+                style={initialStyle(WORKS.length, "16 / 10")}
+                onFocus={syncOnKeyboardFocus(WORKS.length)}
+                aria-label="Your room next — start a free trial."
+              >
+                <span className="hv-work-card-tag">Your room next</span>
+                <span className="hv-work-card-title">See your walls before you paint them</span>
+                <span className="hv-work-card-meta">14 days free · no card · full catalogue</span>
+              </Link>
             </div>
             <div className="hv-work-head">
               <span className="hv-work-head-title">Our work</span>
-              <span className="hv-work-head-sub">Real rooms · only the wall has changed</span>
+              <span className="hv-work-head-sub">Rooms recoloured with HueVista · only the wall changes</span>
             </div>
             <div className="hv-work-count" aria-hidden>
               <span ref={counterRef}>01</span>&nbsp;/&nbsp;{String(WORKS.length).padStart(2, "0")}
             </div>
             <div className="hv-work-hint" aria-hidden>scroll</div>
           </div>
-          {/* Tall spacer: the page's scrollbar drives the spiral. */}
-          <div style={{ height: `calc(${(WORKS.length - 1) * PX_PER_ITEM}px + 100vh)` }} aria-hidden />
+          {/* Tall spacer: the page's scrollbar drives the spiral (projects + finale card). */}
+          <div style={{ height: `calc(${WORKS.length * PX_PER_ITEM}px + 100vh)` }} aria-hidden />
         </>
       ) : (
         <div className="hv-work-list">
           <header className="hv-work-list-head">
             <span className="hv-work-head-title">Our work</span>
-            <span className="hv-work-head-sub">{WORKS.length} rooms · real photographs · catalogue shades</span>
+            <span className="hv-work-head-sub">{WORKS.length} rooms · recoloured with HueVista · catalogue shades</span>
           </header>
           <ol className="hv-work-rows">
             {WORKS.map((w, i) => (
@@ -157,6 +196,17 @@ export function WorkSpiral() {
                 </Link>
               </li>
             ))}
+            {/* The list ends on a next step, matching the spiral's finale card. */}
+            <li>
+              <Link href="/trial" className="hv-work-row">
+                <span className="hv-work-row-num">+</span>
+                <span className="hv-work-row-swatch" style={{ background: "#b89968" }} aria-hidden />
+                <span className="hv-work-row-title">Your room next — start a free trial</span>
+                <span className="hv-work-row-code">14 days free</span>
+                <span className="hv-work-row-loc">no card needed</span>
+                <span className="hv-work-row-arr" aria-hidden>→</span>
+              </Link>
+            </li>
           </ol>
         </div>
       )}

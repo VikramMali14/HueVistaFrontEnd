@@ -4,7 +4,7 @@ import { WorkSpiral } from "@/components/work/work-spiral";
 
 export const metadata: Metadata = {
   title: "Our work",
-  description: "Rooms painted with HueVista — browse the projects in a 3D spiral. Real photographs, only the wall has changed.",
+  description: "Rooms from the pilot — every shade a real catalogue code. Browse the projects in a 3D spiral.",
 };
 
 export default function WorkPage() {

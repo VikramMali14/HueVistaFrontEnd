@@ -42,9 +42,11 @@ export default async function WorkDetailPage({ params }: PageProps) {
           <Lead className="page-lead">{work.blurb}</Lead>
         </header>
 
-        <section style={{ paddingTop: 72, paddingBottom: 72 }}>
+        {/* No paddingTop: the slider's own top margin is the sole spacer under the page head. */}
+        <section style={{ paddingBottom: 72 }}>
           <CompareSlider
             afterShade={`${work.shadeName} · ${work.code}`}
+            beforeBg={TONE_BG[work.beforeTone]}
             afterBg={TONE_BG[work.tone]}
           />
           <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
@@ -85,6 +87,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                   </div>
                 ))}
               </div>
+              <Mono style={{ display: "block", marginTop: 32, color: "var(--fg-mute)" }}>{work.credit}</Mono>
             </div>
           </div>
         </section>

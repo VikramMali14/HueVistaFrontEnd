@@ -37,6 +37,7 @@ export function AccessCodes() {
   const [issuing, setIssuing] = useState(false);
   const [justIssued, setJustIssued] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [copiedMsg, setCopiedMsg] = useState(false);
 
   const loadCodes = useCallback(async (orgId: string) => {
     try {
@@ -107,6 +108,16 @@ export function AccessCodes() {
     }).catch(() => {});
   }, []);
 
+  // WhatsApp-ready message so the retailer never types the URL and instructions by hand.
+  const copyMessage = useCallback((code: string) => {
+    const days = codes.find((c) => c.code === code)?.validDays ?? validDays;
+    const message = `Your HueVista code: ${code}. Open ${window.location.origin}/redeem and enter it to start visualising your room. Valid ${days} days.`;
+    navigator.clipboard?.writeText(message).then(() => {
+      setCopiedMsg(true);
+      setTimeout(() => setCopiedMsg(false), 1200);
+    }).catch(() => {});
+  }, [codes, validDays]);
+
   if (loading) {
     return (
       <div style={{ display: "inline-flex", alignItems: "center", gap: 10, color: "var(--fg-mute)" }}>
@@ -127,7 +138,7 @@ export function AccessCodes() {
           <input
             value={shopName}
             onChange={(e) => setShopName(e.target.value)}
-            placeholder="Sharda Paints"
+            placeholder="Mehta Paint House"
             aria-label="Shop name"
             style={{ flex: 1, minWidth: 200, padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "400 16px/1 var(--sans)" }}
           />
@@ -178,7 +189,10 @@ export function AccessCodes() {
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => copy(justIssued)}>
             {copied === justIssued ? "Copied" : "Copy"}
           </button>
-          <Mono>Share with your customer — they redeem it at /redeem</Mono>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyMessage(justIssued)}>
+            {copiedMsg ? "Message copied" : "Copy message"}
+          </button>
+          <Mono>Share with your customer — they enter it at huevista.com/redeem</Mono>
         </div>
       )}
 
@@ -190,14 +204,14 @@ export function AccessCodes() {
         </p>
       ) : (
         <div style={{ border: "1px solid var(--rule)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
+          <div className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
             {["Code", "Validity", "Expires", "Status"].map((h) => <Mono key={h}>{h}</Mono>)}
           </div>
           {codes.map((c, i) => {
             const status = c.used ? "redeemed" : c.expired ? "expired" : "active";
             const statusColor = status === "active" ? "var(--accent)" : "var(--fg-mute-deep)";
             return (
-              <div key={c.id} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr", padding: "18px 20px", borderBottom: i === codes.length - 1 ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
+              <div key={c.id} className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr", padding: "18px 20px", borderBottom: i === codes.length - 1 ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{c.code}</span>
                   {status === "active" && (
@@ -206,9 +220,9 @@ export function AccessCodes() {
                     </button>
                   )}
                 </span>
-                <Mono>{c.validDays} days</Mono>
-                <Mono>{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : "—"}</Mono>
-                <span style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
+                <span className="mono" data-label="Validity">{c.validDays} days</span>
+                <span className="mono" data-label="Expires">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : "—"}</span>
+                <span data-label="Status" style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
               </div>
             );
           })}

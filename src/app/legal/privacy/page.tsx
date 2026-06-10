@@ -39,7 +39,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "Contact",
-    p: "Privacy questions? Reach us through the in-app support widget or the contact link in the footer.",
+    p: "Privacy questions? Reach us through the in-app support chat, or write to hello@huevista.com.",
   },
 ];
 
@@ -53,8 +53,7 @@ export default function PrivacyPage() {
           Privacy <i>policy.</i>
         </h1>
         <Lead style={{ marginTop: 20 }}>
-          What we collect and why. This is a starting template — have it reviewed by counsel and aligned with
-          your actual processors before publishing.
+          What we collect, why we collect it, and the choices you keep. Last updated June 2026.
         </Lead>
         <div style={{ marginTop: 56, display: "flex", flexDirection: "column", gap: 36 }}>
           {SECTIONS.map((s) => (

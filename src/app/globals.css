@@ -308,8 +308,8 @@ button { font-family: inherit; }
 @media (max-width: 768px) {
   .nav-menu-toggle { display: inline-flex; }
   .nav-links { display: none; }
-  .nav-actions .nav-signin,
-  .nav-actions .nav-cta { display: none; }             /* relocated into the drawer */
+  .nav-actions .nav-signin { display: none; }          /* relocated into the drawer */
+  .nav-actions .nav-cta { padding: 11px 16px; font-size: 11px; letter-spacing: .1em; }
   .nav-inner { gap: 12px; }
 
   .nav-mobile {
@@ -457,7 +457,7 @@ section + section { border-top: var(--hairline) solid var(--rule); }
 
 /* ====== FOOTER ====== */
 footer { background: var(--bg-deep); border-top: 1px solid var(--rule); padding: 88px 0 48px; }
-.footer-inner { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 64px; }
+.footer-inner { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 64px; }
 .footer-col-title { font: 600 11px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-mute); margin-bottom: 22px; }
 .footer-col a { display: block; font-family: var(--sans); font-size: 15px; font-weight: 500; color: var(--fg-soft); padding: 6px 0; transition: color .2s var(--ease); }
 .footer-col a:hover { color: var(--fg); }
@@ -731,15 +731,18 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 @media (max-width: 1280px) {
   .hv-cat-grid { grid-template-columns: repeat(5, 1fr) !important; }
 }
+/* Toolbar now has FIVE children (search · Brand · Finish · LRV · Clear) —
+   the spans below must keep every row filled with no empty grid holes. */
 @media (max-width: 1024px) {
   .hv-cat-toolbar { grid-template-columns: 1fr 1fr 1fr !important; }
   .hv-cat-toolbar > :first-child { grid-column: span 3; }
+  .hv-cat-toolbar > :last-child { grid-column: span 3; }
   .hv-cat-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 18px !important; }
 }
 @media (max-width: 768px) {
   .hv-cat-toolbar { grid-template-columns: 1fr 1fr !important; }
   .hv-cat-toolbar > :first-child { grid-column: span 2; }
-  .hv-cat-toolbar > :last-child { grid-column: span 2; }
+  /* LRV and Clear share the final row — no span on :last-child here. */
   .hv-cat-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 14px !important; }
 }
 @media (max-width: 480px) {
@@ -859,13 +862,6 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 }
 
 /* =========================================================
-   MOBILE — keep only the essential home sections on phones.
-========================================================= */
-@media (max-width: 768px) {
-  #painted-with { display: none; }
-}
-
-/* =========================================================
    HOME · HERO (cinematic, full-bleed)
 ========================================================= */
 .hv-hero2 {
@@ -939,14 +935,12 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   border-top: 1px solid rgba(244,244,242,.08);
   border-bottom: 1px solid rgba(244,244,242,.08);
 }
-.hv-stats-intro { font: 400 19px/1.5 var(--sans); color: rgba(247,247,245,.66); max-width: 44ch; margin: 0 auto 72px; }
 .hv-stats-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
 .hv-stat-num { font-family: var(--serif); font-weight: 600; font-size: clamp(56px, 8vw, 116px); line-height: .9; letter-spacing: -.04em; color: var(--ivory); }
 .hv-stat-label { font: 400 15px/1.45 var(--sans); color: rgba(247,247,245,.6); margin-top: 16px; }
 @media (max-width: 760px) {
   .hv-stats { padding-top: 80px; padding-bottom: 80px; }
   .hv-stats-grid { grid-template-columns: 1fr; gap: 48px; }
-  .hv-stats-intro { margin-bottom: 48px; }
 }
 
 /* =========================================================
@@ -963,8 +957,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-partners-brands { display: flex; gap: 48px; align-items: baseline; flex-wrap: wrap; }
 .hv-partners-brand { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 3vw, 34px); color: rgba(247,247,245,.5); }
 .hv-partners-brand.is-lead { color: var(--ivory); }
-.hv-partners-brand sup { font-size: 11px; margin-left: 2px; }
-.hv-partners-brand.is-lead sup { color: var(--sage); }
+.hv-partners-note { font: 400 10px/1.5 var(--mono); letter-spacing: .08em; color: rgba(247,247,245,.38); flex-basis: 100%; }
 @media (max-width: 700px) { .hv-partners-brands { gap: 22px 30px; } }
 
 /* =========================================================
@@ -1270,7 +1263,6 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-mood-swatch .mono { color: rgba(247,247,245,.72); }
 .hv-mood-swatch[data-light] { color: #2a2a26; }
 .hv-mood-swatch[data-light] .mono { color: rgba(42,42,38,.62); }
-.hv-mood-cta { display: flex; justify-content: center; margin-top: 48px; }
 @media (max-width: 900px) {
   .hv-mood-strip { gap: 6px; }
   .hv-mood-swatch { padding: 12px; height: clamp(140px, 24vw, 220px); }
@@ -1284,7 +1276,6 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   .hv-mood-swatch { height: 132px; }
   .hv-mood-swatch:last-child { grid-column: span 2; }
   .hv-mood-line { font-size: 16px; }
-  .hv-mood-cta { margin-top: 36px; }
 }
 
 /* =========================================================
@@ -1618,4 +1609,119 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 @media (prefers-reduced-motion: reduce) {
   .hv-tier, .hv-tier:hover { transform: none; transition: none; }
   .hv-price-swap { animation: none; }
+}
+
+/* =========================================================
+   MOTION · site-wide micro-interactions
+   Shared hooks consumed across components — selector names
+   are load-bearing, keep them stable.
+========================================================= */
+
+/* Shared rise keyframe: hero headline (.hv-rise), dashboard KPI cards
+   (.hv-card-in), form errors, keyed label swaps. Animations (not
+   transitions) play before hydration, so nothing is blanked by slow JS. */
+@keyframes hv-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.hv-rise { animation: hv-rise .7s var(--ease) both; }
+.hv-card-in { animation: hv-rise .5s var(--ease) both; }
+
+/* Route-change fade (src/app/template.tsx). OPACITY-ONLY: /work's spiral
+   stage is position:fixed and a transform on an ancestor would re-anchor it. */
+.hv-page { animation: hv-page-in .4s var(--ease); }
+@keyframes hv-page-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Marquee pauses while being read */
+.marquee:hover .marquee-track { animation-play-state: paused; }
+
+/* Filter chips (gallery · journal · catalogue family pills) */
+.hv-chip { transition: color .2s var(--ease), background .2s var(--ease), border-color .2s var(--ease), transform .2s var(--ease); }
+.hv-chip:active { transform: scale(.97); }
+
+/* Dropdown panels (catalogue toolbar) */
+.hv-dd { animation: hv-dd-in .18s var(--ease); transform-origin: top; }
+@keyframes hv-dd-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.hv-dd-opt { transition: background .15s var(--ease); }
+.hv-dd-opt:hover { background: var(--surface); }
+
+/* Journal rows are plain divs until articles exist — no hover affordance
+   (a clickable-looking row that goes nowhere is worse than a quiet one). */
+
+/* Loading shimmer (dashboard project placeholders) */
+.hv-skel { background: linear-gradient(90deg, var(--surface) 25%, var(--surface-soft) 37%, var(--surface) 63%); background-size: 400% 100%; animation: hv-shimmer 1.4s linear infinite; }
+@keyframes hv-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+/* Dashboard project cards: thumb zoom + reactive "New project" tile */
+.hv-proj-thumb { overflow: hidden; }
+.hv-proj-thumb img { transition: transform .5s var(--ease); }
+a:hover .hv-proj-thumb img { transform: scale(1.04); }
+.hv-proj-new { transition: border-color .2s var(--ease), background .2s var(--ease); }
+.hv-proj-new:hover { border-color: var(--accent); }
+
+/* Form errors rise in (sign-in / trial) */
+.field-error[role="alert"] { animation: hv-rise .35s var(--ease) both; }
+
+/* Keyed label swap (journal newsletter submit) */
+.hv-fade-swap { display: inline-block; animation: hv-rise .4s var(--ease) both; }
+
+/* Support chat panel + launcher */
+.hv-chat-pop { animation: hv-chat-pop .25s var(--ease); transform-origin: 100% 100%; }
+@keyframes hv-chat-pop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+.hv-chat-fab { transition: transform .2s var(--ease), box-shadow .2s var(--ease); }
+.hv-chat-fab:hover { transform: translateY(-2px); }
+.hv-chat-fab:active { transform: scale(.94); }
+
+/* Home catalogue-preview: per-tile ripple keyed to --i off the reveal parent */
+.hv-cat-preview > div { opacity: 0; transition: opacity .5s var(--ease) calc(var(--i, 0) * 14ms), transform .25s var(--ease); }
+.reveal.in .hv-cat-preview > div { opacity: 1; }
+.hv-cat-preview > div:hover { transform: scale(1.08); position: relative; z-index: 2; }
+
+/* Catalogue shade cards: lift on hover, settle on press */
+.hv-shade-card { transition: transform .35s var(--ease); }
+.hv-shade-card > div:first-child { transition: box-shadow .35s var(--ease); }
+.hv-shade-card:hover { transform: translateY(-4px); }
+.hv-shade-card:hover > div:first-child { box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 28px 48px -18px rgba(0,0,0,.7); }
+.hv-shade-card:active { transform: translateY(-1px); transition-duration: .12s; }
+
+/* Filter-result swap: key the grid by filter state to replay the entrance */
+.hv-grid-swap { animation: hv-grid-swap .45s var(--ease); }
+@keyframes hv-grid-swap { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* Press feedback site-wide (.btn's transition list already includes transform).
+   :not(:disabled) keeps pending/disabled buttons dimmed at their .45 opacity. */
+.btn:hover:not(:disabled) { opacity: .92; transform: translateY(-1px); }
+.btn:active:not(:disabled) { transform: translateY(0) scale(.985); transition-duration: .08s; }
+.btn-ghost:active:not(:disabled) { background: var(--surface-soft); }
+.text-link:active { opacity: .5; }
+.hv-mood-pill:active, .hv-room-chip:active { transform: scale(.94); }
+
+/* .hv-method-card / .hv-tier declare their own transitions, which would
+   override .reveal's — re-merge both so staggered cards still ease in.
+   The shorthand resets transition-delay, so the .d1–.d5 stagger must be
+   re-stated below at matching precedence. */
+.hv-method-card.reveal { transition: opacity .7s var(--ease), transform .7s var(--ease), background .25s var(--ease); }
+.hv-tier.reveal { transition: opacity .7s var(--ease), transform .7s var(--ease), box-shadow .4s var(--ease); }
+.hv-method-card.reveal.d1, .hv-tier.reveal.d1 { transition-delay: .06s; }
+.hv-method-card.reveal.d2, .hv-tier.reveal.d2 { transition-delay: .12s; }
+.hv-method-card.reveal.d3, .hv-tier.reveal.d3 { transition-delay: .18s; }
+.hv-method-card.reveal.d4, .hv-tier.reveal.d4 { transition-delay: .24s; }
+.hv-method-card.reveal.d5, .hv-tier.reveal.d5 { transition-delay: .30s; }
+
+/* Placeholder labels need dark ink on the light tones (ivory · sage · brass) */
+.ph[data-tone="ivory"] .ph-label, .ph[data-tone="sage"] .ph-label, .ph[data-tone="brass"] .ph-label { color: rgba(30,26,18,.72); }
+.ph[data-tone="ivory"] .ph-tag, .ph[data-tone="sage"] .ph-tag, .ph[data-tone="brass"] .ph-tag { color: rgba(30,26,18,.55); }
+
+/* Reduced motion: neutralise everything in this section */
+@media (prefers-reduced-motion: reduce) {
+  .hv-rise, .hv-card-in, .hv-page, .hv-dd, .hv-fade-swap, .hv-chat-pop,
+  .hv-grid-swap, .hv-skel, .field-error[role="alert"] { animation: none !important; }
+  .hv-skel { background: var(--surface); }
+  .hv-chip, .hv-dd-opt, .hv-journal-row, .hv-journal-row > :last-child,
+  .hv-proj-thumb img, .hv-proj-new, .hv-chat-fab, .hv-shade-card,
+  .hv-shade-card > div:first-child, .hv-cat-preview > div,
+  .btn, .text-link { transition: none !important; }
+  .hv-cat-preview > div { opacity: 1 !important; }
+  .hv-chip:active, .hv-chat-fab:hover, .hv-chat-fab:active,
+  .hv-shade-card:hover, .hv-shade-card:active,
+  a:hover .hv-proj-thumb img, .hv-journal-row:hover > :last-child,
+  .hv-cat-preview > div:hover, .btn:hover, .btn:active,
+  .hv-mood-pill:active, .hv-room-chip:active { transform: none !important; }
 }

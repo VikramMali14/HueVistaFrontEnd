@@ -29,11 +29,11 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://huevista.com"),
   title: {
-    default: "HueVista — See any paint color on your walls",
+    default: "HueVista — See any paint colour on your walls",
     template: "%s — HueVista",
   },
   description:
-    "Upload a photo of a room and preview any paint color on the walls in seconds. Built for paint shops, painters, and homeowners.",
+    "Upload a photo of a room and preview any paint colour on the walls in seconds. Built for paint shops and their customers.",
   applicationName: "HueVista",
   keywords: [
     "paint visualizer",
@@ -44,17 +44,17 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "HueVista" }],
   openGraph: {
-    title: "HueVista — See any paint color on your walls",
+    title: "HueVista — See any paint colour on your walls",
     description:
-      "Upload a photo of a room and preview any paint color on the walls in seconds.",
+      "Upload a photo of a room and preview any paint colour on the walls in seconds.",
     type: "website",
     locale: "en_IN",
     siteName: "HueVista",
   },
   twitter: {
     card: "summary_large_image",
-    title: "HueVista — See any paint color on your walls",
-    description: "Upload a photo of a room and preview any paint color in seconds.",
+    title: "HueVista — See any paint colour on your walls",
+    description: "Upload a photo of a room and preview any paint colour in seconds.",
   },
   robots: { index: true, follow: true },
   icons: { icon: "/favicon.svg" },

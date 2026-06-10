@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { loginAction } from "@/lib/auth";
+import { loginAction, registerAction } from "@/lib/auth";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Logo } from "@/components/ui/logo";
@@ -13,11 +13,14 @@ export const metadata: Metadata = {
 };
 
 interface PageProps {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; mode?: string }>;
 }
 
 export default async function SignInPage({ searchParams }: PageProps) {
-  const { next } = await searchParams;
+  const { next, mode } = await searchParams;
+  // /sign-in?mode=register — the free, no-shop account (e.g. a walk-in customer
+  // keeping their guest work). registerAction treats the shop fields as optional.
+  const register = mode === "register";
   return (
     <>
       <SiteHeader showSignIn={false} />
@@ -32,11 +35,25 @@ export default async function SignInPage({ searchParams }: PageProps) {
         </AuthArt>
 
         <section className="auth-form-wrap">
-          <Eyebrow>Welcome back</Eyebrow>
-          <h1>Welcome back.</h1>
-          <Lead style={{ maxWidth: "42ch" }}>Your projects, colours and saved previews — right where you left them.</Lead>
-          <SignInForm action={loginAction} next={next ?? "/dashboard"} />
-          <p className="auth-foot">New to HueVista? <Link href="/trial">Start your free 14-day trial.</Link></p>
+          <Eyebrow>{register ? "Create account" : "Sign in"}</Eyebrow>
+          <h1>{register ? <>Create your <i>account.</i></> : <>Welcome <i>back.</i></>}</h1>
+          <Lead style={{ maxWidth: "42ch" }}>
+            {register
+              ? "Free, no card — your projects, colours and saved previews stay with you for good."
+              : "Your projects, colours and saved previews — right where you left them."}
+          </Lead>
+          <SignInForm
+            action={register ? registerAction : loginAction}
+            mode={register ? "register" : "signin"}
+            next={next ?? "/dashboard"}
+          />
+          <p className="auth-foot">
+            {register ? (
+              <>Already have an account? <Link href={`/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in.</Link></>
+            ) : (
+              <>New to HueVista? <Link href="/trial">Start your free 14-day trial.</Link></>
+            )}
+          </p>
         </section>
       </div>
 

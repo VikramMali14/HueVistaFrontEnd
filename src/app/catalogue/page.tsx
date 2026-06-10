@@ -14,7 +14,7 @@ import { Harmonies } from "@/components/catalogue/harmonies";
 
 export const metadata: Metadata = {
   title: "Catalogue",
-  description: "Every shade. Codes intact. Filter by family, finish, LRV.",
+  description: "2,481 Asian Paints shades with real codes. Search by name, code or hex; filter by colour family and finish.",
 };
 
 export default async function CataloguePage() {
@@ -28,17 +28,17 @@ export default async function CataloguePage() {
   }
   return (
     <>
-      <Marquee items={["The Catalogue", "2,481 catalogued shades", "Asian Paints · codes intact · finishes preserved"]} />
+      <Marquee items={["The Catalogue", "Every code intact · finishes preserved", "Asian Paints · more to follow"]} />
       <SiteHeader />
       <main>
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
             <Eyebrow>Colour library</Eyebrow>
-            <Mono>2,481 shades · 4 partners</Mono>
+            <Mono>{shades.length.toLocaleString("en-IN")} shades · Asian Paints · more to follow</Mono>
           </div>
           <h1 className="display">Every shade.<br /><i>Codes intact.</i></h1>
-          <Lead className="page-lead">Asian Paints at launch, with Berger and Nerolac soon to follow. Filter by family, finish, LRV, or regional style. Search by code, name, or hex.</Lead>
+          <Lead className="page-lead">Asian Paints at launch, with Berger and Nerolac to follow. Filter by colour family, finish, or light value (LRV). Search by code, name, or hex.</Lead>
         </header>
 
         <section style={{ paddingTop: 80 }}>
@@ -48,6 +48,7 @@ export default async function CataloguePage() {
             <Link href="/color-finder" style={{ color: "var(--accent)" }}>
               Pull colours straight from an image →
             </Link>
+            <Mono style={{ marginLeft: 8 }}>subscriber tool</Mono>
           </p>
           <CatalogueToolbar shades={shades} />
         </section>

@@ -17,9 +17,9 @@ export function PricingPreview() {
         <h2 className="display" style={{ fontSize: "clamp(48px, 7vw, 84px)", maxWidth: "14ch" }}>For retailers, <i>not consumers.</i></h2>
         <LinkButton href="/pricing" size="lg">See all tiers <span className="arr">→</span></LinkButton>
       </div>
-      <div className="reveal d1 r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
-        {TIERS.map((t) => (
-          <div key={t.name} className={t.featured ? "hv-tier hv-tier--featured" : "hv-tier"} style={{ background: t.featured ? "var(--ivory)" : "var(--charcoal-soft)", color: t.featured ? "var(--charcoal)" : "var(--ivory)", padding: "48px 36px", display: "flex", flexDirection: "column", gap: 18 }}>
+      <div className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
+        {TIERS.map((t, i) => (
+          <div key={t.name} className={`${t.featured ? "hv-tier hv-tier--featured" : "hv-tier"} reveal d${i + 1}`} style={{ background: t.featured ? "var(--ivory)" : "var(--charcoal-soft)", color: t.featured ? "var(--charcoal)" : "var(--ivory)", padding: "48px 36px", display: "flex", flexDirection: "column", gap: 18 }}>
             <Mono style={{ color: t.featured ? "var(--brass-deep)" : "var(--mute)" }}>{t.name}</Mono>
             <div style={{ minHeight: 64, display: "flex", alignItems: "flex-end" }}>
               {t.price === "On request" ? (
@@ -35,6 +35,7 @@ export function PricingPreview() {
           </div>
         ))}
       </div>
+      <Mono style={{ display: "block", marginTop: 24 }}>Every tier starts with the same fourteen-day free trial · no card · cancel anytime</Mono>
     </section>
   );
 }

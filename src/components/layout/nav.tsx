@@ -29,6 +29,7 @@ const MENU: ReadonlyArray<MenuItem> = [
           { href: "/catalogue", label: "Catalogue", desc: "2,481 shades · codes intact" },
           { href: "/color-finder", label: "Colour Finder", desc: "Photo → shade code" },
           { href: "/gallery", label: "Gallery", desc: "Rooms · only the wall changed" },
+          { href: "/journal", label: "Journal", desc: "Notes from the counter" },
         ],
       },
     ],
@@ -37,26 +38,8 @@ const MENU: ReadonlyArray<MenuItem> = [
       { href: "/redeem", title: "Have a shop code?", desc: "Redeem it to visualise your own room." },
     ],
   },
+  { label: "How it works", href: "/method" },
   { label: "Our work", href: "/work" },
-  {
-    label: "Resources",
-    columns: [
-      {
-        title: "Learn",
-        links: [
-          { href: "/method", label: "How it works" },
-          { href: "/journal", label: "Journal" },
-        ],
-      },
-      {
-        title: "Legal",
-        links: [
-          { href: "/legal/privacy", label: "Privacy" },
-          { href: "/legal/terms", label: "Terms" },
-        ],
-      },
-    ],
-  },
   { label: "Pricing", href: "/pricing" },
 ];
 

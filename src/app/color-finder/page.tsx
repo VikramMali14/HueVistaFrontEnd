@@ -30,7 +30,7 @@ export default async function ColorFinderPage() {
   }
   return (
     <>
-      <Marquee items={["Colour finder", "Photo → shade code", "Asian Paints · codes intact", "Sample any pixel · match by ΔE"]} />
+      <Marquee items={["Colour finder", "Photo → shade code", "Asian Paints · codes intact", "Tap any spot · get the nearest shade code"]} />
       <SiteHeader />
       <main>
         <RevealMount />

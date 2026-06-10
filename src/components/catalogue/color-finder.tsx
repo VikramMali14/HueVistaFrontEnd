@@ -378,13 +378,16 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
                   Nearest catalogue shades{matchSource === "offline" ? " · offline" : ""}
                 </Mono>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {matches.map(({ shade, deltaE: dE }, i) => (
+                  {matches.map(({ shade, deltaE: dE }, i) => {
+                    // Translate the ΔE scale into a reading a counter user can act on.
+                    const grade = dE < 2 ? "exact" : dE < 5 ? "very close" : dE < 10 ? "close" : "nearest available";
+                    return (
                     <button
                       key={shade.code}
                       type="button"
                       onClick={() => copyCode(shade.code)}
                       title={`Copy code ${shade.code}`}
-                      aria-label={`${shade.name}, code ${shade.code}, ΔE ${dE.toFixed(1)}. Click to copy the code.`}
+                      aria-label={`${shade.name}, code ${shade.code}, ${grade} match. Click to copy the code.`}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -402,11 +405,12 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
                         <span className="finder-shade-name" style={{ font: "400 16px/1.1 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {shade.name}
                         </span>
-                        <Mono>{shade.code} · {shade.hex} · ΔE {dE.toFixed(1)}</Mono>
+                        <Mono>{shade.code} · {shade.hex} · ΔE {dE.toFixed(1)} · {grade}</Mono>
                       </span>
                       <Mono brass>{copied === shade.code ? "copied" : i === 0 ? "closest" : "copy"}</Mono>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             ) : (

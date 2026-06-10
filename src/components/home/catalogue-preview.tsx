@@ -16,7 +16,7 @@ export function CataloguePreview() {
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <Eyebrow>The catalogue</Eyebrow>
           <h2 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Every shade. <i>Codes intact.</i></h2>
-          <Lead>Filter by family, finish, LRV, regional style. Search by code, name or hex. Find what looks closest across brands by colour science — not by approximation.</Lead>
+          <Lead>Filter by colour family, finish, or light value (LRV). Search by code, name or hex. Find what looks closest across brands by colour science — not by approximation.</Lead>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
             <LinkButton href="/catalogue">Browse the catalogue <span className="arr">→</span></LinkButton>
             <LinkButton href="/catalogue" variant="ghost">View a single shade <span className="arr">→</span></LinkButton>
@@ -24,7 +24,7 @@ export function CataloguePreview() {
         </div>
         <div className="hv-cat-preview" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
           {SWATCHES.map((hex, i) => (
-            <div key={i} title={`AP-${String(2104 + i).padStart(4, "0")}`} style={{ background: hex, aspectRatio: "1 / 1" }} />
+            <div key={i} title={`AP-${String(2104 + i).padStart(4, "0")}`} style={{ background: hex, aspectRatio: "1 / 1", "--i": i } as React.CSSProperties} />
           ))}
         </div>
       </div>

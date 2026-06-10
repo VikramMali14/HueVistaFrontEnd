@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { LinkButton } from "@/components/ui/button";
-import { ProjectsGrid } from "@/components/app/projects-grid";
 import { AccountVerification } from "@/components/app/account-verification";
-import { DashboardStats } from "@/components/app/dashboard-stats";
+import { DashboardProjects } from "@/components/app/dashboard-projects";
 import { PlanBanner } from "@/components/app/plan-banner";
 
 export const metadata: Metadata = {
@@ -18,6 +17,9 @@ interface DashboardPageProps {
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const [{ denied }, user] = await Promise.all([searchParams, getCurrentUser()]);
+  // The audience is India-only, so IST is the right clock for the greeting.
+  const h = Number(new Intl.DateTimeFormat("en-IN", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Kolkata" }).format(new Date()));
+  const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   return (
     <>
       {denied === "role" && (
@@ -36,25 +38,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           That page is reserved for retailers and administrators. We brought you back to your dashboard.
         </div>
       )}
-      <header style={{ marginBottom: 48 }}>
+      <header style={{ marginBottom: 32 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
           <Eyebrow>Dashboard</Eyebrow>
-          <Mono>{user?.role === "ADMIN" ? "Administrator" : "Sharda Paints · Professional tier"}</Mono>
+          <Mono>{user?.role === "ADMIN" ? "Administrator" : user?.role === "RETAILER" ? "Retailer account" : "Your account"}</Mono>
         </div>
-        <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Good morning,<br />{user?.name?.split(" ")[0] ?? "Friend"}.</h1>
-        <Lead style={{ marginTop: 24 }}>{user?.name ? "Welcome back." : "Welcome to HueVista."} Pick up a saved project, or start a new one.</Lead>
-        <div style={{ marginTop: 16 }}>
-          <LinkButton href="/redeem" variant="ghost" size="sm">Have a shop access code? Redeem it <span className="arr">→</span></LinkButton>
-        </div>
+        <h1 className="display" style={{ fontSize: "clamp(36px, 4.5vw, 56px)" }}>{greeting},<br />{user?.name?.split(" ")[0] ?? "Friend"}.</h1>
+        <Lead style={{ marginTop: 24 }}>Pick up a saved project, or start a new one.</Lead>
+        {user?.role !== "RETAILER" && user?.role !== "ADMIN" && (
+          <div style={{ marginTop: 16 }}>
+            <LinkButton href="/redeem" variant="ghost" size="sm">Have a shop access code? Redeem it <span className="arr">→</span></LinkButton>
+          </div>
+        )}
       </header>
       <PlanBanner />
       <AccountVerification user={user} />
-      <DashboardStats />
-      <section style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
-        <h2 className="display" style={{ fontSize: 48 }}>Recent projects</h2>
-        <LinkButton href="/atelier" variant="ghost" size="sm">New project <span className="arr">→</span></LinkButton>
-      </section>
-      <ProjectsGrid />
+      <DashboardProjects />
     </>
   );
 }

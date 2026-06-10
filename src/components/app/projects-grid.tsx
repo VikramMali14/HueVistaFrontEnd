@@ -1,11 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api, HttpError } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
 import { Mono } from "@/components/ui/eyebrow";
-import { Spinner } from "@/components/ui/spinner";
 import type { ProjectSummary } from "@/lib/types";
 
 function statusLabel(s: ProjectSummary["status"]): string {
@@ -21,31 +18,22 @@ function statusLabel(s: ProjectSummary["status"]): string {
   }
 }
 
-/**
- * Live grid of the signed-in user's projects (GET /api/projects via the BFF).
- * Each card opens the project in the studio, where it loads its SAVED masks /
- * cleaned image from storage — no re-segmentation, no extra AI cost.
- */
-export function ProjectsGrid() {
-  const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+interface ProjectsGridProps {
+  /** null while the dashboard's single projects fetch is in flight. */
+  projects: ProjectSummary[] | null;
+  error: string | null;
+}
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const list = await api.listProjects();
-        if (!cancelled) setProjects(list);
-      } catch (err) {
-        if (cancelled) return;
-        setError(err instanceof HttpError ? err.message : "Could not load your projects.");
-        setProjects([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+/**
+ * Grid of the signed-in user's projects, newest first. Data arrives via props
+ * from DashboardProjects (one fetch shared with the KPI cards). Each card opens
+ * the project in the studio, where it loads its SAVED masks / cleaned image
+ * from storage — no re-segmentation, no extra AI cost.
+ */
+export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
+  const sorted = projects
+    ? [...projects].sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime())
+    : null;
 
   return (
     <section
@@ -54,6 +42,7 @@ export function ProjectsGrid() {
     >
       <Link
         href="/atelier"
+        className="hv-proj-new"
         style={{
           display: "flex",
           flexDirection: "column",
@@ -61,7 +50,6 @@ export function ProjectsGrid() {
           justifyContent: "center",
           gap: 12,
           aspectRatio: "4 / 5",
-          border: "1px dashed var(--rule-strong)",
           color: "var(--accent)",
           textDecoration: "none",
           background: "var(--surface-soft)",
@@ -73,11 +61,10 @@ export function ProjectsGrid() {
         <Mono brass>New project</Mono>
       </Link>
 
-      {projects === null && (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 10, color: "var(--fg-mute)", alignSelf: "center" }}>
-          <Spinner size={14} color="var(--accent)" /> <Mono>Loading…</Mono>
-        </div>
-      )}
+      {sorted === null &&
+        [0, 1, 2].map((i) => (
+          <div key={i} className="hv-skel" aria-hidden style={{ aspectRatio: "4 / 5", border: "1px solid var(--rule)" }} />
+        ))}
 
       {error && (
         <p style={{ alignSelf: "center", color: "var(--fg-mute)" }}>
@@ -85,13 +72,13 @@ export function ProjectsGrid() {
         </p>
       )}
 
-      {projects !== null && projects.length === 0 && !error && (
+      {sorted !== null && sorted.length === 0 && !error && (
         <p style={{ alignSelf: "center", font: "400 16px/1.4 var(--sans)", color: "var(--fg-soft)" }}>
           No projects yet — start one with a photo.
         </p>
       )}
 
-      {projects?.map((p) => {
+      {sorted?.map((p) => {
         const thumb = resolveMediaUrl(p.imageUrl);
         return (
           <Link
@@ -100,7 +87,7 @@ export function ProjectsGrid() {
             style={{ textDecoration: "none", color: "inherit" }}
           >
             <article>
-              <div style={{ aspectRatio: "4 / 5", border: "1px solid var(--rule)", overflow: "hidden", background: "var(--surface)" }}>
+              <div className="hv-proj-thumb" style={{ aspectRatio: "4 / 5", border: "1px solid var(--rule)", overflow: "hidden", background: "var(--surface)" }}>
                 {thumb ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={thumb} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -108,17 +95,26 @@ export function ProjectsGrid() {
               </div>
               <div style={{ marginTop: 14 }}>
                 <span style={{ fontFamily: "var(--serif)", fontSize: 22 }}>{p.name}</span>
-                <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                   <Mono>
                     {p.regionCount} region{p.regionCount === 1 ? "" : "s"}
                   </Mono>
-                  <Mono>{statusLabel(p.status)}</Mono>
+                  <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10 }}>
+                    {p.updatedAt ? (
+                      <Mono>{new Date(p.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</Mono>
+                    ) : null}
+                    <Mono>{statusLabel(p.status)}</Mono>
+                  </span>
                 </div>
               </div>
             </article>
           </Link>
         );
       })}
+      <style>{`
+        .hv-proj-new { border: 1px dashed var(--rule-strong); transition: border-color .2s var(--ease), background .2s var(--ease); }
+        .hv-proj-new:hover { border-color: var(--accent); }
+      `}</style>
     </section>
   );
 }

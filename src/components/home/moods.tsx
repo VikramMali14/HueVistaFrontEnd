@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { LinkButton } from "@/components/ui/button";
 import { Eyebrow, Mono } from "@/components/ui/eyebrow";
 
 interface MoodShade {
@@ -116,10 +115,6 @@ export function Moods() {
             </div>
           ))}
         </div>
-      </div>
-
-      <div className="reveal d2 hv-mood-cta">
-        <LinkButton href="/catalogue" variant="ghost">Browse these in the catalogue <span className="arr">→</span></LinkButton>
       </div>
     </section>
   );

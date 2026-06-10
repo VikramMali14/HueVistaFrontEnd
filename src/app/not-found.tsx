@@ -13,7 +13,7 @@ export default function NotFound() {
           <SwatchCube size={120} />
         </div>
         <Eyebrow>404 — Page not found</Eyebrow>
-        <h1 className="display" style={{ fontSize: "clamp(64px, 10vw, 160px)", marginTop: 24 }}>Page not found.</h1>
+        <h1 className="display" style={{ fontSize: "clamp(64px, 10vw, 160px)", marginTop: 24 }}>An unpainted <i>wall.</i></h1>
         <Lead style={{ margin: "32px auto 56px" }}>This page doesn’t exist or has moved. Head back to the homepage, or see how HueVista works.</Lead>
         <div style={{ display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
           <LinkButton href="/" variant="brass" size="lg">Go to homepage <span className="arr">→</span></LinkButton>
