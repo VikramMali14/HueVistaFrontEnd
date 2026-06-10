@@ -46,7 +46,7 @@ export function ForgotForm() {
 
   const reset = async () => {
     if (code.trim().length < 4 || password.length < 8) {
-      setError("Enter the 6-digit code and a new passphrase of at least 8 characters.");
+      setError("Enter the 6-digit code and a new password of at least 8 characters.");
       return;
     }
     setBusy(true);
@@ -65,8 +65,8 @@ export function ForgotForm() {
     return (
       <div style={{ marginTop: 40 }}>
         <span aria-hidden style={{ fontSize: 40, color: "var(--accent)" }}>✓</span>
-        <h2 style={{ font: "300 italic 28px/1.2 var(--serif)", color: "var(--fg)", margin: "12px 0 16px" }}>
-          Passphrase reset.
+        <h2 style={{ font: "400 28px/1.2 var(--serif)", color: "var(--fg)", margin: "12px 0 16px" }}>
+          Password reset.
         </h2>
         <Link className="btn" href="/sign-in">Sign in <span className="arr">→</span></Link>
       </div>
@@ -97,7 +97,7 @@ export function ForgotForm() {
         </>
       ) : (
         <>
-          <Mono>We sent a 6-digit code to {email}. Enter it with your new passphrase.</Mono>
+          <Mono>We sent a 6-digit code to {email}. Enter it with your new password.</Mono>
           <div className="field">
             <label className="field-label" htmlFor="code">Reset code</label>
             <input
@@ -111,7 +111,7 @@ export function ForgotForm() {
             />
           </div>
           <div className="field">
-            <label className="field-label" htmlFor="newpw">New passphrase</label>
+            <label className="field-label" htmlFor="newpw">New password</label>
             <input
               id="newpw"
               type="password"
@@ -125,7 +125,7 @@ export function ForgotForm() {
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <button type="button" className="btn" onClick={() => void reset()} disabled={busy} style={{ justifyContent: "center" }}>
-              {busy ? <><Spinner size={14} color="currentColor" /> Resetting…</> : <>Reset passphrase <span className="arr">→</span></>}
+              {busy ? <><Spinner size={14} color="currentColor" /> Resetting…</> : <>Reset password <span className="arr">→</span></>}
             </button>
             <button
               type="button"

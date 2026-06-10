@@ -6,8 +6,8 @@ import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { ForgotForm } from "./forgot-form";
 
 export const metadata: Metadata = {
-  title: "Reset passphrase",
-  description: "Reset your HueVista passphrase.",
+  title: "Reset password",
+  description: "Reset your HueVista password.",
 };
 
 export default function ForgotPage() {
@@ -20,13 +20,13 @@ export default function ForgotPage() {
           className="display"
           style={{ fontSize: "clamp(40px, 6vw, 72px)", marginTop: 16 }}
         >
-          A new <i>passphrase.</i>
+          A new <i>password.</i>
         </h1>
         <Lead style={{ marginTop: 24 }}>
           Enter the email associated with your counter. We&apos;ll send a 6-digit reset code if an account exists.
         </Lead>
         <ForgotForm />
-        <p style={{ marginTop: 40, font: "300 italic 17px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
+        <p style={{ marginTop: 40, font: "400 17px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
           Remembered it? <Link href="/sign-in" style={{ color: "var(--accent-soft)", borderBottom: "1px solid var(--rule-brass)" }}>Sign in.</Link>
         </p>
       </main>

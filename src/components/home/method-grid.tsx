@@ -13,8 +13,7 @@ export function MethodGrid() {
   return (
     <section id="method">
       <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr", gap: 48, alignItems: "end", marginBottom: 80 }}>
-        <span className="roman" style={{ fontSize: 24 }}>II.</span>
-        <div>
+                <div>
           <Eyebrow>At the counter</Eyebrow>
           <h2 className="display" style={{ fontSize: "clamp(48px, 7vw, 108px)", marginTop: 24 }}>A photo in,<br /><i>a painted wall out.</i></h2>
         </div>
@@ -23,9 +22,9 @@ export function MethodGrid() {
       <div className="reveal d1 r-cols-lg-3 r-cols-md-2 r-cols-sm-1" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 1, background: "var(--rule)", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
         {STEPS.map((s) => (
           <div key={s.num} style={{ background: "var(--charcoal)", padding: "32px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ font: "300 italic 22px/1 var(--serif)", color: "var(--brass)" }}>{s.num}</div>
+            <div style={{ font: "400 22px/1 var(--serif)", color: "var(--brass)" }}>{s.num}</div>
             <div style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "var(--mute)" }}>{s.tag}</div>
-            <div style={{ fontFamily: "var(--serif)", fontWeight: 300, fontSize: 32, lineHeight: 1, color: "var(--ivory)", marginTop: 8 }}>{s.title}</div>
+            <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 32, lineHeight: 1, color: "var(--ivory)", marginTop: 8 }}>{s.title}</div>
             <Placeholder tone={s.tone} grain corners tag={s.phaseTag} label={s.body} style={{ aspectRatio: "3 / 4", marginTop: 8 }} />
           </div>
         ))}

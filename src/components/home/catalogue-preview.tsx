@@ -3,7 +3,7 @@ import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 
 const SWATCHES = [
   "#a47148", "#d6a78a", "#8a5a3a", "#1a1612", "#f3eee4",
-  "#c9a17a", "#5b6c5b", "#7a3c2a", "#ebe5d7", "#3e4a52",
+  "#c9a17a", "#5b6c5b", "#7a3c2a", "var(--ivory)", "#3e4a52",
   "#8c98a8", "#a9b8a4", "#d4c7a5", "#6e7d6c", "#bda58a",
   "#2f3b3a", "#e2c7a9", "#9b6e4a", "#465259", "#cbb89e",
   "#79584a", "#a78b6c", "#dac1a3", "#3b4845",

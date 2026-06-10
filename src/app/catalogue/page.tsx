@@ -34,7 +34,7 @@ export default async function CataloguePage() {
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
-            <Eyebrow>Volume II &nbsp;·&nbsp; The Catalogue</Eyebrow>
+            <Eyebrow>Colour library</Eyebrow>
             <Mono>2,481 shades · 4 partners</Mono>
           </div>
           <h1 className="display">Every shade.<br /><i>Codes intact.</i></h1>
@@ -43,7 +43,7 @@ export default async function CataloguePage() {
 
         <section style={{ paddingTop: 80 }}>
           <ColorMatch />
-          <p style={{ margin: "-32px 0 48px", font: "300 italic 16px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
+          <p style={{ margin: "-32px 0 48px", font: "400 16px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
             Working from a photograph?{" "}
             <Link href="/color-finder" style={{ color: "var(--accent)" }}>
               Pull colours straight from an image →
@@ -60,8 +60,8 @@ export default async function CataloguePage() {
               Find the shade.<br /><i>Sell the same afternoon.</i>
             </h2>
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-              <Link className="btn btn-brass" href="/trial">Begin a trial <span className="arr">→</span></Link>
-              <Link className="btn btn-ghost" href="/method">Read the method <span className="arr">→</span></Link>
+              <Link className="btn btn-brass" href="/trial">Try it free <span className="arr">→</span></Link>
+              <Link className="btn btn-ghost" href="/method">How it works <span className="arr">→</span></Link>
             </div>
           </div>
         </section>

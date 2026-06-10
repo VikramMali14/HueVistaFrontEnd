@@ -24,7 +24,7 @@ export default function AppLoading() {
           color: "var(--accent)",
         }}
       >
-        Opening the atelier
+        Loading…
       </span>
     </div>
   );

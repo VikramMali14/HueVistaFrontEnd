@@ -53,7 +53,7 @@ export function GuestRedeemForm() {
             Sign in to save your history <span className="arr">→</span>
           </Link>
         </div>
-        <p style={{ font: "300 italic 14px/1.6 var(--serif)", color: "var(--fg-mute)", marginTop: 24, maxWidth: "52ch", marginInline: "auto" }}>
+        <p style={{ font: "400 14px/1.6 var(--serif)", color: "var(--fg-mute)", marginTop: 24, maxWidth: "52ch", marginInline: "auto" }}>
           As a guest, your room is saved with the shop — you&apos;ll see a single pickup code, and the shop reads
           the exact shades from it. Create a free account and your work stays with you for good.
         </p>
@@ -100,7 +100,7 @@ export function GuestRedeemForm() {
 
       {error && <div className="field-error" role="alert" style={{ marginTop: 16 }}>{error}</div>}
 
-      <p style={{ font: "300 italic 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 20, maxWidth: "48ch" }}>
+      <p style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 20, maxWidth: "48ch" }}>
         <Mono>Already have an account?</Mono>{" "}
         <Link href="/sign-in?next=/redeem" style={{ color: "var(--accent-soft)" }}>Sign in first</Link> to save
         everything to your profile.

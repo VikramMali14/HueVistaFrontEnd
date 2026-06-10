@@ -5,14 +5,13 @@ const COLUMNS = [
   {
     title: "Product",
     links: [
-      { href: "/method", label: "The Method" },
-      { href: "/catalogue", label: "Catalogue" },
-      { href: "/pricing", label: "White-label" },
+      { href: "/method", label: "How it works" },
+      { href: "/catalogue", label: "Colour library" },
       { href: "/pricing", label: "Pricing" },
     ],
   },
   {
-    title: "Audience",
+    title: "Who it's for",
     links: [
       { href: "/trial", label: "Retailers" },
       { href: "/trial", label: "Painters" },
@@ -21,7 +20,7 @@ const COLUMNS = [
     ],
   },
   {
-    title: "House",
+    title: "Company",
     links: [
       { href: "/method", label: "About" },
       { href: "/journal", label: "Journal" },
@@ -38,10 +37,10 @@ export function Footer() {
           <Link href="/" aria-label="HueVista — home" style={{ display: "inline-block", marginBottom: 24 }}>
             <Logo size="sm" inverted ariaLabel={null} />
           </Link>
-          <p className="body" style={{ fontStyle: "italic", fontFamily: "var(--serif)", fontSize: 19, maxWidth: "34ch", marginTop: 16 }}>
-            An AI-powered paint shade visualiser for the Indian paint retail trade. Engineered in Belgavi, with care.
+          <p className="body" style={{ fontSize: 15, maxWidth: "34ch", marginTop: 16 }}>
+            Preview any paint colour on real walls before you buy the paint.
+            Built in Belgavi, India for paint shops, painters and homeowners.
           </p>
-          <p className="mono" style={{ marginTop: 32 }}>v. 2.0 &nbsp;·&nbsp; MMXXVI</p>
         </div>
         {COLUMNS.map((col) => (
           <div className="footer-col" key={col.title}>
@@ -53,8 +52,8 @@ export function Footer() {
         ))}
       </div>
       <div className="footer-bottom">
-        <span className="mono">© HueVista Atelier · MMXXVI</span>
-        <span className="mono">Belgavi &nbsp;·&nbsp; Bengaluru &nbsp;·&nbsp; Mumbai</span>
+        <span className="mono">© HueVista</span>
+        <span className="mono">Belgavi · India</span>
         <span className="mono" style={{ display: "inline-flex", gap: 8 }}>
           <Link href="/legal/privacy" style={{ color: "inherit" }}>Privacy</Link>·
           <Link href="/legal/terms" style={{ color: "inherit" }}>Terms</Link>

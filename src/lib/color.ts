@@ -1,6 +1,6 @@
 /**
  * Colour-science helpers. Used by the find-similar and ΔE-snap features
- * of the atelier.
+ * of the studio.
  *   hex → RGB → linear-RGB → XYZ (D65) → Lab → ΔE76
  * Everything here is pure.
  */

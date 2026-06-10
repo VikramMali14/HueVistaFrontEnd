@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
-import type { RegionKind, UiVariant } from "@/lib/types";
+import type { RegionKind } from "@/lib/types";
 
 const TINT = "rgba(29,78,216,0.5)";
 const ACCENT = "#1d4ed8";
@@ -21,7 +21,6 @@ export interface ExistingMask {
 }
 
 interface MaskStudioProps {
-  variant: UiVariant;
   imageUrl: string;
   imageDims: { w: number; h: number };
   existing: ReadonlyArray<ExistingMask>;
@@ -49,7 +48,6 @@ type Tool = "add" | "erase";
  * the parent via `remaining`).
  */
 export function MaskStudio({
-  variant,
   imageUrl,
   imageDims,
   existing,
@@ -58,7 +56,6 @@ export function MaskStudio({
   onClose,
   onSave,
 }: MaskStudioProps) {
-  const isClassic = variant === "classic";
   const wrapRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const maskRef = useRef<HTMLCanvasElement | null>(null);
@@ -308,7 +305,7 @@ export function MaskStudio({
         style={{
           background: "var(--bg)",
           border: "1px solid var(--rule-strong)",
-          borderRadius: isClassic ? 12 : 0,
+          borderRadius: 12,
           width: "min(960px, 100%)",
           maxHeight: "92vh",
           display: "flex",
@@ -325,15 +322,13 @@ export function MaskStudio({
             gap: 12,
             padding: "14px 20px",
             borderBottom: "1px solid var(--rule)",
-            background: isClassic ? "var(--surface)" : "var(--surface-overlay)",
+            background: "var(--surface)",
           }}
         >
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
             <span
               style={{
-                ...(isClassic
-                  ? { font: "600 16px/1 var(--sans, system-ui)" }
-                  : { font: "300 italic 20px/1 var(--serif)" }),
+                font: "600 16px/1 var(--sans)",
                 color: "var(--fg)",
               }}
             >
@@ -361,7 +356,6 @@ export function MaskStudio({
 
         {phase === "choose" ? (
           <ChooseStep
-            isClassic={isClassic}
             existing={existing}
             onBlank={startBlank}
             onFromExisting={(m) => void startFromExisting(m)}
@@ -419,7 +413,7 @@ export function MaskStudio({
                 flexWrap: "wrap",
                 padding: "12px 20px",
                 borderTop: "1px solid var(--rule)",
-                background: isClassic ? "var(--surface)" : "var(--surface-overlay)",
+                background: "var(--surface)",
               }}
             >
               <div style={{ display: "flex", gap: 4 }}>
@@ -429,7 +423,7 @@ export function MaskStudio({
                     type="button"
                     onClick={() => setTool(tl)}
                     aria-pressed={tool === tl}
-                    style={chip(tool === tl, isClassic)}
+                    style={chip(tool === tl)}
                   >
                     {tl === "add" ? "✎ Add" : "⌫ Erase"}
                   </button>
@@ -443,7 +437,7 @@ export function MaskStudio({
                 type="button"
                 onClick={() => setPolygon((p) => p.slice(0, -1))}
                 disabled={polygon.length === 0}
-                style={chip(false, isClassic, polygon.length === 0)}
+                style={chip(false, polygon.length === 0)}
               >
                 Undo pt
               </button>
@@ -451,11 +445,11 @@ export function MaskStudio({
                 type="button"
                 onClick={bake}
                 disabled={polygon.length < 3}
-                style={chip(false, isClassic, polygon.length < 3)}
+                style={chip(false, polygon.length < 3)}
               >
                 {tool === "add" ? "Add shape" : "Erase shape"}
               </button>
-              <button type="button" onClick={clearAll} disabled={!hasInk && polygon.length === 0} style={chip(false, isClassic, !hasInk && polygon.length === 0)}>
+              <button type="button" onClick={clearAll} disabled={!hasInk && polygon.length === 0} style={chip(false, !hasInk && polygon.length === 0)}>
                 Clear
               </button>
 
@@ -473,7 +467,7 @@ export function MaskStudio({
                   style={{
                     padding: "6px 8px",
                     border: "1px solid var(--rule-strong)",
-                    borderRadius: isClassic ? 6 : 0,
+                    borderRadius: 6,
                     background: "var(--surface)",
                     color: "var(--fg)",
                     font: "500 12px/1 var(--sans, system-ui)",
@@ -496,7 +490,7 @@ export function MaskStudio({
                   width: 130,
                   padding: "6px 8px",
                   border: "1px solid var(--rule-strong)",
-                  borderRadius: isClassic ? 6 : 0,
+                  borderRadius: 6,
                   background: "var(--surface)",
                   color: "var(--fg)",
                   font: "500 12px/1 var(--sans, system-ui)",
@@ -510,7 +504,7 @@ export function MaskStudio({
                   setPolygon([]);
                   setPhase("choose");
                 }}
-                style={chip(false, isClassic)}
+                style={chip(false)}
               >
                 Back
               </button>
@@ -519,7 +513,7 @@ export function MaskStudio({
                 onClick={handleSave}
                 disabled={!hasInk || saving || remaining <= 0}
                 style={{
-                  ...chip(true, isClassic, !hasInk || saving || remaining <= 0),
+                  ...chip(true, !hasInk || saving || remaining <= 0),
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 8,
@@ -538,11 +532,9 @@ export function MaskStudio({
               style={{
                 margin: 0,
                 padding: "0 20px 12px",
-                ...(isClassic
-                  ? { font: "400 12px/1.4 var(--sans, system-ui)" }
-                  : { font: "300 italic 13px/1.4 var(--serif)" }),
+                font: "400 12px/1.4 var(--sans)",
                 color: "var(--fg-mute)",
-                background: isClassic ? "var(--surface)" : "var(--surface-overlay)",
+                background: "var(--surface)",
               }}
             >
               Click the room to drop corners, then <strong>Add shape</strong>. Switch to <strong>Erase</strong> to
@@ -558,12 +550,10 @@ export function MaskStudio({
 }
 
 function ChooseStep({
-  isClassic,
   existing,
   onBlank,
   onFromExisting,
 }: {
-  isClassic: boolean;
   existing: ReadonlyArray<ExistingMask>;
   onBlank: () => void;
   onFromExisting: (m: ExistingMask) => void;
@@ -573,9 +563,7 @@ function ChooseStep({
       <p
         style={{
           margin: 0,
-          ...(isClassic
-            ? { font: "400 14px/1.5 var(--sans, system-ui)" }
-            : { font: "300 italic 16px/1.5 var(--serif)" }),
+          font: "400 14px/1.5 var(--sans)",
           color: "var(--fg-soft)",
         }}
       >
@@ -590,7 +578,7 @@ function ChooseStep({
             textAlign: "left",
             padding: 20,
             border: "1px solid var(--rule-strong)",
-            borderRadius: isClassic ? 10 : 0,
+            borderRadius: 10,
             background: "var(--surface)",
             cursor: "pointer",
             display: "flex",
@@ -599,7 +587,7 @@ function ChooseStep({
           }}
         >
           <span aria-hidden style={{ fontSize: 28, color: "var(--accent)" }}>✎</span>
-          <span style={{ ...(isClassic ? { font: "600 15px/1.2 var(--sans, system-ui)" } : { font: "300 italic 19px/1.1 var(--serif)" }), color: "var(--fg)" }}>
+          <span style={{ font: "600 15px/1.2 var(--sans)", color: "var(--fg)" }}>
             Draw from scratch
           </span>
           <span style={{ font: "400 13px/1.4 var(--sans, system-ui)", color: "var(--fg-mute)" }}>
@@ -612,7 +600,7 @@ function ChooseStep({
           style={{
             padding: 20,
             border: "1px solid var(--rule-strong)",
-            borderRadius: isClassic ? 10 : 0,
+            borderRadius: 10,
             background: "var(--surface)",
             display: "flex",
             flexDirection: "column",
@@ -620,7 +608,7 @@ function ChooseStep({
           }}
         >
           <span aria-hidden style={{ fontSize: 28, color: "var(--accent)" }}>⧉</span>
-          <span style={{ ...(isClassic ? { font: "600 15px/1.2 var(--sans, system-ui)" } : { font: "300 italic 19px/1.1 var(--serif)" }), color: "var(--fg)" }}>
+          <span style={{ font: "600 15px/1.2 var(--sans)", color: "var(--fg)" }}>
             Edit a detected mask
           </span>
           <span style={{ font: "400 13px/1.4 var(--sans, system-ui)", color: "var(--fg-mute)" }}>
@@ -638,7 +626,7 @@ function ChooseStep({
                   style={{
                     padding: "6px 10px",
                     border: "1px solid var(--rule-strong)",
-                    borderRadius: isClassic ? 999 : 0,
+                    borderRadius: 999,
                     background: "transparent",
                     color: "var(--fg-soft)",
                     cursor: "pointer",
@@ -656,19 +644,17 @@ function ChooseStep({
   );
 }
 
-function chip(active: boolean, isClassic: boolean, disabled = false): React.CSSProperties {
+function chip(active: boolean, disabled = false): React.CSSProperties {
   return {
-    padding: isClassic ? "7px 12px" : "6px 12px",
+    padding: "7px 12px",
     cursor: disabled ? "not-allowed" : "pointer",
     background: active ? "var(--accent)" : "transparent",
     border: "1px solid " + (active ? "var(--accent)" : "var(--rule-strong)"),
     color: active ? "var(--bg)" : "var(--fg-soft)",
     opacity: disabled ? 0.45 : 1,
-    borderRadius: isClassic ? 6 : 0,
-    font: isClassic
-      ? "500 12px/1 var(--sans, system-ui)"
-      : "400 11px/1 var(--mono)",
-    letterSpacing: isClassic ? 0 : ".06em",
+    borderRadius: 6,
+    font: "500 12px/1 var(--sans)",
+    letterSpacing: 0,
   };
 }
 

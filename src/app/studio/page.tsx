@@ -53,7 +53,7 @@ export default async function StudioPage() {
         >
           <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <Mono brass>Guest session</Mono>
-            <span style={{ font: "300 italic 15px/1.4 var(--serif)", color: "var(--fg-soft)" }}>
+            <span style={{ font: "300 15px/1.4 var(--serif)", color: "var(--fg-soft)" }}>
               Your room stays with the shop — sign in to keep it for yourself.
             </span>
           </span>
@@ -63,7 +63,7 @@ export default async function StudioPage() {
         </div>
 
         <header style={{ marginBottom: 32 }}>
-          <Eyebrow>Guest · the studio</Eyebrow>
+          <Eyebrow>Guest studio</Eyebrow>
           <h1 className="display" style={{ fontSize: "clamp(40px, 5vw, 72px)" }}>Your room, your colours.</h1>
           <Lead style={{ marginTop: 16 }}>
             Upload a photo, outline a wall, and try shades on it. When you&apos;re happy, show your code at the
@@ -71,7 +71,7 @@ export default async function StudioPage() {
           </Lead>
         </header>
 
-        <Visualizer variant="premium" guest shades={shades} />
+        <Visualizer guest shades={shades} />
       </main>
     </>
   );

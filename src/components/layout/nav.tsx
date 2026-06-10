@@ -10,8 +10,8 @@ import { LogoutButton } from "@/components/auth/logout-button";
 // NOTE: "/color-finder" is intentionally NOT here — it's a subscriber-only tool
 // now (gated in middleware + the page), so it must not be advertised publicly.
 const LINKS = [
-  { href: "/method", label: "The Method" },
-  { href: "/catalogue", label: "Catalogue" },
+  { href: "/method", label: "How it works" },
+  { href: "/catalogue", label: "Colours" },
   { href: "/gallery", label: "Gallery" },
   { href: "/pricing", label: "Pricing" },
   { href: "/journal", label: "Journal" },
@@ -24,10 +24,9 @@ interface NavProps {
    *  app plus a sign-out control instead of the Sign in / trial CTAs. */
   authed?: boolean;
   themeToggle?: ReactNode;
-  variantToggle?: ReactNode;
 }
 
-export function Nav({ showCta = true, showSignIn = true, authed = false, themeToggle, variantToggle }: NavProps) {
+export function Nav({ showCta = true, showSignIn = true, authed = false, themeToggle }: NavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -71,7 +70,6 @@ export function Nav({ showCta = true, showSignIn = true, authed = false, themeTo
             </Link>
           ))}
         </div>
-        {variantToggle}
         {themeToggle}
         {authed ? (
           <>
@@ -93,7 +91,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false, themeTo
             )}
             {showCta && (
               <Link href="/trial" className="nav-cta">
-                Begin a trial <span className="arr">→</span>
+                Try it free <span className="arr">→</span>
               </Link>
             )}
           </>
@@ -143,7 +141,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false, themeTo
                     )}
                     {showCta && (
                       <Link href="/trial" className="nav-cta nav-mobile-cta">
-                        Begin a trial <span className="arr">→</span>
+                        Try it free <span className="arr">→</span>
                       </Link>
                     )}
                   </>

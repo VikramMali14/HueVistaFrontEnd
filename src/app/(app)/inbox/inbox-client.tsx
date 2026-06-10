@@ -80,7 +80,7 @@ export function SupportInbox() {
           <button type="button" onClick={() => void loadList()} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>Refresh</button>
         </div>
         {list.length === 0 ? (
-          <p style={{ padding: 20, font: "300 italic 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>Nothing waiting. 🎉</p>
+          <p style={{ padding: 20, font: "400 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>Nothing waiting. 🎉</p>
         ) : (
           list.map((c) => (
             <button
@@ -94,7 +94,7 @@ export function SupportInbox() {
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                <span style={{ font: "300 italic 16px/1.2 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.subject || "Support request"}</span>
+                <span style={{ font: "400 16px/1.2 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.subject || "Support request"}</span>
                 <Mono>{c.channel}</Mono>
               </div>
               <div style={{ marginTop: 4 }}><Mono>{c.requesterName} · {c.requesterRole}</Mono></div>
@@ -107,12 +107,12 @@ export function SupportInbox() {
       {/* DETAIL */}
       <div style={{ border: "1px solid var(--rule)", minHeight: 320, display: "flex", flexDirection: "column" }}>
         {!active ? (
-          <p style={{ padding: 24, font: "300 italic 16px/1.5 var(--serif)", color: "var(--fg-mute)" }}>Select a conversation to read and reply.</p>
+          <p style={{ padding: 24, font: "400 16px/1.5 var(--serif)", color: "var(--fg-mute)" }}>Select a conversation to read and reply.</p>
         ) : (
           <>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--rule)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
               <div>
-                <div style={{ font: "300 italic 18px/1.1 var(--serif)" }}>{active.subject || "Support request"}</div>
+                <div style={{ font: "400 18px/1.1 var(--serif)" }}>{active.subject || "Support request"}</div>
                 <Mono>{active.status}</Mono>
               </div>
               <Button size="sm" variant="ghost" onClick={() => void resolve()} disabled={busy}>Resolve</Button>

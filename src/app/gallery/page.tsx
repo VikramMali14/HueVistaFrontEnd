@@ -14,18 +14,18 @@ export const metadata: Metadata = {
 };
 
 const PLATES: ReadonlyArray<Plate> = [
-  { num: "01", category: "Living rooms", title: <>The Spice <i>Market</i></>, code: "AP-1410 · Rust", swatch: "#9d5236", location: "Belgavi", date: "Apr · MMXXVI", tag: "PLATE I · LIVING ROOM", tone: "terracotta", aspect: "16 / 10" },
-  { num: "02", category: "Bedrooms", title: <>Linen <i>Atelier</i></>, code: "AP-1923 · Bisque", swatch: "#cdb9a0", location: "Pune", date: "Mar · MMXXVI", tag: "PLATE II · BEDROOM", tone: "ivory", aspect: "4 / 5" },
-  { num: "03", category: "Kitchens", title: <>Bluestone <i>Hall</i></>, code: "AP-1304", swatch: "#3e4a52", location: "Bengaluru", date: "Feb", tag: "PLATE III · KITCHEN", tone: "slate", aspect: "1 / 1" },
-  { num: "04", category: "Bedrooms", title: <>Pondicherry <i>Sage</i></>, code: "AP-1611", swatch: "#5b6c5b", location: "Mangalore", date: "Feb · MMXXVI", tag: "PLATE IV · BEDROOM", tone: "sage", aspect: "1 / 1" },
-  { num: "05", category: "Verandas", title: <>Brass <i>Veranda</i></>, code: "AP-1521", swatch: "#a47148", location: "Hubballi", date: "Jan", tag: "PLATE V · VERANDA", tone: "brass", aspect: "1 / 1" },
-  { num: "06", category: "Living rooms", title: <>Oxblood <i>Library</i></>, code: "AP-1109 · Oxblood", swatch: "#7a3a2f", location: "Mysuru", date: "Jan · MMXXVI", tag: "PLATE VI · LIBRARY", tone: "oxblood", aspect: "4 / 5" },
-  { num: "07", category: "Façades", title: <>Midnight <i>Indigo</i></>, code: "AP-1212", swatch: "#3a4870", location: "Mumbai", date: "Dec · MMXXV", tag: "PLATE VII · FAÇADE", tone: "indigo", aspect: "16 / 10" },
-  { num: "08", category: "Living rooms", title: <>Ivory <i>Drawing Room</i></>, code: "AP-2001", swatch: "#ebe5d7", location: "Belgavi", date: "Dec", tag: "PLATE VIII · DRAWING ROOM", tone: "ivory", aspect: "1 / 1" },
-  { num: "09", category: "Bedrooms", title: <>Walnut <i>Study</i></>, code: "AP-1718", swatch: "#7a5a3f", location: "Kolhapur", date: "Nov · MMXXV", tag: "PLATE IX · STUDY", tone: "walnut", aspect: "1 / 1" },
-  { num: "10", category: "Kitchens", title: <>Adobe <i>Table</i></>, code: "AP-1418", swatch: "#c87a55", location: "Goa", date: "Oct", tag: "PLATE X · DINING", tone: "terracotta", aspect: "4 / 5" },
-  { num: "11", category: "Bedrooms", title: <>Eucalypt <i>Nursery</i></>, code: "AP-1624", swatch: "#a9b8a4", location: "Bengaluru", date: "Sep", tag: "PLATE XI · NURSERY", tone: "sage", aspect: "4 / 5" },
-  { num: "12", category: "Commercial", title: <>Minuit <i>Bar</i></>, code: "AP-0102", swatch: "#1c1814", location: "Hyderabad", date: "Aug · MMXXV", tag: "PLATE XII · BAR", tone: "ink", aspect: "4 / 5" },
+  { num: "01", category: "Living rooms", title: <>The Spice <i>Market</i></>, code: "AP-1410 · Rust", swatch: "#9d5236", location: "Belgavi", date: "Apr", tag: "Living Room", tone: "terracotta", aspect: "16 / 10" },
+  { num: "02", category: "Bedrooms", title: <>Linen <i>Bedroom</i></>, code: "AP-1923 · Bisque", swatch: "#cdb9a0", location: "Pune", date: "Mar", tag: "Bedroom", tone: "ivory", aspect: "4 / 5" },
+  { num: "03", category: "Kitchens", title: <>Bluestone <i>Hall</i></>, code: "AP-1304", swatch: "#3e4a52", location: "Bengaluru", date: "Feb", tag: "Kitchen", tone: "slate", aspect: "1 / 1" },
+  { num: "04", category: "Bedrooms", title: <>Pondicherry <i>Sage</i></>, code: "AP-1611", swatch: "#5b6c5b", location: "Mangalore", date: "Feb", tag: "Bedroom", tone: "sage", aspect: "1 / 1" },
+  { num: "05", category: "Verandas", title: <>Brass <i>Veranda</i></>, code: "AP-1521", swatch: "#a47148", location: "Hubballi", date: "Jan", tag: "Veranda", tone: "brass", aspect: "1 / 1" },
+  { num: "06", category: "Living rooms", title: <>Oxblood <i>Library</i></>, code: "AP-1109 · Oxblood", swatch: "#7a3a2f", location: "Mysuru", date: "Jan", tag: "Library", tone: "oxblood", aspect: "4 / 5" },
+  { num: "07", category: "Façades", title: <>Midnight <i>Indigo</i></>, code: "AP-1212", swatch: "#3a4870", location: "Mumbai", date: "Dec · 2025", tag: "Façade", tone: "indigo", aspect: "16 / 10" },
+  { num: "08", category: "Living rooms", title: <>Ivory <i>Drawing Room</i></>, code: "AP-2001", swatch: "var(--ivory)", location: "Belgavi", date: "Dec", tag: "Drawing Room", tone: "ivory", aspect: "1 / 1" },
+  { num: "09", category: "Bedrooms", title: <>Walnut <i>Study</i></>, code: "AP-1718", swatch: "#7a5a3f", location: "Kolhapur", date: "Nov · 2025", tag: "Study", tone: "walnut", aspect: "1 / 1" },
+  { num: "10", category: "Kitchens", title: <>Adobe <i>Table</i></>, code: "AP-1418", swatch: "#c87a55", location: "Goa", date: "Oct", tag: "Dining", tone: "terracotta", aspect: "4 / 5" },
+  { num: "11", category: "Bedrooms", title: <>Eucalypt <i>Nursery</i></>, code: "AP-1624", swatch: "#a9b8a4", location: "Bengaluru", date: "Sep", tag: "Nursery", tone: "sage", aspect: "4 / 5" },
+  { num: "12", category: "Commercial", title: <>Minuit <i>Bar</i></>, code: "AP-0102", swatch: "var(--charcoal-soft)", location: "Hyderabad", date: "Aug · 2025", tag: "Bar", tone: "ink", aspect: "4 / 5" },
 ];
 
 export default function GalleryPage() {
@@ -37,7 +37,7 @@ export default function GalleryPage() {
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
-            <Eyebrow>Volume III &nbsp;·&nbsp; The Gallery</Eyebrow>
+            <Eyebrow>Gallery</Eyebrow>
             <Mono>XII plates · from the pilot</Mono>
           </div>
           <h1 className="display">A library of <i>finished rooms.</i></h1>
@@ -45,13 +45,13 @@ export default function GalleryPage() {
           <GalleryGrid plates={PLATES} />
         </header>
 
-        <section style={{ background: "#0a0805", padding: "120px 0", marginTop: 80 }} className="full-bleed">
+        <section style={{ background: "var(--charcoal-deep)", padding: "120px 0", marginTop: 80 }} className="full-bleed">
           <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
             <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
               <Placeholder tone="oxblood" grain corners tag="CASE STUDY · NO. I" label="Sharda Paints, Belgavi" style={{ aspectRatio: "5 / 4" }} />
               <div>
-                <Eyebrow>Case Study &nbsp;·&nbsp; No. I</Eyebrow>
-                <h3 style={{ marginTop: 24, fontFamily: "var(--serif)", fontWeight: 300, fontSize: "clamp(40px, 5vw, 72px)", lineHeight: 1, letterSpacing: "-.015em", color: "var(--ivory)" }}>
+                <Eyebrow>Case study</Eyebrow>
+                <h3 style={{ marginTop: 24, fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(40px, 5vw, 72px)", lineHeight: 1, letterSpacing: "-.015em", color: "var(--ivory)" }}>
                   From <i>let me think</i> <br />to <i>same afternoon.</i>
                 </h3>
                 <p style={{ font: "300 17px/1.55 var(--sans)", color: "var(--ivory-soft)", marginTop: 24 }}>
@@ -65,7 +65,7 @@ export default function GalleryPage() {
                   ].map(([num, lbl], idx) => (
                     <div key={idx} style={{ borderTop: "1px solid var(--rule)", paddingTop: 18 }}>
                       <div style={{ fontFamily: "var(--serif)", fontSize: 48, color: "var(--brass-soft)", lineHeight: 1 }}>{num}</div>
-                      <div style={{ font: "300 italic 15px/1.4 var(--serif)", color: "var(--ivory-soft)", marginTop: 8 }}>{lbl}</div>
+                      <div style={{ font: "400 15px/1.4 var(--serif)", color: "var(--ivory-soft)", marginTop: 8 }}>{lbl}</div>
                     </div>
                   ))}
                 </div>
@@ -88,7 +88,7 @@ export default function GalleryPage() {
             </Lead>
             <div style={{ marginTop: 48, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
               <Link href="/trial" className="btn btn-brass">Submit a plate <span className="arr">→</span></Link>
-              <Link href="/method" className="btn btn-ghost">Read the method <span className="arr">→</span></Link>
+              <Link href="/method" className="btn btn-ghost">How it works <span className="arr">→</span></Link>
             </div>
           </div>
         </section>

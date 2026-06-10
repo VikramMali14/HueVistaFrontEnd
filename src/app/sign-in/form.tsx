@@ -58,7 +58,7 @@ export function SignInForm({ action, next }: SignInFormProps) {
 
       <div className="field">
         <label className="field-label" htmlFor="email">
-          Shop email
+          Email
         </label>
         <input
           id="email"
@@ -73,7 +73,7 @@ export function SignInForm({ action, next }: SignInFormProps) {
       </div>
       <div className="field">
         <label className="field-label" htmlFor="password">
-          Passphrase
+          Password
         </label>
         <div style={{ position: "relative" }}>
           <input
@@ -92,7 +92,7 @@ export function SignInForm({ action, next }: SignInFormProps) {
             onClick={() => setShowPassword((v) => !v)}
             aria-pressed={showPassword}
             aria-controls="password"
-            aria-label={showPassword ? "Hide passphrase" : "Show passphrase"}
+            aria-label={showPassword ? "Hide password" : "Show password"}
             style={{
               position: "absolute",
               right: 0,
@@ -132,18 +132,18 @@ export function SignInForm({ action, next }: SignInFormProps) {
           }}
         >
           <input type="checkbox" name="remember" defaultChecked style={{ accentColor: "var(--accent)" }} />
-          Remember this counter
+          Remember me
         </label>
         <Link
           href="/sign-in/forgot"
           style={{
-            font: "300 italic 15px/1 var(--serif)",
+            font: "400 15px/1 var(--serif)",
             color: "var(--accent-soft)",
             borderBottom: "1px solid var(--rule-brass)",
             paddingBottom: 2,
           }}
         >
-          Forgot passphrase?
+          Forgot password?
         </Link>
       </div>
       {error && (

@@ -120,7 +120,7 @@ export function AccessCodes() {
     return (
       <div style={{ border: "1px solid var(--rule)", padding: 24, maxWidth: 520 }}>
         <Mono brass>Set up your shop</Mono>
-        <p style={{ font: "300 italic 17px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px" }}>
+        <p style={{ font: "400 17px/1.5 var(--sans)", color: "var(--fg-soft)", margin: "10px 0 18px" }}>
           Name your shop once. Then you can issue access codes for your customers.
         </p>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -129,7 +129,7 @@ export function AccessCodes() {
             onChange={(e) => setShopName(e.target.value)}
             placeholder="Sharda Paints"
             aria-label="Shop name"
-            style={{ flex: 1, minWidth: 200, padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "300 italic 16px/1 var(--serif)" }}
+            style={{ flex: 1, minWidth: 200, padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "400 16px/1 var(--sans)" }}
           />
           <Button onClick={() => void createShop()} disabled={creatingOrg || !shopName.trim()}>
             {creatingOrg ? <><Spinner size={14} color="currentColor" /> Creating…</> : <>Create shop <span className="arr">→</span></>}
@@ -185,7 +185,7 @@ export function AccessCodes() {
       {error && <div className="field-error" role="alert" style={{ marginBottom: 16 }}>{error}</div>}
 
       {codes.length === 0 ? (
-        <p style={{ font: "300 italic 17px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
+        <p style={{ font: "400 17px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
           No codes yet. Issue one above and share it with a customer.
         </p>
       ) : (

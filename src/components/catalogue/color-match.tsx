@@ -41,7 +41,7 @@ export function ColorMatch() {
   return (
     <div style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px", marginBottom: 48 }}>
       <Mono brass>Match any colour</Mono>
-      <p style={{ font: "300 italic 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
+      <p style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
         Pick or paste any colour and we&apos;ll find the nearest real catalogue shades by perceptual distance.
       </p>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -80,7 +80,7 @@ export function ColorMatch() {
                   border: "1px solid var(--rule-strong)",
                 }}
               />
-              <div style={{ marginTop: 8, font: "300 italic 15px/1.2 var(--serif)" }}>{r.name}</div>
+              <div style={{ marginTop: 8, font: "400 15px/1.2 var(--serif)" }}>{r.name}</div>
               <Mono>{r.shadeCode}</Mono>
             </div>
           ))}

@@ -55,11 +55,11 @@ const MATRIX: ReadonlyArray<Section> = [
   },
 ];
 
-const cellStyle: React.CSSProperties = { textAlign: "left", padding: "22px 24px", borderBottom: "1px solid var(--rule)", fontFamily: "var(--sans)", fontWeight: 300, fontSize: 15, color: "var(--ivory-soft)", verticalAlign: "top" };
+const cellStyle: React.CSSProperties = { textAlign: "left", padding: "22px 24px", borderBottom: "1px solid var(--rule)", fontFamily: "var(--sans)", fontWeight: 400, fontSize: 15, color: "var(--ivory-soft)", verticalAlign: "top" };
 const featCellStyle: React.CSSProperties = { ...cellStyle, color: "var(--ivory)", fontFamily: "var(--serif)", fontSize: 19 };
 const featuredColStyle: React.CSSProperties = { background: "rgba(184,153,104,.05)", color: "var(--ivory)" };
 const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px", borderBottom: "1px solid var(--rule-strong)", font: "400 10px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", color: "var(--brass)" };
-const sectionHeadStyle: React.CSSProperties = { font: "400 italic 22px/1 var(--serif)", color: "var(--brass-soft)", padding: "56px 24px 12px" };
+const sectionHeadStyle: React.CSSProperties = { font: "400 22px/1 var(--serif)", color: "var(--brass-soft)", padding: "56px 24px 12px" };
 const yesStyle: React.CSSProperties = { color: "var(--brass)", fontFamily: "var(--mono)", fontSize: 13 };
 const noStyle: React.CSSProperties = { color: "var(--mute-deep)", fontFamily: "var(--mono)", fontSize: 13 };
 
@@ -79,7 +79,7 @@ export default function PricingPage() {
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
-            <Eyebrow>Volume IV &nbsp;·&nbsp; Pricing</Eyebrow>
+            <Eyebrow>Pricing</Eyebrow>
             <Mono>Built for retailers · not consumers</Mono>
           </div>
           <h1 className="display">For retailers,<br /><i>not consumers.</i></h1>
@@ -87,7 +87,7 @@ export default function PricingPage() {
           <PricingTiers />
         </header>
 
-        <section style={{ background: "#0a0805", padding: "140px 0", marginTop: 80 }} className="full-bleed">
+        <section style={{ background: "var(--charcoal-deep)", padding: "140px 0", marginTop: 80 }} className="full-bleed">
           <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
             <div className="reveal">
               <Eyebrow>Feature matrix</Eyebrow>
@@ -141,7 +141,7 @@ export default function PricingPage() {
               <h2 className="display" style={{ fontSize: "clamp(40px, 5.5vw, 80px)", marginTop: 24, lineHeight: 0.95 }}>
                 Quietly <i>answered.</i>
               </h2>
-              <p style={{ font: "300 italic 18px/1.5 var(--serif)", color: "var(--fg-soft)", marginTop: 32 }}>
+              <p style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", marginTop: 32 }}>
                 If your question isn't here, write to us. We answer within an afternoon.
               </p>
               <Link href="/trial" className="text-link" style={{ marginTop: 32, display: "inline-block" }}>Write to us &nbsp;→</Link>
@@ -157,7 +157,7 @@ export default function PricingPage() {
               Fourteen days.<br /><i>No card.</i>
             </h2>
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-              <Link href="/trial" className="btn btn-brass">Begin a trial <span className="arr">→</span></Link>
+              <Link href="/trial" className="btn btn-brass">Try it free <span className="arr">→</span></Link>
               <Link href="/trial" className="btn btn-ghost">Book a demonstration <span className="arr">→</span></Link>
             </div>
           </div>

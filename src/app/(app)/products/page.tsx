@@ -16,7 +16,7 @@ export default async function ProductsPage() {
       <header style={{ marginBottom: 32 }}>
         <Eyebrow>Catalogue · Products</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(40px, 5vw, 72px)", marginTop: 12 }}>
-          Your paint <i>products.</i>
+          Your paint products
         </h1>
         <Lead style={{ marginTop: 16, maxWidth: "56ch" }}>
           Pick a company, choose interior or exterior, tick the lines you stock, and fill in each

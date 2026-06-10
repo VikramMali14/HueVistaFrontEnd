@@ -165,7 +165,7 @@ export async function loginAction(formData: FormData) {
   const next = safeNext(formData.get("next"));
 
   if (!email || !password) {
-    return { error: "Please enter your email and passphrase." };
+    return { error: "Please enter your email and password." };
   }
   try {
     const auth = await authApi.login({ email, password });
@@ -173,7 +173,7 @@ export async function loginAction(formData: FormData) {
     await maybeClaimGuestProjects(auth.accessToken);
   } catch (err) {
     if (err instanceof HttpError) {
-      if (err.status === 401) return { error: "Incorrect email or passphrase." };
+      if (err.status === 401) return { error: "Incorrect email or password." };
       return { error: err.message };
     }
     return { error: "Could not sign in. Please try again." };
@@ -232,7 +232,7 @@ export async function registerAction(formData: FormData) {
 
   if (!name) return { error: "Please tell us your name." };
   if (!email) return { error: "Please enter your email." };
-  if (password.length < 8) return { error: "Choose a passphrase of at least eight characters." };
+  if (password.length < 8) return { error: "Choose a password of at least eight characters." };
 
   // Real visitor IP (set by the hosting proxy), forwarded so the backend's
   // per-IP signup rate limiter doesn't see every request as the frontend server.
