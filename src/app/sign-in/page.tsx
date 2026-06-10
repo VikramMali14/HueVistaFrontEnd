@@ -8,7 +8,7 @@ import { SignInForm } from "./form";
 
 export const metadata: Metadata = {
   title: "Sign in",
-  description: "Sign in to your HueVista atelier.",
+  description: "Sign in to your HueVista studio.",
 };
 
 interface PageProps {
@@ -21,33 +21,28 @@ export default async function SignInPage({ searchParams }: PageProps) {
     <>
       <SiteHeader showSignIn={false} />
       <div className="auth-shell">
-        <aside className="auth-art" style={{ color: "#ebe5d7" }}>
+        <aside className="auth-art" style={{ color: "var(--ivory)" }}>
           <div className="corner">
-            <span className="roman" style={{ fontSize: 18 }}>I.</span>
-            <span>Plate XVII &nbsp;·&nbsp; Terracotta &nbsp;·&nbsp; AP-1428</span>
+            <span>Terracotta · AP-1428</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
             <Logo size="lg" />
-            <div>
-              <Mono style={{ color: "rgba(235,229,215,.7)" }}>From the Journal</Mono>
-              <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontWeight: 300, fontSize: 32, lineHeight: 1.2, color: "#ebe5d7", maxWidth: "16ch", letterSpacing: "-.01em", marginTop: 24 }}>
-                "The colour, at the counter, before the can opens."
-              </p>
-              <Mono style={{ marginTop: 24, display: "inline-block", color: "rgba(235,229,215,.7)" }}>— On the founding of HueVista, Belgavi · MMXXV</Mono>
-            </div>
+            <p style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 30, lineHeight: 1.15, color: "var(--ivory)", maxWidth: "18ch", letterSpacing: "-.02em", margin: 0 }}>
+              See the colour on the wall before the can opens.
+            </p>
           </div>
           <div className="corner">
-            <span>Volume I &nbsp;·&nbsp; The Atelier</span>
-            <span>MMXXVI</span>
+            <span>HueVista</span>
+            <span>Belgavi, India</span>
           </div>
         </aside>
 
         <section className="auth-form-wrap">
           <Eyebrow>Welcome back</Eyebrow>
-          <h1>Sign in to <br /><i>your atelier.</i></h1>
-          <Lead style={{ maxWidth: "42ch" }}>The counter, the catalogue, the saved scenes — all where you left them.</Lead>
+          <h1>Welcome back.</h1>
+          <Lead style={{ maxWidth: "42ch" }}>Your projects, colours and saved previews — right where you left them.</Lead>
           <SignInForm action={loginAction} next={next ?? "/dashboard"} />
-          <p className="auth-foot">New to HueVista? <Link href="/trial">Begin a fourteen-day trial.</Link></p>
+          <p className="auth-foot">New to HueVista? <Link href="/trial">Start your free 14-day trial.</Link></p>
         </section>
       </div>
 
@@ -57,7 +52,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
         .auth-art { position: relative; overflow: hidden; background: radial-gradient(ellipse at 30% 25%, rgba(255,235,210,.32), transparent 60%), linear-gradient(160deg, #b96b48 0%, #7a3a2f 55%, #2a100e 100%); border-right: 1px solid var(--rule); padding: 56px; color: #ebe5d7; display: flex; flex-direction: column; justify-content: space-between; }
         .auth-art .corner { display: flex; justify-content: space-between; align-items: baseline; font: 400 10px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; color: rgba(235,229,215,.6); }
         .auth-form-wrap { display: flex; flex-direction: column; justify-content: center; padding: 80px; background: var(--bg); color: var(--fg); }
-        .auth-form-wrap h1 { font-family: var(--serif); font-weight: 300; font-size: clamp(48px, 5vw, 72px); line-height: .95; letter-spacing: -.02em; margin: 16px 0 12px; color: var(--fg); }
+        .auth-form-wrap h1 { font-family: var(--serif); font-weight: 650; font-size: clamp(40px, 4.5vw, 60px); line-height: 1; letter-spacing: -.02em; margin: 16px 0 12px; color: var(--fg); }
         .auth-form-wrap h1 i { color: var(--accent-soft); }
         .auth-form-wrap > * { max-width: 480px; width: 100%; }
         .auth-foot { margin-top: 40px; font: 300 italic 17px/1.5 var(--serif); color: var(--fg-mute); }

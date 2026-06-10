@@ -25,7 +25,13 @@ export function GET(req: NextRequest) {
   const requested = req.nextUrl.searchParams.get("next") || "/atelier";
   // Only allow same-site relative paths; reject any attempt to point `next` at
   // an external URL, which would otherwise enable an open-redirect attack.
-  const next = SAFE_PATH.test(requested) ? requested : "/atelier";
+  // The charset alone would still admit "//evil.com" (browsers treat "//" and
+  // "/\" as protocol-relative), so reject those shapes explicitly — same rule
+  // as safeNext() in lib/auth.ts.
+  const next =
+    SAFE_PATH.test(requested) && !requested.startsWith("//") && !requested.startsWith("/\\")
+      ? requested
+      : "/atelier";
 
   const url = new URL(`${config.apiOrigin}/oauth2/authorization/google`);
   url.searchParams.set("next", next);

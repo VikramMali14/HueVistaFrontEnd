@@ -22,9 +22,9 @@ export function PricingPreview() {
           <div key={t.name} style={{ background: t.featured ? "var(--ivory)" : "var(--charcoal)", color: t.featured ? "var(--charcoal)" : "var(--ivory)", padding: "48px 36px", display: "flex", flexDirection: "column", gap: 18 }}>
             <Mono style={{ color: t.featured ? "var(--brass-deep)" : "var(--mute)" }}>{t.name}</Mono>
             <div>
-              <span style={{ fontFamily: "var(--serif)", fontWeight: 300, fontSize: 56, color: t.featured ? "var(--charcoal)" : "var(--ivory)" }}>{t.price}</span>
+              <span style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 56, color: t.featured ? "var(--charcoal)" : "var(--ivory)" }}>{t.price}</span>
               {t.price !== "On request" && (
-                <span style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 16, marginLeft: 6, color: t.featured ? "var(--mute-deep)" : "var(--mute)" }}>/ month</span>
+                <span style={{ fontFamily: "var(--serif)", fontSize: 16, marginLeft: 6, color: t.featured ? "var(--mute-deep)" : "var(--mute)" }}>/ month</span>
               )}
             </div>
             <div style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: t.featured ? "var(--brass-deep)" : "var(--brass)", borderTop: "1px solid " + (t.featured ? "rgba(21,17,13,.12)" : "var(--rule)"), paddingTop: 16, marginTop: 8 }}>{t.feature}</div>

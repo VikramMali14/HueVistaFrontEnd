@@ -218,12 +218,12 @@ export function ProductManager() {
   }
   if (!org) {
     return (
-      <div style={{ border: "1px solid var(--rule)", padding: 24 }}>
+      <div style={{ border: "1px solid var(--rule)", borderRadius: "var(--radius)", padding: 24 }}>
         <Mono brass>No shop yet</Mono>
-        <p style={{ font: "300 italic 17px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 16px" }}>
+        <p style={{ font: "400 17px/1.5 var(--sans)", color: "var(--fg-soft)", margin: "10px 0 16px" }}>
           Set up your shop first, then come back to list products.
         </p>
-        <Link className="btn" href="/portal">Go to the Annex <span className="arr">→</span></Link>
+        <Link className="btn" href="/portal">Go to the customer portal <span className="arr">→</span></Link>
       </div>
     );
   }
@@ -233,7 +233,7 @@ export function ProductManager() {
       {error && <div className="field-error" role="alert" style={{ marginBottom: 16 }}>{error}</div>}
 
       {/* STEP 1 — BRAND */}
-      <section style={{ border: "1px solid var(--rule)", padding: 20, marginBottom: 20 }}>
+      <section style={{ border: "1px solid var(--rule)", borderRadius: "var(--radius)", padding: 20, marginBottom: 20 }}>
         <Mono brass>1 · Company</Mono>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
           <select
@@ -247,14 +247,14 @@ export function ProductManager() {
           </select>
           <span style={{ color: "var(--fg-mute)" }}>or</span>
           <input value={newBrand} onChange={(e) => setNewBrand(e.target.value)} placeholder="add a company" aria-label="New brand"
-            style={{ padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "300 italic 15px/1 var(--serif)" }} />
+            style={{ padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "400 15px/1 var(--sans)" }} />
           <Button size="sm" variant="ghost" onClick={() => void addBrand()} disabled={!newBrand.trim()}>Add</Button>
         </div>
       </section>
 
       {/* STEP 2 — CATEGORY */}
       {brandId != null && (
-        <section style={{ border: "1px solid var(--rule)", padding: 20, marginBottom: 20 }}>
+        <section style={{ border: "1px solid var(--rule)", borderRadius: "var(--radius)", padding: 20, marginBottom: 20 }}>
           <Mono brass>2 · Surface</Mono>
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             {(["INTERIOR", "EXTERIOR"] as ProductCategory[]).map((c) => (
@@ -269,7 +269,7 @@ export function ProductManager() {
 
       {/* STEP 3 — LINES */}
       {brandId != null && category && (
-        <section style={{ border: "1px solid var(--rule)", padding: 20, marginBottom: 20 }}>
+        <section style={{ border: "1px solid var(--rule)", borderRadius: "var(--radius)", padding: 20, marginBottom: 20 }}>
           <Mono brass>3 · Product lines</Mono>
           {linesLoading ? (
             <div style={{ marginTop: 12 }}><Mono>Loading lines…</Mono></div>
@@ -287,7 +287,7 @@ export function ProductManager() {
           )}
           <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center" }}>
             <input value={newLine} onChange={(e) => setNewLine(e.target.value)} placeholder="add a line not listed" aria-label="New line"
-              style={{ padding: "9px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "300 italic 15px/1 var(--serif)" }} />
+              style={{ padding: "9px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "400 15px/1 var(--sans)" }} />
             <Button size="sm" variant="ghost" onClick={() => void addLine()} disabled={!newLine.trim()}>Add line</Button>
           </div>
         </section>
@@ -298,9 +298,9 @@ export function ProductManager() {
         const d = drafts[line.id]!;
         const img = d.previewUrl || resolveMediaUrl(d.imageUrl) || "";
         return (
-          <section key={line.id} style={{ border: "1px solid var(--accent)", padding: 20, marginBottom: 16 }}>
+          <section key={line.id} style={{ border: "1px solid var(--accent)", borderRadius: "var(--radius)", padding: 20, marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-              <h3 style={{ font: "300 italic 22px/1 var(--serif)", margin: 0 }}>{line.name}</h3>
+              <h3 style={{ font: "600 22px/1 var(--serif)", margin: 0 }}>{line.name}</h3>
               <Mono>{org.name}</Mono>
             </div>
             <div className="r-cols-md-1" style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 18, alignItems: "start" }}>
@@ -313,7 +313,7 @@ export function ProductManager() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (
-                    <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 10, font: "300 italic 14px/1.4 var(--serif)", color: "var(--fg-mute)" }}>
+                    <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 10, font: "400 14px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
                       {d.uploading ? "Uploading…" : "Tap to add bucket photo"}
                     </span>
                   )}
@@ -354,9 +354,9 @@ export function ProductManager() {
 
       {/* SAVED PRODUCTS */}
       <section style={{ marginTop: 32 }}>
-        <h2 className="display" style={{ fontSize: 40, marginBottom: 16 }}>Your <i>products.</i></h2>
+        <h2 className="display" style={{ fontSize: 40, marginBottom: 16 }}>Your products</h2>
         {products.length === 0 ? (
-          <p style={{ font: "300 italic 16px/1.5 var(--serif)", color: "var(--fg-mute)" }}>No products yet. Build one above.</p>
+          <p style={{ font: "400 16px/1.5 var(--sans)", color: "var(--fg-mute)" }}>No products yet. Build one above.</p>
         ) : (
           <div className="r-cols-md-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
             {products.map((p) => <ProductCard key={p.id} product={p} onDelete={() => void removeProduct(p.id)} />)}
@@ -380,6 +380,7 @@ const inp: React.CSSProperties = {
   width: "100%",
   padding: "8px 10px",
   border: "1px solid var(--rule-strong)",
+  borderRadius: "var(--radius)",
   background: "var(--surface)",
   color: "var(--fg)",
   font: "300 14px/1.3 var(--serif)",
@@ -388,7 +389,7 @@ const inp: React.CSSProperties = {
 function ProductCard({ product, onDelete }: { product: ShopProduct; onDelete: () => void }) {
   const img = resolveMediaUrl(product.imageUrl) || "";
   return (
-    <div style={{ border: "1px solid var(--rule)", display: "flex", flexDirection: "column" }}>
+    <div style={{ border: "1px solid var(--rule)", borderRadius: "var(--radius)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ aspectRatio: "4/3", background: "var(--surface)", overflow: "hidden" }}>
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -399,7 +400,7 @@ function ProductCard({ product, onDelete }: { product: ShopProduct; onDelete: ()
       </div>
       <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
         <Mono>{product.brandName} · {product.category === "INTERIOR" ? "Interior" : "Exterior"}</Mono>
-        <div style={{ font: "300 italic 20px/1.1 var(--serif)", color: "var(--fg)" }}>{product.lineName}</div>
+        <div style={{ font: "400 20px/1.1 var(--sans)", color: "var(--fg)" }}>{product.lineName}</div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {product.finish && <Mono>{product.finish}</Mono>}
           {product.coverage && <Mono>{product.coverage}</Mono>}
@@ -423,10 +424,10 @@ function ProductCard({ product, onDelete }: { product: ShopProduct; onDelete: ()
           <p style={{ font: "300 13px/1.4 var(--serif)", color: "var(--fg-soft)", margin: "4px 0 0" }}>{product.features}</p>
         )}
         {product.description && (
-          <p style={{ font: "300 italic 13px/1.45 var(--serif)", color: "var(--fg-mute)", margin: "2px 0 0" }}>{product.description}</p>
+          <p style={{ font: "400 13px/1.45 var(--sans)", color: "var(--fg-mute)", margin: "2px 0 0" }}>{product.description}</p>
         )}
         <div style={{ marginTop: "auto", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <span style={{ font: "300 italic 22px/1 var(--serif)", color: "var(--fg)" }}>
+          <span style={{ font: "600 22px/1 var(--serif)", color: "var(--fg)" }}>
             {product.price != null ? `₹${product.price}` : "—"}{product.priceUnit ? <span style={{ fontSize: 13, color: "var(--fg-mute)" }}> /{product.priceUnit}</span> : null}
           </span>
           <button type="button" onClick={onDelete} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>Remove</button>

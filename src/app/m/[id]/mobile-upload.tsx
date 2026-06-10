@@ -72,7 +72,7 @@ export function MobileUpload({ sessionId }: { sessionId: string }) {
       {status === "sent" ? (
         <>
           <span aria-hidden style={{ fontSize: 44, color: "var(--accent)" }}>✓</span>
-          <h1 style={{ font: "300 italic 28px/1.2 var(--serif)", margin: 0 }}>Sent to your computer.</h1>
+          <h1 style={{ font: "400 28px/1.2 var(--serif)", margin: 0 }}>Sent to your computer.</h1>
           <p style={{ font: "400 15px/1.5 var(--sans, system-ui)", color: "var(--fg-soft)", maxWidth: "30ch" }}>
             Head back to the browser — your photo is loading into the colour finder.
           </p>
@@ -93,7 +93,7 @@ export function MobileUpload({ sessionId }: { sessionId: string }) {
         </>
       ) : (
         <>
-          <h1 style={{ font: "300 italic 30px/1.15 var(--serif)", margin: 0, maxWidth: "16ch" }}>
+          <h1 style={{ font: "400 30px/1.15 var(--serif)", margin: 0, maxWidth: "16ch" }}>
             Pick a photo to send.
           </h1>
           <p style={{ font: "400 15px/1.5 var(--sans, system-ui)", color: "var(--fg-soft)", maxWidth: "34ch", margin: 0 }}>
@@ -131,7 +131,7 @@ export function MobileUpload({ sessionId }: { sessionId: string }) {
                 background: "var(--surface)",
                 color: "var(--fg)",
                 cursor: "pointer",
-                font: "300 italic 18px/1.3 var(--serif)",
+                font: "400 18px/1.3 var(--serif)",
                 borderRadius: 12,
               }}
             >

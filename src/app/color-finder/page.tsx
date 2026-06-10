@@ -48,7 +48,7 @@ export default async function ColorFinderPage() {
 
         <section style={{ paddingTop: 56, paddingBottom: 120 }}>
           <ColorFinder shades={shades} />
-          <p className="finder-foot" style={{ marginTop: 20, font: "300 italic 16px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
+          <p className="finder-foot" style={{ marginTop: 20, font: "400 16px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
             Know the hex already?{" "}
             <Link href="/catalogue" style={{ color: "var(--accent)" }}>
               Match a colour by code on the catalogue →

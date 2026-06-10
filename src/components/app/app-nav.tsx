@@ -8,9 +8,9 @@ import { Logo } from "@/components/ui/logo";
 import type { AuthUser } from "@/lib/types";
 
 const TABS = [
-  { href: "/atelier", label: "iii · Atelier" },
-  { href: "/dashboard", label: "v · Suite" },
-  { href: "/portal", label: "vi · Annex" },
+  { href: "/atelier", label: "Studio" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/portal", label: "Customer portal" },
   { href: "/products", label: "Products" },
   { href: "/inbox", label: "Inbox" },
 ] as const;
@@ -18,14 +18,11 @@ const TABS = [
 interface AppNavProps {
   user: AuthUser | null;
   themeToggle?: ReactNode;
-  variantToggle?: ReactNode;
-  localeToggle?: ReactNode;
 }
 
-export function AppNav({ user, themeToggle, variantToggle, localeToggle }: AppNavProps) {
+export function AppNav({ user, themeToggle }: AppNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const folio = pathname.includes("dashboard") ? "v" : pathname.includes("portal") ? "vi" : "iii";
   const visibleTabs = TABS.filter((t) => {
     if (t.href === "/portal" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     if (t.href === "/products" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
@@ -51,13 +48,11 @@ export function AppNav({ user, themeToggle, variantToggle, localeToggle }: AppNa
   return (
     <header>
       <div className="masthead-strip">
-        <span>established · mmxxvi</span>
         <span>
           <span className="dot" />
-          &nbsp;&nbsp;hue vista · belgavi · india&nbsp;&nbsp;
+          &nbsp;&nbsp;Hue Vista · Belgavi · India&nbsp;&nbsp;
           <span className="dot" />
         </span>
-        <span>folio · {folio}</span>
       </div>
       <div className="app-nav-inner">
         <Link href="/" className="brand-logo" aria-label="HueVista — home">
@@ -93,10 +88,8 @@ export function AppNav({ user, themeToggle, variantToggle, localeToggle }: AppNa
         </div>
         <div className="app-nav-meta">
           {user && (
-            <span style={{ font: "300 italic 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
+            <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
           )}
-          {localeToggle}
-          {variantToggle}
           {themeToggle}
           <LogoutButton
             className="app-tab"
@@ -122,7 +115,7 @@ export function AppNav({ user, themeToggle, variantToggle, localeToggle }: AppNa
         />
       )}
       <style>{`
-        .masthead-strip { background: var(--bg-deep); color: var(--fg-soft); border-bottom: 1px solid var(--rule); padding: 10px var(--gutter); font: 400 10px/1 var(--mono); letter-spacing: .32em; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; }
+        .masthead-strip { background: var(--bg-deep); color: var(--fg-soft); border-bottom: 1px solid var(--rule); padding: 10px var(--gutter); font: 400 10px/1 var(--mono); letter-spacing: .32em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; }
         .masthead-strip .dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
         .app-nav-inner { background: var(--nav-bg-strong); -webkit-backdrop-filter: blur(20px) saturate(140%); backdrop-filter: blur(20px) saturate(140%); border-bottom: 1px solid var(--rule); padding: 18px var(--gutter); display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 60; flex-wrap: wrap; }
         .app-tabs { display: flex; gap: 8px; margin-left: auto; }

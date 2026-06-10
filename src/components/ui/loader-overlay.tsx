@@ -51,7 +51,7 @@ export function LoaderOverlay({ show, label, hint, progress, style }: LoaderOver
       {hint && (
         <div
           style={{
-            font: "300 italic 15px/1.4 var(--serif, serif)",
+            font: "400 15px/1.4 var(--serif, serif)",
             color: "var(--fg-soft)",
             maxWidth: 380,
           }}

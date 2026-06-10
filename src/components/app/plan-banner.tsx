@@ -51,7 +51,7 @@ export function PlanBanner() {
     >
       <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <Mono brass>{sub.trial ? "Free trial" : `${sub.planDisplayName} plan`}</Mono>
-        <span style={{ font: "300 italic 15px/1 var(--serif)", color: "var(--fg-soft)" }}>
+        <span style={{ font: "400 15px/1 var(--sans)", color: "var(--fg-soft)" }}>
           {sub.trial && daysLeft !== null
             ? `${sub.planDisplayName} · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`
             : "active"}

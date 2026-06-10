@@ -15,20 +15,15 @@ import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/web
 import { api, guestApi, HttpError } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraProject } from "@/lib/payments";
-import { t } from "@/lib/i18n";
 import type {
   PaintShade,
   ProjectDetail,
   RegionCategory,
   RegionDetail,
   RegionKind,
-  UiLocale,
-  UiVariant,
 } from "@/lib/types";
 
 interface VisualizerProps {
-  variant?: UiVariant;
-  locale?: UiLocale;
   /** When set, open this existing project: loads its SAVED masks + cleaned image from
    *  storage instead of re-running segmentation (no extra AI cost). */
   projectId?: string;
@@ -64,13 +59,7 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_CUSTOM_MASKS = 3;
 
-const DEFAULT_REGIONS_PREMIUM: ReadonlyArray<RegionState> = [
-  { id: "main", kind: "MAIN_WALL", label: "MAIN_WALL · 01", hex: "#a47148" },
-  { id: "accent", kind: "ACCENT_WALL", label: "ACCENT_WALL", hex: "#5b6c5b" },
-  { id: "trim", kind: "TRIM", label: "TRIM", hex: "#f3eee4" },
-];
-
-const DEFAULT_REGIONS_CLASSIC: ReadonlyArray<RegionState> = [
+const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
   { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#a47148" },
   { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#5b6c5b" },
   { id: "trim", kind: "TRIM", label: "Trim", hex: "#f3eee4" },
@@ -91,16 +80,16 @@ const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
   MANUAL: "#b89968",
 };
 
-const CLASSIC_KIND_LABEL: Record<RegionKind, string> = {
+const KIND_LABEL: Record<RegionKind, string> = {
   MAIN_WALL: "Main wall",
   ACCENT_WALL: "Accent wall",
   TRIM: "Trim",
   MANUAL: "Wall",
 };
 
-function mapBackendRegion(region: RegionDetail, isClassic: boolean): RegionState {
+function mapBackendRegion(region: RegionDetail): RegionState {
   const kind = CATEGORY_TO_KIND[region.category] ?? "MANUAL";
-  const fallback = isClassic ? CLASSIC_KIND_LABEL[kind] : kind;
+  const fallback = KIND_LABEL[kind];
   const hasColor = Boolean(region.appliedHexCode || region.appliedShadeCode);
   return {
     id: `r-${region.id}`,
@@ -129,8 +118,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";
 
-export function Visualizer({ variant = "premium", locale = "en", projectId: openProjectId, shades, initialName, guest = false }: VisualizerProps) {
-  const isClassic = variant === "classic";
+export function Visualizer({ projectId: openProjectId, shades, initialName, guest = false }: VisualizerProps) {
   // Guest mode swaps the CRUD calls to the access-code-scoped endpoints. Signatures
   // match the user `api`, so the rest of the flow is identical. User-only calls
   // (segmentation, share) are guarded by `!guest` at their call sites.
@@ -156,7 +144,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [regions, setRegions] = useState<RegionState[]>(() =>
-    isClassic ? [...DEFAULT_REGIONS_CLASSIC] : [...DEFAULT_REGIONS_PREMIUM],
+    [...DEFAULT_REGIONS],
   );
   const [activeRegion, setActiveRegion] = useState<string>(regions[0]!.id);
   const [cleanOn, setCleanOn] = useState(true);
@@ -295,13 +283,13 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
       const mapped = detail.regions
         .slice()
         .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-        .map((r) => mapBackendRegion(r, isClassic));
+        .map((r) => mapBackendRegion(r));
       if (mapped.length > 0) {
         setRegions(mapped);
         setActiveRegion(mapped[0]!.id);
       }
     },
-    [isClassic],
+    [],
   );
 
   // Open an existing project: fetch it and render its SAVED cleaned image + masks from
@@ -672,62 +660,42 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
   );
 
   const overlayLabel = uploading && !segmenting
-    ? t(locale, "atelier.status.uploading")
+    ? "Uploading photo"
     : segmenting
-      ? t(locale, "atelier.status.segmenting")
+      ? "Detecting walls"
       : "Working";
   const overlayHint = uploading && !segmenting
-    ? t(locale, "atelier.status.uploadingHint")
+    ? "Sending the photo to our service."
     : segmenting
-      ? t(locale, "atelier.status.segmentingHint")
+      ? "Finding the walls, trim and other paintable surfaces. This usually takes 5 to 10 seconds."
       : undefined;
 
-  // Style maps for the two variants
-  const regionLabelStyle: React.CSSProperties = isClassic
-    ? { font: "500 13px/1 var(--sans, system-ui)", color: "var(--fg)" }
-    : { font: "300 italic 14px/1 var(--serif)" };
-  const controlChipStyle: React.CSSProperties = isClassic
-    ? {
-        font: "500 12px/1 var(--sans, system-ui)",
-        letterSpacing: 0,
-        textTransform: "none",
-        color: "var(--fg-soft)",
-      }
-    : {};
+  const regionLabelStyle: React.CSSProperties = { font: "500 13px/1 var(--sans)", color: "var(--fg)" };
+  const controlChipStyle: React.CSSProperties = {
+    font: "500 12px/1 var(--sans)",
+    letterSpacing: 0,
+    textTransform: "none",
+    color: "var(--fg-soft)",
+  };
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
 
   return (
     <div
-      className={`hv-visualizer ${isClassic ? "is-classic" : ""}`}
+      className="hv-visualizer"
       style={{ border: "1px solid var(--rule-strong)", overflow: "hidden", background: "var(--bg)" }}
     >
       <div className="hv-vis-topbar">
-        {!isClassic && (
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <div className="brand-mark" style={{ width: 12, height: 12 }} />
-            <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)" }}>HueVista</span>
-          </div>
-        )}
         <div className="hv-vis-project">
-          {isClassic ? (
-            <span style={{ font: "500 14px/1.2 var(--sans, system-ui)", color: "var(--fg)" }}>
-              {projectName || (projectId ? `Project #${projectId.slice(0, 8)}` : t(locale, "atelier.toolbar.untitled"))}
-            </span>
-          ) : (
-            <>
-              <Mono>Project</Mono>
-              <span style={{ font: "300 italic 16px/1 var(--serif)", color: "var(--fg-soft)" }}>
-                {projectName || (projectId ? `#${projectId.slice(0, 8)}` : "Untitled")}
-              </span>
-            </>
-          )}
+          <Mono>Project</Mono>
+          <span style={{ font: "600 14px/1.2 var(--sans)", color: "var(--fg)" }}>
+            {projectName || (projectId ? `Project #${projectId.slice(0, 8)}` : "Untitled project")}
+          </span>
           {projectRoom && <Mono>· {projectRoom}</Mono>}
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-          {classification && !isClassic && <Mono brass>{classification}</Mono>}
-          {classification && isClassic && (
+          {classification && (
             <span style={{ ...controlChipStyle, color: "var(--accent)" }}>
               {classification === "INDOOR" ? "Indoor" : classification === "OUTDOOR" ? "Outdoor" : "Unknown"}
             </span>
@@ -735,35 +703,19 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           {segmenting && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <Spinner size={12} color="var(--accent)" />
-              {isClassic ? (
-                <span style={controlChipStyle}>{t(locale, "atelier.status.segmenting")}…</span>
-              ) : (
-                <Mono>Segmenting…</Mono>
-              )}
+              <span style={controlChipStyle}>Detecting walls…</span>
             </span>
           )}
-          {masksReady && (isClassic ? (
-            <span style={{ ...controlChipStyle, color: "var(--accent)" }}>
-              {t(locale, "atelier.status.masksReady")}
-            </span>
-          ) : (
-            <Mono brass>Masks ready</Mono>
-          ))}
+          {masksReady && (
+            <span style={{ ...controlChipStyle, color: "var(--accent)" }}>Walls detected</span>
+          )}
           {saveStatus === "saving" && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <Spinner size={12} color="var(--fg-mute)" />
-              {isClassic ? (
-                <span style={controlChipStyle}>{t(locale, "atelier.status.saving")}</span>
-              ) : (
-                <Mono>Saving…</Mono>
-              )}
+              <span style={controlChipStyle}>Saving…</span>
             </span>
           )}
-          {saveStatus === "saved" && (isClassic ? (
-            <span style={controlChipStyle}>{t(locale, "atelier.status.saved")}</span>
-          ) : (
-            <Mono>Saved · auto</Mono>
-          ))}
+          {saveStatus === "saved" && <span style={controlChipStyle}>Saved</span>}
           {saveStatus === "failed" && (
             <span
               style={{
@@ -771,7 +723,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                 color: "#dc2626",
               }}
             >
-              {t(locale, "atelier.status.saveFailed")}
+              Could not save
             </span>
           )}
           {shareUrl && (
@@ -808,12 +760,12 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
             disabled={!imageUrl}
             onClick={() => recolorRef.current && downloadPng(recolorRef.current.exportPng())}
           >
-            {isClassic ? t(locale, "atelier.toolbar.export") : "Export"}
+            Download image
           </Button>
         </div>
       </div>
 
-      <PipelineBar current={stage} done={done} variant={variant} locale={locale} />
+      <PipelineBar current={stage} done={done} />
 
       <div className="hv-vis-body" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 0 }}>
         <div className="hv-vis-canvas-wrap" style={{ position: "relative", background: "var(--surface)" }}>
@@ -830,8 +782,6 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           />
           {showDetailsGate && (
             <ProjectDetailsGate
-              variant={variant}
-              locale={locale}
               onSubmit={(d) => {
                 setDetails(d);
                 setProjectName(d.name);
@@ -841,8 +791,6 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           )}
           {!imageUrl && !showDetailsGate && !openProjectId && (
             <DropZone
-              variant={variant}
-              locale={locale}
               uploading={uploading}
               error={error}
               onChoose={() => fileRef.current?.click()}
@@ -873,7 +821,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                   background: "var(--bg)",
                   border: "1px solid var(--rule-strong)",
                   zIndex: 5,
-                  borderRadius: isClassic ? 8 : 0,
+                  borderRadius: 8,
                   display: "flex",
                   flexDirection: "column",
                   gap: 10,
@@ -881,21 +829,12 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                 }}
               >
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  {isClassic ? (
-                    <span style={controlChipStyle}>{t(locale, "atelier.control.tidy")}</span>
-                  ) : (
-                    <Mono>Image clean</Mono>
-                  )}
-                  <Toggle on={cleanOn} onClick={() => setCleanOn((v) => !v)} isClassic={isClassic} ariaLabel="image clean-up" />
-                  {!isClassic && <Mono>{cleanOn ? "On" : "Off"} · Nano Banana Pro</Mono>}
+                  <span style={controlChipStyle}>Tidy up image</span>
+                  <Toggle on={cleanOn} onClick={() => setCleanOn((v) => !v)} ariaLabel="image clean-up" />
                 </div>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  {isClassic ? (
-                    <span style={controlChipStyle}>Keep shadows</span>
-                  ) : (
-                    <Mono>Keep shadows</Mono>
-                  )}
-                  <Toggle on={shadowOn} onClick={() => setShadowOn((v) => !v)} isClassic={isClassic} ariaLabel="shadow preservation" />
+                  <span style={controlChipStyle}>Keep shadows</span>
+                  <Toggle on={shadowOn} onClick={() => setShadowOn((v) => !v)} ariaLabel="shadow preservation" />
                   {shadowOn ? (
                     <input
                       type="range"
@@ -907,9 +846,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                       aria-label="Shadow intensity"
                       style={{ width: 80, accentColor: "var(--accent)" }}
                     />
-                  ) : (
-                    !isClassic && <Mono>Off · flat swatch</Mono>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
@@ -924,7 +861,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                   background: "var(--bg)",
                   border: "1px solid var(--rule-strong)",
                   zIndex: 5,
-                  borderRadius: isClassic ? 8 : 0,
+                  borderRadius: 8,
                 }}
               >
                 <div
@@ -935,11 +872,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                     overflowX: "auto",
                   }}
                 >
-                  {isClassic ? (
-                    <span style={controlChipStyle}>{t(locale, "atelier.control.regions")}</span>
-                  ) : (
-                    <Mono>Regions</Mono>
-                  )}
+                  <span style={controlChipStyle}>Walls in this photo</span>
                   <div
                     aria-hidden
                     style={{
@@ -978,11 +911,10 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                           height: 12,
                           background: r.applied ? r.hex : "transparent",
                           border: "1px solid var(--rule-strong)",
-                          borderRadius: isClassic ? "50%" : 0,
+                          borderRadius: "50%",
                         }}
                       />
                       <span style={regionLabelStyle}>{r.label}</span>
-                      {!isClassic && <Mono>{r.shade?.code ?? (r.applied ? "—" : "·")}</Mono>}
                     </button>
                   ))}
                   <button
@@ -996,24 +928,18 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                     }
                     style={{
                       marginLeft: "auto",
-                      padding: isClassic ? "6px 12px" : "4px 14px",
+                      padding: "6px 12px",
                       background: "transparent",
                       border: "1px solid var(--rule-strong)",
-                      borderRadius: isClassic ? 6 : 0,
+                      borderRadius: 6,
                       color: "var(--fg-soft)",
                       opacity: imageDims && masksRemaining > 0 ? 1 : 0.5,
                       whiteSpace: "nowrap",
-                      ...(isClassic
-                        ? { font: "500 12px/1 var(--sans, system-ui)" }
-                        : {
-                            font: "400 10px/1 var(--mono)",
-                            letterSpacing: ".22em",
-                            textTransform: "uppercase",
-                          }),
+                      font: "500 12px/1 var(--sans)",
                       cursor: imageDims && masksRemaining > 0 ? "pointer" : "not-allowed",
                     }}
                   >
-                    ✎ {isClassic ? "Mask Studio" : "Mask"}
+                    ✎ Edit walls
                   </button>
                 </div>
               </div>
@@ -1027,21 +953,17 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                   position: "absolute",
                   bottom: 80,
                   right: 20,
-                  padding: isClassic ? "6px 12px" : "6px 10px",
+                  padding: "6px 12px",
                   background: compare ? "var(--accent)" : "var(--bg)",
                   border: "1px solid " + (compare ? "var(--accent)" : "var(--rule-strong)"),
-                  borderRadius: isClassic ? 6 : 0,
+                  borderRadius: 6,
                   color: compare ? "var(--bg)" : "var(--fg-soft)",
-                  ...(isClassic
-                    ? { font: "500 12px/1 var(--sans, system-ui)" }
-                    : { font: "400 10px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase" }),
+                  font: "500 12px/1 var(--sans)",
                   cursor: "pointer",
                   zIndex: 5,
                 }}
               >
-                {compare
-                  ? (isClassic ? t(locale, "atelier.control.before") : "Before")
-                  : (isClassic ? t(locale, "atelier.control.compare") : "Compare")}
+                {compare ? "Showing original" : "Compare"}
               </button>
             </>
           )}
@@ -1066,7 +988,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                   border: "1px solid var(--rule-strong)",
                   padding: 28,
                   textAlign: "center",
-                  borderRadius: isClassic ? 10 : 0,
+                  borderRadius: 10,
                 }}
               >
                 <Mono brass>
@@ -1078,7 +1000,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                         ? "Access ended"
                         : "Project limit reached"}
                 </Mono>
-                <p style={{ font: "300 italic 19px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "14px 0 22px" }}>
+                <p style={{ font: "400 19px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "14px 0 22px" }}>
                   {error ||
                     (needVerification
                       ? "Verify your email and mobile number before creating your project."
@@ -1120,8 +1042,6 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           )}
         </div>
         <ShadeGrid
-          variant={variant}
-          locale={locale}
           selected={active.shade?.code}
           onSelect={onSelectShade}
           onApplyExact={onApplyCustom}
@@ -1138,7 +1058,6 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
 
       {maskStudioOpen && imageUrl && imageDims && (
         <MaskStudio
-          variant={variant}
           imageUrl={imageUrl}
           imageDims={imageDims}
           existing={existingMasks}
@@ -1196,12 +1115,10 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
 function Toggle({
   on,
   onClick,
-  isClassic,
   ariaLabel,
 }: {
   on: boolean;
   onClick: () => void;
-  isClassic: boolean;
   ariaLabel: string;
 }) {
   return (
@@ -1218,7 +1135,7 @@ function Toggle({
         border: "1px solid " + (on ? "var(--accent)" : "var(--rule-strong)"),
         padding: 0,
         cursor: "pointer",
-        borderRadius: isClassic ? 999 : 0,
+        borderRadius: 999,
         flexShrink: 0,
       }}
     >
@@ -1230,7 +1147,7 @@ function Toggle({
           width: 14,
           height: 14,
           background: "var(--fg)",
-          borderRadius: isClassic ? "50%" : 0,
+          borderRadius: "50%",
         }}
       />
     </button>
@@ -1238,21 +1155,16 @@ function Toggle({
 }
 
 function DropZone({
-  variant,
-  locale,
   uploading,
   error,
   onChoose,
   onDrop,
 }: {
-  variant: UiVariant;
-  locale: UiLocale;
   uploading: boolean;
   error: string | null;
   onChoose: () => void;
   onDrop: (file: File) => void;
 }) {
-  const isClassic = variant === "classic";
   return (
     <div
       onClick={onChoose}
@@ -1265,7 +1177,7 @@ function DropZone({
       }}
       role="button"
       tabIndex={0}
-      aria-label={isClassic ? t(locale, "atelier.dropzone.choose") : "Choose or drop a photograph"}
+      aria-label="Choose a photo"
       style={{
         position: "absolute",
         inset: 0,
@@ -1273,82 +1185,47 @@ function DropZone({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: isClassic ? 14 : 18,
+        gap: 14,
         cursor: "pointer",
         padding: 40,
         textAlign: "center",
       }}
     >
-      {isClassic ? (
-        <>
-          <span
-            aria-hidden
-            style={{
-              width: 64,
-              height: 64,
-              border: "1px dashed var(--rule-strong)",
-              borderRadius: 12,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--accent)",
-            }}
-          >
-            <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 16V4M6 10l6-6 6 6" />
-              <path d="M4 20h16" />
-            </svg>
-          </span>
-          <h2
-            style={{
-              font: "600 28px/1.2 var(--sans, system-ui)",
-              color: "var(--fg)",
-              margin: 0,
-              maxWidth: "24ch",
-            }}
-          >
-            {t(locale, "atelier.dropzone.title")}
-          </h2>
-          <p style={{ font: "400 15px/1.5 var(--sans, system-ui)", color: "var(--fg-soft)", maxWidth: "44ch", margin: 0 }}>
-            {t(locale, "atelier.dropzone.hint")}
-          </p>
-          <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", justifyContent: "center" }}>
-            <span className="btn">{t(locale, "atelier.dropzone.choose")}</span>
-          </div>
-        </>
-      ) : (
-        <>
-          <span
-            style={{
-              font: "400 10px/1 var(--mono)",
-              letterSpacing: ".32em",
-              textTransform: "uppercase",
-              color: "var(--accent)",
-            }}
-          >
-            the atelier
-          </span>
-          <h2
-            style={{
-              fontFamily: "var(--serif)",
-              fontWeight: 300,
-              fontSize: "clamp(34px, 7vw, 64px)",
-              lineHeight: 0.95,
-              color: "var(--fg)",
-              margin: 0,
-              maxWidth: "20ch",
-            }}
-          >
-            Drop a photograph <i style={{ color: "var(--accent-soft)" }}>here.</i>
-          </h2>
-          <p style={{ font: "300 italic 19px/1.5 var(--serif)", color: "var(--fg-soft)", maxWidth: "44ch" }}>
-            JPEG, PNG, or WebP up to 10 MB. Claude will classify it as indoor or outdoor in under a second.
-          </p>
-          <div style={{ display: "flex", gap: 14, marginTop: 12 }}>
-            <span className="btn">Choose a photograph</span>
-          </div>
-        </>
-      )}
+      <span
+        aria-hidden
+        style={{
+          width: 64,
+          height: 64,
+          border: "1px dashed var(--rule-strong)",
+          borderRadius: 12,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--accent)",
+        }}
+      >
+        <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 16V4M6 10l6-6 6 6" />
+          <path d="M4 20h16" />
+        </svg>
+      </span>
+      <h2
+        style={{
+          font: "600 28px/1.2 var(--serif)",
+          letterSpacing: "-.02em",
+          color: "var(--fg)",
+          margin: 0,
+          maxWidth: "24ch",
+        }}
+      >
+        Add a photo of the room
+      </h2>
+      <p style={{ font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "44ch", margin: 0 }}>
+        JPEG, PNG, or WebP. Up to 10 MB.
+      </p>
+      <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", justifyContent: "center" }}>
+        <span className="btn">Choose a photo</span>
+      </div>
 
       {/* Shoot the room on a phone and have it land here. Stop propagation so the
           QR button / modal don't trigger the dropzone's click-to-choose. */}
@@ -1357,24 +1234,14 @@ function DropZone({
         onKeyDown={(e) => e.stopPropagation()}
         style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}
       >
-        {isClassic ? (
-          <span style={{ font: "400 13px/1 var(--sans, system-ui)", color: "var(--fg-mute)" }}>or</span>
-        ) : (
-          <Mono>or</Mono>
-        )}
+        <span style={{ font: "400 13px/1 var(--sans)", color: "var(--fg-mute)" }}>or</span>
         <PhoneHandoff onImage={onDrop} />
       </div>
 
       {uploading && (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--accent)" }}>
           <Spinner size={14} color="var(--accent)" />
-          {isClassic ? (
-            <span style={{ font: "500 13px/1 var(--sans, system-ui)" }}>
-              {t(locale, "atelier.dropzone.uploading")}
-            </span>
-          ) : (
-            <Mono>Uploading…</Mono>
-          )}
+          <span style={{ font: "500 13px/1 var(--sans)" }}>Uploading…</span>
         </span>
       )}
       {error && (

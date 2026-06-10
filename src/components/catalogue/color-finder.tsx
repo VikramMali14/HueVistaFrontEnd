@@ -193,7 +193,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
   return (
     <div className="hv-finder" style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px" }}>
       <Mono brass>Find a colour in a photo</Mono>
-      <p className="finder-lead" style={{ font: "300 italic 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 20px", maxWidth: "56ch" }}>
+      <p className="finder-lead" style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 20px", maxWidth: "56ch" }}>
         Upload a photograph, then click anywhere on it to sample a colour — we match it to the nearest real
         catalogue shade by perceptual distance. We also pull a palette from the image automatically.
       </p>
@@ -240,7 +240,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
               <path d="M4 20h16" />
             </svg>
           </span>
-          <span className="finder-drop" style={{ font: "300 italic 22px/1.2 var(--serif)", color: "var(--fg)" }}>
+          <span className="finder-drop" style={{ font: "400 22px/1.2 var(--serif)", color: "var(--fg)" }}>
             Drop a photograph here
           </span>
           <span className="btn">Choose a photograph</span>
@@ -371,7 +371,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
                   <span style={{ width: 48, height: 48, background: picked, border: "1px solid var(--rule-strong)", flexShrink: 0 }} />
                   <div>
                     <Mono>Sampled colour</Mono>
-                    <div className="finder-hex" style={{ font: "300 italic 22px/1 var(--serif)", color: "var(--fg)", marginTop: 4 }}>{picked}</div>
+                    <div className="finder-hex" style={{ font: "400 22px/1 var(--serif)", color: "var(--fg)", marginTop: 4 }}>{picked}</div>
                   </div>
                 </div>
                 <Mono style={{ display: "block", marginBottom: 10 }}>
@@ -399,7 +399,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
                     >
                       <span style={{ width: 36, height: 36, background: shade.hex, border: "1px solid var(--rule-strong)", flexShrink: 0 }} />
                       <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
-                        <span className="finder-shade-name" style={{ font: "300 italic 16px/1.1 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <span className="finder-shade-name" style={{ font: "400 16px/1.1 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {shade.name}
                         </span>
                         <Mono>{shade.code} · {shade.hex} · ΔE {dE.toFixed(1)}</Mono>
@@ -412,7 +412,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
             ) : (
               <div style={{ border: "1px solid var(--rule)", padding: 22, background: "var(--surface-soft)" }}>
                 <Mono>No colour sampled yet</Mono>
-                <p className="finder-empty-hint" style={{ font: "300 italic 15px/1.5 var(--serif)", color: "var(--fg-mute)", margin: "8px 0 0" }}>
+                <p className="finder-empty-hint" style={{ font: "400 15px/1.5 var(--serif)", color: "var(--fg-mute)", margin: "8px 0 0" }}>
                   Click anywhere on the photo, or pick from the palette, and we&apos;ll list the nearest shade codes.
                 </p>
               </div>

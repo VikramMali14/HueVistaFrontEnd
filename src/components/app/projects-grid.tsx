@@ -23,7 +23,7 @@ function statusLabel(s: ProjectSummary["status"]): string {
 
 /**
  * Live grid of the signed-in user's projects (GET /api/projects via the BFF).
- * Each card opens the project in the atelier, where it loads its SAVED masks /
+ * Each card opens the project in the studio, where it loads its SAVED masks /
  * cleaned image from storage — no re-segmentation, no extra AI cost.
  */
 export function ProjectsGrid() {
@@ -86,7 +86,7 @@ export function ProjectsGrid() {
       )}
 
       {projects !== null && projects.length === 0 && !error && (
-        <p style={{ alignSelf: "center", font: "300 italic 16px/1.4 var(--serif)", color: "var(--fg-soft)" }}>
+        <p style={{ alignSelf: "center", font: "400 16px/1.4 var(--sans)", color: "var(--fg-soft)" }}>
           No projects yet — start one with a photo.
         </p>
       )}

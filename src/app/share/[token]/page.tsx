@@ -78,18 +78,18 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           <aside>
             <Mono brass style={{ display: "block", marginBottom: 14 }}>The palette</Mono>
             {applied.length === 0 ? (
-              <p style={{ font: "300 italic 16px/1.5 var(--serif)", color: "var(--fg-mute)" }}>No colours applied yet.</p>
+              <p style={{ font: "400 16px/1.5 var(--serif)", color: "var(--fg-mute)" }}>No colours applied yet.</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {applied.map((r) => (
                   <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <span aria-hidden style={{ width: 40, height: 40, background: r.appliedHexCode ?? "#ccc", border: "1px solid var(--rule-strong)", flexShrink: 0 }} />
-                    <span style={{ font: "300 italic 17px/1.2 var(--serif)", color: "var(--fg)" }}>{r.label || "Wall"}</span>
+                    <span style={{ font: "400 17px/1.2 var(--serif)", color: "var(--fg)" }}>{r.label || "Wall"}</span>
                   </div>
                 ))}
               </div>
             )}
-            <p style={{ marginTop: 24, font: "300 italic 14px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
+            <p style={{ marginTop: 24, font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
               Shade codes are kept with your retailer. Visit them to order the exact colours.
             </p>
           </aside>

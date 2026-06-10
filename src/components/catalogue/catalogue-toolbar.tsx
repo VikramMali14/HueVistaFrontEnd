@@ -7,17 +7,17 @@ import type { PaintShade } from "@/lib/types";
 const PAGE_SIZE = 96;
 
 const FAMILIES: ReadonlyArray<{ id: string; dot: string }> = [
-  { id: "All families", dot: "#ebe5d7" },
+  { id: "All families", dot: "var(--ivory)" },
   { id: "Oxblood", dot: "#7a3a2f" },
   { id: "Terracotta", dot: "#b96b48" },
   { id: "Brass", dot: "#d4b88a" },
-  { id: "Ivory", dot: "#ebe5d7" },
+  { id: "Ivory", dot: "var(--ivory)" },
   { id: "Linen", dot: "#9b8d70" },
   { id: "Sage", dot: "#5b6c5b" },
   { id: "Bluestone", dot: "#3e4a52" },
   { id: "Indigo", dot: "#3a4870" },
   { id: "Walnut", dot: "#7a5a3f" },
-  { id: "Shadow", dot: "#2a2521" },
+  { id: "Shadow", dot: "var(--charcoal-warm)" },
 ];
 
 const BRANDS = ["Asian Paints", "Berger", "Nerolac", "Dulux"] as const;
@@ -60,12 +60,12 @@ function FilterDropdown({ label, value, options, onChange }: FilterDropdownProps
   return (
     <div style={{ position: "relative", padding: "18px 20px", borderRight: "1px solid var(--rule)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: "var(--fg-soft)" }} onClick={() => setOpen((v) => !v)}>
       <span>{label}</span>
-      <span style={{ color: "var(--accent)", fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 15, letterSpacing: ".01em", textTransform: "none" }}>{value}</span>
+      <span style={{ color: "var(--accent)", fontFamily: "var(--serif)", fontSize: 15, letterSpacing: ".01em", textTransform: "none" }}>{value}</span>
       <span style={{ color: "var(--fg-mute)", fontSize: 10 }}>▾</span>
       {open && (
         <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: -1, right: -1, background: "var(--surface-soft)", border: "1px solid var(--rule-strong)", borderTop: "none", zIndex: 20 }}>
           {options.map((o) => (
-            <div key={o} onClick={() => { onChange(o); setOpen(false); }} style={{ padding: "12px 20px", borderTop: "1px solid var(--rule)", color: o === value ? "var(--fg)" : "var(--fg-soft)", background: o === value ? "var(--surface)" : "transparent", fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 15, letterSpacing: ".01em", textTransform: "none" }}>
+            <div key={o} onClick={() => { onChange(o); setOpen(false); }} style={{ padding: "12px 20px", borderTop: "1px solid var(--rule)", color: o === value ? "var(--fg)" : "var(--fg-soft)", background: o === value ? "var(--surface)" : "transparent", fontFamily: "var(--serif)", fontSize: 15, letterSpacing: ".01em", textTransform: "none" }}>
               {o}
             </div>
           ))}
@@ -112,7 +112,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
             value={query}
             onChange={(e) => { setQuery(e.target.value); setVisible(PAGE_SIZE); }}
             placeholder="shade, code, or hex…"
-            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--fg)", font: "300 italic 16px/1 var(--serif)" }}
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--fg)", font: "400 16px/1 var(--serif)" }}
           />
         </div>
         <FilterDropdown label="Brand" value={brand} options={BRANDS} onChange={(v) => { setBrand(v as never); setVisible(PAGE_SIZE); }} />
@@ -143,7 +143,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
         {shown.map((s) => (
           <article key={s.code} style={{ cursor: "pointer", transition: "transform .35s var(--ease)" }}>
             <div style={{ aspectRatio: "1 / 1.1", position: "relative", background: s.hex, overflow: "hidden", boxShadow: "0 1px 0 rgba(255,255,255,.06) inset, 0 20px 40px -20px rgba(0,0,0,.6)" }}>
-              <span style={{ position: "absolute", top: 14, right: 14, font: "400 italic 14px/1 var(--serif)", color: "rgba(255,255,255,.75)" }}>{s.code.split("-")[1]}</span>
+              <span style={{ position: "absolute", top: 14, right: 14, font: "400 14px/1 var(--serif)", color: "rgba(255,255,255,.75)" }}>{s.code.split("-")[1]}</span>
               <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 9px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: "rgba(255,255,255,.65)" }}>LRV {s.lrv}</span>
             </div>
             <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>

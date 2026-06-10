@@ -15,7 +15,7 @@ export function Partners() {
         <Mono>Built for the catalogues of</Mono>
         <div style={{ display: "flex", gap: 56, alignItems: "baseline", flexWrap: "wrap" }}>
           {BRANDS.map((b, i) => (
-            <span key={b.name} style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 32, color: i === 0 ? "var(--fg)" : "var(--fg-mute)" }}>
+            <span key={b.name} style={{ fontFamily: "var(--serif)", fontSize: 32, color: i === 0 ? "var(--fg)" : "var(--fg-mute)" }}>
               {b.name}
               <sup style={{ fontSize: 11, marginLeft: 2, color: i === 0 ? "var(--accent)" : "inherit" }}>{b.mark}</sup>
             </span>

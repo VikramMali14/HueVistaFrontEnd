@@ -38,12 +38,12 @@ export default function AppError({
           color: "var(--accent)",
         }}
       >
-        The atelier hit a snag
+        Something went wrong
       </span>
       <h2
         style={{
           fontFamily: "var(--serif, serif)",
-          fontWeight: 300,
+          fontWeight: 600,
           fontSize: "clamp(32px, 4vw, 56px)",
           margin: 0,
         }}
@@ -52,7 +52,7 @@ export default function AppError({
       </h2>
       <p
         style={{
-          font: "300 italic 17px/1.5 var(--serif, serif)",
+          font: "400 17px/1.5 var(--serif, serif)",
           color: "var(--fg-soft)",
           maxWidth: 480,
           margin: 0,

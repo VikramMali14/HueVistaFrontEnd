@@ -12,12 +12,12 @@ export default function NotFound() {
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 40 }}>
           <Logo size="md" ariaLabel={null} />
         </div>
-        <Eyebrow>404 · A quiet corner</Eyebrow>
-        <h1 className="display" style={{ fontSize: "clamp(72px, 11vw, 200px)", marginTop: 24 }}>We have <i>misplaced it.</i></h1>
-        <Lead style={{ margin: "32px auto 56px" }}>The page you were looking for has wandered off. Try the homepage, or start a fresh visit to the atelier.</Lead>
+        <Eyebrow>404 — Page not found</Eyebrow>
+        <h1 className="display" style={{ fontSize: "clamp(64px, 10vw, 160px)", marginTop: 24 }}>Page not found.</h1>
+        <Lead style={{ margin: "32px auto 56px" }}>This page doesn’t exist or has moved. Head back to the homepage, or see how HueVista works.</Lead>
         <div style={{ display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-          <LinkButton href="/" variant="brass" size="lg">Return home <span className="arr">→</span></LinkButton>
-          <LinkButton href="/method" variant="ghost" size="lg">Read the method <span className="arr">→</span></LinkButton>
+          <LinkButton href="/" variant="brass" size="lg">Go to homepage <span className="arr">→</span></LinkButton>
+          <LinkButton href="/method" variant="ghost" size="lg">How it works <span className="arr">→</span></LinkButton>
         </div>
       </main>
       <Footer />

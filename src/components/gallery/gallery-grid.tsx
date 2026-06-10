@@ -68,7 +68,7 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
             return (
               <article key={p.num} style={{ gridColumn: `span ${colSpan}`, position: "relative" }}>
                 <Placeholder tone={p.tone} grain corners tag={p.tag} label={`${p.location} · ${p.date}`} style={{ aspectRatio: p.aspect }} />
-                <span style={{ position: "absolute", top: 16, right: 18, font: "400 italic 14px/1 var(--serif)", color: "rgba(255,255,255,.6)" }}>{p.num}</span>
+                <span style={{ position: "absolute", top: 16, right: 18, font: "400 14px/1 var(--serif)", color: "rgba(255,255,255,.6)" }}>{p.num}</span>
                 <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: "var(--serif)", fontSize: 24, color: "var(--fg)", lineHeight: 1.2 }}>{p.title}</div>

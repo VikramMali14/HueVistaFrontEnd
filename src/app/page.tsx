@@ -14,16 +14,12 @@ import { Closing } from "@/components/home/closing";
 import { RevealMount } from "@/components/ui/reveal-mount";
 
 const MARQUEE = [
-  "Established Belgavi · MMXXVI",
-  "For the Indian paint retail trade",
+  "See any colour on your walls before you paint",
+  "2,481 shades with real codes and names",
   "Asian Paints at launch · Berger & Nerolac to follow",
-  "Pilot dealers · 12 cities",
-  "See the wall before the paint",
-  "Two thousand catalogued shades · codes intact",
-  "Instant preview · no waiting at the counter",
-  "True-to-the-can colour",
-  "Fourteen days · no card · cancel quietly",
-  "Engineered in Belgavi · with care",
+  "Realistic previews in about 20 seconds",
+  "Free 14-day trial · no card needed",
+  "Built for paint shops, painters and homeowners",
 ];
 
 export default function HomePage() {

@@ -43,7 +43,7 @@ export function RedeemForm() {
           Upload a room photo and start visualising — you pick colours by feel.
         </Lead>
         {/* Full reload so the app re-renders with the new CUSTOMER role. */}
-        <a className="btn btn-brass" href="/atelier">Open the atelier <span className="arr">→</span></a>
+        <a className="btn btn-brass" href="/atelier">Open the studio <span className="arr">→</span></a>
       </div>
     );
   }
@@ -87,7 +87,7 @@ export function RedeemForm() {
 
       {error && <div className="field-error" role="alert" style={{ marginTop: 16 }}>{error}</div>}
 
-      <p style={{ font: "300 italic 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 20, maxWidth: "48ch" }}>
+      <p style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 20, maxWidth: "48ch" }}>
         Redeeming switches this account to a customer of the issuing shop — one project, valid for the
         code&apos;s window. Retailers don&apos;t need a code.
       </p>

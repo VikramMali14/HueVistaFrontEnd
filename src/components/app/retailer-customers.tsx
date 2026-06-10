@@ -96,7 +96,7 @@ export function RetailerCustomers() {
 
   if (rows.length === 0) {
     return (
-      <p style={{ font: "300 italic 18px/1.6 var(--serif)", color: "var(--fg-soft)" }}>
+      <p style={{ font: "400 18px/1.6 var(--sans)", color: "var(--fg-soft)" }}>
         No customers have redeemed an access code yet.
       </p>
     );
@@ -133,7 +133,7 @@ export function RetailerCustomers() {
           }}
         >
           <div className="hv-cust-lead">
-            <div style={{ font: "300 italic 18px/1.2 var(--serif)", color: "var(--fg)" }}>{c.customerName}</div>
+            <div style={{ font: "400 18px/1.2 var(--sans)", color: "var(--fg)" }}>{c.customerName}</div>
             <Mono>{c.customerEmail}</Mono>
           </div>
           <span className="mono" data-label="Projects">

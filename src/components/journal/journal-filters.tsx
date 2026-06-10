@@ -58,7 +58,7 @@ export function JournalFilters({ entries }: { entries: ReadonlyArray<JournalEntr
               color: "inherit",
             }}
           >
-            <span style={{ font: "400 italic 22px/1 var(--serif)", color: "var(--brass)" }}>{e.num}</span>
+            <span style={{ font: "400 22px/1 var(--serif)", color: "var(--brass)" }}>{e.num}</span>
             <span style={{ fontFamily: "var(--serif)", fontSize: 26, color: "var(--fg)", lineHeight: 1.2 }}>{e.title}</span>
             <Mono style={{ color: "var(--fg-soft)" }}>{e.meta}</Mono>
             <Mono>{e.category}</Mono>

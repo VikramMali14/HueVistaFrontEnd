@@ -34,7 +34,7 @@ export function PricingFaq() {
                 overflow: "hidden",
                 transition: "max-height .5s var(--ease), margin-top .3s var(--ease)",
                 marginTop: isOpen ? 20 : 0,
-                font: "300 italic 19px/1.55 var(--serif)",
+                font: "400 19px/1.55 var(--serif)",
                 color: "var(--fg-soft)",
                 maxWidth: "70ch",
               }}

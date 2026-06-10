@@ -48,7 +48,7 @@ export function TrialForm({ action, next }: TrialFormProps) {
     >
       {next && <input type="hidden" name="next" value={next} />}
       <div style={{ marginBottom: 32, maxWidth: 480 }}>
-        <GoogleButton next={next ?? "/atelier"} label="Begin trial with Google" />
+        <GoogleButton next={next ?? "/atelier"} label="Start free trial with Google" />
         <div
           aria-hidden
           style={{
@@ -75,7 +75,7 @@ export function TrialForm({ action, next }: TrialFormProps) {
           <Field label="Email" name="email" type="email" required placeholder="suresh@shardapaints.in" autoComplete="email" />
           <Field label="Phone · WhatsApp" name="phone" type="tel" required placeholder="+91 98 8654 7321" autoComplete="tel" />
           <div className="field full">
-            <label className="field-label" htmlFor="password">Passphrase</label>
+            <label className="field-label" htmlFor="password">Password</label>
             <div style={{ position: "relative" }}>
               <input
                 id="password"
@@ -92,7 +92,7 @@ export function TrialForm({ action, next }: TrialFormProps) {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-pressed={showPassword}
-                aria-label={showPassword ? "Hide passphrase" : "Show passphrase"}
+                aria-label={showPassword ? "Hide password" : "Show password"}
                 style={{
                   position: "absolute",
                   right: 0,
@@ -109,8 +109,8 @@ export function TrialForm({ action, next }: TrialFormProps) {
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
-            <span id="pw-hint" style={{ font: "300 italic 14px/1.3 var(--serif)", color: "var(--fg-mute)" }}>
-              Use at least 8 characters. A mixture of words is the strongest, kindest passphrase.
+            <span id="pw-hint" style={{ font: "400 14px/1.3 var(--serif)", color: "var(--fg-mute)" }}>
+              Use at least 8 characters. A mixture of words is the strongest, kindest password.
             </span>
           </div>
         </div>
@@ -134,7 +134,7 @@ export function TrialForm({ action, next }: TrialFormProps) {
             </label>
           ))}
         </div>
-        <p style={{ marginTop: 20, fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 17, color: "var(--fg-mute)" }}>You won't be charged today. You're picking the shape of your trial.</p>
+        <p style={{ marginTop: 20, fontFamily: "var(--serif)", fontSize: 17, color: "var(--fg-mute)" }}>You won't be charged today. You're picking the shape of your trial.</p>
       </Step>
       <Step num="IV." title={<>A word, <i>if you'd like.</i></>}>
         <div className="field">
@@ -148,7 +148,7 @@ export function TrialForm({ action, next }: TrialFormProps) {
           display: "flex",
           alignItems: "flex-start",
           gap: 12,
-          font: "300 italic 16px/1.5 var(--serif)",
+          font: "400 16px/1.5 var(--serif)",
           color: "var(--fg-soft)",
           cursor: "pointer",
         }}

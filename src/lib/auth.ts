@@ -4,8 +4,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { authApi, billingApi, guestServerApi, HttpError } from "./api";
-import { config, isLocale, isTheme, isVariant } from "./config";
-import type { AuthResponse, AuthUser, UiLocale, UiTheme, UiVariant } from "./types";
+import { config, isTheme } from "./config";
+import type { AuthResponse, AuthUser, UiTheme } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -48,12 +48,8 @@ async function persistSession(auth: AuthResponse) {
     ...cookieDefaults,
     maxAge: Math.max(60, auth.expiresIn),
   });
-  // Variant and theme are user-chosen — keep any existing cookie (which may be a local
+  // Theme is user-chosen — keep any existing cookie (which may be a local
   // toggle the user set before signing in) and otherwise seed from the backend profile.
-  if (!jar.get(config.variantCookie)) {
-    const variant = isVariant(auth.user.uiVariant) ? auth.user.uiVariant : config.defaultVariant;
-    jar.set(config.variantCookie, variant, preferenceCookieDefaults);
-  }
   if (!jar.get(config.themeCookie)) {
     const theme = isTheme(auth.user.uiTheme) ? auth.user.uiTheme : config.defaultTheme;
     jar.set(config.themeCookie, theme, preferenceCookieDefaults);
@@ -64,7 +60,6 @@ export async function clearSession() {
   const jar = await cookies();
   jar.delete(config.sessionCookie);
   jar.delete(config.accessCookie);
-  jar.delete(config.variantCookie);
   // hv_theme is intentionally NOT cleared — a user's preferred theme should survive logout.
 }
 
@@ -91,22 +86,10 @@ async function maybeClaimGuestProjects(accessToken: string) {
   jar.delete(config.guestCookie);
 }
 
-export async function getUiVariant(): Promise<UiVariant> {
-  const jar = await cookies();
-  const value = jar.get(config.variantCookie)?.value;
-  return isVariant(value) ? value : config.defaultVariant;
-}
-
 export async function getUiTheme(): Promise<UiTheme> {
   const jar = await cookies();
   const value = jar.get(config.themeCookie)?.value;
   return isTheme(value) ? value : config.defaultTheme;
-}
-
-export async function getUiLocale(): Promise<UiLocale> {
-  const jar = await cookies();
-  const value = jar.get(config.localeCookie)?.value;
-  return isLocale(value) ? value : config.defaultLocale;
 }
 
 export async function setUiThemeAction(theme: UiTheme) {
@@ -123,24 +106,6 @@ export async function toggleUiThemeAction() {
   const next: UiTheme = current === "dark" ? "light" : "dark";
   const jar = await cookies();
   jar.set(config.themeCookie, next, preferenceCookieDefaults);
-  revalidatePath("/", "layout");
-}
-
-export async function toggleUiVariantAction() {
-  "use server";
-  const current = await getUiVariant();
-  const next: UiVariant = current === "premium" ? "classic" : "premium";
-  const jar = await cookies();
-  jar.set(config.variantCookie, next, preferenceCookieDefaults);
-  revalidatePath("/", "layout");
-}
-
-export async function toggleUiLocaleAction() {
-  "use server";
-  const current = await getUiLocale();
-  const next: UiLocale = current === "en" ? "hi" : "en";
-  const jar = await cookies();
-  jar.set(config.localeCookie, next, preferenceCookieDefaults);
   revalidatePath("/", "layout");
 }
 
@@ -200,7 +165,7 @@ export async function loginAction(formData: FormData) {
   const next = safeNext(formData.get("next"));
 
   if (!email || !password) {
-    return { error: "Please enter your email and passphrase." };
+    return { error: "Please enter your email and password." };
   }
   try {
     const auth = await authApi.login({ email, password });
@@ -208,7 +173,7 @@ export async function loginAction(formData: FormData) {
     await maybeClaimGuestProjects(auth.accessToken);
   } catch (err) {
     if (err instanceof HttpError) {
-      if (err.status === 401) return { error: "Incorrect email or passphrase." };
+      if (err.status === 401) return { error: "Incorrect email or password." };
       return { error: err.message };
     }
     return { error: "Could not sign in. Please try again." };
@@ -267,7 +232,7 @@ export async function registerAction(formData: FormData) {
 
   if (!name) return { error: "Please tell us your name." };
   if (!email) return { error: "Please enter your email." };
-  if (password.length < 8) return { error: "Choose a passphrase of at least eight characters." };
+  if (password.length < 8) return { error: "Choose a password of at least eight characters." };
 
   // Real visitor IP (set by the hosting proxy), forwarded so the backend's
   // per-IP signup rate limiter doesn't see every request as the frontend server.

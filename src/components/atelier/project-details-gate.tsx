@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
-import { t } from "@/lib/i18n";
-import type { UiLocale, UiVariant } from "@/lib/types";
 
 export interface ProjectDetails {
   name: string;
@@ -28,15 +26,10 @@ const ROOM_TYPES = [
  * photo silently created an untitled project.
  */
 export function ProjectDetailsGate({
-  variant = "premium",
-  locale: _locale = "en",
   onSubmit,
 }: {
-  variant?: UiVariant;
-  locale?: UiLocale;
   onSubmit: (details: ProjectDetails) => void;
 }) {
-  const isClassic = variant === "classic";
   const [name, setName] = useState("");
   const [roomType, setRoomType] = useState<string>("");
   const [notes, setNotes] = useState("");
@@ -53,14 +46,13 @@ export function ProjectDetailsGate({
 
   const fieldStyle: React.CSSProperties = {
     width: "100%",
-    padding: isClassic ? "10px 12px" : "10px 0",
-    border: isClassic ? "1px solid var(--rule-strong)" : "none",
-    borderBottom: "1px solid " + (isClassic ? "var(--rule-strong)" : "var(--rule-strong)"),
-    borderRadius: isClassic ? 8 : 0,
-    background: isClassic ? "var(--surface)" : "transparent",
+    padding: "10px 12px",
+    border: "1px solid var(--rule-strong)",
+    borderRadius: 8,
+    background: "var(--surface)",
     color: "var(--fg)",
-    fontFamily: isClassic ? "var(--sans, system-ui)" : "var(--serif)",
-    fontSize: isClassic ? 15 : 18,
+    fontFamily: "var(--sans)",
+    fontSize: 15,
     outline: "none",
   };
 
@@ -78,39 +70,20 @@ export function ProjectDetailsGate({
     >
       <div style={{ width: "min(440px, 100%)", display: "flex", flexDirection: "column", gap: 22 }}>
         <div>
-          {isClassic ? (
-            <span
-              style={{
-                display: "block",
-                marginBottom: 8,
-                font: "600 11px/1 var(--sans, system-ui)",
-                letterSpacing: ".08em",
-                textTransform: "uppercase",
-                color: "var(--accent)",
-              }}
-            >
-              New project
-            </span>
-          ) : (
-            <Mono brass style={{ marginBottom: 10, display: "block" }}>New project</Mono>
-          )}
+          <Mono brass style={{ marginBottom: 10, display: "block" }}>New project</Mono>
           <h2
             style={{
               margin: 0,
-              ...(isClassic
-                ? { font: "600 28px/1.2 var(--sans, system-ui)" }
-                : { fontFamily: "var(--serif)", fontWeight: 300, fontSize: "clamp(30px, 5vw, 46px)", lineHeight: 1 }),
+              font: "600 28px/1.2 var(--serif)", letterSpacing: "-.02em",
               color: "var(--fg)",
             }}
           >
-            {isClassic ? "Name your project" : <>Name your <i style={{ color: "var(--accent-soft)" }}>project.</i></>}
+            Name your project
           </h2>
           <p
             style={{
               margin: "10px 0 0",
-              ...(isClassic
-                ? { font: "400 14px/1.5 var(--sans, system-ui)" }
-                : { font: "300 italic 16px/1.5 var(--serif)" }),
+              font: "400 14px/1.5 var(--sans)",
               color: "var(--fg-soft)",
             }}
           >
@@ -124,7 +97,7 @@ export function ProjectDetailsGate({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder={isClassic ? "e.g. Sharma residence — hall" : "Belgavi 3 BHK · living room"}
+            placeholder="e.g. Sharma residence — hall"
             aria-label="Project name"
             autoFocus
             style={fieldStyle}
@@ -156,32 +129,15 @@ export function ProjectDetailsGate({
             placeholder="Client preferences, deadline, anything to remember…"
             aria-label="Notes"
             rows={2}
-            style={{ ...fieldStyle, resize: "vertical", fontSize: isClassic ? 14 : 16 }}
+            style={{ ...fieldStyle, resize: "vertical", fontSize: 14 }}
           />
         </label>
 
         <button
           type="button"
           onClick={submit}
-          className={isClassic ? "btn" : undefined}
-          style={
-            isClassic
-              ? { alignSelf: "flex-start" }
-              : {
-                  alignSelf: "flex-start",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "12px 22px",
-                  background: "var(--accent)",
-                  color: "var(--bg)",
-                  border: "none",
-                  cursor: "pointer",
-                  font: "400 11px/1 var(--mono)",
-                  letterSpacing: ".22em",
-                  textTransform: "uppercase",
-                }
-          }
+          className="btn"
+          style={{ alignSelf: "flex-start" }}
         >
           Continue to photo <span className="arr">→</span>
         </button>
