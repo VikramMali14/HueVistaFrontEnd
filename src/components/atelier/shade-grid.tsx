@@ -49,6 +49,14 @@ interface ShadeGridProps {
   onApplyToRegion?: (regionId: string, shade: PaintShade) => void;
   /** Guest mode: hide real shade codes (guests pick by colour; the shop reads codes). */
   hideCodes?: boolean;
+  /** Make a region the active paint target (Walls tab rows). */
+  onSelectRegion?: (id: string) => void;
+  /** Open the Mask Studio to draw a new wall. */
+  onAddWall?: () => void;
+  /** Hand-drawn masks still allowed (3-mask cap); disables "+ Add wall" at 0. */
+  masksRemaining?: number;
+  /** Shades previously applied to the ACTIVE region — one-tap re-apply. */
+  triedShades?: ReadonlyArray<PaintShade>;
 }
 
 export function ShadeGrid({
@@ -63,6 +71,10 @@ export function ShadeGrid({
   regions,
   onApplyToRegion,
   hideCodes = false,
+  onSelectRegion,
+  onAddWall,
+  masksRemaining,
+  triedShades,
 }: ShadeGridProps) {
   const [family, setFamily] = useState<(typeof FAMILIES)[number]>("All");
   const [query, setQuery] = useState("");
@@ -339,7 +351,54 @@ export function ShadeGrid({
         />
       )}
 
-      {tab === "Regions" && <RegionsListPanel selected={selected} />}
+      {tab === "Regions" && (
+        <RegionsListPanel
+          regions={regions}
+          activeRegionId={activeRegionId}
+          hideCodes={hideCodes}
+          onPickRegion={(id) => {
+            onSelectRegion?.(id);
+            setTab("Catalogue");
+          }}
+          onAddWall={onAddWall}
+          masksRemaining={masksRemaining}
+        />
+      )}
+
+      {triedShades && triedShades.length > 0 && (
+        <div
+          style={{
+            padding: "10px 16px",
+            borderTop: "1px solid var(--rule)",
+            flexShrink: 0,
+          }}
+        >
+          <Mono style={{ display: "block", marginBottom: 8 }}>Tried on this wall</Mono>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {triedShades.map((s) => (
+              <button
+                key={s.code}
+                type="button"
+                onClick={() => onSelect(s)}
+                title={hideCodes ? s.name : `${s.name} · ${s.code}`}
+                aria-label={hideCodes ? `Reapply ${s.name}` : `Reapply ${s.name}, code ${s.code}`}
+                style={{
+                  width: 28,
+                  height: 28,
+                  // Keeps the swatch square on touch devices, where the global
+                  // coarse-pointer rule would stretch buttons to 44px tall.
+                  minHeight: 28,
+                  background: s.hex,
+                  border: "1px solid var(--rule-strong)",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       <SelectedShadeDetail
         shade={activeShade}
@@ -594,13 +653,92 @@ function AISuggestPanel({
   );
 }
 
-function RegionsListPanel({ selected }: { selected?: string }) {
+function RegionsListPanel({
+  regions,
+  activeRegionId,
+  hideCodes = false,
+  onPickRegion,
+  onAddWall,
+  masksRemaining,
+}: {
+  regions?: ReadonlyArray<RegionLite>;
+  activeRegionId?: string;
+  hideCodes?: boolean;
+  /** Selects the region AND flips back to the Catalogue tab to pick its colour. */
+  onPickRegion: (id: string) => void;
+  onAddWall?: () => void;
+  masksRemaining?: number;
+}) {
+  const list = regions ?? [];
+  const addDisabled = masksRemaining !== undefined && masksRemaining <= 0;
   return (
     <div style={{ padding: 16, flex: 1, minHeight: 0, overflow: "auto" }}>
       <Mono style={{ display: "block", marginBottom: 10 }}>Detected walls</Mono>
-      <p style={{ font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
-        We detect each wall in the photo. Click <strong>+ Add wall</strong> to
-        mark one we missed. {selected ? `Now painting with ${selected}.` : ""}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {list.map((r) => {
+          const isActive = r.id === activeRegionId;
+          return (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => onPickRegion(r.id)}
+              aria-pressed={isActive}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 12px",
+                background: isActive ? "var(--surface-soft)" : "transparent",
+                border: "1px solid " + (isActive ? "var(--rule-strong)" : "var(--rule)"),
+                borderRadius: 6,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: "50%",
+                  background: r.applied ? r.hex : "transparent",
+                  border: "1px solid var(--rule-strong)",
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ font: "500 13px/1.2 var(--sans)", color: "var(--fg)", flex: 1, minWidth: 0 }}>
+                {r.label}
+              </span>
+              <span style={{ font: "400 11px/1 var(--mono)", color: "var(--fg-mute)", whiteSpace: "nowrap" }}>
+                {r.applied ? (hideCodes ? "" : r.shadeCode ?? "") : "No colour yet"}
+              </span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => onAddWall?.()}
+          disabled={addDisabled}
+          title={addDisabled ? "You can add up to 3 walls" : "Draw a wall we missed"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 12px",
+            background: "transparent",
+            border: "1px dashed var(--rule-strong)",
+            borderRadius: 6,
+            color: "var(--fg-soft)",
+            font: "500 13px/1.2 var(--sans)",
+            cursor: addDisabled ? "not-allowed" : "pointer",
+            opacity: addDisabled ? 0.5 : 1,
+          }}
+        >
+          + Add wall
+        </button>
+      </div>
+      <p style={{ font: "400 12px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "10px 0 0" }}>
+        Tap a wall above, then pick its colour.
       </p>
     </div>
   );

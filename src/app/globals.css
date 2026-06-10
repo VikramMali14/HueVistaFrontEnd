@@ -1597,3 +1597,25 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 @media (min-width: 2560px) {
   :root { --max: 1840px; }
 }
+
+/* ====== PRICING · tier cards & matrix ====== */
+.hv-tier { transition: transform .4s var(--ease), box-shadow .4s var(--ease); }
+.hv-tier:hover { transform: translateY(-4px); box-shadow: 0 24px 48px rgba(0,0,0,.35); }
+.hv-tier--featured { outline: 1px solid var(--brass); outline-offset: -1px; box-shadow: 0 16px 56px rgba(184,153,104,.12); }
+.hv-tier--featured:hover { box-shadow: 0 24px 64px rgba(184,153,104,.18); }
+.hv-price-swap { animation: hv-price-fade .25s var(--ease); }
+@keyframes hv-price-fade { from { opacity: 0; } to { opacity: 1; } }
+/* Sticky matrix head. position:sticky can't escape a scroll container, so at
+   widths where the 900px table fits we lift the wrapper's overflow-x and pin
+   the thead just below the (sticky, ~64px) site nav. Below 964px the wrapper
+   keeps .r-scroll-x horizontal scrolling and the head simply doesn't stick. */
+@media (min-width: 964px) {
+  .hv-matrix-wrap { overflow-x: visible; }
+  .hv-matrix-head th { position: sticky; top: 64px; background: var(--band); z-index: 2; }
+}
+.hv-matrix tbody tr:hover td { background: rgba(244,244,242,.035); }
+.hv-matrix tbody tr:hover td[colspan] { background: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  .hv-tier, .hv-tier:hover { transform: none; transition: none; }
+  .hv-price-swap { animation: none; }
+}
