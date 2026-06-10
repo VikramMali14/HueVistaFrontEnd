@@ -74,10 +74,32 @@ const securityHeaders = [
     : [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]),
 ];
 
-const remotePatterns = [
-  // Generic HTTPS image fallback for catalogue thumbs; tighten when we know the CDN host.
-  { protocol: "https" as const, hostname: "**" },
-];
+// Restrict the Next.js image optimizer to the SAME hosts the CSP img-src allows.
+// A blanket { hostname: "**" } turns /_next/image into an open proxy: the server
+// will fetch (and cache) an image from ANY https host an attacker names — an SSRF /
+// bandwidth-abuse vector. Mirror the CSP-allowed set instead (S3 region bucket,
+// the backend origin, and any explicitly configured IMAGE_REMOTE_HOSTS).
+type RemotePattern = { protocol: "http" | "https"; hostname: string };
+
+function toRemotePattern(host: string): RemotePattern | null {
+  const h = host.trim();
+  if (!h) return null;
+  if (h.includes("://")) {
+    try {
+      const u = new URL(h);
+      return { protocol: u.protocol === "http:" ? "http" : "https", hostname: u.hostname };
+    } catch {
+      return null;
+    }
+  }
+  return { protocol: "https", hostname: h };
+}
+
+const remotePatterns: RemotePattern[] = [
+  { protocol: "https", hostname: `*.s3.${s3Region}.amazonaws.com` },
+  toRemotePattern(apiOrigin),
+  ...extraImageHosts.map(toRemotePattern),
+].filter((p): p is RemotePattern => p !== null);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
