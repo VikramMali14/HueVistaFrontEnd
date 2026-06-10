@@ -1,5 +1,3 @@
-import { Mono } from "@/components/ui/eyebrow";
-
 const BRANDS = [
   { name: "Asian Paints", mark: "i" },
   { name: "Berger", mark: "ii" },
@@ -10,14 +8,14 @@ const BRANDS = [
 
 export function Partners() {
   return (
-    <section id="partners" style={{ padding: "80px 0", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
-      <div className="reveal" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 48, flexWrap: "wrap" }}>
-        <Mono>Built for the catalogues of</Mono>
-        <div style={{ display: "flex", gap: 56, alignItems: "baseline", flexWrap: "wrap" }}>
+    <section id="partners" className="hv-partners full-bleed">
+      <div className="hv-partners-inner reveal">
+        <span className="hv-partners-label">Built for the catalogues of</span>
+        <div className="hv-partners-brands">
           {BRANDS.map((b, i) => (
-            <span key={b.name} style={{ fontFamily: "var(--serif)", fontSize: 32, color: i === 0 ? "var(--fg)" : "var(--fg-mute)" }}>
+            <span key={b.name} className={`hv-partners-brand${i === 0 ? " is-lead" : ""}`}>
               {b.name}
-              <sup style={{ fontSize: 11, marginLeft: 2, color: i === 0 ? "var(--accent)" : "inherit" }}>{b.mark}</sup>
+              <sup>{b.mark}</sup>
             </span>
           ))}
         </div>
