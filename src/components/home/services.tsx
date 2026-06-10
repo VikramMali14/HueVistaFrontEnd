@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TiltCard } from "@/components/ui/tilt-card";
 
 const SERVICES = [
   {
@@ -45,12 +46,14 @@ export function Services() {
       </header>
       <div className="hv-services-grid reveal d1">
         {SERVICES.map((s) => (
-          <Link key={s.href} href={s.href} className="hv-svc-card ph ph-grain" data-tone={s.tone}>
-            <span className="hv-svc-eyebrow">{s.kicker}</span>
-            <span className="hv-svc-title">{s.title}</span>
-            <span className="hv-svc-desc">{s.desc}</span>
-            <span className="hv-svc-arrow" aria-hidden>→</span>
-          </Link>
+          <TiltCard key={s.href}>
+            <Link href={s.href} className="hv-svc-card ph ph-grain" data-tone={s.tone}>
+              <span className="hv-svc-eyebrow">{s.kicker}</span>
+              <span className="hv-svc-title">{s.title}</span>
+              <span className="hv-svc-desc">{s.desc}</span>
+              <span className="hv-svc-arrow" aria-hidden>→</span>
+            </Link>
+          </TiltCard>
         ))}
       </div>
     </section>

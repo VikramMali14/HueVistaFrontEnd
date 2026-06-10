@@ -7,7 +7,7 @@ export function JournalNewsletter() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   return (
-    <section style={{ background: "var(--charcoal-deep)", padding: "140px 0", marginTop: 120, textAlign: "center" }} className="full-bleed">
+    <section style={{ background: "var(--band)", borderTop: "1px solid var(--band-rule)", borderBottom: "1px solid var(--band-rule)", padding: "140px 0", marginTop: 120, textAlign: "center" }} className="full-bleed">
       <div className="reveal" style={{ maxWidth: 1100, margin: "0 auto", padding: "0 var(--gutter)" }}>
         <Mono brass>Monthly letter</Mono>
         <h3 style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(40px, 5.5vw, 80px)", lineHeight: 1, letterSpacing: "-.015em", color: "var(--ivory)", margin: "24px 0 0" }}>

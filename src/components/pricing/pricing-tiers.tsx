@@ -59,7 +59,7 @@ export function PricingTiers() {
             const price = period === "monthly" ? t.monthly : t.annual;
             const perLabel = price === "On request" ? "" : period === "monthly" ? "/ month" : "/ year";
             return (
-              <div key={t.name} style={{ background: t.featured ? "var(--ivory)" : "var(--charcoal)", color: t.featured ? "var(--charcoal)" : "var(--ivory)", padding: "56px 36px", display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
+              <div key={t.name} style={{ background: t.featured ? "var(--ivory)" : "var(--charcoal-soft)", color: t.featured ? "var(--charcoal)" : "var(--ivory)", padding: "56px 36px", display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
                 {t.ribbon && (<span style={{ position: "absolute", top: 0, right: 24, background: "var(--brass)", color: "var(--charcoal)", font: "500 9px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", padding: "8px 14px", transform: "translateY(-50%)" }}>{t.ribbon}</span>)}
                 <div style={{ font: "400 11px/1 var(--mono)", letterSpacing: ".3em", textTransform: "uppercase", color: t.featured ? "var(--brass-deep)" : "var(--brass)" }}>{t.name}</div>
                 <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "var(--charcoal)" : "var(--ivory)" }}>

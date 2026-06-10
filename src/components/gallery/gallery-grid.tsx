@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Eyebrow, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
+import { TiltCard } from "@/components/ui/tilt-card";
 
 export type PlateCategory = "Living rooms" | "Bedrooms" | "Kitchens" | "Verandas" | "Façades" | "Commercial";
 export type Tone = "terracotta" | "ivory" | "slate" | "sage" | "brass" | "oxblood" | "indigo" | "walnut" | "ink";
@@ -67,7 +68,9 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
             const colSpan = i % 6 === 0 || i % 6 === 4 ? 6 : 3;
             return (
               <article key={p.num} style={{ gridColumn: `span ${colSpan}`, position: "relative" }}>
-                <Placeholder tone={p.tone} grain corners tag={p.tag} label={`${p.location} · ${p.date}`} style={{ aspectRatio: p.aspect }} />
+                <TiltCard max={7}>
+                  <Placeholder tone={p.tone} grain corners tag={p.tag} label={`${p.location} · ${p.date}`} style={{ aspectRatio: p.aspect, height: "100%" }} />
+                </TiltCard>
                 <span style={{ position: "absolute", top: 16, right: 18, font: "400 14px/1 var(--serif)", color: "rgba(255,255,255,.6)" }}>{p.num}</span>
                 <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>

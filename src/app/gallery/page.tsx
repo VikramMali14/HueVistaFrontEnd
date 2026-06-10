@@ -45,7 +45,7 @@ export default function GalleryPage() {
           <GalleryGrid plates={PLATES} />
         </header>
 
-        <section style={{ background: "var(--charcoal-deep)", padding: "120px 0", marginTop: 80 }} className="full-bleed">
+        <section style={{ background: "var(--band)", borderTop: "1px solid var(--band-rule)", borderBottom: "1px solid var(--band-rule)", padding: "120px 0", marginTop: 80 }} className="full-bleed">
           <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
             <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
               <Placeholder tone="oxblood" grain corners tag="CASE STUDY · NO. I" label="Sharda Paints, Belgavi" style={{ aspectRatio: "5 / 4" }} />
