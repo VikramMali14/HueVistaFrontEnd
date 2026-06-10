@@ -2,15 +2,15 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { LinkButton } from "@/components/ui/button";
-import { Logo } from "@/components/ui/logo";
+import { SwatchCube } from "@/components/ui/swatch-cube";
 
 export default function NotFound() {
   return (
     <>
       <SiteHeader />
       <main style={{ textAlign: "center", padding: "120px 0 160px" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 40 }}>
-          <Logo size="md" ariaLabel={null} />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 56 }}>
+          <SwatchCube size={120} />
         </div>
         <Eyebrow>404 — Page not found</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(64px, 10vw, 160px)", marginTop: 24 }}>Page not found.</h1>

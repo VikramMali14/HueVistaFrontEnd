@@ -3,7 +3,7 @@ import { Placeholder } from "@/components/ui/placeholder";
 
 export function Engine() {
   return (
-    <section id="engine" className="full-bleed" style={{ background: "var(--charcoal-deep)", color: "var(--ivory)", position: "relative", paddingTop: 160, paddingBottom: 160, borderTop: "1px solid var(--rule-brass)", borderBottom: "1px solid var(--rule-brass)" }}>
+    <section id="engine" className="full-bleed" style={{ background: "var(--band)", color: "var(--ivory)", position: "relative", paddingTop: 160, paddingBottom: 160, borderTop: "1px solid var(--rule-brass)", borderBottom: "1px solid var(--rule-brass)" }}>
       <div className="reveal r-stack-sm" style={{ maxWidth: "var(--max)", margin: "0 auto", display: "grid", gridTemplateColumns: "60px 1fr", gap: 48 }}>
                 <div>
           <Eyebrow>The Engine</Eyebrow>

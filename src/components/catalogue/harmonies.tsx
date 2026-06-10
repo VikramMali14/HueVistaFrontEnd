@@ -16,7 +16,7 @@ const HARMONIES: ReadonlyArray<Harmony> = [
 
 export function Harmonies() {
   return (
-    <section style={{ background: "var(--charcoal-deep)", padding: "160px 0", marginTop: 120 }} className="full-bleed">
+    <section style={{ background: "var(--band)", borderTop: "1px solid var(--band-rule)", borderBottom: "1px solid var(--band-rule)", padding: "160px 0", marginTop: 120 }} className="full-bleed">
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
         <div className="reveal r-stack-md hv-harmonies-head" style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr", gap: 48, alignItems: "end", marginBottom: 64 }}>
                     <div>

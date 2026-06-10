@@ -48,6 +48,10 @@
   --nav-bg:          rgba(255,255,255,.82);
   --nav-bg-strong:   rgba(255,255,255,.96);
   --surface-overlay: rgba(255,255,255,.65);
+  /* Feature "band" sections: a dark band on the light theme; redefined as a
+     warm raised panel on dark (where a near-black band would vanish). */
+  --band:            #0e0e0d;
+  --band-rule:       rgba(20,20,19,0);
 
   /* Legacy aliases — components reference these raw names inline.
      They now ride the monochrome accent so everything stays clean. */
@@ -86,6 +90,15 @@
   --nav-bg:          rgba(14,14,13,.82);
   --nav-bg-strong:   rgba(14,14,13,.96);
   --surface-overlay: rgba(14,14,13,.65);
+
+  /* In the dark theme the accent stays monochrome, but the "brass" alias
+     becomes a real metallic — the premium accent across CTAs, pricing,
+     ribbons, eyebrow marks and the method numerals. */
+  --brass:           #b89968;
+  --brass-soft:      #cbb08a;
+  --brass-deep:      #8a6d42;
+  --band:            #15120d;
+  --band-rule:       rgba(184,153,104,.16);
 }
 
 * { box-sizing: border-box; }
@@ -101,6 +114,54 @@ html, body {
 }
 body { overflow-x: hidden; }
 ::selection { background: var(--fg); color: var(--bg); }
+
+/* Ambient page glow — a soft warm light from the top, anchored to the
+   viewport behind all content. Dark theme only; keeps long content pages
+   from feeling flat. Layered into the body background (rather than a
+   negative-z pseudo, which the opaque body background would hide). */
+[data-theme="dark"] body {
+  background:
+    radial-gradient(115% 70% at 50% -8%, rgba(184,153,104,.07), transparent 56%),
+    radial-gradient(90% 60% at 88% 4%, rgba(58,72,112,.05), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* ====== 3D SWATCH CUBE  ·  decorative spinning paint chip ====== */
+.hv-cube { perspective: 760px; margin: 0 auto; }
+.hv-cube-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  animation: hv-cube-spin 18s linear infinite;
+  filter: drop-shadow(0 30px 50px rgba(0,0,0,.5));
+}
+.hv-cube-face {
+  position: absolute; inset: 0;
+  border: 1px solid rgba(244,244,242,.12);
+  box-shadow: inset 0 0 60px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.12);
+}
+@keyframes hv-cube-spin {
+  from { transform: rotateX(-24deg) rotateY(0deg); }
+  to   { transform: rotateX(-24deg) rotateY(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hv-cube-inner { animation: none; transform: rotateX(-24deg) rotateY(-34deg); }
+}
+
+/* ====== 3D TILT  ·  pointer-reactive cards (no dependencies) ====== */
+.hv-tilt { perspective: 900px; }
+.hv-tilt-inner {
+  transform: rotateX(var(--ry, 0deg)) rotateY(var(--rx, 0deg)) translateZ(0);
+  transform-style: preserve-3d;
+  transition: transform .4s var(--ease);
+  will-change: transform;
+  height: 100%;
+}
+.hv-tilt[data-active] .hv-tilt-inner { transition: transform .08s linear; }
+.hv-tilt-inner > * { height: 100%; }
+@media (hover: none), (prefers-reduced-motion: reduce) {
+  .hv-tilt-inner { transform: none !important; }
+}
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; }
 

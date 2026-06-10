@@ -87,7 +87,7 @@ export default function PricingPage() {
           <PricingTiers />
         </header>
 
-        <section style={{ background: "var(--charcoal-deep)", padding: "140px 0", marginTop: 80 }} className="full-bleed">
+        <section style={{ background: "var(--band)", borderTop: "1px solid var(--band-rule)", borderBottom: "1px solid var(--band-rule)", padding: "140px 0", marginTop: 80 }} className="full-bleed">
           <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
             <div className="reveal">
               <Eyebrow>Feature matrix</Eyebrow>

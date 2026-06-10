@@ -16,7 +16,7 @@ export const config = {
   themeCookie: "hv_theme",
   refreshTtlSeconds: 60 * 60 * 24 * 7,
   preferenceTtlSeconds: 60 * 60 * 24 * 365,
-  defaultTheme: "light" as UiTheme,
+  defaultTheme: "dark" as UiTheme,
 } as const;
 
 export function isTheme(value: unknown): value is UiTheme {
