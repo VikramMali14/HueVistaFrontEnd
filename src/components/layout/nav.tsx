@@ -37,6 +37,7 @@ const MENU: ReadonlyArray<MenuItem> = [
       { href: "/redeem", title: "Have a shop code?", desc: "Redeem it to visualise your own room." },
     ],
   },
+  { label: "Our work", href: "/work" },
   {
     label: "Resources",
     columns: [
