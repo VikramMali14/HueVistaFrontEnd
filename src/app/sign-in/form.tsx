@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { GoogleButton } from "@/components/auth/google-button";
 
 interface SignInFormProps {
@@ -154,8 +153,12 @@ export function SignInForm({ action, next }: SignInFormProps) {
       <Button type="submit" disabled={pending} style={{ justifyContent: "center" }}>
         {pending ? (
           <>
-            <Spinner size={14} color="currentColor" />
-            <span>Signing in…</span>
+            <span className="hv-mix" aria-hidden>
+              <i style={{ background: "#b96b48" }} />
+              <i style={{ background: "#7b8a72" }} />
+              <i style={{ background: "#8c98a8" }} />
+            </span>
+            <span>Mixing your colours…</span>
           </>
         ) : (
           <>

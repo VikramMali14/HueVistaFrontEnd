@@ -810,15 +810,6 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 
 /* Marketing component responsive overrides */
 
-/* Capabilities — 4-col row becomes stacked at md, then flex at xs */
-@media (max-width: 1024px) {
-  .hv-cap-row { grid-template-columns: 60px 240px 1fr auto !important; gap: 24px !important; }
-}
-@media (max-width: 768px) {
-  .hv-cap-row { grid-template-columns: 40px 1fr !important; gap: 16px !important; padding: 24px 0 !important; }
-  .hv-cap-row > :nth-child(3), .hv-cap-row > :nth-child(4) { grid-column: span 2; }
-}
-
 /* Catalogue preview swatch wall */
 @media (max-width: 1024px) {
   .hv-cat-preview { grid-template-columns: repeat(6, 1fr) !important; }
@@ -871,10 +862,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
    MOBILE — keep only the essential home sections on phones.
 ========================================================= */
 @media (max-width: 768px) {
-  #engine,
   #painted-with { display: none; }
-  .hv-cap-name { font-size: 22px !important; }
-  .hv-cap-desc { font-size: 15px !important; }
 }
 
 /* =========================================================
@@ -1035,6 +1023,271 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 }
 
 /* =========================================================
+   HOME · PAINT ROOM (try-it-here demo, dark band)
+   Click a chip → a keyed coat layer wipes the new colour across
+   the wall with a clip-path circle (hv-paint-spread).
+========================================================= */
+.hv-room {
+  background: var(--band); color: var(--ivory);
+  border-top: 1px solid var(--band-rule);
+  border-bottom: 1px solid var(--band-rule);
+}
+.hv-room-inner { display: grid; grid-template-columns: 1fr 1.3fr; gap: 72px; align-items: center; }
+.hv-room-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; }
+.hv-room-copy .eyebrow { color: rgba(247,247,245,.55); }
+.hv-room-copy .eyebrow::before { background: rgba(247,247,245,.55); }
+.hv-room-title { color: var(--ivory); font-size: clamp(44px, 6vw, 92px); }
+.hv-room-title i { color: rgba(247,247,245,.5); }
+.hv-room-lead { font: 400 18px/1.6 var(--sans); color: rgba(247,247,245,.66); max-width: 42ch; margin: 0; }
+.hv-room-chips { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.hv-room-chip {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid rgba(247,247,245,.25);
+  cursor: pointer; padding: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 8px 16px -8px rgba(0,0,0,.6);
+  transition: transform .25s var(--ease), box-shadow .25s var(--ease);
+}
+.hv-room-chip:hover { transform: translateY(-3px) scale(1.06); }
+.hv-room-chip[data-active] {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 3px var(--band), 0 0 0 5px rgba(247,247,245,.9), 0 10px 20px -10px rgba(0,0,0,.7);
+}
+.hv-room-shade { display: flex; align-items: baseline; gap: 14px; min-height: 26px; }
+.hv-room-shade .mono { color: rgba(247,247,245,.5); }
+.hv-room-shade-name { font: 600 22px/1 var(--serif); letter-spacing: -.01em; color: var(--ivory); }
+.hv-room .btn-ghost { color: var(--ivory); border-color: rgba(247,247,245,.35); }
+.hv-room .btn-ghost:hover { background: rgba(247,247,245,.08); color: var(--ivory); border-color: var(--ivory); }
+
+.hv-room-scene {
+  position: relative; overflow: hidden; isolation: isolate;
+  aspect-ratio: 16 / 11; border-radius: 16px;
+  border: 1px solid rgba(247,247,245,.14);
+  box-shadow: 0 50px 100px -48px rgba(0,0,0,.8);
+}
+.hv-room-wall, .hv-room-coat, .hv-room-light { position: absolute; inset: 0 0 18% 0; }
+.hv-room-coat { animation: hv-paint-spread .9s var(--ease) both; }
+@keyframes hv-paint-spread {
+  from { clip-path: circle(0% at 30% 62%); }
+  to   { clip-path: circle(145% at 30% 62%); }
+}
+.hv-room-light {
+  pointer-events: none; z-index: 2;
+  background:
+    radial-gradient(95% 85% at 26% 6%, rgba(255,248,235,.34), transparent 58%),
+    linear-gradient(205deg, rgba(0,0,0,0) 52%, rgba(0,0,0,.30) 100%);
+}
+.hv-room-frame {
+  position: absolute; top: 13%; right: 11%; width: 15%; aspect-ratio: 3 / 4; z-index: 2;
+  border: 2px solid rgba(247,247,245,.75);
+  background: rgba(0,0,0,.12);
+  box-shadow: 0 16px 26px -14px rgba(0,0,0,.55);
+}
+.hv-room-frame span { position: absolute; inset: 12%; background: rgba(247,247,245,.88); }
+.hv-room-skirting { position: absolute; left: 0; right: 0; bottom: 18%; height: 2%; background: rgba(240,236,226,.85); box-shadow: 0 3px 5px rgba(0,0,0,.3); z-index: 2; }
+.hv-room-floor { position: absolute; left: 0; right: 0; bottom: 0; height: 18%; background: linear-gradient(180deg, #3a322a 0%, #221c16 100%); }
+.hv-room-shadow { position: absolute; left: 0; right: 0; bottom: 0; height: 18%; background: linear-gradient(180deg, rgba(0,0,0,.38), transparent 65%); z-index: 2; }
+.hv-room-grain { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.hv-room-tag {
+  position: absolute; left: 18px; bottom: 16px; z-index: 4;
+  font: 500 10px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase;
+  color: rgba(247,247,245,.78);
+  background: rgba(14,13,12,.55);
+  border: 1px solid rgba(247,247,245,.18);
+  border-radius: var(--radius-pill);
+  padding: 9px 13px;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+@media (max-width: 1024px) {
+  .hv-room-inner { grid-template-columns: 1fr; gap: 44px; }
+  .hv-room-stage { order: -1; }            /* the playable room leads on small screens */
+  .hv-room-title br { display: none; }
+  .hv-room-copy { gap: 20px; }
+}
+@media (max-width: 480px) {
+  .hv-room-inner { gap: 32px; }
+  .hv-room-chips { gap: 9px; }             /* chips keep their 44px tap target */
+  .hv-room-lead { font-size: 16px; }
+  .hv-room-scene { aspect-ratio: 4 / 3; border-radius: 12px; }
+  .hv-room-tag { left: 12px; bottom: 12px; padding: 8px 11px; letter-spacing: .14em; }
+  .hv-room-shade-name { font-size: 19px; }
+}
+
+/* =========================================================
+   HOME · TOOLKIT (bento of capability cards)
+   Entrance animations key off `.reveal.in`; idle/hover ones are pure CSS.
+========================================================= */
+.hv-tk-head { margin-bottom: 56px; }
+.hv-tk-title { font-size: clamp(44px, 6vw, 92px); margin-top: 24px; }
+.hv-tk-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+.hv-tk-span2 { grid-column: span 2; }
+.hv-tk-span3 { grid-column: span 3; }
+.hv-tk-span6 { grid-column: span 6; }
+.hv-tk-card {
+  position: relative; overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  padding: 26px;
+  display: flex; flex-direction: column;
+  transition: transform .3s var(--ease), box-shadow .3s var(--ease), border-color .3s var(--ease);
+}
+.hv-tk-card:hover { transform: translateY(-4px); border-color: var(--rule-strong); box-shadow: 0 28px 56px -32px rgba(0,0,0,.4); }
+.hv-tk-card-title { font: 600 21px/1.15 var(--serif); letter-spacing: -.02em; color: var(--fg); margin: auto 0 0; }
+.hv-tk-card-desc { font: 400 14.5px/1.5 var(--sans); color: var(--fg-mute); margin: 8px 0 0; max-width: 46ch; }
+
+/* WhatsApp share — bubbles pop in once revealed */
+.hv-tk-chat { display: flex; flex-direction: column; gap: 10px; min-height: 128px; margin-bottom: 24px; }
+.hv-tk-bubble {
+  display: inline-flex; align-items: center; gap: 10px;
+  font: 400 13.5px/1.4 var(--sans);
+  padding: 10px 14px; border-radius: 14px;
+  max-width: 88%;
+  opacity: 0;
+}
+.reveal.in .hv-tk-bubble { animation: hv-tk-pop .55s var(--ease) forwards; }
+.hv-tk-bubble.is-sent { align-self: flex-start; border-bottom-left-radius: 4px; background: var(--surface-soft); border: 1px solid var(--rule); color: var(--fg-soft); }
+.hv-tk-bubble.is-reply { align-self: flex-end; border-bottom-right-radius: 4px; background: #d9fdd3; color: #143d2c; }
+.reveal.in .hv-tk-bubble.is-sent { animation-delay: .3s; }
+.reveal.in .hv-tk-bubble.is-reply { animation-delay: .9s; }
+@keyframes hv-tk-pop { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+.hv-tk-thumb { width: 46px; height: 34px; border-radius: 6px; flex-shrink: 0; background: linear-gradient(140deg, #c87a55 0%, #9d5236 70%); }
+
+/* AI trio — swatch cards fan out on hover */
+.hv-tk-fan { position: relative; height: 128px; margin-bottom: 24px; }
+.hv-tk-fan span {
+  position: absolute; left: 4px; top: 8px;
+  width: 86px; height: 108px; border-radius: 10px;
+  border: 1px solid var(--rule);
+  box-shadow: 0 16px 28px -16px rgba(0,0,0,.45);
+  transform-origin: 50% 115%;
+  transition: transform .45s var(--ease);
+}
+.hv-tk-fan span:nth-child(2) { transform: rotate(5deg) translateX(10px); }
+.hv-tk-fan span:nth-child(3) { transform: rotate(10deg) translateX(20px); }
+.hv-tk-card:hover .hv-tk-fan span:nth-child(1) { transform: rotate(-7deg) translateX(-4px); }
+.hv-tk-card:hover .hv-tk-fan span:nth-child(2) { transform: rotate(3deg) translateX(48px); }
+.hv-tk-card:hover .hv-tk-fan span:nth-child(3) { transform: rotate(13deg) translateX(100px); }
+
+/* White-label — the subdomain types itself on reveal */
+.hv-tk-url {
+  display: flex; align-items: center;
+  height: 62px; margin-bottom: 22px; padding: 0 16px;
+  border-radius: 10px;
+  background: var(--surface-soft); border: 1px solid var(--rule);
+  font: 500 13.5px/1 var(--mono); color: var(--fg-soft);
+  overflow: hidden; white-space: nowrap;
+}
+.hv-tk-typed {
+  display: inline-block; overflow: hidden; white-space: nowrap;
+  max-width: 0; padding-right: 3px;
+  border-right: 2px solid var(--fg-mute);
+}
+.reveal.in .hv-tk-typed { animation: hv-tk-type 1.7s steps(23) .4s forwards, hv-tk-caret 1.1s step-end infinite; }
+@keyframes hv-tk-type { from { max-width: 0; } to { max-width: 100%; } }
+@keyframes hv-tk-caret { 0%, 100% { border-color: transparent; } 50% { border-color: var(--fg-mute); } }
+
+/* Find similar — neighbours shuffle apart on hover */
+.hv-tk-similar { display: flex; gap: 6px; height: 62px; margin-bottom: 22px; }
+.hv-tk-similar span { flex: 1; border-radius: 8px; border: 1px solid var(--rule); transition: transform .35s var(--ease); }
+.hv-tk-card:hover .hv-tk-similar span:nth-child(odd) { transform: translateY(-6px); }
+.hv-tk-card:hover .hv-tk-similar span:nth-child(even) { transform: translateY(6px); }
+
+/* Paint estimate — the gauge fills once revealed */
+.hv-tk-gauge { display: flex; align-items: center; gap: 14px; height: 62px; margin-bottom: 22px; }
+.hv-tk-gauge-fill { flex: 1; height: 10px; border-radius: var(--radius-pill); background: var(--surface-soft); border: 1px solid var(--rule); position: relative; overflow: hidden; }
+.hv-tk-gauge-fill::after { content: ""; position: absolute; inset: 0; width: 0; border-radius: inherit; background: linear-gradient(90deg, #c9a17a, #b96b48); }
+.reveal.in .hv-tk-gauge-fill::after { animation: hv-tk-fill 1.2s var(--ease) .4s forwards; }
+@keyframes hv-tk-fill { to { width: 72%; } }
+.hv-tk-gauge-num { font: 600 26px/1 var(--serif); letter-spacing: -.02em; color: var(--fg); }
+
+/* Auto-save — quiet full-width strip with a pulsing dot */
+.hv-tk-strip { flex-direction: row; align-items: center; gap: 18px; padding: 22px 26px; }
+.hv-tk-strip .hv-tk-card-title { margin: 0; font-size: 19px; }
+.hv-tk-strip .hv-tk-card-desc { margin: 0; }
+.hv-tk-saved { margin-left: auto; color: var(--sage); }
+.hv-tk-pulse { position: relative; width: 10px; height: 10px; border-radius: 50%; background: var(--sage); flex-shrink: 0; }
+.hv-tk-pulse::after { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 1px solid var(--sage); opacity: 0; animation: hv-tk-ring 2.4s var(--ease) infinite; }
+@keyframes hv-tk-ring { 0% { transform: scale(.4); opacity: .9; } 70% { transform: scale(1.25); opacity: 0; } 100% { opacity: 0; } }
+
+/* No hover on touch — settle the hover poses once the grid is revealed */
+@media (hover: none) {
+  .reveal.in .hv-tk-fan span:nth-child(2) { transform: rotate(7deg) translateX(36px); }
+  .reveal.in .hv-tk-fan span:nth-child(3) { transform: rotate(14deg) translateX(72px); }
+  .reveal.in .hv-tk-similar span:nth-child(odd) { transform: translateY(-5px); }
+  .reveal.in .hv-tk-similar span:nth-child(even) { transform: translateY(5px); }
+}
+@media (max-width: 1024px) {
+  .hv-tk-grid { grid-template-columns: repeat(2, 1fr); }
+  .hv-tk-span2, .hv-tk-span3 { grid-column: span 1; }
+  .hv-tk-span6 { grid-column: span 2; }
+  /* five cards in two columns leave a hole beside the gauge — let it breathe */
+  .hv-tk-grid > :nth-child(5) { grid-column: span 2; }
+}
+@media (max-width: 640px) {
+  .hv-tk-grid { grid-template-columns: 1fr; gap: 12px; }
+  .hv-tk-span2, .hv-tk-span3, .hv-tk-span6 { grid-column: span 1; }
+  .hv-tk-grid > :nth-child(5) { grid-column: span 1; }
+  .hv-tk-strip { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .hv-tk-saved { margin-left: 0; }
+  .hv-tk-head { margin-bottom: 40px; }
+}
+@media (max-width: 480px) {
+  .hv-tk-card { padding: 20px; border-radius: 14px; }
+  .hv-tk-chat { min-height: 110px; margin-bottom: 18px; }
+  .hv-tk-card-title { font-size: 19px; }
+}
+
+/* =========================================================
+   HOME · MOODS (pick a feeling, the palette re-deals)
+   Swatches are keyed per mood; each remount replays hv-mood-pop.
+========================================================= */
+.hv-mood-head { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.hv-mood-title { font-size: clamp(44px, 6.5vw, 96px); }
+.hv-mood-line { font: 400 19px/1.5 var(--sans); color: var(--fg-mute); margin: 0; min-height: 1.5em; }
+.hv-mood-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 36px; }
+.hv-mood-pill {
+  font: 600 14px/1 var(--sans); color: var(--fg-soft);
+  background: transparent; border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill); padding: 12px 24px; cursor: pointer;
+  transition: background .25s var(--ease), color .25s var(--ease), border-color .25s var(--ease), transform .25s var(--ease);
+}
+.hv-mood-pill:hover { transform: translateY(-2px); border-color: var(--fg); }
+.hv-mood-pill[data-active] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.hv-mood-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 48px; }
+.hv-mood-swatch {
+  height: clamp(180px, 22vw, 280px); border-radius: 14px;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 5px;
+  padding: 18px;
+  color: #f7f7f5;
+  opacity: 0;
+  box-shadow: 0 24px 48px -32px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.18);
+  transition: transform .3s var(--ease);
+}
+.reveal.in .hv-mood-swatch { animation: hv-mood-pop .6s var(--ease) both; }
+.hv-mood-swatch:hover { transform: translateY(-6px); }
+@keyframes hv-mood-pop { from { opacity: 0; transform: translateY(22px) scale(.97); } to { opacity: 1; transform: none; } }
+.hv-mood-swatch-name { font: 600 17px/1.1 var(--serif); letter-spacing: -.01em; }
+.hv-mood-swatch .mono { color: rgba(247,247,245,.72); }
+.hv-mood-swatch[data-light] { color: #2a2a26; }
+.hv-mood-swatch[data-light] .mono { color: rgba(42,42,38,.62); }
+.hv-mood-cta { display: flex; justify-content: center; margin-top: 48px; }
+@media (max-width: 900px) {
+  .hv-mood-strip { gap: 6px; }
+  .hv-mood-swatch { padding: 12px; height: clamp(140px, 24vw, 220px); }
+  .hv-mood-swatch-name { font-size: 13.5px; }
+  .hv-mood-swatch .mono { font-size: 9px; letter-spacing: .08em; }
+}
+@media (max-width: 560px) {
+  .hv-mood-pills { gap: 8px; margin-top: 28px; }
+  .hv-mood-pill { padding: 11px 20px; font-size: 13.5px; }
+  .hv-mood-strip { grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 36px; }
+  .hv-mood-swatch { height: 132px; }
+  .hv-mood-swatch:last-child { grid-column: span 2; }
+  .hv-mood-line { font-size: 16px; }
+  .hv-mood-cta { margin-top: 36px; }
+}
+
+/* =========================================================
    OUR WORK · 3D spiral gallery (/work)
    An always-dark, full-viewport piece: a fixed stage with a
    scroll-driven helix of project cards, plus a flat list view.
@@ -1177,6 +1430,38 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   .hv-work-row-code, .hv-work-row-loc { display: none; }
   .hv-work-list { padding-top: 120px; }
 }
+
+/* =========================================================
+   AUTH · living wall (sign-in art panel)
+   Stacked shade layers crossfade; dots jump straight to one.
+========================================================= */
+.auth-art-layers { position: absolute; inset: 0; z-index: 0; }
+.auth-art-layer { position: absolute; inset: 0; opacity: 0; transition: opacity 1.8s var(--ease); }
+.auth-art-layer[data-active] { opacity: 1; }
+.auth-art-grain { position: absolute; inset: 0; }
+.auth-art-label { display: inline-block; animation: hv-art-label .8s var(--ease) both; }
+@keyframes hv-art-label { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+.auth-art-foot { display: flex; flex-direction: column; gap: 14px; }
+.auth-art-dots { display: flex; margin-left: -7px; }
+/* Visual dot is 10px; content-box padding gives a 24px hit area and keeps
+   the global touch min-height rule from stretching it into an oval. */
+.auth-art-dot {
+  width: 10px; height: 10px; min-height: 10px;
+  box-sizing: content-box; padding: 7px;
+  background-clip: content-box;
+  border-radius: 50%; border: none; cursor: pointer;
+  background-color: rgba(235,229,215,.35);
+  transition: transform .25s var(--ease), background-color .25s var(--ease);
+}
+.auth-art-dot:hover { transform: scale(1.3); background-color: rgba(235,229,215,.7); }
+.auth-art-dot[data-active] { background-color: #f7f7f5; transform: scale(1.15); }
+
+/* "Mixing your colours…" — three paint dots bounce while signing in */
+.hv-mix { display: inline-flex; gap: 5px; align-items: center; }
+.hv-mix i { width: 8px; height: 8px; border-radius: 50%; animation: hv-mix-bounce .9s var(--ease) infinite; }
+.hv-mix i:nth-child(2) { animation-delay: .15s; }
+.hv-mix i:nth-child(3) { animation-delay: .3s; }
+@keyframes hv-mix-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
 /* =========================================================
    LOGO  ·  the HueVista wordmark + dot + rule + subtitle

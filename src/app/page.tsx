@@ -5,8 +5,9 @@ import { Stats } from "@/components/home/stats";
 import { Partners } from "@/components/home/partners";
 import { Services } from "@/components/home/services";
 import { MethodGrid } from "@/components/home/method-grid";
-import { Engine } from "@/components/home/engine";
-import { Capabilities } from "@/components/home/capabilities";
+import { PaintRoom } from "@/components/home/paint-room";
+import { Toolkit } from "@/components/home/toolkit";
+import { Moods } from "@/components/home/moods";
 import { CataloguePreview } from "@/components/home/catalogue-preview";
 import { PaintedWith } from "@/components/home/painted-with";
 import { Testimonial } from "@/components/home/testimonial";
@@ -25,9 +26,10 @@ export default function HomePage() {
         <MethodGrid />
         <Partners />
         <Services />
-        <Engine />
-        <Capabilities />
+        <PaintRoom />
+        <Toolkit />
         <CataloguePreview />
+        <Moods />
         <PaintedWith />
         <Testimonial />
         <PricingPreview />
