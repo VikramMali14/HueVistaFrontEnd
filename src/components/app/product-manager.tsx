@@ -30,6 +30,8 @@ interface Draft {
   finish: string;
   qualityTier: QualityTier;
   brightness: number;
+  /** True once the user moves the slider — stops the Quality tier from silently overriding it. */
+  brightnessTouched: boolean;
   imageUrl: string;
   previewUrl: string;
   uploading: boolean;
@@ -51,6 +53,7 @@ function initDraft(line: PaintLine): Draft {
     finish: line.defaultFinish ?? "",
     qualityTier: line.qualityTier,
     brightness: tierBrightness(line.qualityTier),
+    brightnessTouched: false,
     imageUrl: "",
     previewUrl: "",
     uploading: false,
@@ -327,12 +330,12 @@ export function ProductManager() {
                 <Field label="Finish"><input value={d.finish} onChange={(e) => patch(line.id, { finish: e.target.value })} style={inp} /></Field>
                 <Field label="Coverage"><input value={d.coverage} onChange={(e) => patch(line.id, { coverage: e.target.value })} placeholder="e.g. 120–140 sq ft/L" style={inp} /></Field>
                 <Field label="Quality">
-                  <select value={d.qualityTier} onChange={(e) => { const t = e.target.value as QualityTier; patch(line.id, { qualityTier: t, brightness: tierBrightness(t) }); }} style={inp}>
+                  <select value={d.qualityTier} onChange={(e) => { const t = e.target.value as QualityTier; patch(line.id, d.brightnessTouched ? { qualityTier: t } : { qualityTier: t, brightness: tierBrightness(t) }); }} style={inp}>
                     {TIERS.map((t) => <option key={t} value={t}>{tierLabel(t)}</option>)}
                   </select>
                 </Field>
-                <Field label={`Brightness / quality (${d.brightness}/5)`}>
-                  <input type="range" min={1} max={5} step={1} value={d.brightness} onChange={(e) => patch(line.id, { brightness: Number(e.target.value) })} style={{ width: "100%", accentColor: "var(--accent)" }} />
+                <Field label={`Brightness (${d.brightness}/5)`}>
+                  <input type="range" min={1} max={5} step={1} value={d.brightness} onChange={(e) => patch(line.id, { brightness: Number(e.target.value), brightnessTouched: true })} style={{ width: "100%", accentColor: "var(--accent)" }} />
                 </Field>
                 <div style={{ gridColumn: "1 / -1" }}>
                   <Field label="Features"><textarea value={d.features} onChange={(e) => patch(line.id, { features: e.target.value })} rows={2} placeholder="washable, anti-fungal, 7-yr warranty…" style={{ ...inp, resize: "vertical" }} /></Field>
@@ -428,7 +431,7 @@ function ProductCard({ product, onDelete }: { product: ShopProduct; onDelete: ()
         )}
         <div style={{ marginTop: "auto", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span style={{ font: "600 22px/1 var(--serif)", color: "var(--fg)" }}>
-            {product.price != null ? `₹${product.price}` : "—"}{product.priceUnit ? <span style={{ fontSize: 13, color: "var(--fg-mute)" }}> /{product.priceUnit}</span> : null}
+            {product.price != null ? `₹${product.price.toLocaleString("en-IN")}` : "—"}{product.priceUnit ? <span style={{ fontSize: 13, color: "var(--fg-mute)" }}> /{product.priceUnit}</span> : null}
           </span>
           <button type="button" onClick={onDelete} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>Remove</button>
         </div>

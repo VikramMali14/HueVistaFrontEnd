@@ -8,8 +8,8 @@ import { Logo } from "@/components/ui/logo";
 import type { AuthUser } from "@/lib/types";
 
 const TABS = [
-  { href: "/atelier", label: "Studio" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/atelier", label: "Studio" },
   { href: "/portal", label: "Customer portal" },
   { href: "/products", label: "Products" },
   { href: "/inbox", label: "Inbox" },
@@ -55,7 +55,7 @@ export function AppNav({ user, themeToggle }: AppNavProps) {
         </span>
       </div>
       <div className="app-nav-inner">
-        <Link href="/" className="brand-logo" aria-label="HueVista — home">
+        <Link href="/dashboard" className="brand-logo" aria-label="HueVista — dashboard">
           <Logo size="sm" inverted ariaLabel={null} />
         </Link>
         <button
@@ -78,6 +78,25 @@ export function AppNav({ user, themeToggle }: AppNavProps) {
               {t.label}
             </Link>
           ))}
+          <div className="app-drawer-meta">
+            {user && (
+              <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
+            )}
+            {themeToggle}
+            <LogoutButton
+              className="app-tab"
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--fg-mute)",
+                padding: "12px 16px",
+                font: "400 11px/1 var(--mono)",
+                letterSpacing: ".26em",
+                textTransform: "uppercase",
+              }}
+            />
+          </div>
         </div>
         <div className="app-tabs is-desktop">
           {visibleTabs.map((t) => (
@@ -123,11 +142,13 @@ export function AppNav({ user, themeToggle }: AppNavProps) {
         .app-tab.active, .app-tab:hover { color: var(--fg); border-color: var(--rule-strong); }
         .app-nav-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .app-tabs.is-mobile { display: none; }
+        .app-drawer-meta { display: none; }
         @media (max-width: 900px) {
           .app-nav-inner { padding: 14px var(--gutter); }
           .app-tabs.is-desktop { display: none; }
           .app-tabs.is-mobile { display: flex; }
-          .app-nav-meta { width: 100%; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--rule); }
+          .app-nav-meta { display: none; }
+          .app-drawer-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px var(--gutter) 6px; border-top: 1px solid var(--rule); margin-top: 4px; }
         }
       `}</style>
     </header>

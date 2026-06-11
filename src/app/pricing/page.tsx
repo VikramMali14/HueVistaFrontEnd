@@ -18,13 +18,13 @@ type Section = { title: string; rows: ReadonlyArray<Row> };
 
 const MATRIX: ReadonlyArray<Section> = [
   {
-    title: "The render",
+    title: "The preview",
     rows: [
-      ["AI renders / month", "XX", "LX", "CL", "Unlimited"],
+      ["AI previews / month", "20", "60", "150", "Unlimited"],
       ["Recolour speed", "60 fps", "60 fps", "60 fps", "60 fps"],
       ["Per-region recolour", "—", "●", "●", "●"],
-      ["SAM 2 manual regions", "—", "●", "●", "●"],
-      ["Image cleaning (Nano Banana Pro)", "—", "Add-on", "Add-on", "Included"],
+      ["Manual wall selection", "—", "●", "●", "●"],
+      ["AI photo clean-up", "—", "Add-on", "Add-on", "Included"],
     ],
   },
   {
@@ -62,11 +62,14 @@ const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px"
 const sectionHeadStyle: React.CSSProperties = { font: "400 22px/1 var(--serif)", color: "var(--brass-soft)", padding: "56px 24px 12px" };
 const yesStyle: React.CSSProperties = { color: "var(--brass)", fontFamily: "var(--mono)", fontSize: 13 };
 const noStyle: React.CSSProperties = { color: "var(--mute-deep)", fontFamily: "var(--mono)", fontSize: 13 };
+const thPriceStyle: React.CSSProperties = { marginTop: 10, font: "400 14px/1.2 var(--serif)", letterSpacing: "normal", textTransform: "none", color: "var(--ivory-soft)" };
+const visuallyHidden: React.CSSProperties = { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" };
+const ctaCellStyle: React.CSSProperties = { ...cellStyle, borderBottom: "none" };
 
 function MatrixCell({ v, featured }: { v: string; featured?: boolean }) {
   const style: React.CSSProperties = { ...cellStyle, ...(featured ? featuredColStyle : {}) };
-  if (v === "●") return <td style={style}><span style={yesStyle}>●</span></td>;
-  if (v === "—") return <td style={style}><span style={noStyle}>—</span></td>;
+  if (v === "●") return <td style={style}><span aria-hidden style={yesStyle}>✓</span><span style={visuallyHidden}>Included</span></td>;
+  if (v === "—") return <td style={style}><span aria-hidden style={noStyle}>—</span><span style={visuallyHidden}>Not included</span></td>;
   return <td style={style}>{v}</td>;
 }
 
@@ -87,6 +90,16 @@ export default function PricingPage() {
           <PricingTiers />
         </header>
 
+        <div className="reveal" style={{ borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", padding: "22px 0", marginTop: 64, display: "flex", flexWrap: "wrap", gap: "12px 36px", justifyContent: "center", font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+          <span>GST invoice on every plan</span>
+          <span aria-hidden>·</span>
+          <span>UPI · cards · netbanking</span>
+          <span aria-hidden>·</span>
+          <span>Cancel anytime — scenes kept 30 days</span>
+          <span aria-hidden>·</span>
+          <span>Built in India for Indian counters</span>
+        </div>
+
         <section style={{ background: "var(--band)", borderTop: "1px solid var(--band-rule)", borderBottom: "1px solid var(--band-rule)", padding: "140px 0", marginTop: 80 }} className="full-bleed">
           <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
             <div className="reveal">
@@ -96,18 +109,23 @@ export default function PricingPage() {
               </h2>
             </div>
             <div className="reveal d1" style={{ marginTop: 64 }}>
-              <p className="mono hv-matrix-hint" style={{ marginBottom: 14, color: "var(--brass-soft)" }}>
+              <p className="mono hv-matrix-hint" style={{ marginBottom: 14, color: "#cbb08a" }}>
                 Swipe to compare every tier →
               </p>
-              <div className="r-scroll-x" style={{ overflowX: "auto" }}>
+              {/* Overflow is lifted at >=964px (globals) so the sticky thead can
+                  engage against the page scroll instead of this wrapper. */}
+              <div className="r-scroll-x hv-matrix-wrap">
                 <table className="hv-matrix" style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
-                <thead>
+                <thead className="hv-matrix-head">
                   <tr>
                     <th style={{ ...headStyle, width: "34%" }}>Capability</th>
-                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter</th>
-                    <th style={{ ...headStyle, color: "var(--brass-soft)", background: "rgba(184,153,104,.08)" }}>Professional</th>
-                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Business</th>
-                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Enterprise</th>
+                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹499 / mo</div></th>
+                    {/* Literal metallic — the band stays dark in both themes, where
+                        var(--brass-soft) goes near-black in light. Opaque composite
+                        so the tint survives sticky overlap. */}
+                    <th style={{ ...headStyle, color: "#cbb08a", background: "linear-gradient(rgba(184,153,104,.08), rgba(184,153,104,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "#cbb08a" }}>₹999 / mo</div></th>
+                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Business<div style={thPriceStyle}>₹1,999 / mo</div></th>
+                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Enterprise<div style={thPriceStyle}>On request</div></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -127,6 +145,15 @@ export default function PricingPage() {
                       </tr>
                     )),
                   ])}
+                  {/* Theme-stable colours: this row lives on the always-dark band,
+                      where .btn/.btn-ghost/var(--brass) flip illegible in light theme. */}
+                  <tr key="cta">
+                    <td style={ctaCellStyle} />
+                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
+                    <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><Link href="/trial" className="btn btn-sm" style={{ background: "#b89968", borderColor: "#b89968", color: "#15110d" }}>Start free</Link></td>
+                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
+                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-ghost btn-sm" style={{ color: "var(--ivory)", borderColor: "rgba(247,247,245,.35)" }}>Talk to us</Link></td>
+                  </tr>
                 </tbody>
                 </table>
               </div>
@@ -159,6 +186,9 @@ export default function PricingPage() {
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
               <Link href="/trial" className="btn btn-brass">Try it free <span className="arr">→</span></Link>
               <Link href="/trial" className="btn btn-ghost">Book a demonstration <span className="arr">→</span></Link>
+            </div>
+            <div style={{ marginTop: 24, font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+              GST invoice · UPI accepted · cancel anytime
             </div>
           </div>
         </section>

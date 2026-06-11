@@ -12,9 +12,17 @@ interface TrialFormProps {
 }
 
 const TIERS = [
-  { v: "starter", l: "Starter · ₹499", d: "Single counter, single device. XX renders / month." },
-  { v: "pro", l: "Professional · ₹999", d: "Recommended. 3 devices, LX renders, all the conveniences." },
-  { v: "business", l: "Business · ₹1,999", d: "Multi-shop, white-label, CL renders, painter portal." },
+  { v: "starter", l: "Starter · ₹499", d: "Single counter, single device. 20 AI previews a month." },
+  { v: "pro", l: "Professional · ₹999", d: "Recommended. 60 AI previews a month, 3 devices." },
+  { v: "business", l: "Business · ₹1,999", d: "Multi-shop, white-label, 150 AI previews a month, painter portal." },
+];
+
+const STATES = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh", "Chhattisgarh", "Delhi", "Goa",
+  "Gujarat", "Haryana", "Himachal Pradesh", "Jammu & Kashmir", "Jharkhand", "Karnataka", "Kerala",
+  "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry",
+  "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand",
+  "West Bengal", "Other",
 ];
 
 export function TrialForm({ action, next }: TrialFormProps) {
@@ -32,6 +40,8 @@ export function TrialForm({ action, next }: TrialFormProps) {
           setError("Please accept the terms to begin a trial.");
           return;
         }
+        // Surface the browser's bubble on the exact offending field (works with noValidate).
+        if (!e.currentTarget.reportValidity()) return;
         const fd = new FormData(e.currentTarget);
         startTransition(async () => {
           setError(null);
@@ -48,7 +58,7 @@ export function TrialForm({ action, next }: TrialFormProps) {
     >
       {next && <input type="hidden" name="next" value={next} />}
       <div style={{ marginBottom: 32, maxWidth: 480 }}>
-        <GoogleButton next={next ?? "/atelier"} label="Start free trial with Google" />
+        <GoogleButton next={next ?? "/dashboard"} label="Start free trial with Google" />
         <div
           aria-hidden
           style={{
@@ -70,10 +80,10 @@ export function TrialForm({ action, next }: TrialFormProps) {
 
       <Step num="I." title={<>Tell us <i>about you.</i></>}>
         <div className="form-grid">
-          <Field label="First name" name="firstName" required placeholder="Suresh" autoComplete="given-name" />
-          <Field label="Last name" name="lastName" required placeholder="Kulkarni" autoComplete="family-name" />
-          <Field label="Email" name="email" type="email" required placeholder="suresh@shardapaints.in" autoComplete="email" />
-          <Field label="Phone · WhatsApp" name="phone" type="tel" required placeholder="+91 98 8654 7321" autoComplete="tel" />
+          <Field label="First name" name="firstName" required placeholder="Priya" autoComplete="given-name" />
+          <Field label="Last name" name="lastName" required placeholder="Mehta" autoComplete="family-name" />
+          <Field label="Email" name="email" type="email" required placeholder="priya@mehtapaints.in" autoComplete="email" />
+          <Field label="Phone · WhatsApp" name="phone" type="tel" required placeholder="+91 98 2210 4476" autoComplete="tel" />
           <div className="field full">
             <label className="field-label" htmlFor="password">Password</label>
             <div style={{ position: "relative" }}>
@@ -117,9 +127,9 @@ export function TrialForm({ action, next }: TrialFormProps) {
       </Step>
       <Step num="II." title={<>And the <i>shop.</i></>}>
         <div className="form-grid">
-          <Field label="Shop name" name="shopName" required placeholder="Sharda Paints" full />
-          <Field label="City" name="city" required placeholder="Belgavi" />
-          <Select label="State" name="state"><option>Karnataka</option><option>Maharashtra</option><option>Goa</option><option>Tamil Nadu</option><option>Telangana</option><option>Andhra Pradesh</option><option>Kerala</option><option>Other</option></Select>
+          <Field label="Shop name" name="shopName" required placeholder="Mehta Paint House" full />
+          <Field label="City" name="city" required placeholder="Pune" />
+          <Select label="State" name="state" defaultValue="Karnataka">{STATES.map((s) => <option key={s}>{s}</option>)}</Select>
           <Select label="Primary catalogue" name="catalogue"><option>Asian Paints</option><option>Berger</option><option>Nerolac</option><option>Dulux</option><option>Multiple</option></Select>
           <Select label="Years in trade" name="years" defaultValue="5 — 10 years"><option>‹ 2 years</option><option>2 — 5 years</option><option>5 — 10 years</option><option>10 — 20 years</option><option>20+ years</option></Select>
         </div>
@@ -193,13 +203,15 @@ export function TrialForm({ action, next }: TrialFormProps) {
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
         .form-grid .field.full { grid-column: span 2; }
         .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .seg label { display: flex; flex-direction: column; padding: 18px 20px; border: 1px solid var(--rule-strong); cursor: pointer; transition: all .25s var(--ease); background: var(--surface); }
+        .seg label { position: relative; display: flex; flex-direction: column; padding: 18px 20px; border: 1px solid var(--rule-strong); cursor: pointer; transition: background .25s var(--ease), border-color .25s var(--ease); background: var(--surface); }
         .seg label:hover { border-color: var(--accent); }
-        .seg input[type="radio"] { display: none; }
+        .seg input[type="radio"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        .seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
         .seg label:has(input:checked) { background: var(--accent); border-color: var(--accent); }
         .seg label:has(input:checked) .l, .seg label:has(input:checked) .d { color: var(--bg); }
         .seg .l { font: 400 10px/1 var(--mono); letter-spacing: .28em; text-transform: uppercase; color: var(--fg); }
         .seg .d { font: 300 italic 16px/1.3 var(--serif); color: var(--fg-soft); margin-top: 8px; }
+        .seg .l, .seg .d { transition: color .25s var(--ease); }
         @media (max-width: 1100px) {
           .form-grid { grid-template-columns: 1fr; gap: 24px; }
           .form-grid .field.full { grid-column: span 1; }

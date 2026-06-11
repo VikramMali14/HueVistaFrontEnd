@@ -24,11 +24,11 @@ const SERVICES = [
     href: "/trial",
   },
   {
-    kicker: "Photo to invoice",
-    title: "The whole counter flow",
-    desc: "Upload, clean, segment, recolour and share on WhatsApp — start to finish, in one place.",
+    kicker: "Gallery",
+    title: "Rooms — only the wall changed",
+    desc: "Twelve rooms recoloured with catalogue shades — only the wall changes, the code on every one.",
     tone: "walnut",
-    href: "/method",
+    href: "/gallery",
   },
 ] as const;
 
@@ -44,16 +44,18 @@ export function Services() {
           colour lives inside HueVista.
         </p>
       </header>
-      <div className="hv-services-grid reveal d1">
-        {SERVICES.map((s) => (
-          <TiltCard key={s.href}>
-            <Link href={s.href} className="hv-svc-card ph ph-grain" data-tone={s.tone}>
-              <span className="hv-svc-eyebrow">{s.kicker}</span>
-              <span className="hv-svc-title">{s.title}</span>
-              <span className="hv-svc-desc">{s.desc}</span>
-              <span className="hv-svc-arrow" aria-hidden>→</span>
-            </Link>
-          </TiltCard>
+      <div className="hv-services-grid">
+        {SERVICES.map((s, i) => (
+          <div key={s.href} className={`reveal d${i + 1}`} style={{ height: "100%" }}>
+            <TiltCard style={{ height: "100%" }}>
+              <Link href={s.href} className="hv-svc-card ph ph-grain" data-tone={s.tone}>
+                <span className="hv-svc-eyebrow">{s.kicker}</span>
+                <span className="hv-svc-title">{s.title}</span>
+                <span className="hv-svc-desc">{s.desc}</span>
+                <span className="hv-svc-arrow" aria-hidden>→</span>
+              </Link>
+            </TiltCard>
+          </div>
         ))}
       </div>
     </section>

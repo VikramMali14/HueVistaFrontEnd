@@ -53,6 +53,14 @@ const CHAPTERS = [
     tone: "terracotta" as const,
     tag: "FIG. V",
   },
+  {
+    num: "VI.",
+    eyebrow: "Hand back · close",
+    title: <>The <i>handover.</i></>,
+    body: "The finished room goes back the way it came — on WhatsApp, to the customer's own phone, with the shade codes and finishes attached. They show it at home that evening. You mix the can the same afternoon.",
+    tone: "ink" as const,
+    tag: "FIG. VI",
+  },
 ];
 
 export default function MethodPage() {

@@ -58,7 +58,7 @@ export default function AppError({
           margin: 0,
         }}
       >
-        Check your connection to the backend, then retry. If the issue persists, sign in again.
+        Check your internet connection and retry. If it keeps happening, sign out and sign in again.
       </p>
       <div style={{ display: "inline-flex", gap: 12, marginTop: 8, flexWrap: "wrap", justifyContent: "center" }}>
         <button type="button" onClick={reset} className="btn">

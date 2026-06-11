@@ -32,16 +32,34 @@ export function ForgotForm() {
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The backend returns 200 whether or not the account exists — only a transport
+  // failure (offline, server down) reports an error here.
+  const requestCode = async (): Promise<boolean> => {
+    const { ok, message } = await postJson("/api/auth/forgot-password", { email: email.trim() });
+    if (!ok) {
+      setError(message ?? "Could not send the code. Check your connection and try again.");
+      return false;
+    }
+    return true;
+  };
 
   const request = async () => {
     if (!email.trim()) return;
     setBusy(true);
     setError(null);
-    // Always advances — the backend returns 200 whether or not the account exists.
-    await postJson("/api/auth/forgot-password", { email: email.trim() });
+    const ok = await requestCode();
     setBusy(false);
-    setStep("reset");
+    if (ok) setStep("reset");
+  };
+
+  const resend = async () => {
+    setResending(true);
+    setError(null);
+    await requestCode();
+    setResending(false);
   };
 
   const reset = async () => {
@@ -87,7 +105,7 @@ export function ForgotForm() {
               onKeyDown={(e) => e.key === "Enter" && void request()}
               required
               autoComplete="email"
-              placeholder="suresh@shardapaints.in"
+              placeholder="priya@mehtapaints.in"
             />
           </div>
           <button type="button" className="btn" onClick={() => void request()} disabled={busy} style={{ justifyContent: "center" }}>
@@ -124,16 +142,16 @@ export function ForgotForm() {
             />
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <button type="button" className="btn" onClick={() => void reset()} disabled={busy} style={{ justifyContent: "center" }}>
+            <button type="button" className="btn" onClick={() => void reset()} disabled={busy || resending} style={{ justifyContent: "center" }}>
               {busy ? <><Spinner size={14} color="currentColor" /> Resetting…</> : <>Reset password <span className="arr">→</span></>}
             </button>
             <button
               type="button"
-              onClick={() => void request()}
-              disabled={busy}
+              onClick={() => void resend()}
+              disabled={busy || resending}
               style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 11px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
             >
-              Resend code
+              {resending ? "Sending…" : "Resend code"}
             </button>
           </div>
         </>

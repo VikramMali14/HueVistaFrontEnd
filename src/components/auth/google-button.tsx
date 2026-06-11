@@ -6,7 +6,7 @@ interface GoogleButtonProps {
   style?: CSSProperties;
 }
 
-export function GoogleButton({ next = "/atelier", label = "Continue with Google", style }: GoogleButtonProps) {
+export function GoogleButton({ next = "/dashboard", label = "Continue with Google", style }: GoogleButtonProps) {
   const href = `/sign-in/google?next=${encodeURIComponent(next)}`;
   return (
     <a

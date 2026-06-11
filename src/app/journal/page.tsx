@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Marquee } from "@/components/layout/marquee";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
@@ -41,22 +40,21 @@ export default function JournalPage() {
                 Why western light reads warmer in Belgavi than in Bengaluru — and what that means for the shade card you place on the counter. A meditation on geography, glazing, and the eye that has grown up watching either.
               </p>
               <div style={{ marginTop: 32, display: "flex", alignItems: "center", gap: 16 }}>
-                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "linear-gradient(135deg, var(--brass), var(--brass-deep))", border: "1px solid var(--rule-strong)" }} />
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "linear-gradient(135deg, var(--brass), var(--brass-deep))", border: "1px solid var(--rule-strong)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span aria-hidden style={{ font: "500 13px/1 var(--mono)", letterSpacing: ".08em", color: "rgba(20,20,19,.85)" }}>AR</span>
+                </div>
                 <div>
                   <div style={{ fontFamily: "var(--serif)", fontSize: 20, color: "var(--fg)" }}>Ananya R.</div>
                   <Mono style={{ marginTop: 4, display: "block" }}>10 min read · May 2026</Mono>
                 </div>
               </div>
-              <Link href="/journal" className="text-link" style={{ marginTop: 32, display: "inline-block" }}>Read the essay &nbsp;→</Link>
+              <a href="#newsletter" className="text-link" style={{ marginTop: 32, display: "inline-block" }}>Get the essays by email — subscribe below &nbsp;↓</a>
             </div>
           </div>
         </header>
 
         <section style={{ paddingTop: 80 }}>
           <JournalFilters entries={ENTRIES} />
-          <div style={{ marginTop: 64, textAlign: "center" }}>
-            <Link href="/journal" className="text-link">Read older entries · archive &nbsp;→</Link>
-          </div>
         </section>
 
         <JournalNewsletter />

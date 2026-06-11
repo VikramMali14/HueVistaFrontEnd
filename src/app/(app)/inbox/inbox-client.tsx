@@ -1,11 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
 import type { SupportConversation, SupportConversationSummary } from "@/lib/types";
+
+// Human labels for backend enums — raw IN_APP / NEEDS_HUMAN / USER read as a debug build.
+const CHANNEL_LABEL: Record<string, string> = { IN_APP: "In-app", WHATSAPP: "WhatsApp", VOICE: "Voice", EMAIL: "Email" };
+const STATUS_LABEL: Record<string, string> = { OPEN: "Open", NEEDS_HUMAN: "Needs a human", RESOLVED: "Resolved" };
+const SENDER_LABEL: Record<string, string> = { USER: "Customer", AI: "AI assistant", AGENT: "Team", SYSTEM: "System" };
+
+function titleCase(s?: string | null): string {
+  return s ? s.charAt(0) + s.slice(1).toLowerCase() : "";
+}
+
+/** "now" / "5m" / "3h" / "2d" — how long a conversation has been waiting. */
+function relTime(iso?: string | null): string {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "";
+  const mins = Math.floor(Math.max(0, Date.now() - t) / 60_000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
 
 export function SupportInbox() {
   const [list, setList] = useState<SupportConversationSummary[]>([]);
@@ -14,6 +36,12 @@ export function SupportInbox() {
   const [error, setError] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  // Opening a conversation (or receiving a reply) should show the LATEST message.
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [active?.id, active?.messages.length]);
 
   const loadList = useCallback(async () => {
     setError(null);
@@ -80,7 +108,7 @@ export function SupportInbox() {
           <button type="button" onClick={() => void loadList()} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>Refresh</button>
         </div>
         {list.length === 0 ? (
-          <p style={{ padding: 20, font: "400 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>Nothing waiting. 🎉</p>
+          <p style={{ padding: 20, font: "400 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>Nothing waiting — the inbox is clear.</p>
         ) : (
           list.map((c) => (
             <button
@@ -95,9 +123,12 @@ export function SupportInbox() {
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                 <span style={{ font: "400 16px/1.2 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.subject || "Support request"}</span>
-                <Mono>{c.channel}</Mono>
+                <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                  <Mono>{CHANNEL_LABEL[c.channel] ?? c.channel}</Mono>
+                  {c.updatedAt && <Mono>{relTime(c.updatedAt)}</Mono>}
+                </span>
               </div>
-              <div style={{ marginTop: 4 }}><Mono>{c.requesterName} · {c.requesterRole}</Mono></div>
+              <div style={{ marginTop: 4 }}><Mono>{c.requesterName} · {titleCase(c.requesterRole)}</Mono></div>
               <div style={{ marginTop: 6, font: "300 13px/1.4 var(--serif)", color: "var(--fg-mute)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.lastMessage}</div>
             </button>
           ))
@@ -113,7 +144,7 @@ export function SupportInbox() {
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--rule)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
               <div>
                 <div style={{ font: "400 18px/1.1 var(--serif)" }}>{active.subject || "Support request"}</div>
-                <Mono>{active.status}</Mono>
+                <Mono>{STATUS_LABEL[active.status] ?? active.status}</Mono>
               </div>
               <Button size="sm" variant="ghost" onClick={() => void resolve()} disabled={busy}>Resolve</Button>
             </div>
@@ -131,19 +162,24 @@ export function SupportInbox() {
                   textTransform: m.sender === "SYSTEM" ? "uppercase" : undefined,
                   whiteSpace: "pre-wrap", wordBreak: "break-word",
                 }}>
-                  <span style={{ display: "block", font: "400 9px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", opacity: .6, marginBottom: m.sender === "SYSTEM" ? 0 : 4 }}>{m.sender}</span>
+                  <span style={{ display: "block", font: "400 9px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", opacity: .6, marginBottom: m.sender === "SYSTEM" ? 0 : 4 }}>
+                    {SENDER_LABEL[m.sender] ?? m.sender}
+                    {m.createdAt ? ` · ${new Date(m.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}` : ""}
+                  </span>
                   {m.body}
                 </div>
               ))}
+              <div ref={endRef} />
             </div>
             <div style={{ borderTop: "1px solid var(--rule)", padding: 12, display: "flex", gap: 8 }}>
-              <input
+              <textarea
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void sendReply(); } }}
-                placeholder="Reply as a team member…"
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendReply(); } }}
+                placeholder="Reply as a team member… (Shift+Enter for a new line)"
                 aria-label="Reply"
-                style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--rule-strong)", borderRadius: 8, background: "var(--surface)", color: "var(--fg)", font: "300 15px/1.3 var(--serif)" }}
+                rows={2}
+                style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--rule-strong)", borderRadius: 8, background: "var(--surface)", color: "var(--fg)", font: "300 15px/1.3 var(--serif)", resize: "none" }}
               />
               <Button size="sm" onClick={() => void sendReply()} disabled={busy || !reply.trim()}>Send</Button>
             </div>

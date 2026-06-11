@@ -1,5 +1,3 @@
-import { Spinner } from "@/components/ui/spinner";
-
 export default function AppLoading() {
   return (
     <div
@@ -15,7 +13,11 @@ export default function AppLoading() {
         color: "var(--fg)",
       }}
     >
-      <Spinner size={32} color="var(--accent)" />
+      <span className="hv-mix" aria-hidden>
+        <i style={{ background: "#b96b48", width: 10, height: 10 }} />
+        <i style={{ background: "#7b8a72", width: 10, height: 10 }} />
+        <i style={{ background: "#8c98a8", width: 10, height: 10 }} />
+      </span>
       <span
         style={{
           font: "400 10px/1 var(--mono, ui-monospace, monospace)",
@@ -24,7 +26,7 @@ export default function AppLoading() {
           color: "var(--accent)",
         }}
       >
-        Loading…
+        Mixing
       </span>
     </div>
   );

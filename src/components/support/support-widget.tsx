@@ -62,6 +62,7 @@ export function SupportWidget() {
         aria-label={open ? "Close support chat" : "Open support chat"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
+        className="hv-chat-fab"
         style={{
           position: "fixed",
           bottom: 20,
@@ -78,6 +79,7 @@ export function SupportWidget() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          transition: "transform .2s var(--ease), box-shadow .2s var(--ease)",
         }}
       >
         {open ? <CloseIcon /> : <ChatIcon />}
@@ -87,6 +89,7 @@ export function SupportWidget() {
         <div
           role="dialog"
           aria-label="Support chat"
+          className="hv-chat-pop"
           style={{
             position: "fixed",
             bottom: 88,

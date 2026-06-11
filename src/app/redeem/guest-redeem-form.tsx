@@ -49,11 +49,15 @@ export function GuestRedeemForm() {
           <Link className="btn btn-brass" href="/studio">
             Continue as a guest <span className="arr">→</span>
           </Link>
-          <Link className="btn btn-ghost" href="/sign-in?next=/studio">
-            Sign in to save your history <span className="arr">→</span>
+          <Link className="btn btn-ghost" href="/sign-in?mode=register&next=/studio">
+            Create a free account to keep it <span className="arr">→</span>
           </Link>
         </div>
-        <p style={{ font: "400 14px/1.6 var(--serif)", color: "var(--fg-mute)", marginTop: 24, maxWidth: "52ch", marginInline: "auto" }}>
+        <p style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 16 }}>
+          Already have one?{" "}
+          <Link href="/sign-in?next=/studio" style={{ color: "var(--accent-soft)" }}>Sign in</Link>
+        </p>
+        <p style={{ font: "400 14px/1.6 var(--serif)", color: "var(--fg-mute)", marginTop: 16, maxWidth: "52ch", marginInline: "auto" }}>
           As a guest, your room is saved with the shop — you&apos;ll see a single pickup code, and the shop reads
           the exact shades from it. Create a free account and your work stays with you for good.
         </p>

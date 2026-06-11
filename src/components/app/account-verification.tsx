@@ -33,7 +33,7 @@ export function AccountVerification({ user }: { user: AuthUser | null }) {
     >
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <span style={{ font: "600 22px/1 var(--serif)", color: "var(--fg)" }}>Secure your account</span>
-        <Mono brass>{emailVerified && phoneVerified ? "All verified" : "Required to start"}</Mono>
+        <Mono brass>{`${(emailVerified ? 1 : 0) + (phoneVerified ? 1 : 0)} of 2 verified`}</Mono>
       </div>
       <p style={{ font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", margin: "8px 0 20px", maxWidth: "60ch" }}>
         Verify your email and mobile number before you create your first project — it&apos;s how we reach

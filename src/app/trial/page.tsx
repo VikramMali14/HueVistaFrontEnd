@@ -30,7 +30,7 @@ export default async function TrialPage({
             <h1>Begin a <br /><i>trial.</i></h1>
             <Lead style={{ marginTop: 24 }}>Fourteen days. No card. Cancel quietly when you wish.</Lead>
             <div style={{ marginTop: 48, display: "flex", flexDirection: "column", gap: 18 }}>
-              {["Full Asian Paints catalogue from day one", "Up to 30 AI renders during the trial", "No card, no nudges, no auto-renewal", "One-to-one onboarding on a 30-minute call", "Scenes are yours — exportable any time"].map((t, i) => (
+              {["Full Asian Paints catalogue from day one", "Up to 30 AI previews during the trial", "No card, no nudges, no auto-renewal", "One-to-one onboarding on a 30-minute call", "Your projects stay yours — export them any time"].map((t, i) => (
                 <div key={i} style={{ display: "flex", gap: 14, alignItems: "baseline", font: "400 19px/1.4 var(--serif)", color: "var(--fg-soft)" }}>
                   <span style={{ color: "var(--brass)", fontFamily: "var(--mono)", fontSize: 22 }}>·</span>
                   <span>{t}</span>
@@ -39,10 +39,9 @@ export default async function TrialPage({
             </div>
             <div style={{ marginTop: 56, paddingTop: 32, borderTop: "1px solid var(--rule)" }}>
               <p style={{ font: "400 22px/1.5 var(--serif)", color: "var(--fg)", maxWidth: "28ch" }}>
-                <span style={{ fontFamily: "var(--serif)", color: "var(--brass-soft)", fontSize: 64, lineHeight: 0, display: "inline-block", verticalAlign: "-.4em", marginRight: 4 }}>"</span>
-                Picked the colour at the counter — placed the order the same afternoon.
+                Most shops have their first preview on screen within ten minutes of signing up.
               </p>
-              <Mono style={{ marginTop: 18, display: "block" }}>Suresh K. &nbsp;·&nbsp; Sharda Paints, Belgavi</Mono>
+              <Mono style={{ marginTop: 18, display: "block" }}>No card &nbsp;·&nbsp; onboarding call included</Mono>
             </div>
           </aside>
           <TrialForm action={registerAction} next={safeNext} />

@@ -15,7 +15,10 @@ export function Hero() {
       <div className="hv-hero2-bg" aria-hidden />
 
       <div className="hv-hero2-inner">
-        <h1 className="display hv-hero2-title reveal in">
+        <p className="mono hv-rise" style={{ font: "500 11px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(247,247,245,.55)", margin: 0 }}>
+          For paint retailers — sell colour at the counter
+        </p>
+        <h1 className="display hv-hero2-title hv-rise">
           See any colour
           <span>on your walls.</span>
         </h1>
@@ -23,13 +26,13 @@ export function Hero() {
           <LinkButton href="/trial" size="lg">Get started <span className="arr">→</span></LinkButton>
           <LinkButton href="/method" size="lg" variant="ghost">How it works <span className="arr">→</span></LinkButton>
         </div>
-        <p className="hv-hero2-sub reveal d2">Start free. No card needed to begin.</p>
+        <p className="hv-hero2-sub reveal d2">Built for paint counters. Start free — no card needed.</p>
       </div>
 
       <figure className="hv-hero2-demo reveal d2">
         <CompareSlider />
         <figcaption>
-          <Mono>Drag to compare — a real photo, only the wall colour has changed</Mono>
+          <Mono>Drag to compare — the same room, the same light, only the wall colour changed</Mono>
         </figcaption>
       </figure>
     </section>

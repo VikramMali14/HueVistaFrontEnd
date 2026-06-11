@@ -8,6 +8,8 @@ interface CompareSliderProps {
   beforeBg?: string;
   /** CSS background for the recoloured room (right pane). */
   afterBg?: string;
+  /** Merged last over the root styles — e.g. pass marginTop: 0 outside the hero. */
+  style?: React.CSSProperties;
 }
 
 const DEFAULT_BEFORE = "radial-gradient(ellipse at 50% 35%, rgba(255,250,235,.16), transparent 60%), linear-gradient(165deg, #5a5044 0%, #3a3127 55%, #1c1612 100%)";
@@ -17,6 +19,7 @@ export function CompareSlider({
   afterShade = "Terracotta · AP-1428",
   beforeBg = DEFAULT_BEFORE,
   afterBg = DEFAULT_AFTER,
+  style,
 }: CompareSliderProps) {
   const [pos, setPos] = useState(55);
   const ref = useRef<HTMLDivElement>(null);
@@ -58,10 +61,16 @@ export function CompareSlider({
         userSelect: "none",
         cursor: "ew-resize",
         background: "var(--charcoal-warm)",
+        touchAction: "pan-y",
+        ...style,
       } as React.CSSProperties}
       onPointerDown={(e) => {
         dragging.current = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
         updateFromClient(e.clientX);
+      }}
+      onPointerMove={(e) => {
+        if (dragging.current) updateFromClient(e.clientX);
       }}
     >
       {/* Base layer = recoloured room; the clipped layer on the left reveals the

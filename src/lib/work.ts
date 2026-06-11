@@ -15,6 +15,10 @@ export interface WorkProject {
   shadeName: string;
   swatch: string;
   tone: WorkTone;
+  /** Tone of the wall before the recolour — drives the "before" pane of the slider. */
+  beforeTone: WorkTone;
+  /** Who previewed it, and where — keeps each story attributable. */
+  credit: string;
   /** CSS aspect-ratio for the spiral card, e.g. "16 / 10". */
   aspect: string;
   blurb: string;
@@ -48,6 +52,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Rust",
     swatch: "#9d5236",
     tone: "terracotta",
+    beforeTone: "ivory",
+    credit: "Previewed at the counter · Belgavi",
     aspect: "16 / 10",
     blurb: "A west-facing living room that asked for warmth — answered with a rust feature wall picked at the counter in one visit.",
     story: [
@@ -71,6 +77,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Bisque",
     swatch: "#cdb9a0",
     tone: "ivory",
+    beforeTone: "slate",
+    credit: "Previewed at the counter · Pune",
     aspect: "4 / 5",
     blurb: "A small bedroom made to feel wider with one quiet shade — bisque on every wall, nothing shouting.",
     story: [
@@ -81,7 +89,7 @@ export const WORKS: ReadonlyArray<WorkProject> = [
       { hex: "#cdb9a0", name: "Bisque · AP-1923", surface: "All walls" },
       { hex: "#f0ead9", name: "Ivory · AP-2001", surface: "Ceiling & trim" },
     ],
-    stats: [["Shades compared", "IX"], ["Photo to preview", "16 s"], ["Repaint requests", "none"]],
+    stats: [["Shades compared", "9"], ["Photo to preview", "16 s"], ["Repaint requests", "none"]],
   },
   {
     slug: "bluestone-hall",
@@ -93,6 +101,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Bluestone",
     swatch: "#3e4a52",
     tone: "slate",
+    beforeTone: "ivory",
+    credit: "Previewed at the counter · Bengaluru",
     aspect: "1 / 1",
     blurb: "A dark kitchen the owners were warned against — previewed first, painted with confidence.",
     story: [
@@ -115,6 +125,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Sage",
     swatch: "#5b6c5b",
     tone: "sage",
+    beforeTone: "walnut",
+    credit: "Previewed via shared link · chosen from Bengaluru",
     aspect: "1 / 1",
     blurb: "Coastal light, a sage bedroom, and a customer who chose it from two hundred kilometres away.",
     story: [
@@ -126,7 +138,7 @@ export const WORKS: ReadonlyArray<WorkProject> = [
       { hex: "#a9b8a4", name: "Eucalypt · AP-1624", surface: "Niche" },
       { hex: "#f0ead9", name: "Ivory · AP-2001", surface: "Trim" },
     ],
-    stats: [["Chosen from", "200 km away"], ["Previews shared", "III"], ["Decided", "one evening"]],
+    stats: [["Chosen from", "200 km away"], ["Previews shared", "3"], ["Decided", "one evening"]],
   },
   {
     slug: "brass-veranda",
@@ -138,6 +150,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Amber Brass",
     swatch: "#a47148",
     tone: "brass",
+    beforeTone: "ivory",
+    credit: "Previewed at the counter · Hubballi",
     aspect: "1 / 1",
     blurb: "An exterior veranda tested against afternoon sun before a single can was opened.",
     story: [
@@ -160,6 +174,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Oxblood",
     swatch: "#7a3a2f",
     tone: "oxblood",
+    beforeTone: "ivory",
+    credit: "Previewed at the counter · Mysuru",
     aspect: "4 / 5",
     blurb: "A reading room taken two shades darker than anyone dared suggest out loud.",
     story: [
@@ -182,6 +198,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Midnight Indigo",
     swatch: "#3a4870",
     tone: "indigo",
+    beforeTone: "slate",
+    credit: "Specified by the contractor · approved via shared link",
     aspect: "16 / 10",
     blurb: "A street-facing façade previewed at scale — indigo against Mumbai's monsoon sky.",
     story: [
@@ -204,6 +222,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Ivory",
     swatch: "#f0ead9",
     tone: "ivory",
+    beforeTone: "walnut",
+    credit: "Previewed at the counter · Belgavi",
     aspect: "1 / 1",
     blurb: "Proof that the quietest colour is still a decision — ivory chosen over eleven rivals.",
     story: [
@@ -214,7 +234,7 @@ export const WORKS: ReadonlyArray<WorkProject> = [
       { hex: "#f0ead9", name: "Ivory · AP-2001", surface: "Walls & ceiling" },
       { hex: "#b89968", name: "Brass · AP-1520", surface: "Accents kept" },
     ],
-    stats: [["Ivories compared", "XI"], ["Photo to preview", "15 s"], ["Repaint requests", "none"]],
+    stats: [["Ivories compared", "11"], ["Photo to preview", "15 s"], ["Repaint requests", "none"]],
   },
   {
     slug: "walnut-study",
@@ -226,6 +246,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Walnut",
     swatch: "#7a5a3f",
     tone: "walnut",
+    beforeTone: "ivory",
+    credit: "Previewed at the counter · Kolhapur",
     aspect: "1 / 1",
     blurb: "A work-from-home study tuned for video calls — walnut behind the desk, matte everywhere.",
     story: [
@@ -248,6 +270,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Adobe",
     swatch: "#c87a55",
     tone: "terracotta",
+    beforeTone: "sage",
+    credit: "Found with the colour finder · previewed at the counter",
     aspect: "4 / 5",
     blurb: "A dining room that borrowed its colour from the laterite outside the window.",
     story: [
@@ -258,7 +282,7 @@ export const WORKS: ReadonlyArray<WorkProject> = [
       { hex: "#c87a55", name: "Adobe · AP-1418", surface: "Dining wall" },
       { hex: "#f0ead9", name: "Ivory · AP-2001", surface: "Walls & trim" },
     ],
-    stats: [["Found via", "colour finder"], ["Match", "ΔE 1.8"], ["Decided", "same visit"]],
+    stats: [["Found via", "colour finder"], ["Match", "exact code found"], ["Decided", "same visit"]],
   },
   {
     slug: "eucalypt-nursery",
@@ -270,6 +294,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Eucalypt",
     swatch: "#a9b8a4",
     tone: "sage",
+    beforeTone: "ivory",
+    credit: "Previewed at the counter · Bengaluru",
     aspect: "4 / 5",
     blurb: "A nursery painted once, correctly — soft eucalypt checked against morning and night-lamp light.",
     story: [
@@ -280,7 +306,7 @@ export const WORKS: ReadonlyArray<WorkProject> = [
       { hex: "#a9b8a4", name: "Eucalypt · AP-1624", surface: "Walls" },
       { hex: "#f0ead9", name: "Ivory · AP-2001", surface: "Ceiling & trim" },
     ],
-    stats: [["Lights tested", "morning · lamp"], ["Photo to preview", "16 s"], ["Coats", "II"]],
+    stats: [["Lights tested", "morning · lamp"], ["Photo to preview", "16 s"], ["Coats", "2"]],
   },
   {
     slug: "minuit-bar",
@@ -292,6 +318,8 @@ export const WORKS: ReadonlyArray<WorkProject> = [
     shadeName: "Ink",
     swatch: "#1d1d1c",
     tone: "ink",
+    beforeTone: "oxblood",
+    credit: "Specified by the designer · previewed via shared link",
     aspect: "4 / 5",
     blurb: "A bar interior signed off by an owner abroad — near-black walls, zero test patches.",
     story: [

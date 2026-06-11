@@ -19,6 +19,7 @@ import type {
   PaintShade,
   ProjectDetail,
   RegionCategory,
+  RegionColorUpdate,
   RegionDetail,
   RegionKind,
 } from "@/lib/types";
@@ -137,6 +138,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // Monotonic id so only the LATEST in-flight auto-save may write saveStatus —
   // out-of-order responses from rapid edits can't clobber a newer one's status.
   const saveSeqRef = useRef(0);
+  // Saves that failed (colour updates AND custom-mask uploads), kept as thunks
+  // so "Retry" re-fires exactly what was lost — not just the latest payload.
+  const failedSavesRef = useRef<Array<() => Promise<void>>>([]);
   const [stage, setStage] = useState<PipelineStage>("upload");
   const [done, setDone] = useState<Partial<Record<PipelineStage, boolean>>>({});
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -177,6 +181,33 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // Manual mask studio.
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
   const [savingMask, setSavingMask] = useState(false);
+  // Per-region history of catalogue shades the user tried (newest first, max 5).
+  const [triedByRegion, setTriedByRegion] = useState<Record<string, PaintShade[]>>({});
+  // "Copy palette" click feedback on the applied-palette strip.
+  const [paletteCopied, setPaletteCopied] = useState(false);
+  // Transient topbar notices — "Walls detected" / "Saved" auto-hide after a beat.
+  const [wallsNoticeVisible, setWallsNoticeVisible] = useState(false);
+  const [savedNoticeVisible, setSavedNoticeVisible] = useState(false);
+
+  useEffect(() => {
+    if (!masksReady) {
+      setWallsNoticeVisible(false);
+      return;
+    }
+    setWallsNoticeVisible(true);
+    const t = setTimeout(() => setWallsNoticeVisible(false), 4000);
+    return () => clearTimeout(t);
+  }, [masksReady]);
+
+  useEffect(() => {
+    if (saveStatus !== "saved") {
+      setSavedNoticeVisible(false);
+      return;
+    }
+    setSavedNoticeVisible(true);
+    const t = setTimeout(() => setSavedNoticeVisible(false), 2500);
+    return () => clearTimeout(t);
+  }, [saveStatus]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -488,6 +519,25 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
   }, [pendingImageId, createAndSegment]);
 
+  // Run a persistence call under the shared save-status machine. Failures are
+  // queued for Retry even when a newer save has since succeeded — an older
+  // request failing out of order must never be silently dropped.
+  const runSave = useCallback((save: () => Promise<void>) => {
+    const seq = ++saveSeqRef.current;
+    setSaveStatus("saving");
+    void (async () => {
+      try {
+        await save();
+        if (failedSavesRef.current.length > 0) setSaveStatus("failed");
+        else if (saveSeqRef.current === seq) setSaveStatus("saved");
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") console.warn("Auto-save failed:", err);
+        failedSavesRef.current.push(save);
+        setSaveStatus("failed");
+      }
+    })();
+  }, []);
+
   // Apply a catalogue shade to a SPECIFIC region (the active one, or any region
   // a coordinate suggestion targets). Persists when the region exists on the backend.
   const applyShadeTo = useCallback(
@@ -500,26 +550,25 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           return { ...r, hex: shade.hex, shade, applied: true };
         }),
       );
+      // Applying a colour must always show the result — never the original peek.
+      setCompare(false);
+      setTriedByRegion((prev) => {
+        const list = prev[regionId] ?? [];
+        return { ...prev, [regionId]: [shade, ...list.filter((s) => s.code !== shade.code)].slice(0, 5) };
+      });
       setStage("recolor");
       setDone((d) => ({ ...d, mask: true, recolor: true }));
 
       if (projectId && updatedBackendId !== undefined) {
-        const seq = ++saveSeqRef.current;
-        setSaveStatus("saving");
-        void (async () => {
-          try {
-            await updateRegionColorsCall(projectId, [
-              { regionId: updatedBackendId!, shadeCode: shade.code, hexCode: shade.hex },
-            ]);
-            if (saveSeqRef.current === seq) setSaveStatus("saved");
-          } catch (err) {
-            if (process.env.NODE_ENV !== "production") console.warn("Auto-save failed:", err);
-            if (saveSeqRef.current === seq) setSaveStatus("failed");
-          }
-        })();
+        const payload: RegionColorUpdate[] = [
+          { regionId: updatedBackendId, shadeCode: shade.code, hexCode: shade.hex },
+        ];
+        runSave(async () => {
+          await updateRegionColorsCall(projectId, payload);
+        });
       }
     },
-    [projectId, updateRegionColorsCall],
+    [projectId, updateRegionColorsCall, runSave],
   );
 
   const onSelectShade = useCallback(
@@ -538,27 +587,30 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           return { ...r, hex, shade: undefined, applied: true };
         }),
       );
+      // Applying a colour must always show the result — never the original peek.
+      setCompare(false);
       setStage("recolor");
       setDone((d) => ({ ...d, mask: true, recolor: true }));
 
       if (projectId && updatedBackendId !== undefined) {
-        const seq = ++saveSeqRef.current;
-        setSaveStatus("saving");
-        void (async () => {
-          try {
-            await updateRegionColorsCall(projectId, [
-              { regionId: updatedBackendId!, shadeCode: null, hexCode: hex },
-            ]);
-            if (saveSeqRef.current === seq) setSaveStatus("saved");
-          } catch (err) {
-            if (process.env.NODE_ENV !== "production") console.warn("Auto-save failed:", err);
-            if (saveSeqRef.current === seq) setSaveStatus("failed");
-          }
-        })();
+        const payload: RegionColorUpdate[] = [
+          { regionId: updatedBackendId, shadeCode: null, hexCode: hex },
+        ];
+        runSave(async () => {
+          await updateRegionColorsCall(projectId, payload);
+        });
       }
     },
-    [activeRegion, projectId, updateRegionColorsCall],
+    [activeRegion, projectId, updateRegionColorsCall, runSave],
   );
+
+  // Re-run every failed save; any that fails again re-queues itself via runSave.
+  const retrySave = useCallback(() => {
+    const pending = failedSavesRef.current;
+    if (pending.length === 0) return;
+    failedSavesRef.current = [];
+    for (const save of pending) runSave(save);
+  }, [runSave]);
 
   const customMaskCount = useMemo(() => regions.filter((r) => r.custom).length, [regions]);
   const masksRemaining = Math.max(0, MAX_CUSTOM_MASKS - customMaskCount);
@@ -594,10 +646,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         setMaskStudioOpen(false);
         return;
       }
-      const seq = ++saveSeqRef.current;
-      setSavingMask(true);
-      setSaveStatus("saving");
-      try {
+      // Retryable thunk: on failure the Retry chip re-uploads THIS mask and
+      // wires the backendId into the region, not just the last colour change.
+      const persist = async () => {
         const detail = await createCustomMaskCall(projectId, {
           maskBase64: mask.toDataURL("image/png"),
           category,
@@ -608,10 +659,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             r.id === id ? { ...r, backendId: detail.id, maskUrl: resolveMediaUrl(detail.maskUrl) } : r,
           ),
         );
-        if (saveSeqRef.current === seq) setSaveStatus("saved");
+      };
+      const seq = ++saveSeqRef.current;
+      setSavingMask(true);
+      setSaveStatus("saving");
+      try {
+        await persist();
+        if (failedSavesRef.current.length > 0) setSaveStatus("failed");
+        else if (saveSeqRef.current === seq) setSaveStatus("saved");
       } catch (err) {
         if (process.env.NODE_ENV !== "production") console.warn("Custom mask save failed:", err);
-        if (saveSeqRef.current === seq) setSaveStatus("failed");
+        failedSavesRef.current.push(persist);
+        setSaveStatus("failed");
       } finally {
         setSavingMask(false);
         setMaskStudioOpen(false);
@@ -642,6 +701,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setSharing(false);
     }
   }, [projectId]);
+
+  // Copy the applied palette as one line per wall, e.g.
+  // "Main wall — Silken Dawn (AP-1432) #e8dcc8" (guests never see shade codes).
+  const handleCopyPalette = useCallback(async () => {
+    const lines = regions
+      .filter((r) => r.applied)
+      .map((r) => {
+        if (!r.shade) return `${r.label} — ${r.hex}`;
+        return guest
+          ? `${r.label} — ${r.shade.name} ${r.hex}`
+          : `${r.label} — ${r.shade.name} (${r.shade.code}) ${r.hex}`;
+      });
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setPaletteCopied(true);
+      setTimeout(() => setPaletteCopied(false), 1600);
+    } catch {
+      /* clipboard blocked — nothing else to do */
+    }
+  }, [regions, guest]);
 
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
@@ -689,7 +768,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         <div className="hv-vis-project">
           <Mono>Project</Mono>
           <span style={{ font: "600 14px/1.2 var(--sans)", color: "var(--fg)" }}>
-            {projectName || (projectId ? `Project #${projectId.slice(0, 8)}` : "Untitled project")}
+            {projectName || "Untitled project"}
           </span>
           {projectRoom && <Mono>· {projectRoom}</Mono>}
         </div>
@@ -706,7 +785,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               <span style={controlChipStyle}>Detecting walls…</span>
             </span>
           )}
-          {masksReady && (
+          {masksReady && wallsNoticeVisible && (
             <span style={{ ...controlChipStyle, color: "var(--accent)" }}>Walls detected</span>
           )}
           {saveStatus === "saving" && (
@@ -715,16 +794,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               <span style={controlChipStyle}>Saving…</span>
             </span>
           )}
-          {saveStatus === "saved" && <span style={controlChipStyle}>Saved</span>}
+          {saveStatus === "saved" && savedNoticeVisible && <span style={controlChipStyle}>Saved</span>}
           {saveStatus === "failed" && (
-            <span
+            <button
+              type="button"
+              onClick={retrySave}
               style={{
                 ...controlChipStyle,
                 color: "#dc2626",
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
               }}
             >
-              Could not save
-            </span>
+              Could not save · <span style={{ textDecoration: "underline" }}>Retry</span>
+            </button>
           )}
           {shareUrl && (
             <span
@@ -765,7 +850,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         </div>
       </div>
 
-      <PipelineBar current={stage} done={done} />
+      <PipelineBar current={stage} done={done} busy={segmenting ? "mask" : uploading ? "upload" : undefined} />
 
       <div className="hv-vis-body" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 0 }}>
         <div className="hv-vis-canvas-wrap" style={{ position: "relative", background: "var(--surface)" }}>
@@ -864,94 +949,220 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   borderRadius: 8,
                 }}
               >
+                {/* APPLIED-PALETTE STRIP — the "counter ticket" summary of every painted wall */}
                 <div
+                  className="hv-vis-palette"
                   style={{
                     display: "flex",
                     alignItems: "center",
+                    gap: 14,
                     padding: "10px 16px",
+                    borderBottom: "1px solid var(--rule)",
                     overflowX: "auto",
                   }}
                 >
-                  <span style={controlChipStyle}>Walls in this photo</span>
-                  <div
-                    aria-hidden
-                    style={{
-                      width: 1,
-                      height: 16,
-                      background: "var(--rule)",
-                      marginLeft: 14,
-                      marginRight: 14,
-                    }}
-                  />
-                  {regions.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => setActiveRegion(r.id)}
-                      aria-pressed={r.id === activeRegion}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "4px 14px",
-                        borderRight: "1px solid var(--rule)",
-                        opacity: r.id === activeRegion ? 1 : 0.6,
-                        background: "transparent",
-                        borderTop: "none",
-                        borderBottom: "none",
-                        borderLeft: "none",
-                        cursor: "pointer",
-                        color: "var(--fg)",
-                      }}
-                    >
-                      <span
-                        aria-hidden
+                  {regions.some((r) => r.applied) ? (
+                    <>
+                      {regions
+                        .filter((r) => r.applied)
+                        .map((r) => (
+                          <span
+                            key={r.id}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}
+                          >
+                            <span
+                              aria-hidden
+                              style={{
+                                width: 18,
+                                height: 18,
+                                borderRadius: 5,
+                                background: r.hex,
+                                border: "1px solid var(--rule-strong)",
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span style={{ font: "500 12px/1 var(--sans)", color: "var(--fg)" }}>{r.label}</span>
+                            <span style={{ font: "400 11px/1 var(--mono)", color: "var(--fg-mute)" }}>
+                              {guest
+                                ? r.shade?.name ?? r.hex
+                                : r.shade
+                                  ? `${r.shade.name} · ${r.shade.code}`
+                                  : r.hex}
+                            </span>
+                          </span>
+                        ))}
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyPalette()}
                         style={{
-                          width: 12,
-                          height: 12,
-                          background: r.applied ? r.hex : "transparent",
+                          marginLeft: "auto",
+                          padding: "6px 12px",
+                          background: "transparent",
                           border: "1px solid var(--rule-strong)",
-                          borderRadius: "50%",
+                          borderRadius: 6,
+                          color: "var(--fg-soft)",
+                          whiteSpace: "nowrap",
+                          font: "500 12px/1 var(--sans)",
+                          cursor: "pointer",
                         }}
-                      />
-                      <span style={regionLabelStyle}>{r.label}</span>
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setMaskStudioOpen(true)}
-                    disabled={!imageDims || masksRemaining <= 0}
-                    title={
-                      masksRemaining <= 0
-                        ? "You've reached the 3-mask limit"
-                        : "Open Mask Studio to draw or edit a wall mask"
-                    }
+                      >
+                        {paletteCopied ? "Copied" : "Copy palette"}
+                      </button>
+                    </>
+                  ) : (
+                    <span style={{ font: "400 12px/1 var(--sans)", color: "var(--fg-mute)" }}>
+                      No colours applied yet
+                    </span>
+                  )}
+                </div>
+                <div style={{ position: "relative" }}>
+                  <div
                     style={{
-                      marginLeft: "auto",
-                      padding: "6px 12px",
-                      background: "transparent",
-                      border: "1px solid var(--rule-strong)",
-                      borderRadius: 6,
-                      color: "var(--fg-soft)",
-                      opacity: imageDims && masksRemaining > 0 ? 1 : 0.5,
-                      whiteSpace: "nowrap",
-                      font: "500 12px/1 var(--sans)",
-                      cursor: imageDims && masksRemaining > 0 ? "pointer" : "not-allowed",
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "10px 44px 10px 16px",
+                      overflowX: "auto",
                     }}
                   >
-                    ✎ Edit walls
-                  </button>
+                    <span style={{ ...controlChipStyle, whiteSpace: "nowrap" }}>Walls in this photo</span>
+                    <div
+                      aria-hidden
+                      style={{
+                        width: 1,
+                        height: 16,
+                        background: "var(--rule)",
+                        marginLeft: 14,
+                        marginRight: 14,
+                        flexShrink: 0,
+                      }}
+                    />
+                    {regions.map((r) => {
+                      const isActive = r.id === activeRegion;
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => setActiveRegion(r.id)}
+                          aria-pressed={isActive}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: "6px 14px",
+                            borderRight: "1px solid var(--rule)",
+                            opacity: isActive ? 1 : 0.75,
+                            background: isActive ? "var(--surface-soft)" : "transparent",
+                            boxShadow: isActive ? "inset 0 -2px 0 var(--accent)" : "none",
+                            borderTop: "none",
+                            borderBottom: "none",
+                            borderLeft: "none",
+                            cursor: "pointer",
+                            color: "var(--fg)",
+                            textAlign: "left",
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <span
+                            aria-hidden
+                            style={{
+                              width: 16,
+                              height: 16,
+                              background: r.applied ? r.hex : "transparent",
+                              border: "1px solid var(--rule-strong)",
+                              borderRadius: "50%",
+                              flexShrink: 0,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {r.applied && (
+                              <span
+                                style={{
+                                  font: "600 9px/1 var(--sans)",
+                                  color: "#fff",
+                                  textShadow: "0 0 2px rgba(0,0,0,.6)",
+                                }}
+                              >
+                                ✓
+                              </span>
+                            )}
+                          </span>
+                          <span style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                            <span style={regionLabelStyle}>{r.label}</span>
+                            <span className="hv-chip-sub" style={{ font: "400 11px/1 var(--sans)", color: "var(--fg-mute)" }}>
+                              {r.applied ? r.shade?.name ?? r.hex : "No colour yet"}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => setMaskStudioOpen(true)}
+                      disabled={!imageDims || masksRemaining <= 0}
+                      title={
+                        masksRemaining <= 0
+                          ? "You can add up to 3 walls"
+                          : "Open Mask Studio to draw or edit a wall mask"
+                      }
+                      style={{
+                        marginLeft: "auto",
+                        padding: "6px 12px",
+                        background: "transparent",
+                        border: "1px solid var(--rule-strong)",
+                        borderRadius: 6,
+                        color: "var(--fg-soft)",
+                        opacity: imageDims && masksRemaining > 0 ? 1 : 0.5,
+                        whiteSpace: "nowrap",
+                        font: "500 12px/1 var(--sans)",
+                        cursor: imageDims && masksRemaining > 0 ? "pointer" : "not-allowed",
+                        flexShrink: 0,
+                      }}
+                    >
+                      + Add wall
+                    </button>
+                  </div>
+                  {/* Right-edge fade — hints that the chips row scrolls horizontally. */}
+                  <span
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      bottom: 0,
+                      right: 0,
+                      width: 28,
+                      pointerEvents: "none",
+                      background: "linear-gradient(90deg, transparent, var(--bg))",
+                    }}
+                  />
                 </div>
               </div>
 
-              {/* COMPARE TOGGLE */}
+              {/* HOLD-TO-PEEK — press and hold to see the original photo */}
               <button
                 type="button"
-                onClick={() => setCompare((v) => !v)}
+                onPointerDown={() => setCompare(true)}
+                onPointerUp={() => setCompare(false)}
+                onPointerLeave={() => setCompare(false)}
+                onPointerCancel={() => setCompare(false)}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault();
+                    setCompare(true);
+                  }
+                }}
+                onKeyUp={(e) => {
+                  if (e.key === " " || e.key === "Enter") setCompare(false);
+                }}
+                onBlur={() => setCompare(false)}
                 aria-pressed={compare}
                 style={{
+                  // Top-right: clear of the control cluster (top-left) and the
+                  // two-row palette/chips overlay along the bottom.
                   position: "absolute",
-                  bottom: 80,
+                  top: 20,
                   right: 20,
                   padding: "6px 12px",
                   background: compare ? "var(--accent)" : "var(--bg)",
@@ -961,9 +1172,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   font: "500 12px/1 var(--sans)",
                   cursor: "pointer",
                   zIndex: 5,
+                  userSelect: "none",
+                  touchAction: "none",
                 }}
               >
-                {compare ? "Showing original" : "Compare"}
+                Hold to see original
               </button>
             </>
           )}
@@ -1053,6 +1266,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           regions={regionLites}
           onApplyToRegion={applyShadeTo}
           hideCodes={guest}
+          onSelectRegion={(id) => setActiveRegion(id)}
+          onAddWall={() => setMaskStudioOpen(true)}
+          masksRemaining={masksRemaining}
+          triedShades={triedByRegion[activeRegion]}
         />
       </div>
 
@@ -1101,6 +1318,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           .hv-vis-project { padding-left: 12px; }
           .hv-vis-body { grid-template-columns: 1fr !important; grid-template-rows: auto auto !important; height: auto !important; }
           .hv-vis-canvas-wrap { min-height: 60vh; }
+          /* Keep the photo visible on phones: single-line chips, and the
+             palette ticket lives in the Walls tab instead of over the image. */
+          .hv-vis-palette { display: none !important; }
+          .hv-chip-sub { display: none !important; }
         }
         @media (max-width: 480px) {
           .hv-vis-topbar { padding: 10px 12px; }
@@ -1165,13 +1386,23 @@ function DropZone({
   onChoose: () => void;
   onDrop: (file: File) => void;
 }) {
+  const [isDragging, setIsDragging] = useState(false);
   return (
     <div
       onClick={onChoose}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onChoose()}
-      onDragOver={(e) => e.preventDefault()}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={() => setIsDragging(false)}
       onDrop={(e) => {
         e.preventDefault();
+        setIsDragging(false);
         const f = e.dataTransfer.files?.[0];
         if (f) onDrop(f);
       }}
@@ -1189,6 +1420,8 @@ function DropZone({
         cursor: "pointer",
         padding: 40,
         textAlign: "center",
+        background: isDragging ? "var(--surface-soft)" : "transparent",
+        transition: "background .2s var(--ease)",
       }}
     >
       <span
@@ -1196,12 +1429,13 @@ function DropZone({
         style={{
           width: 64,
           height: 64,
-          border: "1px dashed var(--rule-strong)",
+          border: isDragging ? "1px solid var(--accent)" : "1px dashed var(--rule-strong)",
           borderRadius: 12,
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
           color: "var(--accent)",
+          transition: "border .2s var(--ease)",
         }}
       >
         <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1218,24 +1452,32 @@ function DropZone({
           maxWidth: "24ch",
         }}
       >
-        Add a photo of the room
+        {isDragging ? "Drop it here" : "Add a photo of the room"}
       </h2>
       <p style={{ font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "44ch", margin: 0 }}>
-        JPEG, PNG, or WebP. Up to 10 MB.
+        A straight-on photo in daylight works best. JPEG, PNG or WebP, up to 10 MB.
       </p>
-      <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", justifyContent: "center" }}>
-        <span className="btn">Choose a photo</span>
-      </div>
-
-      {/* Shoot the room on a phone and have it land here. Stop propagation so the
-          QR button / modal don't trigger the dropzone's click-to-choose. */}
       <div
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-        style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}
+        style={{
+          display: "flex",
+          gap: 12,
+          marginTop: 10,
+          flexWrap: "wrap",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
       >
+        <span className="btn">Choose a photo</span>
         <span style={{ font: "400 13px/1 var(--sans)", color: "var(--fg-mute)" }}>or</span>
-        <PhoneHandoff onImage={onDrop} />
+        {/* Shoot the room on a phone and have it land here. Stop propagation so the
+            QR button / modal don't trigger the dropzone's click-to-choose. */}
+        <div
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          style={{ display: "inline-flex" }}
+        >
+          <PhoneHandoff onImage={onDrop} />
+        </div>
       </div>
 
       {uploading && (
@@ -1245,7 +1487,18 @@ function DropZone({
         </span>
       )}
       {error && (
-        <div className="field-error" role="alert">
+        <div
+          className="field-error"
+          role="alert"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            maxWidth: "calc(100% - 48px)",
+          }}
+        >
           {error}
         </div>
       )}

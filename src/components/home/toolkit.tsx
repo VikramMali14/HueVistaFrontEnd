@@ -34,8 +34,8 @@ export function Toolkit() {
             <span style={{ background: "#e9e2d2" }} />
             <span style={{ background: "#3e4a52" }} />
           </div>
-          <h3 className="hv-tk-card-title">AI colour trios</h3>
-          <p className="hv-tk-card-desc">Ask for a combination; every hex snaps to a real catalogue shade, codes intact.</p>
+          <h3 className="hv-tk-card-title">AI colour combinations</h3>
+          <p className="hv-tk-card-desc">Ask for a three-colour combination — each one comes back as a real catalogue shade with its code.</p>
         </article>
 
         {/* White-label — the subdomain types itself */}
