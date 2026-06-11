@@ -103,8 +103,9 @@ export function RetailerCustomers() {
   }
 
   return (
-    <div style={{ border: "1px solid var(--rule)" }}>
+    <div role="table" aria-label="Customers" style={{ border: "1px solid var(--rule)" }}>
       <div
+        role="row"
         className="hv-cust-row hv-cust-head"
         style={{
           display: "grid",
@@ -116,12 +117,15 @@ export function RetailerCustomers() {
         }}
       >
         {["Customer", "Projects", "Access left", ""].map((h, i) => (
-          <Mono key={i}>{h}</Mono>
+          <span key={i} role="columnheader" aria-label={h === "" ? "Actions" : undefined}>
+            <Mono>{h}</Mono>
+          </span>
         ))}
       </div>
       {rows.map((c, i) => (
         <div
           key={c.customerId}
+          role="row"
           className="hv-cust-row"
           style={{
             display: "grid",
@@ -132,14 +136,15 @@ export function RetailerCustomers() {
             gap: 12,
           }}
         >
-          <div className="hv-cust-lead">
+          <div role="cell" className="hv-cust-lead">
             <div style={{ font: "400 18px/1.2 var(--sans)", color: "var(--fg)" }}>{c.customerName}</div>
             <Mono>{c.customerEmail}</Mono>
           </div>
-          <span className="mono" data-label="Projects">
+          <span role="cell" className="mono" data-label="Projects">
             {c.projectsCreated} / {c.projectAllowance}
           </span>
           <span
+            role="cell"
             data-label="Access left"
             style={{
               font: "400 9.5px/1 var(--mono)",
@@ -150,7 +155,7 @@ export function RetailerCustomers() {
           >
             {c.expired ? "expired" : formatAccessLeft(c.accessExpiresAt)}
           </span>
-          <div className="hv-cust-action" style={{ justifySelf: "end" }}>
+          <div role="cell" className="hv-cust-action" style={{ justifySelf: "end" }}>
             <Button
               size="sm"
               variant="ghost"

@@ -110,28 +110,32 @@ export function SupportInbox() {
         {list.length === 0 ? (
           <p style={{ padding: 20, font: "400 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>Nothing waiting — the inbox is clear.</p>
         ) : (
-          list.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => void open(c.id)}
-              style={{
-                display: "block", width: "100%", textAlign: "left", cursor: "pointer",
-                padding: "14px 16px", borderBottom: "1px solid var(--rule)",
-                background: active?.id === c.id ? "var(--surface)" : "transparent", border: "none",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                <span style={{ font: "400 16px/1.2 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.subject || "Support request"}</span>
-                <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-                  <Mono>{CHANNEL_LABEL[c.channel] ?? c.channel}</Mono>
-                  {c.updatedAt && <Mono>{relTime(c.updatedAt)}</Mono>}
-                </span>
-              </div>
-              <div style={{ marginTop: 4 }}><Mono>{c.requesterName} · {titleCase(c.requesterRole)}</Mono></div>
-              <div style={{ marginTop: 6, font: "300 13px/1.4 var(--serif)", color: "var(--fg-mute)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.lastMessage}</div>
-            </button>
-          ))
+          <ul aria-label="Support conversations" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {list.map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => void open(c.id)}
+                  aria-current={active?.id === c.id ? "true" : undefined}
+                  style={{
+                    display: "block", width: "100%", textAlign: "left", cursor: "pointer",
+                    padding: "14px 16px", borderBottom: "1px solid var(--rule)",
+                    background: active?.id === c.id ? "var(--surface)" : "transparent", border: "none",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ font: "400 16px/1.2 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.subject || "Support request"}</span>
+                    <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                      <Mono>{CHANNEL_LABEL[c.channel] ?? c.channel}</Mono>
+                      {c.updatedAt && <Mono>{relTime(c.updatedAt)}</Mono>}
+                    </span>
+                  </div>
+                  <div style={{ marginTop: 4 }}><Mono>{c.requesterName} · {titleCase(c.requesterRole)}</Mono></div>
+                  <div style={{ marginTop: 6, font: "300 13px/1.4 var(--serif)", color: "var(--fg-mute)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.lastMessage}</div>
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
@@ -148,7 +152,7 @@ export function SupportInbox() {
               </div>
               <Button size="sm" variant="ghost" onClick={() => void resolve()} disabled={busy}>Resolve</Button>
             </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", flexDirection: "column", gap: 10, maxHeight: 420 }}>
+            <div role="log" aria-label="Messages" style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", flexDirection: "column", gap: 10, maxHeight: 420 }}>
               {active.messages.map((m) => (
                 <div key={m.id} style={{
                   alignSelf: m.sender === "USER" ? "flex-start" : m.sender === "SYSTEM" ? "center" : "flex-end",

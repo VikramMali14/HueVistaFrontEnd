@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Logo } from "@/components/ui/logo";
 import type { AuthUser } from "@/lib/types";
@@ -17,10 +17,9 @@ const TABS = [
 
 interface AppNavProps {
   user: AuthUser | null;
-  themeToggle?: ReactNode;
 }
 
-export function AppNav({ user, themeToggle }: AppNavProps) {
+export function AppNav({ user }: AppNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const visibleTabs = TABS.filter((t) => {
@@ -82,7 +81,6 @@ export function AppNav({ user, themeToggle }: AppNavProps) {
             {user && (
               <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
             )}
-            {themeToggle}
             <LogoutButton
               className="app-tab"
               style={{
@@ -109,7 +107,6 @@ export function AppNav({ user, themeToggle }: AppNavProps) {
           {user && (
             <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
           )}
-          {themeToggle}
           <LogoutButton
             className="app-tab"
             style={{

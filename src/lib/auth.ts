@@ -2,10 +2,9 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { authApi, billingApi, guestServerApi, HttpError } from "./api";
-import { config, isTheme } from "./config";
-import type { AuthResponse, AuthUser, UiTheme } from "./types";
+import { config } from "./config";
+import type { AuthResponse, AuthUser } from "./types";
 import {
   MOCK_GUEST_CODE,
   MOCK_GUEST_TOKEN,
@@ -20,13 +19,6 @@ const cookieDefaults = {
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
   path: "/",
-};
-
-// Preference cookies (variant, theme) are readable by no one but the server too,
-// but they outlive the session — pinned to the long preferenceTtl.
-const preferenceCookieDefaults = {
-  ...cookieDefaults,
-  maxAge: config.preferenceTtlSeconds,
 };
 
 // Dev-only auth bypass. Gated on both NODE_ENV !== "production" AND the explicit env var
@@ -56,19 +48,12 @@ async function persistSession(auth: AuthResponse) {
     ...cookieDefaults,
     maxAge: Math.max(60, auth.expiresIn),
   });
-  // Theme is user-chosen — keep any existing cookie (which may be a local
-  // toggle the user set before signing in) and otherwise seed from the backend profile.
-  if (!jar.get(config.themeCookie)) {
-    const theme = isTheme(auth.user.uiTheme) ? auth.user.uiTheme : config.defaultTheme;
-    jar.set(config.themeCookie, theme, preferenceCookieDefaults);
-  }
 }
 
 export async function clearSession() {
   const jar = await cookies();
   jar.delete(config.sessionCookie);
   jar.delete(config.accessCookie);
-  // hv_theme is intentionally NOT cleared — a user's preferred theme should survive logout.
 }
 
 /** Whether an anonymous guest session (redeemed shop code) is active. */
@@ -92,29 +77,6 @@ async function maybeClaimGuestProjects(accessToken: string) {
     /* best-effort */
   }
   jar.delete(config.guestCookie);
-}
-
-export async function getUiTheme(): Promise<UiTheme> {
-  const jar = await cookies();
-  const value = jar.get(config.themeCookie)?.value;
-  return isTheme(value) ? value : config.defaultTheme;
-}
-
-export async function setUiThemeAction(theme: UiTheme) {
-  "use server";
-  if (!isTheme(theme)) return;
-  const jar = await cookies();
-  jar.set(config.themeCookie, theme, preferenceCookieDefaults);
-  revalidatePath("/", "layout");
-}
-
-export async function toggleUiThemeAction() {
-  "use server";
-  const current = await getUiTheme();
-  const next: UiTheme = current === "dark" ? "light" : "dark";
-  const jar = await cookies();
-  jar.set(config.themeCookie, next, preferenceCookieDefaults);
-  revalidatePath("/", "layout");
 }
 
 export async function getAccessToken(): Promise<string | null> {
