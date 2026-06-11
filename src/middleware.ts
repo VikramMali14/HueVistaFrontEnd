@@ -14,6 +14,7 @@ const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/pro
 const GUEST_ONLY_PATHS = ["/sign-in", "/sign-in/forgot", "/trial"];
 const ACCESS_COOKIE = "hv_access";
 const SESSION_COOKIE = "hv_refresh";
+const GUEST_COOKIE = "hv_guest";
 const REFRESH_TTL = 60 * 60 * 24 * 7; // 7 days, matches the backend
 
 const INTERNAL_ORIGIN = (
@@ -56,6 +57,19 @@ export async function middleware(req: NextRequest) {
 
   if (!isBff && !isProtected) return NextResponse.next();
 
+  // Anonymous guest creators (redeemed a shop code, no user session) authenticate
+  // with the hv_guest token, which the BFF route validates itself — don't demand a
+  // user session here or the guest endpoints can never be reached.
+  if (pathname.startsWith("/bff/api/guest/") && req.cookies.get(GUEST_COOKIE)?.value) {
+    return NextResponse.next();
+  }
+
+  // Mock mode: sample/uploaded image bytes are public (the share page shows them
+  // to anonymous visitors), so let them through without a session.
+  if (process.env.MOCK_API === "1" && pathname.startsWith("/bff/api/images/files/mock/")) {
+    return NextResponse.next();
+  }
+
   // Browser still holds a (non-expired) access cookie → let it through.
   if (access) return NextResponse.next();
 
@@ -78,6 +92,18 @@ export async function middleware(req: NextRequest) {
 
   // No session at all → bounce.
   if (!refresh) return denied();
+
+  // Mock mode (MOCK_API=1): tokens are static strings — "refresh" locally without
+  // a backend. Kept inline (no ./lib/mock import) because middleware runs on the
+  // edge runtime where the mock store's node:zlib dependency isn't available.
+  if (process.env.MOCK_API === "1" && refresh.startsWith("mock-refresh-")) {
+    const newAccess = refresh.replace("mock-refresh-", "mock-access-");
+    req.cookies.set(ACCESS_COOKIE, newAccess);
+    const res = NextResponse.next({ request: { headers: req.headers } });
+    res.cookies.set(ACCESS_COOKIE, newAccess, cookieOpts(REFRESH_TTL));
+    res.cookies.set(SESSION_COOKIE, refresh, cookieOpts(REFRESH_TTL));
+    return res;
+  }
 
   // Access expired but a refresh token is present → refresh it here. The backend
   // rotates refresh tokens, so we must persist the new pair (which is why this

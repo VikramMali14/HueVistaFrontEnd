@@ -6,6 +6,14 @@ import { revalidatePath } from "next/cache";
 import { authApi, billingApi, guestServerApi, HttpError } from "./api";
 import { config, isTheme } from "./config";
 import type { AuthResponse, AuthUser, UiTheme } from "./types";
+import {
+  MOCK_GUEST_CODE,
+  MOCK_GUEST_TOKEN,
+  mockAuthResponse,
+  mockEnabled,
+  userIdFromMockToken,
+} from "./mock";
+import { findUserByEmail, findUserById, registerUser, toProfile } from "./mock/store";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -143,6 +151,11 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   if (isDevBypass()) return DEV_BYPASS_USER;
   const token = await getAccessToken();
   if (!token) return null;
+  if (mockEnabled()) {
+    const userId = userIdFromMockToken(token);
+    const user = userId ? findUserById(userId) : undefined;
+    return user ? toProfile(user) : null;
+  }
   try {
     return await authApi.profile(token);
   } catch {
@@ -166,6 +179,14 @@ export async function loginAction(formData: FormData) {
 
   if (!email || !password) {
     return { error: "Please enter your email and password." };
+  }
+  if (mockEnabled()) {
+    const user = findUserByEmail(email);
+    if (!user || user.password !== password) {
+      return { error: "Incorrect email or password. (Mock mode: try retailer@huevista.test / huevista123.)" };
+    }
+    await persistSession(mockAuthResponse(toProfile(user)));
+    redirect(next);
   }
   try {
     const auth = await authApi.login({ email, password });
@@ -192,6 +213,14 @@ export async function redeemGuestAction(
   "use server";
   const value = code.trim();
   if (!value) return { error: "Enter the code from your shop." };
+  if (mockEnabled()) {
+    if (value.toUpperCase() !== MOCK_GUEST_CODE) {
+      return { error: `That code wasn't found. (Mock mode: the guest code is ${MOCK_GUEST_CODE}.)` };
+    }
+    const jar = await cookies();
+    jar.set(config.guestCookie, MOCK_GUEST_TOKEN, { ...cookieDefaults, maxAge: 7 * 86_400 });
+    return { shopName: "Mehta Paints & Hardware", code: value.toUpperCase(), validDays: 7 };
+  }
   const hdrs = await headers();
   const clientIp =
     hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("x-real-ip")?.trim() || undefined;
@@ -234,6 +263,14 @@ export async function registerAction(formData: FormData) {
   if (!email) return { error: "Please enter your email." };
   if (password.length < 8) return { error: "Choose a password of at least eight characters." };
 
+  if (mockEnabled()) {
+    if (findUserByEmail(email)) return { error: "An account with that email already exists." };
+    // The trial form provides shop fields → that's a retailer signup; plain register = customer.
+    const user = registerUser({ name, email, password, role: shopName ? "RETAILER" : "CUSTOMER" });
+    await persistSession(mockAuthResponse(toProfile(user)));
+    redirect(next);
+  }
+
   // Real visitor IP (set by the hosting proxy), forwarded so the backend's
   // per-IP signup rate limiter doesn't see every request as the frontend server.
   const hdrs = await headers();
@@ -261,7 +298,7 @@ export async function logoutAction() {
   "use server";
   const jar = await cookies();
   const access = jar.get(config.accessCookie)?.value;
-  if (access) {
+  if (access && !mockEnabled()) {
     try { await authApi.logout(access); } catch { /* ignore */ }
   }
   await clearSession();
@@ -278,6 +315,12 @@ export async function requireActiveSubscription(): Promise<void> {
   if (isDevBypass()) return;
   const token = await getAccessToken();
   if (!token) redirect("/sign-in");
+  if (mockEnabled()) {
+    // Retailers/admins carry the mock ACTIVE trial; everyone else hits the paywall.
+    const user = await getCurrentUser();
+    if (user?.role === "RETAILER" || user?.role === "ADMIN") return;
+    redirect("/pricing?need=subscription");
+  }
   try {
     const sub = await billingApi.currentSubscription(token);
     if (sub?.status === "ACTIVE") return;

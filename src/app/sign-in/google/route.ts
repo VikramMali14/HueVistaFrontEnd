@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { config } from "@/lib/config";
+import { MOCK_EXPIRES_IN, mockAccessToken, mockEnabled, mockRefreshToken } from "@/lib/mock";
 
 const SAFE_PATH = /^\/[A-Za-z0-9/_\-?=&%.]*$/;
 
@@ -32,6 +33,22 @@ export function GET(req: NextRequest) {
     SAFE_PATH.test(requested) && !requested.startsWith("//") && !requested.startsWith("/\\")
       ? requested
       : "/atelier";
+
+  // Mock mode: there is no OAuth backend — sign straight in as the test retailer
+  // so the Google button stays clickable while testing.
+  if (mockEnabled()) {
+    const res = NextResponse.redirect(new URL(next, req.nextUrl.origin), 302);
+    const opts = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+      path: "/",
+      maxAge: MOCK_EXPIRES_IN,
+    };
+    res.cookies.set(config.accessCookie, mockAccessToken("mock-retailer"), opts);
+    res.cookies.set(config.sessionCookie, mockRefreshToken("mock-retailer"), opts);
+    return res;
+  }
 
   const url = new URL(`${config.apiOrigin}/oauth2/authorization/google`);
   url.searchParams.set("next", next);
