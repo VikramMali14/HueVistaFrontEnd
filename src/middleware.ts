@@ -66,7 +66,7 @@ export async function middleware(req: NextRequest) {
 
   // Mock mode: sample/uploaded image bytes are public (the share page shows them
   // to anonymous visitors), so let them through without a session.
-  if (process.env.MOCK_API === "1" && pathname.startsWith("/bff/api/images/files/mock/")) {
+  if (process.env.MOCK_API?.trim() === "1" && pathname.startsWith("/bff/api/images/files/mock/")) {
     return NextResponse.next();
   }
 
@@ -96,7 +96,7 @@ export async function middleware(req: NextRequest) {
   // Mock mode (MOCK_API=1): tokens are static strings — "refresh" locally without
   // a backend. Kept inline (no ./lib/mock import) because middleware runs on the
   // edge runtime where the mock store's node:zlib dependency isn't available.
-  if (process.env.MOCK_API === "1" && refresh.startsWith("mock-refresh-")) {
+  if (process.env.MOCK_API?.trim() === "1" && refresh.startsWith("mock-refresh-")) {
     const newAccess = refresh.replace("mock-refresh-", "mock-access-");
     req.cookies.set(ACCESS_COOKIE, newAccess);
     const res = NextResponse.next({ request: { headers: req.headers } });

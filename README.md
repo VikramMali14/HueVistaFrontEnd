@@ -19,7 +19,7 @@ The frontend expects a HueVista backend reachable at `NEXT_PUBLIC_API_ORIGIN` (d
 ### Testing without the backend (mock mode)
 
 ```bash
-npm run dev:mock                  # = MOCK_API=1 next dev
+npm run dev:mock                  # = MOCK_API=1 next dev (cross-platform via cross-env)
 ```
 
 Mock mode replaces the backend with an in-memory mock at every server-side
