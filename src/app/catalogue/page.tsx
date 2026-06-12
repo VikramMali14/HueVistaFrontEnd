@@ -10,6 +10,8 @@ import { fetchCatalogue } from "@/lib/catalogue";
 import type { PaintShade } from "@/lib/types";
 import { CatalogueToolbar } from "@/components/catalogue/catalogue-toolbar";
 import { ColorMatch } from "@/components/catalogue/color-match";
+import { CompetitorTranslator } from "@/components/catalogue/competitor-translator";
+import { WhitesFinder } from "@/components/catalogue/whites-finder";
 import { Harmonies } from "@/components/catalogue/harmonies";
 
 export const metadata: Metadata = {
@@ -43,7 +45,25 @@ export default async function CataloguePage() {
 
         <section style={{ paddingTop: 80 }}>
           <ColorMatch />
+          <CompetitorTranslator shades={shades} />
           <CatalogueToolbar shades={shades} />
+        </section>
+
+        <section id="whites">
+          <header style={{ marginBottom: 40 }}>
+            <div className="eyebrow-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24 }}>
+              <Eyebrow>Whites finder</Eyebrow>
+              <Mono>sorted by hidden tint</Mono>
+            </div>
+            <h2 className="display" style={{ fontSize: "clamp(36px, 5vw, 72px)", marginTop: 24 }}>
+              Hundreds of whites.<br /><i>Not one alike.</i>
+            </h2>
+            <Lead style={{ marginTop: 24 }}>
+              Every white hides a tint — warm, pinkish, greenish or cool — and on a phone they all
+              look the same. We sort them by that tint; pick two and compare them across the full screen.
+            </Lead>
+          </header>
+          <WhitesFinder shades={shades} />
         </section>
 
         <Harmonies />

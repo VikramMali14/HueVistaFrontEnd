@@ -1692,10 +1692,27 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 
 /* Catalogue shade cards: lift on hover, settle on press */
 .hv-shade-card { transition: transform .35s var(--ease); }
-.hv-shade-card > div:first-child { transition: box-shadow .35s var(--ease); }
+.hv-shade-card .hv-shade-swatch { transition: box-shadow .35s var(--ease); }
 .hv-shade-card:hover { transform: translateY(-4px); }
-.hv-shade-card:hover > div:first-child { box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 28px 48px -18px rgba(0,0,0,.7); }
+.hv-shade-card:hover .hv-shade-swatch { box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 28px 48px -18px rgba(0,0,0,.7); }
 .hv-shade-card:active { transform: translateY(-1px); transition-duration: .12s; }
+
+/* Shade-card tool row: heart · compare · strip · hold-to-wall */
+.hv-card-action {
+  width: 28px; height: 28px; min-height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-mute);
+  font: 400 13px/1 var(--sans);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color .2s var(--ease), border-color .2s var(--ease);
+}
+.hv-card-action:hover { color: var(--fg); border-color: var(--rule-strong); }
+.hv-card-action[aria-pressed="true"] { color: var(--fg); border-color: var(--rule-strong); }
 
 /* Filter-result swap: key the grid by filter state to replay the entrance */
 .hv-grid-swap { animation: hv-grid-swap .45s var(--ease); }
@@ -1732,7 +1749,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .hv-skel { background: var(--surface); }
   .hv-chip, .hv-dd-opt, .hv-journal-row, .hv-journal-row > :last-child,
   .hv-proj-thumb img, .hv-proj-new, .hv-chat-fab, .hv-shade-card,
-  .hv-shade-card > div:first-child, .hv-cat-preview > div,
+  .hv-shade-card .hv-shade-swatch, .hv-cat-preview > div,
   .btn, .text-link { transition: none !important; }
   .hv-cat-preview > div { opacity: 1 !important; }
   .hv-chip:active, .hv-chat-fab:hover, .hv-chat-fab:active,

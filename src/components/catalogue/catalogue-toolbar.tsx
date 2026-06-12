@@ -4,6 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { hexToHsv } from "@/lib/color";
 import type { PaintShade } from "@/lib/types";
+import { UndertoneTag } from "./undertone-tag";
+import { CompareTray, CompareOverlay, COMPARE_MAX } from "./compare-shades";
+import { FanDeck } from "./fan-deck";
+import { FullscreenSwatch } from "./fullscreen-swatch";
+import { BoardsPanel, HeartButton, useBoards } from "./favourites";
 
 const PAGE_SIZE = 96;
 
@@ -130,6 +135,31 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [openId, setOpenId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  // Counter tools: comparison queue, fan-deck strip, hold-to-wall, boards.
+  const [compareCodes, setCompareCodes] = useState<string[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [fanShade, setFanShade] = useState<PaintShade | null>(null);
+  const [wallShade, setWallShade] = useState<PaintShade | null>(null);
+  const [savedToast, setSavedToast] = useState<string | null>(null);
+  const { boards, refresh } = useBoards();
+
+  const compareShades = useMemo(
+    () => compareCodes.map((c) => shades.find((s) => s.code === c)).filter((s): s is PaintShade => Boolean(s)),
+    [compareCodes, shades],
+  );
+
+  const toggleCompare = (s: PaintShade) => {
+    setCompareCodes((prev) => {
+      if (prev.includes(s.code)) return prev.filter((c) => c !== s.code);
+      if (prev.length >= COMPARE_MAX) return prev;
+      return [...prev, s.code];
+    });
+  };
+
+  const showSavedToast = (boardName: string) => {
+    setSavedToast(`Saved to ${boardName}`);
+    setTimeout(() => setSavedToast(null), 1800);
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -233,24 +263,59 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
           {shown.map((s) => {
             const ink = s.lrv >= 45 ? "rgba(26,22,18,.72)" : "rgba(255,255,255,.75)";
             const inkSoft = s.lrv >= 45 ? "rgba(26,22,18,.6)" : "rgba(255,255,255,.65)";
+            const comparing = compareCodes.includes(s.code);
             return (
-              <button
-                key={s.code}
-                type="button"
-                className="hv-shade-card"
-                onClick={() => copyCode(s.code)}
-                aria-label={`${s.name}, ${s.code}. Copy shade code.`}
-                style={{ display: "block", width: "100%", padding: 0, background: "transparent", border: "none", textAlign: "left", cursor: "pointer" }}
-              >
-                <div style={{ aspectRatio: "1 / 1.1", position: "relative", background: s.hex, overflow: "hidden", boxShadow: "0 1px 0 rgba(255,255,255,.06) inset, 0 20px 40px -20px rgba(0,0,0,.6)" }}>
-                  <span style={{ position: "absolute", top: 14, right: 14, font: "400 14px/1 var(--serif)", color: ink }}>{s.code.split("-")[1]}</span>
-                  <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 9px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: inkSoft }}>LRV {s.lrv}</span>
+              <div key={s.code} className="hv-shade-card">
+                <button
+                  type="button"
+                  onClick={() => copyCode(s.code)}
+                  aria-label={`${s.name}, ${s.code}. Copy shade code.`}
+                  style={{ display: "block", width: "100%", padding: 0, background: "transparent", border: "none", textAlign: "left", cursor: "pointer" }}
+                >
+                  <div className="hv-shade-swatch" style={{ aspectRatio: "1 / 1.1", position: "relative", background: s.hex, overflow: "hidden", boxShadow: "0 1px 0 rgba(255,255,255,.06) inset, 0 20px 40px -20px rgba(0,0,0,.6)" }}>
+                    <span style={{ position: "absolute", top: 14, right: 14, font: "400 14px/1 var(--serif)", color: ink }}>{s.code.split("-")[1]}</span>
+                    <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 9px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: inkSoft }}>LRV {s.lrv}</span>
+                  </div>
+                  <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{s.name}</span>
+                    <Mono>{copied === s.code ? `${s.code} · copied` : `${s.code} · ${s.hex}`}</Mono>
+                  </div>
+                </button>
+                <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <UndertoneTag hex={s.hex} />
+                  <span style={{ flex: 1 }} />
+                  <HeartButton shade={s} boards={boards} refresh={refresh} onSaved={showSavedToast} />
+                  <button
+                    type="button"
+                    className="hv-card-action"
+                    onClick={() => toggleCompare(s)}
+                    aria-pressed={comparing}
+                    aria-label={comparing ? `Remove ${s.name} from compare` : `Compare ${s.name} with other shades`}
+                    title={comparing ? "Remove from compare" : compareCodes.length >= COMPARE_MAX ? `Compare is full (${COMPARE_MAX})` : "Add to compare"}
+                    style={comparing ? { color: "var(--accent)", borderColor: "var(--accent)" } : undefined}
+                  >
+                    ⇄
+                  </button>
+                  <button
+                    type="button"
+                    className="hv-card-action"
+                    onClick={() => setFanShade(s)}
+                    aria-label={`Open the lighter-to-darker strip around ${s.name}`}
+                    title="Lighter–darker strip"
+                  >
+                    ☰
+                  </button>
+                  <button
+                    type="button"
+                    className="hv-card-action"
+                    onClick={() => setWallShade(s)}
+                    aria-label={`Show ${s.name} full screen to hold against a wall`}
+                    title="Hold to wall (full screen)"
+                  >
+                    ⛶
+                  </button>
                 </div>
-                <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
-                  <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{s.name}</span>
-                  <Mono>{copied === s.code ? `${s.code} · copied` : `${s.code} · ${s.hex}`}</Mono>
-                </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -270,16 +335,66 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
         </div>
       )}
 
+      {/* ── Boards (saved shades) ── */}
+      <section id="boards" style={{ paddingTop: 96, paddingBottom: 0 }}>
+        <Mono brass>Your boards</Mono>
+        <h2 className="display" style={{ fontSize: "clamp(28px, 3.5vw, 44px)", margin: "12px 0 8px" }}>
+          Saved shades
+        </h2>
+        <p style={{ font: "400 16px/1.55 var(--serif)", color: "var(--fg-soft)", margin: "0 0 28px", maxWidth: "56ch" }}>
+          Tap ♡ on any shade to collect it. Boards stay on this device — share one as a single
+          image on WhatsApp and decide together at home.
+        </p>
+        <BoardsPanel boards={boards} refresh={refresh} catalogue={shades} />
+      </section>
+
+      <CompareTray
+        shades={compareShades}
+        onRemove={(code) => setCompareCodes((prev) => prev.filter((c) => c !== code))}
+        onClear={() => setCompareCodes([])}
+        onOpen={() => setCompareOpen(true)}
+      />
+      {compareOpen && compareShades.length >= 2 && (
+        <CompareOverlay
+          shades={compareShades}
+          onClose={() => setCompareOpen(false)}
+          onRemove={(code) => {
+            setCompareCodes((prev) => {
+              const next = prev.filter((c) => c !== code);
+              if (next.length < 2) setCompareOpen(false);
+              return next;
+            });
+          }}
+        />
+      )}
+      {fanShade && (
+        <FanDeck
+          shade={fanShade}
+          catalogue={shades}
+          onClose={() => setFanShade(null)}
+          onHoldToWall={(s) => { setFanShade(null); setWallShade(s); }}
+        />
+      )}
+      {wallShade && <FullscreenSwatch shades={[wallShade]} onClose={() => setWallShade(null)} />}
+      {savedToast && (
+        <div
+          role="status"
+          style={{ position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: "calc(78px + env(safe-area-inset-bottom))", zIndex: 121, padding: "10px 16px", borderRadius: 999, background: "var(--nav-bg-strong)", border: "1px solid var(--rule-strong)", font: "400 11px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-soft)" }}
+        >
+          {savedToast} · <a href="#boards" style={{ color: "var(--fg)" }}>view</a>
+        </div>
+      )}
+
       <style>{`
         .hv-shade-card { transition: transform .35s var(--ease); }
-        .hv-shade-card > div:first-child { transition: box-shadow .35s var(--ease); }
+        .hv-shade-card .hv-shade-swatch { transition: box-shadow .35s var(--ease); }
         .hv-shade-card:hover { transform: translateY(-4px); }
-        .hv-shade-card:hover > div:first-child { box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 28px 48px -18px rgba(0,0,0,.7); }
+        .hv-shade-card:hover .hv-shade-swatch { box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 28px 48px -18px rgba(0,0,0,.7); }
         .hv-shade-card:active { transform: translateY(-1px); transition-duration: .12s; }
         .hv-grid-swap { animation: hv-grid-swap .45s var(--ease); }
         @keyframes hv-grid-swap { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
         @media (prefers-reduced-motion: reduce) {
-          .hv-shade-card, .hv-shade-card > div:first-child { transition: none; }
+          .hv-shade-card, .hv-shade-card .hv-shade-swatch { transition: none; }
           .hv-shade-card:hover, .hv-shade-card:active { transform: none; }
           .hv-grid-swap { animation: none; }
         }

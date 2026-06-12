@@ -3,6 +3,17 @@
 import { useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { SHADES } from "@/lib/shades";
+import {
+  DARK_ROOM_LRV,
+  fadeSaferAlternatives,
+  lighterSteps,
+  lightShift,
+  LIGHT_SHIFT_BADGE,
+  pairCeilingAndTrim,
+  stepInFanDeck,
+  sunFadeRisk,
+} from "@/lib/color-science";
+import { UndertoneTag } from "@/components/catalogue/undertone-tag";
 import { CustomMatchPanel } from "./color-wheel";
 import { CoordinateSuggestions, type RegionLite } from "./coordinate-suggestions";
 import type { ColorFamily, PaintShade } from "@/lib/types";
@@ -57,6 +68,12 @@ interface ShadeGridProps {
   masksRemaining?: number;
   /** Shades previously applied to the ACTIVE region — one-tap re-apply. */
   triedShades?: ReadonlyArray<PaintShade>;
+  /** Last shades tried anywhere in the project (newest first, max 10). */
+  recentShades?: ReadonlyArray<PaintShade>;
+  /** Outdoor photo: enables the sun-fade warning on risky shades. */
+  outdoor?: boolean;
+  /** Undertone-clash message computed across applied regions, if any. */
+  clashNote?: string | null;
 }
 
 export function ShadeGrid({
@@ -75,6 +92,9 @@ export function ShadeGrid({
   onAddWall,
   masksRemaining,
   triedShades,
+  recentShades,
+  outdoor = false,
+  clashNote,
 }: ShadeGridProps) {
   const [family, setFamily] = useState<(typeof FAMILIES)[number]>("All");
   const [query, setQuery] = useState("");
@@ -365,6 +385,22 @@ export function ShadeGrid({
         />
       )}
 
+      {clashNote && (
+        <div
+          role="note"
+          style={{
+            padding: "10px 16px",
+            borderTop: "1px solid var(--rule)",
+            flexShrink: 0,
+            font: "400 12.5px/1.45 var(--sans)",
+            color: "var(--fg-soft)",
+            background: "var(--surface)",
+          }}
+        >
+          ⚠ {clashNote}
+        </div>
+      )}
+
       {triedShades && triedShades.length > 0 && (
         <div
           style={{
@@ -400,8 +436,48 @@ export function ShadeGrid({
         </div>
       )}
 
+      {/* Across-walls memory: "that pink from before", one tap away. Only
+          shown when it offers something the per-wall row above doesn't. */}
+      {recentShades &&
+        recentShades.length > 0 &&
+        recentShades.some((s) => !(triedShades ?? []).some((t) => t.code === s.code)) && (
+        <div
+          style={{
+            padding: "10px 16px",
+            borderTop: "1px solid var(--rule)",
+            flexShrink: 0,
+          }}
+        >
+          <Mono style={{ display: "block", marginBottom: 8 }}>Recently tried · all walls</Mono>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {recentShades.map((s) => (
+              <button
+                key={s.code}
+                type="button"
+                onClick={() => onSelect(s)}
+                title={hideCodes ? s.name : `${s.name} · ${s.code}`}
+                aria-label={hideCodes ? `Apply ${s.name} again` : `Apply ${s.name} again, code ${s.code}`}
+                style={{
+                  width: 28,
+                  height: 28,
+                  minHeight: 28,
+                  background: s.hex,
+                  border: "1px solid var(--rule-strong)",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <SelectedShadeDetail
         shade={activeShade}
+        catalogue={catalogue}
+        outdoor={outdoor}
+        onSelectShade={onSelect}
         onFindSimilar={
           activeShade
             ? () => {
@@ -466,15 +542,46 @@ function SwatchGrid({
 
 function SelectedShadeDetail({
   shade,
+  catalogue,
+  outdoor = false,
+  onSelectShade,
   onFindSimilar,
   onApply,
   hideCodes = false,
 }: {
   shade?: PaintShade;
+  catalogue: ReadonlyArray<PaintShade>;
+  outdoor?: boolean;
+  /** Applies any shade (steppers and warning alternatives use this). */
+  onSelectShade: (shade: PaintShade) => void;
   onFindSimilar?: () => void;
   onApply?: () => void;
   hideCodes?: boolean;
 }) {
+  // All hooks before the early return — React requires a stable hook order.
+  const lighter = useMemo(
+    () => (shade ? stepInFanDeck(shade, catalogue, -1) : undefined),
+    [shade, catalogue],
+  );
+  const darker = useMemo(
+    () => (shade ? stepInFanDeck(shade, catalogue, 1) : undefined),
+    [shade, catalogue],
+  );
+  const darkRoomAlts = useMemo(
+    () => (shade && shade.lrv < DARK_ROOM_LRV && !outdoor ? lighterSteps(shade, catalogue, 2) : []),
+    [shade, catalogue, outdoor],
+  );
+  const fadeRisky = useMemo(() => Boolean(shade && outdoor && sunFadeRisk(shade)), [shade, outdoor]);
+  const fadeAlts = useMemo(
+    () => (shade && fadeRisky ? fadeSaferAlternatives(shade, catalogue, 2) : []),
+    [shade, catalogue, fadeRisky],
+  );
+  const pairing = useMemo(
+    () => (shade ? pairCeilingAndTrim(shade, catalogue) : {}),
+    [shade, catalogue],
+  );
+  const shift = useMemo(() => (shade ? lightShift(shade.hex) : null), [shade]);
+
   if (!shade) {
     return (
       <div
@@ -498,6 +605,31 @@ function SelectedShadeDetail({
       </div>
     );
   }
+
+  const altChip = (s: PaintShade) => (
+    <button
+      key={s.code}
+      type="button"
+      onClick={() => onSelectShade(s)}
+      title={hideCodes ? s.name : `${s.name} · ${s.code}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 7,
+        padding: "5px 10px 5px 5px",
+        border: "1px solid var(--rule-strong)",
+        borderRadius: 999,
+        background: "var(--surface)",
+        color: "var(--fg)",
+        font: "500 12px/1 var(--sans)",
+        cursor: "pointer",
+      }}
+    >
+      <span aria-hidden style={{ width: 18, height: 18, minHeight: 18, borderRadius: "50%", background: s.hex, border: "1px solid var(--rule-strong)" }} />
+      {s.name}
+    </button>
+  );
+
   return (
     <div
       style={{
@@ -531,15 +663,90 @@ function SelectedShadeDetail({
             {shade.name}
           </span>
           <Mono>{hideCodes ? `${shade.hex} · LRV ${shade.lrv}` : `${shade.code} · ${shade.hex} · LRV ${shade.lrv}`}</Mono>
-          <span
-            style={{
-              font: "400 13px/1.3 var(--sans)", color: "var(--fg-mute)",
-            }}
-          >
-            {shade.finishes.map((f) => f.toLowerCase()).join(" · ")}
+          <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <UndertoneTag hex={shade.hex} prefix />
+            {shift && shift.score >= LIGHT_SHIFT_BADGE && (
+              <span
+                title="This colour changes noticeably under a warm evening bulb"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, font: "400 10px/1 var(--mono)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--fg-mute)" }}
+              >
+                <span aria-hidden style={{ width: 14, height: 8, borderRadius: 2, background: `linear-gradient(90deg, ${shade.hex} 50%, ${shift.warmHex} 50%)`, border: "1px solid var(--rule-strong)" }} />
+                shifts in lamplight
+              </span>
+            )}
           </span>
         </div>
+        {/* Fan-deck steppers: flip through the strip like a paper shade card. */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => lighter && onSelectShade(lighter)}
+            disabled={!lighter}
+            title={lighter ? `One step lighter: ${lighter.name}` : "No lighter step in this family"}
+            aria-label={lighter ? `Apply one step lighter, ${lighter.name}` : "No lighter step"}
+            className="hv-step-btn"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            onClick={() => darker && onSelectShade(darker)}
+            disabled={!darker}
+            title={darker ? `One step darker: ${darker.name}` : "No darker step in this family"}
+            aria-label={darker ? `Apply one step darker, ${darker.name}` : "No darker step"}
+            className="hv-step-btn"
+          >
+            ↓
+          </button>
+        </div>
       </div>
+
+      {darkRoomAlts.length > 0 && (
+        <div role="note" style={{ marginTop: 12, padding: "10px 12px", border: "1px solid var(--rule)", borderRadius: 8, background: "var(--surface)" }}>
+          <p style={{ margin: 0, font: "400 12.5px/1.45 var(--sans)", color: "var(--fg-soft)" }}>
+            This is a deep shade (LRV {shade.lrv}) — the room may feel dark without strong light.
+            Same colour, a step lighter:
+          </p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+            {darkRoomAlts.map(altChip)}
+          </div>
+        </div>
+      )}
+
+      {fadeRisky && (
+        <div role="note" style={{ marginTop: 12, padding: "10px 12px", border: "1px solid var(--rule)", borderRadius: 8, background: "var(--surface)" }}>
+          <p style={{ margin: 0, font: "400 12.5px/1.45 var(--sans)", color: "var(--fg-soft)" }}>
+            Deep {hideCodes ? "shades like this" : `shades like ${shade.name}`} fade faster in
+            strong Indian sun on outside walls.{fadeAlts.length > 0 ? " Nearby colours that hold up longer:" : ""}
+          </p>
+          {fadeAlts.length > 0 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+              {fadeAlts.map(altChip)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {(pairing.ceiling || pairing.trim) && (
+        <div style={{ marginTop: 12 }}>
+          <Mono style={{ display: "block", marginBottom: 6 }}>Goes with</Mono>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            {pairing.ceiling && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 7, font: "400 12px/1.2 var(--sans)", color: "var(--fg-soft)" }}>
+                <span aria-hidden style={{ width: 16, height: 16, borderRadius: 4, background: pairing.ceiling.hex, border: "1px solid var(--rule-strong)" }} />
+                Ceiling: {pairing.ceiling.name}{hideCodes ? "" : ` · ${pairing.ceiling.code}`}
+              </span>
+            )}
+            {pairing.trim && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 7, font: "400 12px/1.2 var(--sans)", color: "var(--fg-soft)" }}>
+                <span aria-hidden style={{ width: 16, height: 16, borderRadius: 4, background: pairing.trim.hex, border: "1px solid var(--rule-strong)" }} />
+                Trim: {pairing.trim.name}{hideCodes ? "" : ` · ${pairing.trim.code}`}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
         <button
           type="button"
@@ -573,6 +780,10 @@ function SelectedShadeDetail({
           Apply to wall
         </button>
       </div>
+      <style>{`
+        .hv-step-btn { width: 30px; height: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--surface); color: var(--fg); cursor: pointer; font: 500 13px/1 var(--sans); padding: 0; }
+        .hv-step-btn:disabled { opacity: .35; cursor: default; }
+      `}</style>
     </div>
   );
 }
