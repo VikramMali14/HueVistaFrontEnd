@@ -43,13 +43,6 @@ export default async function CataloguePage() {
 
         <section style={{ paddingTop: 80 }}>
           <ColorMatch />
-          <p style={{ margin: "-32px 0 48px", font: "400 16px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
-            Working from a photograph?{" "}
-            <Link href="/color-finder" style={{ color: "var(--accent)" }}>
-              Pull colours straight from an image →
-            </Link>
-            <Mono style={{ marginLeft: 8 }}>subscriber tool</Mono>
-          </p>
           <CatalogueToolbar shades={shades} />
         </section>
 

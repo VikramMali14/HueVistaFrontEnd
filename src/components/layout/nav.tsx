@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/ui/logo";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 // --- Menu model -----------------------------------------------------------
 // A top item is either a plain link or a dropdown with link columns and an
@@ -17,8 +18,8 @@ type MenuItem =
   | { label: string; href: string }
   | { label: string; columns: ReadonlyArray<Column>; cards?: ReadonlyArray<Card> };
 
-// NOTE: "/color-finder" is a subscriber-only tool — it gates to pricing/sign-in
-// for visitors without an active subscription, so it's safe to surface here.
+// NOTE: the Colour Finder is a signed-in tool — it lives in the app nav
+// (and the Products tab), not in this public menu.
 const MENU: ReadonlyArray<MenuItem> = [
   {
     label: "Product",
@@ -27,7 +28,6 @@ const MENU: ReadonlyArray<MenuItem> = [
         title: "Visualise",
         links: [
           { href: "/catalogue", label: "Catalogue", desc: "2,481 shades · codes intact" },
-          { href: "/color-finder", label: "Colour Finder", desc: "Photo → shade code" },
           { href: "/gallery", label: "Gallery", desc: "Rooms · only the wall changed" },
           { href: "/journal", label: "Journal", desc: "Notes from the counter" },
         ],
@@ -84,7 +84,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
     <nav className="nav" onMouseLeave={() => setOpenMenu(null)}>
       <div className="nav-inner">
         <Link href="/" className="brand-logo" aria-label="HueVista — home">
-          <Logo size="sm" framed={false} subtitle={false} style={{ color: "var(--ivory)" }} ariaLabel={null} />
+          <Logo size="sm" framed={false} subtitle={false} style={{ color: "var(--fg)" }} ariaLabel={null} />
         </Link>
 
         <div className="nav-links" onKeyDown={(e) => e.key === "Escape" && setOpenMenu(null)}>
@@ -152,6 +152,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
         </div>
 
         <div className="nav-actions">
+          <ThemeToggle />
           {authed ? (
             <>
               <Link href="/dashboard" className="nav-avatar" aria-label="Your dashboard">

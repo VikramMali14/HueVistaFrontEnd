@@ -3,11 +3,11 @@ import { TiltCard } from "@/components/ui/tilt-card";
 
 const SERVICES = [
   {
-    kicker: "Colour finder",
-    title: "Find the code in any photo",
-    desc: "Click a colour in a photograph and get the nearest catalogue shade — its code intact.",
+    kicker: "Pricing",
+    title: "One plan, priced for shops",
+    desc: "Start free for 14 days — no card to begin. Everything included, built for the counter.",
     tone: "terracotta",
-    href: "/color-finder",
+    href: "/pricing",
   },
   {
     kicker: "Catalogue match",
