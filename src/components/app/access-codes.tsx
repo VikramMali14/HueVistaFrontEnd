@@ -203,16 +203,16 @@ export function AccessCodes() {
           No codes yet. Issue one above and share it with a customer.
         </p>
       ) : (
-        <div style={{ border: "1px solid var(--rule)" }}>
-          <div className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
-            {["Code", "Validity", "Expires", "Status"].map((h) => <Mono key={h}>{h}</Mono>)}
+        <div role="table" aria-label="Access codes" style={{ border: "1px solid var(--rule)" }}>
+          <div role="row" className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
+            {["Code", "Validity", "Expires", "Status"].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
           </div>
           {codes.map((c, i) => {
             const status = c.used ? "redeemed" : c.expired ? "expired" : "active";
             const statusColor = status === "active" ? "var(--accent)" : "var(--fg-mute-deep)";
             return (
-              <div key={c.id} className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr", padding: "18px 20px", borderBottom: i === codes.length - 1 ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+              <div key={c.id} role="row" className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr", padding: "18px 20px", borderBottom: i === codes.length - 1 ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
+                <span role="cell" data-label="Code" style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{c.code}</span>
                   {status === "active" && (
                     <button type="button" onClick={() => copy(c.code)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>
@@ -220,9 +220,9 @@ export function AccessCodes() {
                     </button>
                   )}
                 </span>
-                <span className="mono" data-label="Validity">{c.validDays} days</span>
-                <span className="mono" data-label="Expires">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : "—"}</span>
-                <span data-label="Status" style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
+                <span role="cell" className="mono" data-label="Validity">{c.validDays} days</span>
+                <span role="cell" className="mono" data-label="Expires">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : "—"}</span>
+                <span role="cell" data-label="Status" style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
               </div>
             );
           })}

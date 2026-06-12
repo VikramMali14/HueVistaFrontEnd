@@ -120,8 +120,7 @@ export default function PricingPage() {
                   <tr>
                     <th style={{ ...headStyle, width: "34%" }}>Capability</th>
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹499 / mo</div></th>
-                    {/* Literal metallic — the band stays dark in both themes, where
-                        var(--brass-soft) goes near-black in light. Opaque composite
+                    {/* Literal metallic on the always-dark band. Opaque composite
                         so the tint survives sticky overlap. */}
                     <th style={{ ...headStyle, color: "#cbb08a", background: "linear-gradient(rgba(184,153,104,.08), rgba(184,153,104,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "#cbb08a" }}>₹999 / mo</div></th>
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Business<div style={thPriceStyle}>₹1,999 / mo</div></th>
@@ -145,8 +144,8 @@ export default function PricingPage() {
                       </tr>
                     )),
                   ])}
-                  {/* Theme-stable colours: this row lives on the always-dark band,
-                      where .btn/.btn-ghost/var(--brass) flip illegible in light theme. */}
+                  {/* This row lives on the always-dark band, so the buttons use
+                      fixed ivory/brass values rather than tokens. */}
                   <tr key="cta">
                     <td style={ctaCellStyle} />
                     <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>

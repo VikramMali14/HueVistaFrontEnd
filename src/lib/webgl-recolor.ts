@@ -16,6 +16,12 @@
  * mask's soft (anti-aliased) edge is the only place colour blends.
  */
 
+import type { RecolorEngine, RegionPaint } from "./recolor-engine";
+
+// Shared with the Canvas 2D fallback engine (canvas2d-recolor.ts); re-exported
+// so existing `import { type RegionPaint } from "@/lib/webgl-recolor"` keeps working.
+export type { RecolorEngine, RecolorSource, RegionPaint } from "./recolor-engine";
+
 const VERT = `#version 300 es
 in vec2 a_pos;
 out vec2 v_uv;
@@ -71,23 +77,9 @@ void main() {
   outColor = vec4(paint, u_strength * m);
 }`;
 
-/** One painted region to composite over the photo. */
-export interface RegionPaint {
-  /** White-on-black region mask at (any) resolution; null skips the region. */
-  mask: TexImageSource | null;
-  /** Target paint colour, components in 0..1. */
-  target: [number, number, number];
-  /** Shadow/relief preservation strength, 0..1. 0 = flat exact swatch. */
-  preserve?: number;
-  /** Region mean luminance in the source photo, 0..1 (needed when preserve>0). */
-  baseL?: number;
-  /** Overall opacity 0..1 — used to fade a region out (e.g. compare view). */
-  strength?: number;
-}
-
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
-export class Recolor {
+export class Recolor implements RecolorEngine {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram;
   private vbo: WebGLBuffer;

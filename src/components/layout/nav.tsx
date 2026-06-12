@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Logo } from "@/components/ui/logo";
 import { LogoutButton } from "@/components/auth/logout-button";
 
@@ -49,10 +49,9 @@ interface NavProps {
   /** When true, the visitor has an active session: show the account avatar plus
    *  a sign-out control instead of the Sign in / trial CTAs. */
   authed?: boolean;
-  themeToggle?: ReactNode;
 }
 
-export function Nav({ showCta = true, showSignIn = true, authed = false, themeToggle }: NavProps) {
+export function Nav({ showCta = true, showSignIn = true, authed = false }: NavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -153,7 +152,6 @@ export function Nav({ showCta = true, showSignIn = true, authed = false, themeTo
         </div>
 
         <div className="nav-actions">
-          {themeToggle}
           {authed ? (
             <>
               <Link href="/dashboard" className="nav-avatar" aria-label="Your dashboard">

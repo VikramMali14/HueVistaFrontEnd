@@ -1,7 +1,6 @@
 // Must match the backend UserRole enum exactly (auth/model/UserRole.java).
 export type UserRole = "ADMIN" | "DISTRIBUTOR" | "RETAILER" | "PAINTER" | "CUSTOMER";
 export type AuthProvider = "LOCAL" | "GOOGLE";
-export type UiTheme = "dark" | "light";
 
 export interface AuthUser {
   id: string;
@@ -10,8 +9,6 @@ export interface AuthUser {
   picture?: string | null;
   provider: AuthProvider;
   role: UserRole;
-  /** Optional per-user persisted theme preference. Falls back to light. */
-  uiTheme?: UiTheme;
   emailVerified?: boolean;
   phoneNumber?: string | null;
   phoneVerified?: boolean;

@@ -1,13 +1,12 @@
 /* =========================================================
    HUEVISTA  ·  design system
-   One view, two themes (light default · dark), monochrome
-   chrome so the paint colours are the only colour on screen.
+   One view, one dark theme, monochrome chrome so the paint
+   colours are the only colour on screen.
 
    Token layers:
      1. Raw palette     — greys + a few status hues.
      2. Semantic tokens — role-based (bg / fg / surface / accent / rule).
         All UI styles reference these.
-     3. Theme override  — [data-theme="dark"] re-binds layer 2.
 
    Type: --serif is the DISPLAY face (Inter Tight — big, tight
    headlines), --sans is the body face (Inter), --mono is for
@@ -30,49 +29,7 @@
   --sage:            #4e7a52;   /* success */
   --oxblood:         #8a3a2e;
 
-  /* ----- 2. Semantic tokens (default = light) ----- */
-  --bg:              #ffffff;
-  --bg-deep:         #f4f4f2;
-  --surface:         #f9f9f7;
-  --surface-soft:    #efefec;
-  --fg:              #141413;
-  --fg-soft:         #3d3d3a;
-  --fg-mute:         #71716c;
-  --fg-mute-deep:    #9b9b95;
-  --accent:          #141413;
-  --accent-soft:     #3d3d3a;
-  --accent-deep:     #000000;
-  --rule:            rgba(20,20,19,.10);
-  --rule-strong:     rgba(20,20,19,.24);
-  --rule-brass:      rgba(20,20,19,.38);
-  --nav-bg:          rgba(255,255,255,.82);
-  --nav-bg-strong:   rgba(255,255,255,.96);
-  --surface-overlay: rgba(255,255,255,.65);
-  /* Feature "band" sections: a dark band on the light theme; redefined as a
-     warm raised panel on dark (where a near-black band would vanish). */
-  --band:            #0e0e0d;
-  --band-rule:       rgba(20,20,19,0);
-
-  /* Legacy aliases — components reference these raw names inline.
-     They now ride the monochrome accent so everything stays clean. */
-  --brass:           var(--accent);
-  --brass-soft:      var(--accent-soft);
-  --brass-deep:      var(--accent-deep);
-
-  /* ----- 3. Non-color tokens ----- */
-  --hairline: 1px;
-  --ease: cubic-bezier(.2,.7,.2,1);
-  --serif: var(--font-serif), 'Inter Tight', system-ui, sans-serif;   /* display */
-  --sans: var(--font-sans), 'Inter', system-ui, sans-serif;           /* body */
-  --mono: var(--font-mono), 'IBM Plex Mono', ui-monospace, monospace; /* data */
-  --radius: 10px;
-  --radius-pill: 999px;
-
-  --gutter: 40px;
-  --max: 1440px;
-}
-
-[data-theme="dark"] {
+  /* ----- 2. Semantic tokens (dark) ----- */
   --bg:              #0e0e0d;
   --bg-deep:         #090908;
   --surface:         #161615;
@@ -90,15 +47,30 @@
   --nav-bg:          rgba(14,14,13,.82);
   --nav-bg-strong:   rgba(14,14,13,.96);
   --surface-overlay: rgba(14,14,13,.65);
+  /* Feature "band" sections: a warm raised panel
+     (a near-black band would vanish on the dark page). */
+  --band:            #15120d;
+  --band-rule:       rgba(184,153,104,.16);
 
-  /* In the dark theme the accent stays monochrome, but the "brass" alias
-     becomes a real metallic — the premium accent across CTAs, pricing,
-     ribbons, eyebrow marks and the method numerals. */
+  /* Legacy aliases — components reference these raw names inline.
+     The accent stays monochrome, but the "brass" alias is a real
+     metallic — the premium accent across CTAs, pricing, ribbons,
+     eyebrow marks and the method numerals. */
   --brass:           #b89968;
   --brass-soft:      #cbb08a;
   --brass-deep:      #8a6d42;
-  --band:            #15120d;
-  --band-rule:       rgba(184,153,104,.16);
+
+  /* ----- 3. Non-color tokens ----- */
+  --hairline: 1px;
+  --ease: cubic-bezier(.2,.7,.2,1);
+  --serif: var(--font-serif), 'Inter Tight', system-ui, sans-serif;   /* display */
+  --sans: var(--font-sans), 'Inter', system-ui, sans-serif;           /* body */
+  --mono: var(--font-mono), 'IBM Plex Mono', ui-monospace, monospace; /* data */
+  --radius: 10px;
+  --radius-pill: 999px;
+
+  --gutter: 40px;
+  --max: 1440px;
 }
 
 * { box-sizing: border-box; }
@@ -112,20 +84,19 @@ html, body {
   text-rendering: optimizeLegibility;
   font-feature-settings: 'kern' 1, 'liga' 1;
 }
-body { overflow-x: hidden; }
-::selection { background: var(--fg); color: var(--bg); }
-
 /* Ambient page glow — a soft warm light from the top, anchored to the
-   viewport behind all content. Dark theme only; keeps long content pages
-   from feeling flat. Layered into the body background (rather than a
-   negative-z pseudo, which the opaque body background would hide). */
-[data-theme="dark"] body {
+   viewport behind all content; keeps long content pages from feeling
+   flat. Layered into the body background (rather than a negative-z
+   pseudo, which the opaque body background would hide). */
+body {
+  overflow-x: hidden;
   background:
     radial-gradient(115% 70% at 50% -8%, rgba(184,153,104,.07), transparent 56%),
     radial-gradient(90% 60% at 88% 4%, rgba(58,72,112,.05), transparent 60%),
     var(--bg);
   background-attachment: fixed;
 }
+::selection { background: var(--fg); color: var(--bg); }
 
 /* ====== 3D SWATCH CUBE  ·  decorative spinning paint chip ====== */
 .hv-cube { perspective: 760px; margin: 0 auto; }
@@ -265,7 +236,7 @@ button { font-family: inherit; }
 .nav-card-title { font: 600 15px/1.2 var(--sans); color: #f4f4f2; }
 .nav-card-desc { font: 400 12.5px/1.4 var(--sans); color: rgba(244,244,242,.55); }
 
-/* Right cluster: theme toggle · sign in / avatar · Get started */
+/* Right cluster: sign in / avatar · Get started */
 .nav-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 .nav-signin { color: rgba(244,244,242,.78); }
 .nav-cta {
@@ -286,10 +257,6 @@ button { font-family: inherit; }
   transition: filter .2s var(--ease);
 }
 .nav-avatar:hover { filter: brightness(1.1); }
-
-/* Theme toggle + hamburger read light on the dark bar. */
-.nav .theme-toggle { color: rgba(244,244,242,.72); border-color: rgba(244,244,242,.22); }
-.nav .theme-toggle:hover { color: #f4f4f2; border-color: rgba(244,244,242,.5); background: rgba(244,244,242,.08); }
 
 /* ====== PUBLIC-NAV MOBILE MENU (hamburger + drawer) ====== */
 .nav-menu-toggle {
@@ -481,20 +448,6 @@ footer { background: var(--bg-deep); border-top: 1px solid var(--rule); padding:
 .field select { appearance: none; background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%2371716c' d='M5 6L0 0h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
 .field-error { color: var(--terracotta); font: 500 13px/1.4 var(--sans); font-style: normal; }
 
-/* ====== THEME TOGGLE ====== */
-.theme-toggle {
-  display: inline-flex; align-items: center; justify-content: center;
-  background: transparent;
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-pill);
-  color: var(--fg-soft);
-  cursor: pointer;
-  transition: color .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
-  padding: 0;
-}
-.theme-toggle:hover { color: var(--fg); border-color: var(--fg); background: var(--surface-overlay); }
-.theme-toggle:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-
 /* ====== UTILS ====== */
 .center { display: flex; align-items: center; justify-content: center; }
 .grow { flex: 1; }
@@ -519,7 +472,7 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
 
 /* ----- Min tap target on touch devices ----- */
 @media (hover: none) and (pointer: coarse) {
-  .btn, .btn-sm, .nav-link, .app-tab, .theme-toggle,
+  .btn, .btn-sm, .nav-link, .app-tab,
   button, a.btn-ghost { min-height: 44px; }
 }
 
@@ -1456,7 +1409,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 
 /* =========================================================
    LOGO  ·  the HueVista wordmark + dot + rule + subtitle
-   Rides var(--fg) / var(--accent), so it auto-inverts per theme.
+   Rides var(--fg) / var(--accent), so it inherits the page chrome.
 ========================================================= */
 .hv-logo {
   display: inline-block;

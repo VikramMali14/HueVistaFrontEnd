@@ -7,7 +7,7 @@ import { Spinner } from "@/components/ui/spinner";
 import type { RegionKind } from "@/lib/types";
 
 // Selection blue is the one deliberate non-token colour: it must read against
-// warm room photos in both themes. Red marks "remove" actions.
+// warm room photos. Red marks "remove" actions.
 const SELECT_BLUE = "#1d4ed8";
 const REMOVE_RED = "#dc2626";
 
@@ -1070,6 +1070,7 @@ export function MaskStudio({
       role="dialog"
       aria-modal="true"
       aria-label="Mark a wall"
+      aria-describedby="hv-ms-kbd-help"
       onClick={requestClose}
       style={{
         position: "fixed",
@@ -1099,6 +1100,14 @@ export function MaskStudio({
           outline: "none",
         }}
       >
+        {/* Screen-reader-only usage instructions (referenced by aria-describedby on the dialog). */}
+        <p id="hv-ms-kbd-help" className="sr-only">
+          Mark the wall on the room photo using the wand, brush, or corners tool. Keyboard
+          shortcuts: W magic wand, B brush, C corners, X switches between add and remove,
+          left and right bracket change the brush size, plus and minus zoom, 0 fits the photo,
+          Control+Z undoes, Control+Y redoes, Enter finishes a corner shape, Backspace removes
+          the last corner, and Escape closes this dialog.
+        </p>
         {/* Header */}
         <div
           style={{
@@ -1197,16 +1206,16 @@ export function MaskStudio({
             }}
           >
             {wandAvailable && (
-              <button type="button" onClick={() => setTool("wand")} aria-pressed={tool === "wand"} title="Magic wand — tap the wall (W)" style={railBtn(tool === "wand")}>
+              <button type="button" onClick={() => setTool("wand")} aria-pressed={tool === "wand"} aria-keyshortcuts="w" title="Magic wand — tap the wall (W)" style={railBtn(tool === "wand")}>
                 <WandIcon />
                 Wand
               </button>
             )}
-            <button type="button" onClick={() => setTool("brush")} aria-pressed={tool === "brush"} title="Brush — paint the wall (B)" style={railBtn(tool === "brush")}>
+            <button type="button" onClick={() => setTool("brush")} aria-pressed={tool === "brush"} aria-keyshortcuts="b" title="Brush — paint the wall (B)" style={railBtn(tool === "brush")}>
               <BrushIcon />
               Brush
             </button>
-            <button type="button" onClick={() => setTool("poly")} aria-pressed={tool === "poly"} title="Corners — tap around the wall (C)" style={railBtn(tool === "poly")}>
+            <button type="button" onClick={() => setTool("poly")} aria-pressed={tool === "poly"} aria-keyshortcuts="c" title="Corners — tap around the wall (C)" style={railBtn(tool === "poly")}>
               <CornersIcon />
               Corners
             </button>
@@ -1220,6 +1229,7 @@ export function MaskStudio({
                   type="button"
                   onClick={() => setMode(m)}
                   aria-pressed={mode === m}
+                  aria-keyshortcuts="x"
                   title={m === "add" ? "Add to the selection" : "Remove from the selection (X toggles)"}
                   style={{
                     width: 60,
@@ -1240,10 +1250,10 @@ export function MaskStudio({
             <span aria-hidden style={{ width: 40, height: 1, background: "var(--rule)", margin: "2px 0" }} />
 
             <div style={{ display: "flex", gap: 4 }} className="hv-ms-undo">
-              <button type="button" onClick={undo} disabled={histCounts.undo === 0} title="Undo (Ctrl+Z)" style={{ ...railBtn(false, histCounts.undo === 0), width: 29, height: 32, borderRadius: 6 }}>
+              <button type="button" onClick={undo} disabled={histCounts.undo === 0} aria-keyshortcuts="Control+Z" title="Undo (Ctrl+Z)" style={{ ...railBtn(false, histCounts.undo === 0), width: 29, height: 32, borderRadius: 6 }}>
                 <UndoIcon />
               </button>
-              <button type="button" onClick={redo} disabled={histCounts.redo === 0} title="Redo (Ctrl+Y)" style={{ ...railBtn(false, histCounts.redo === 0), width: 29, height: 32, borderRadius: 6 }}>
+              <button type="button" onClick={redo} disabled={histCounts.redo === 0} aria-keyshortcuts="Control+Y" title="Redo (Ctrl+Y)" style={{ ...railBtn(false, histCounts.redo === 0), width: 29, height: 32, borderRadius: 6 }}>
                 <RedoIcon />
               </button>
             </div>
@@ -1315,6 +1325,7 @@ export function MaskStudio({
             />
             <canvas
               ref={overlayRef}
+              aria-hidden="true"
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
             />
             <div
@@ -1373,17 +1384,17 @@ export function MaskStudio({
                 zIndex: 3,
               }}
             >
-              <button type="button" onClick={() => zoomCentre(1 / 1.3)} aria-label="Zoom out" style={zoomBtnStyle}>
+              <button type="button" onClick={() => zoomCentre(1 / 1.3)} aria-label="Zoom out" aria-keyshortcuts="-" style={zoomBtnStyle}>
                 −
               </button>
               <span style={{ font: "500 11px/1 var(--mono)", color: "var(--fg-mute)", minWidth: 38, textAlign: "center" }}>
                 {Math.round(view.s * 100)}%
               </span>
-              <button type="button" onClick={() => zoomCentre(1.3)} aria-label="Zoom in" style={zoomBtnStyle}>
+              <button type="button" onClick={() => zoomCentre(1.3)} aria-label="Zoom in" aria-keyshortcuts="+" style={zoomBtnStyle}>
                 +
               </button>
               {view.s > 1 && (
-                <button type="button" onClick={() => setView(FIT_VIEW)} style={{ ...zoomBtnStyle, width: "auto", padding: "0 8px", font: "500 11px/1 var(--sans)" }}>
+                <button type="button" onClick={() => setView(FIT_VIEW)} aria-keyshortcuts="0" style={{ ...zoomBtnStyle, width: "auto", padding: "0 8px", font: "500 11px/1 var(--sans)" }}>
                   Fit
                 </button>
               )}

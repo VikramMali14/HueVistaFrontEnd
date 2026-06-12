@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
+import { validateEmail } from "@/lib/validation";
 
 type Step = "request" | "reset" | "done";
 
@@ -34,6 +35,9 @@ export function ForgotForm() {
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   // The backend returns 200 whether or not the account exists — only a transport
   // failure (offline, server down) reports an error here.
@@ -47,7 +51,12 @@ export function ForgotForm() {
   };
 
   const request = async () => {
-    if (!email.trim()) return;
+    const invalid = validateEmail(email);
+    if (invalid) {
+      setEmailError(invalid);
+      return;
+    }
+    setEmailError(null);
     setBusy(true);
     setError(null);
     const ok = await requestCode();
@@ -63,10 +72,11 @@ export function ForgotForm() {
   };
 
   const reset = async () => {
-    if (code.trim().length < 4 || password.length < 8) {
-      setError("Enter the 6-digit code and a new password of at least 8 characters.");
-      return;
-    }
+    const codeMsg = code.trim().length !== 6 ? "Enter the 6-digit code from your email." : null;
+    const pwMsg = password.length < 8 ? "Use a new password of at least 8 characters." : null;
+    setCodeError(codeMsg);
+    setPasswordError(pwMsg);
+    if (codeMsg || pwMsg) return;
     setBusy(true);
     setError(null);
     const { ok, message } = await postJson("/api/auth/reset-password", {
@@ -101,12 +111,21 @@ export function ForgotForm() {
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setEmailError(null);
+              }}
               onKeyDown={(e) => e.key === "Enter" && void request()}
               required
               autoComplete="email"
+              inputMode="email"
               placeholder="priya@mehtapaints.in"
+              aria-invalid={emailError ? "true" : undefined}
+              aria-describedby={emailError ? "email-error" : undefined}
             />
+            {emailError && (
+              <p id="email-error" className="field-error" role="alert">{emailError}</p>
+            )}
           </div>
           <button type="button" className="btn" onClick={() => void request()} disabled={busy} style={{ justifyContent: "center" }}>
             {busy ? <><Spinner size={14} color="currentColor" /> Sending…</> : <>Send reset code <span className="arr">→</span></>}
@@ -123,10 +142,18 @@ export function ForgotForm() {
               inputMode="numeric"
               autoComplete="one-time-code"
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+              onChange={(e) => {
+                setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6));
+                setCodeError(null);
+              }}
               placeholder="000000"
               style={{ letterSpacing: ".3em" }}
+              aria-invalid={codeError ? "true" : undefined}
+              aria-describedby={codeError ? "code-error" : undefined}
             />
+            {codeError && (
+              <p id="code-error" className="field-error" role="alert">{codeError}</p>
+            )}
           </div>
           <div className="field">
             <label className="field-label" htmlFor="newpw">New password</label>
@@ -134,12 +161,20 @@ export function ForgotForm() {
               id="newpw"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setPasswordError(null);
+              }}
               onKeyDown={(e) => e.key === "Enter" && void reset()}
               minLength={8}
               autoComplete="new-password"
               placeholder="At least eight characters"
+              aria-invalid={passwordError ? "true" : undefined}
+              aria-describedby={passwordError ? "newpw-error" : undefined}
             />
+            {passwordError && (
+              <p id="newpw-error" className="field-error" role="alert">{passwordError}</p>
+            )}
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <button type="button" className="btn" onClick={() => void reset()} disabled={busy || resending} style={{ justifyContent: "center" }}>

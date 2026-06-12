@@ -12,6 +12,12 @@ import { ProjectDetailsGate, type ProjectDetails } from "./project-details-gate"
 import type { RegionLite } from "./coordinate-suggestions";
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
+import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
+import type { RecolorEngine } from "@/lib/recolor-engine";
+import {
+  PollCancelledError,
+  pollUntilSegmented as pollSegmentationStatus,
+} from "@/lib/segmentation-polling";
 import { api, guestApi, HttpError } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraProject } from "@/lib/payments";
@@ -130,7 +136,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const createCustomMaskCall = guest ? guestApi.createCustomMask : api.createCustomMask;
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const recolorRef = useRef<Recolor | null>(null);
+  const recolorRef = useRef<RecolorEngine | null>(null);
   const srcImgRef = useRef<HTMLImageElement | null>(null);
   const maskCacheRef = useRef<Map<string, Promise<HTMLImageElement>>>(new Map());
   const baseLumaRef = useRef<Map<string, number>>(new Map());
@@ -188,6 +194,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // Transient topbar notices — "Walls detected" / "Saved" auto-hide after a beat.
   const [wallsNoticeVisible, setWallsNoticeVisible] = useState(false);
   const [savedNoticeVisible, setSavedNoticeVisible] = useState(false);
+  // True when WebGL2 was unavailable and we fell back to the Canvas 2D engine.
+  const [basicPreview, setBasicPreview] = useState(false);
+  // 0 = try the WebGL2 engine; >= 1 = remount a fresh canvas and use the 2D
+  // engine. A canvas is locked to its first successful getContext type, so a
+  // partially-initialised WebGL2 attempt (context created, shaders failed)
+  // would leave the original canvas unable to provide a 2D context.
+  const [engineEpoch, setEngineEpoch] = useState(0);
 
   useEffect(() => {
     if (!masksReady) {
@@ -213,15 +226,28 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     const canvas = canvasRef.current;
     if (!canvas) return;
     try {
-      recolorRef.current = new Recolor(canvas);
+      if (engineEpoch === 0) {
+        recolorRef.current = new Recolor(canvas);
+      } else {
+        recolorRef.current = new Canvas2DRecolor(canvas);
+        setBasicPreview(true);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (engineEpoch === 0) {
+        // No WebGL2 — fall back to the approximate Canvas 2D engine instead of
+        // blocking the visualizer, on a freshly mounted canvas (the failed
+        // attempt may have claimed this one for WebGL2).
+        setEngineEpoch(1);
+      } else {
+        // Both engines failed — this browser genuinely can't render previews.
+        setError(err instanceof Error ? err.message : String(err));
+      }
     }
     return () => {
       recolorRef.current?.dispose();
       recolorRef.current = null;
     };
-  }, []);
+  }, [engineEpoch]);
 
   const loadMask = useCallback((url: string) => {
     const cache = maskCacheRef.current;
@@ -357,25 +383,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     };
   }, [openProjectId, applyProjectDetail, getProjectCall]);
 
+  // Poll the backend until segmentation finishes. The loop itself lives in
+  // src/lib/segmentation-polling.ts (pure + unit-testable); this wrapper only
+  // owns the abort token: starting a new poll cancels the previous one, and the
+  // unmount cleanup above flips the live token. Status polling is a user-only
+  // API (guests never auto-segment), so this always goes through `api`.
   const pollUntilSegmented = useCallback(async (id: string) => {
     if (pollAbortRef.current) pollAbortRef.current.cancelled = true;
     const token = { cancelled: false };
     pollAbortRef.current = token;
-    const start = Date.now();
-    const timeoutMs = 90_000;
-    const intervalMs = 1500;
-    while (!token.cancelled) {
-      if (Date.now() - start > timeoutMs) {
-        throw new Error("Detecting walls timed out. Please try again.");
-      }
-      const status = await api.getProjectStatus(id);
-      if (status.status === "SEGMENTED") return status;
-      if (status.status === "FAILED") {
-        throw new Error(status.failureReason || "Could not detect the walls.");
-      }
-      await new Promise((r) => setTimeout(r, intervalMs));
-    }
-    throw new Error("Cancelled.");
+    return pollSegmentationStatus<ProjectDetail>({
+      getStatus: () => api.getProjectStatus(id),
+      isCancelled: () => token.cancelled,
+    });
   }, []);
 
   const validateFile = useCallback((file: File): string | null => {
@@ -421,6 +441,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           setDone((d) => ({ ...d, mask: true }));
         }
       } catch (err) {
+        if (err instanceof PollCancelledError) {
+          // Superseded by a newer poll or the component unmounted — not an error.
+          return;
+        }
         if (err instanceof HttpError && err.status === 401) {
           setError("Your session expired. Please sign in again.");
           setTimeout(() => {
@@ -503,6 +527,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     },
     [cleanOn, createAndSegment, validateFile, uploadImageCall],
   );
+
+  // "Try again" after a wall-detection timeout/failure: re-runs segmentation on
+  // the ALREADY-created project, so the customer never re-uploads the photo.
+  const handleRetrySegmentation = useCallback(async () => {
+    if (!projectId) return;
+    setError(null);
+    setSegmenting(true);
+    try {
+      await api.requestSegmentation(projectId);
+      const segmented = await pollUntilSegmented(projectId);
+      await applyProjectDetail(segmented);
+      setMasksReady(true);
+      setDone((d) => ({ ...d, mask: true }));
+    } catch (err) {
+      if (err instanceof PollCancelledError) return;
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setSegmenting(false);
+    }
+  }, [projectId, pollUntilSegmented, applyProjectDetail]);
 
   const handleBuyAndRetry = useCallback(async () => {
     setError(null);
@@ -759,6 +803,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
 
+  // Wall detection can be retried without re-uploading the photo once the
+  // project exists and we're still on the mask step (guests never auto-segment).
+  const canRetrySegmentation = Boolean(projectId) && stage === "mask" && !guest;
+  // Errors after the photo is on screen (segmentation timeout/failure, share
+  // failures…) need their own surface — the DropZone one is gone by then.
+  const showCanvasError = Boolean(
+    error && imageUrl && !uploading && !segmenting &&
+    !limitReached && !accessExpired && !needVerification && !needSubscription,
+  );
+
   return (
     <div
       className="hv-visualizer"
@@ -774,6 +828,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+          {basicPreview && (
+            <span style={controlChipStyle} title="WebGL2 unavailable — using the simplified renderer">
+              {"Basic preview mode — this browser doesn't support WebGL2, colours are approximate."}
+            </span>
+          )}
           {classification && (
             <span style={{ ...controlChipStyle, color: "var(--accent)" }}>
               {classification === "INDOOR" ? "Indoor" : classification === "OUTDOOR" ? "Outdoor" : "Unknown"}
@@ -855,6 +914,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       <div className="hv-vis-body" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 0 }}>
         <div className="hv-vis-canvas-wrap" style={{ position: "relative", background: "var(--surface)" }}>
           <canvas
+            key={engineEpoch}
             ref={canvasRef}
             style={{
               position: "absolute",
@@ -1179,6 +1239,64 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 Hold to see original
               </button>
             </>
+          )}
+          {showCanvasError && (
+            <div
+              className="field-error"
+              role="alert"
+              style={{
+                position: "absolute",
+                top: 20,
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 6,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                maxWidth: "calc(100% - 48px)",
+                background: "var(--bg)",
+                border: "1px solid var(--rule-strong)",
+                borderRadius: 8,
+                padding: "10px 14px",
+              }}
+            >
+              <span>{error}</span>
+              {canRetrySegmentation && (
+                <button
+                  type="button"
+                  onClick={() => void handleRetrySegmentation()}
+                  style={{
+                    padding: "6px 12px",
+                    background: "transparent",
+                    border: "1px solid var(--rule-strong)",
+                    borderRadius: 6,
+                    color: "var(--fg-soft)",
+                    whiteSpace: "nowrap",
+                    font: "500 12px/1 var(--sans)",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  Try again
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                aria-label="Dismiss error"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                  color: "var(--fg-mute)",
+                  font: "500 14px/1 var(--sans)",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
           )}
           <LoaderOverlay show={uploading || segmenting} label={overlayLabel} hint={overlayHint} />
           {(limitReached || accessExpired || needVerification || needSubscription) && (

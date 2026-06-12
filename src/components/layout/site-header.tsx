@@ -1,5 +1,4 @@
-import { getUiTheme, hasSession } from "@/lib/auth";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { hasSession } from "@/lib/auth";
 import { Nav } from "./nav";
 
 interface SiteHeaderProps {
@@ -8,16 +7,6 @@ interface SiteHeaderProps {
 }
 
 export async function SiteHeader({ showCta, showSignIn }: SiteHeaderProps) {
-  const [theme, authed] = await Promise.all([
-    getUiTheme(),
-    hasSession(),
-  ]);
-  return (
-    <Nav
-      showCta={showCta}
-      showSignIn={showSignIn}
-      authed={authed}
-      themeToggle={<ThemeToggle theme={theme} />}
-    />
-  );
+  const authed = await hasSession();
+  return <Nav showCta={showCta} showSignIn={showSignIn} authed={authed} />;
 }

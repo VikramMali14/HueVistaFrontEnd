@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { GoogleButton } from "@/components/auth/google-button";
+import { validatePhone } from "@/lib/validation";
 
 interface TrialFormProps {
   action: (formData: FormData) => Promise<{ error?: string } | void>;
@@ -27,6 +28,7 @@ const STATES = [
 
 export function TrialForm({ action, next }: TrialFormProps) {
   const [error, setError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -43,6 +45,12 @@ export function TrialForm({ action, next }: TrialFormProps) {
         // Surface the browser's bubble on the exact offending field (works with noValidate).
         if (!e.currentTarget.reportValidity()) return;
         const fd = new FormData(e.currentTarget);
+        const phoneMsg = validatePhone(String(fd.get("phone") ?? ""));
+        if (phoneMsg) {
+          setPhoneError(phoneMsg);
+          (e.currentTarget.elements.namedItem("phone") as HTMLInputElement | null)?.focus();
+          return;
+        }
         startTransition(async () => {
           setError(null);
           try {
@@ -83,7 +91,24 @@ export function TrialForm({ action, next }: TrialFormProps) {
           <Field label="First name" name="firstName" required placeholder="Priya" autoComplete="given-name" />
           <Field label="Last name" name="lastName" required placeholder="Mehta" autoComplete="family-name" />
           <Field label="Email" name="email" type="email" required placeholder="priya@mehtapaints.in" autoComplete="email" />
-          <Field label="Phone · WhatsApp" name="phone" type="tel" required placeholder="+91 98 2210 4476" autoComplete="tel" />
+          <div className="field">
+            <label className="field-label" htmlFor="phone">Phone · WhatsApp</label>
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              required
+              placeholder="+91 98 2210 4476"
+              autoComplete="tel"
+              inputMode="tel"
+              aria-invalid={phoneError ? "true" : undefined}
+              aria-describedby={phoneError ? "phone-error" : undefined}
+              onChange={() => setPhoneError(null)}
+            />
+            {phoneError && (
+              <p id="phone-error" className="field-error" role="alert">{phoneError}</p>
+            )}
+          </div>
           <div className="field full">
             <label className="field-label" htmlFor="password">Password</label>
             <div style={{ position: "relative" }}>

@@ -6,6 +6,7 @@ import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { redeemGuestAction } from "@/lib/auth";
+import { ACCESS_CODE_LENGTH, normalizeAccessCode, validateAccessCode } from "@/lib/validation";
 
 /**
  * Public guest redemption. A walk-in customer enters the code from their shop
@@ -20,8 +21,12 @@ export function GuestRedeemForm() {
   const [shop, setShop] = useState<{ shopName: string; validDays: number } | null>(null);
 
   async function redeem() {
-    const value = code.trim();
-    if (!value) return;
+    const value = normalizeAccessCode(code);
+    const invalid = validateAccessCode(value);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     setStatus("redeeming");
     setError(null);
     const res = await redeemGuestAction(value);
@@ -80,11 +85,16 @@ export function GuestRedeemForm() {
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", maxWidth: 460 }}>
         <input
           value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          onChange={(e) => {
+            setCode(normalizeAccessCode(e.target.value));
+            setError(null);
+          }}
           onKeyDown={(e) => e.key === "Enter" && void redeem()}
           placeholder="e.g. 7K2NQ9PX"
           aria-label="Access code"
+          maxLength={ACCESS_CODE_LENGTH}
           spellCheck={false}
+          aria-invalid={error ? "true" : undefined}
           style={{
             flex: 1,
             minWidth: 200,
@@ -97,12 +107,12 @@ export function GuestRedeemForm() {
             fontSize: 16,
           }}
         />
-        <Button onClick={() => void redeem()} disabled={status === "redeeming" || !code.trim()}>
+        <Button onClick={() => void redeem()} disabled={status === "redeeming" || validateAccessCode(code) !== null}>
           {status === "redeeming" ? <><Spinner size={14} color="currentColor" /> Redeeming…</> : <>Redeem <span className="arr">→</span></>}
         </Button>
       </div>
 
-      {error && <div className="field-error" role="alert" style={{ marginTop: 16 }}>{error}</div>}
+      {error && <p className="field-error" role="alert" style={{ marginTop: 16 }}>{error}</p>}
 
       <p style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 20, maxWidth: "48ch" }}>
         <Mono>Already have an account?</Mono>{" "}

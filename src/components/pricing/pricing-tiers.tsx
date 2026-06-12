@@ -49,8 +49,7 @@ export function PricingTiers() {
                 cursor: "pointer",
               }}
             >
-              {/* Literal metallic — the toggle sits on theme-invariant charcoal,
-                  where var(--brass) goes near-black in the light theme. */}
+              {/* Literal metallic — keeps the accent legible on the charcoal toggle plate. */}
               {p === "monthly" ? "Monthly" : (
                 <>Annual <span style={{ color: period === p ? "var(--brass-deep)" : "#b89968" }}>· 2 months free</span></>
               )}
