@@ -281,39 +281,35 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
                     <Mono>{copied === s.code ? `${s.code} · copied` : `${s.code} · ${s.hex}`}</Mono>
                   </div>
                 </button>
-                <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                {/* Tool row: heart · compare · strip (the strip's footer holds
+                    "Hold to wall", so it needs no button of its own — three
+                    targets stay comfortable even on a two-column phone grid). */}
+                <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, rowGap: 8, flexWrap: "wrap" }}>
                   <UndertoneTag hex={s.hex} />
                   <span style={{ flex: 1 }} />
-                  <HeartButton shade={s} boards={boards} refresh={refresh} onSaved={showSavedToast} />
-                  <button
-                    type="button"
-                    className="hv-card-action"
-                    onClick={() => toggleCompare(s)}
-                    aria-pressed={comparing}
-                    aria-label={comparing ? `Remove ${s.name} from compare` : `Compare ${s.name} with other shades`}
-                    title={comparing ? "Remove from compare" : compareCodes.length >= COMPARE_MAX ? `Compare is full (${COMPARE_MAX})` : "Add to compare"}
-                    style={comparing ? { color: "var(--accent)", borderColor: "var(--accent)" } : undefined}
-                  >
-                    ⇄
-                  </button>
-                  <button
-                    type="button"
-                    className="hv-card-action"
-                    onClick={() => setFanShade(s)}
-                    aria-label={`Open the lighter-to-darker strip around ${s.name}`}
-                    title="Lighter–darker strip"
-                  >
-                    ☰
-                  </button>
-                  <button
-                    type="button"
-                    className="hv-card-action"
-                    onClick={() => setWallShade(s)}
-                    aria-label={`Show ${s.name} full screen to hold against a wall`}
-                    title="Hold to wall (full screen)"
-                  >
-                    ⛶
-                  </button>
+                  <span style={{ display: "inline-flex", gap: 6 }}>
+                    <HeartButton shade={s} boards={boards} refresh={refresh} onSaved={showSavedToast} />
+                    <button
+                      type="button"
+                      className="hv-card-action"
+                      onClick={() => toggleCompare(s)}
+                      aria-pressed={comparing}
+                      aria-label={comparing ? `Remove ${s.name} from compare` : `Compare ${s.name} with other shades`}
+                      title={comparing ? "Remove from compare" : compareCodes.length >= COMPARE_MAX ? `Compare is full (${COMPARE_MAX})` : "Add to compare"}
+                      style={comparing ? { color: "var(--accent)", borderColor: "var(--accent)" } : undefined}
+                    >
+                      ⇄
+                    </button>
+                    <button
+                      type="button"
+                      className="hv-card-action"
+                      onClick={() => setFanShade(s)}
+                      aria-label={`Open the lighter-to-darker strip around ${s.name}, with a full-screen hold-to-wall view`}
+                      title="Shade strip · hold to wall"
+                    >
+                      ☰
+                    </button>
+                  </span>
                 </div>
               </div>
             );

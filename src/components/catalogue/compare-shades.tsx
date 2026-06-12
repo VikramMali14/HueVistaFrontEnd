@@ -40,6 +40,8 @@ export function CompareTray({
         boxShadow: "0 24px 48px -20px rgba(0,0,0,.5)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
+        // Never wider than a phone screen; swatches shrink before it clips.
+        maxWidth: "calc(100vw - 16px)",
       }}
     >
       <div style={{ display: "flex", gap: 6 }}>
@@ -120,17 +122,21 @@ export function CompareOverlay({
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+      <div
+        className="hv-compare-cols"
+        style={{ "--cols": shades.length, "--cols-sm": Math.min(2, shades.length) } as React.CSSProperties}
+      >
         {shades.map((s) => {
           const ink = s.lrv >= 45 ? "rgba(26,22,18,.8)" : "rgba(255,255,255,.88)";
           const shift = lightShift(s.hex);
           return (
-            <div key={s.code} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", borderRight: "1px solid var(--rule)" }}>
+            <div key={s.code} className="hv-compare-col" style={{ minWidth: 0, display: "flex", flexDirection: "column", borderRight: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
               <button
                 type="button"
+                className="hv-compare-swatch"
                 onClick={() => setWall([s])}
                 aria-label={`View ${s.name} full screen`}
-                style={{ flex: 1, background: s.hex, border: "none", cursor: "pointer", position: "relative" }}
+                style={{ background: s.hex, border: "none", cursor: "pointer", position: "relative" }}
               >
                 <span style={{ position: "absolute", top: 12, left: 12, font: "400 10px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: ink, opacity: 0.8 }}>
                   LRV {s.lrv}
@@ -149,7 +155,7 @@ export function CompareOverlay({
                 <button
                   type="button"
                   onClick={() => onRemove(s.code)}
-                  style={{ alignSelf: "flex-start", marginTop: 2, background: "transparent", border: "none", color: "var(--fg-mute)", cursor: "pointer", font: "400 10px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", padding: 0 }}
+                  style={{ alignSelf: "flex-start", marginTop: 2, background: "transparent", border: "none", color: "var(--fg-mute)", cursor: "pointer", font: "400 10px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", padding: "6px 0" }}
                 >
                   Remove
                 </button>
@@ -158,6 +164,21 @@ export function CompareOverlay({
           );
         })}
       </div>
+      <style>{`
+        /* One column per shade on wide screens; phones get a 2-up grid that
+           scrolls vertically, so 3-4 swatches stay big enough to judge. */
+        .hv-compare-cols {
+          flex: 1; min-height: 0;
+          display: grid;
+          grid-template-columns: repeat(var(--cols), 1fr);
+          overflow-y: auto;
+        }
+        .hv-compare-swatch { flex: 1; min-height: 200px; }
+        @media (max-width: 640px) {
+          .hv-compare-cols { grid-template-columns: repeat(var(--cols-sm), 1fr); align-content: start; }
+          .hv-compare-swatch { flex: none; min-height: clamp(140px, 26vh, 240px); }
+        }
+      `}</style>
     </div>
   );
 }

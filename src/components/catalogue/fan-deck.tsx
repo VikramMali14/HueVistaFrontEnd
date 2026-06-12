@@ -62,7 +62,7 @@ export function FanDeck({ shade, catalogue, onClose, onHoldToWall, hideCodes = f
           flexDirection: "column",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: "1px solid var(--rule)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, rowGap: 10, flexWrap: "wrap", padding: "14px 16px", borderBottom: "1px solid var(--rule)" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span style={{ font: "600 15px/1.2 var(--sans)", color: "var(--fg)" }}>Shade strip</span>
             <Mono>lightest → darkest · like the paper card</Mono>
@@ -109,7 +109,7 @@ export function FanDeck({ shade, catalogue, onClose, onHoldToWall, hideCodes = f
           })}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 16px", borderTop: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, rowGap: 10, flexWrap: "wrap", padding: "12px 16px", borderTop: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
             <span style={{ font: "600 14px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{focused.name}</span>
             <UndertoneTag hex={focused.hex} prefix />
