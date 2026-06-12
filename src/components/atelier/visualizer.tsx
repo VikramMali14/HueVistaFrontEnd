@@ -19,6 +19,7 @@ import {
   pollUntilSegmented as pollSegmentationStatus,
 } from "@/lib/segmentation-polling";
 import { api, guestApi, HttpError } from "@/lib/api";
+import { undertoneClash } from "@/lib/color-science";
 import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraProject } from "@/lib/payments";
 import type {
@@ -189,6 +190,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [savingMask, setSavingMask] = useState(false);
   // Per-region history of catalogue shades the user tried (newest first, max 5).
   const [triedByRegion, setTriedByRegion] = useState<Record<string, PaintShade[]>>({});
+  // Project-wide history (newest first, max 10) — "that pink from before".
+  const [recentShades, setRecentShades] = useState<PaintShade[]>([]);
   // "Copy palette" click feedback on the applied-palette strip.
   const [paletteCopied, setPaletteCopied] = useState(false);
   // Transient topbar notices — "Walls detected" / "Saved" auto-hide after a beat.
@@ -600,6 +603,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         const list = prev[regionId] ?? [];
         return { ...prev, [regionId]: [shade, ...list.filter((s) => s.code !== shade.code)].slice(0, 5) };
       });
+      setRecentShades((prev) => [shade, ...prev.filter((s) => s.code !== shade.code)].slice(0, 10));
       setStage("recolor");
       setDone((d) => ({ ...d, mask: true, recolor: true }));
 
@@ -767,6 +771,21 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   }, [regions, guest]);
 
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
+
+  // Undertone check across every painted wall: the first warm-vs-cool (or
+  // white-tint) fight found becomes a quiet note in the shade panel.
+  const clashNote = useMemo(() => {
+    const painted = regions.filter((r) => r.applied);
+    for (let i = 0; i < painted.length; i++) {
+      for (let j = i + 1; j < painted.length; j++) {
+        const verdict = undertoneClash(painted[i]!.hex, painted[j]!.hex);
+        if (verdict.clash) {
+          return `${painted[i]!.label} and ${painted[j]!.label}: ${verdict.reason}.`;
+        }
+      }
+    }
+    return null;
+  }, [regions]);
 
   // Slim region list for the shade grid's coordinate suggestions.
   const regionLites = useMemo<RegionLite[]>(
@@ -1388,6 +1407,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           onAddWall={() => setMaskStudioOpen(true)}
           masksRemaining={masksRemaining}
           triedShades={triedByRegion[activeRegion]}
+          recentShades={recentShades}
+          outdoor={classification === "OUTDOOR"}
+          clashNote={clashNote}
         />
       </div>
 

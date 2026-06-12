@@ -5,11 +5,13 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Logo } from "@/components/ui/logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { AuthUser } from "@/lib/types";
 
 const TABS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/atelier", label: "Studio" },
+  { href: "/color-finder", label: "Colour finder" },
   { href: "/portal", label: "Customer portal" },
   { href: "/products", label: "Products" },
   { href: "/inbox", label: "Inbox" },
@@ -78,6 +80,7 @@ export function AppNav({ user }: AppNavProps) {
             </Link>
           ))}
           <div className="app-drawer-meta">
+            <ThemeToggle />
             {user && (
               <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
             )}
@@ -104,6 +107,7 @@ export function AppNav({ user }: AppNavProps) {
           ))}
         </div>
         <div className="app-nav-meta">
+          <ThemeToggle />
           {user && (
             <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
           )}
@@ -133,7 +137,7 @@ export function AppNav({ user }: AppNavProps) {
       <style>{`
         .masthead-strip { background: var(--bg-deep); color: var(--fg-soft); border-bottom: 1px solid var(--rule); padding: 10px var(--gutter); font: 400 10px/1 var(--mono); letter-spacing: .32em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; }
         .masthead-strip .dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
-        .app-nav-inner { background: var(--nav-bg-strong); -webkit-backdrop-filter: blur(20px) saturate(140%); backdrop-filter: blur(20px) saturate(140%); border-bottom: 1px solid var(--rule); padding: 18px var(--gutter); display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 60; flex-wrap: wrap; }
+        .app-nav-inner { background: var(--nav-bg); -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%); border-bottom: 1px solid var(--rule); padding: 18px var(--gutter); display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 60; flex-wrap: wrap; }
         .app-tabs { display: flex; gap: 8px; margin-left: auto; }
         .app-tab { font: 400 11px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; padding: 12px 16px; color: var(--fg-mute); border: 1px solid transparent; transition: color .25s var(--ease), border-color .25s var(--ease); }
         .app-tab.active, .app-tab:hover { color: var(--fg); border-color: var(--rule-strong); }
