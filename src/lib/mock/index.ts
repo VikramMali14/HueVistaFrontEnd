@@ -32,7 +32,8 @@ export const MOCK_GUEST_TOKEN = "mock-guest-token";
 export const MOCK_EXPIRES_IN = 60 * 60 * 24 * 7;
 
 export function mockEnabled(): boolean {
-  return process.env.MOCK_API === "1";
+  // trim: Windows `set MOCK_API=1 && …` puts the space before `&&` into the value.
+  return process.env.MOCK_API?.trim() === "1";
 }
 
 export interface MockUserSeed extends AuthUser {
