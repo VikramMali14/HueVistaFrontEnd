@@ -83,9 +83,9 @@ export function FabricPalette({ shades }: { shades: ReadonlyArray<PaintShade> })
   };
 
   return (
-    <div style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px" }}>
+    <div className="hv-finder" style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px" }}>
       <Mono brass>From a saree, sofa or curtain</Mono>
-      <p style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
+      <p className="finder-lead" style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
         Upload a photo of a fabric or furniture you love. We pull out its main colours and build a
         wall scheme around them — real catalogue shades, codes intact.
       </p>

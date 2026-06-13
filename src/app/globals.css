@@ -1713,6 +1713,17 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-card-action:hover { color: var(--fg); border-color: var(--rule-strong); }
 .hv-card-action[aria-pressed="true"] { color: var(--fg); border-color: var(--rule-strong); }
+/* Fingers need more than 28px — grow the targets where there's no mouse. */
+@media (hover: none) and (pointer: coarse) {
+  .hv-card-action { width: 34px; height: 34px; min-height: 34px; font-size: 15px; }
+}
+
+/* ----- Colour finder + fabric palette: tighter framing on phones ----- */
+@media (max-width: 640px) {
+  .hv-finder { padding: 16px 14px 20px !important; }
+  .hv-finder .finder-lead { font-size: 16px !important; }
+  .hv-finder .finder-drop { font-size: 19px !important; }
+}
 
 /* Filter-result swap: key the grid by filter state to replay the entrance */
 .hv-grid-swap { animation: hv-grid-swap .45s var(--ease); }

@@ -56,9 +56,9 @@ export function ColorMatch() {
   }
 
   return (
-    <div style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px", marginBottom: 48 }}>
+    <div className="hv-finder" style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px", marginBottom: 48 }}>
       <Mono brass>Match any colour</Mono>
-      <p style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
+      <p className="finder-lead" style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
         Pick or paste any colour and we&apos;ll find the catalogue shades that look closest to the eye — codes intact.
       </p>
       <form onSubmit={(e) => { e.preventDefault(); void findNearest(); }} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>

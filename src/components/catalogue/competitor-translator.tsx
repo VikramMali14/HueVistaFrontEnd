@@ -44,9 +44,9 @@ export function CompetitorTranslator({ shades }: { shades: ReadonlyArray<PaintSh
   };
 
   return (
-    <div style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px", marginBottom: 48 }}>
+    <div className="hv-finder" style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px", marginBottom: 48 }}>
       <Mono brass>Have a Berger or Nerolac code?</Mono>
-      <p style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
+      <p className="finder-lead" style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
         Type the code from the customer&apos;s slip and we&apos;ll find the nearest shades in our
         catalogue — with an honest rating of how close the match really is.
       </p>
