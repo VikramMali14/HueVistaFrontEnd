@@ -317,7 +317,7 @@ export const api = {
     browserFetch<OrgResponse>("api/organizations", { method: "POST", body: JSON.stringify(body) }),
   listAccessCodes: (orgId: string) =>
     browserFetch<AccessCode[]>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`),
-  createAccessCode: (orgId: string, body: { validDays: number }) =>
+  createAccessCode: (orgId: string, body: { validDays: number; allowedBrands?: string[] }) =>
     browserFetch<AccessCode>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`, {
       method: "POST",
       body: JSON.stringify(body),
@@ -368,8 +368,9 @@ export const api = {
 /**
  * Guest (anonymous, access-code-scoped) creator API. Same shapes as the relevant
  * `api` methods but hitting /api/guest/* (the BFF attaches the guest token). The
- * guest gets ONE project, builds regions by hand (no AI auto-segment), and sees
- * masked responses — real shade codes are hidden from them.
+ * guest gets ONE project and sees masked responses — real shade codes are hidden
+ * from them. AI wall-detection is available but billed to the issuing shop's quota;
+ * a 402 means the shop is out of credits and the guest marks walls by hand instead.
  */
 export const guestApi = {
   uploadImage: async (file: File) => {
@@ -382,6 +383,12 @@ export const guestApi = {
   getProject: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}`),
   listProjects: () => browserFetch<ProjectSummary[]>("api/guest/projects"),
+  // AI wall-detection (billed to the issuing shop). Throws HttpError 402 when the
+  // shop has no AI credits left — caller should fall back to manual wall-marking.
+  requestSegmentation: (projectId: string) =>
+    browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/segment`, {
+      method: "POST",
+    }),
   updateRegionColors: (projectId: string, updates: RegionColorUpdate[]) =>
     browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/regions`, {
       method: "PUT",

@@ -100,6 +100,10 @@ export function ShadeGrid({
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("Catalogue");
   const [section, setSection] = useState<Section>("top50");
+  // Company filter — empty set means "every available brand". For guests the
+  // incoming `shades` are already limited to the brands the shop unlocked, so
+  // these checkboxes let them narrow further within that allowed set.
+  const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
   // Seed colour for the Custom (nearest-match) panel, set by a shade's "Find similar".
   const [customSeed, setCustomSeed] = useState<string | undefined>(undefined);
 
@@ -108,14 +112,21 @@ export function ShadeGrid({
     [shades],
   );
 
+  // Distinct paint companies present in the (already brand-scoped) catalogue, sorted.
+  const availableBrands = useMemo(
+    () => Array.from(new Set(catalogue.map((s) => s.brand))).sort((a, b) => a.localeCompare(b)),
+    [catalogue],
+  );
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return catalogue.filter((s) => {
       if (family !== "All" && s.family !== family) return false;
+      if (selectedBrands.size > 0 && !selectedBrands.has(s.brand)) return false;
       if (!q) return true;
       return s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.hex.toLowerCase().includes(q);
     });
-  }, [catalogue, family, query]);
+  }, [catalogue, family, selectedBrands, query]);
 
   const top = useMemo(() => shown.slice(0, TOP_N), [shown]);
 
@@ -256,6 +267,55 @@ export function ShadeGrid({
               ))}
             </div>
           </div>
+
+          {/* COMPANY filter — only shown when more than one brand is available. */}
+          {availableBrands.length > 1 && (
+            <div style={{ padding: 12, borderBottom: "1px solid var(--rule)", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <Mono>Company</Mono>
+                {selectedBrands.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBrands(new Set())}
+                    style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--accent)", font: "500 11px/1 var(--sans)" }}
+                  >
+                    All companies
+                  </button>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {availableBrands.map((brand) => {
+                  const on = selectedBrands.has(brand);
+                  return (
+                    <button
+                      key={brand}
+                      type="button"
+                      onClick={() =>
+                        setSelectedBrands((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(brand)) next.delete(brand);
+                          else next.add(brand);
+                          return next;
+                        })
+                      }
+                      aria-pressed={on}
+                      style={{
+                        padding: "6px 10px",
+                        font: "500 12px/1 var(--sans)",
+                        border: "1px solid " + (on ? "var(--accent)" : "var(--rule)"),
+                        borderRadius: 999,
+                        color: on ? "var(--accent)" : "var(--fg-mute)",
+                        background: on ? "var(--surface-soft)" : "transparent",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {on ? "✓ " : ""}{brand}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* TOP 50 ↔ BY COMPANY toggle */}
           <div

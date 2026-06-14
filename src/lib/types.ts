@@ -63,6 +63,8 @@ export interface GuestRedeemResult {
   shopName: string;
   validDays: number;
   expiresAt: string;
+  /** Paint companies the shop unlocked for this guest. Empty/absent = all brands. */
+  allowedBrands?: string[];
 }
 
 export type ColorFamily =
@@ -260,6 +262,8 @@ export interface AccessCode {
   expired: boolean;
   usedAt?: string | null;
   createdAt?: string | null;
+  /** Paint companies unlocked for this guest. Empty/absent = all brands. */
+  allowedBrands?: string[];
 }
 
 /** Current subscription summary (backend SubscriptionResponse). */
