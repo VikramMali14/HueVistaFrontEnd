@@ -78,13 +78,17 @@ export type ColorFamily =
   | "Greys"
   | "Browns";
 
+/** Paint companies present in the catalogue. Single source of truth for brand-scoped UI. */
+export const PAINT_BRANDS = ["Asian Paints", "Berger", "Nerolac", "Dulux"] as const;
+export type ShadeBrand = (typeof PAINT_BRANDS)[number];
+
 export interface PaintShade {
   code: string;
   name: string;
   hex: string;
   family: ColorFamily;
   lrv: number;
-  brand: "Asian Paints" | "Berger" | "Nerolac" | "Dulux";
+  brand: ShadeBrand;
   finishes: ReadonlyArray<"Matt" | "Satin" | "Royale" | "Velvet">;
 }
 

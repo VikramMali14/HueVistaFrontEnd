@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { hexToHsv } from "@/lib/color";
-import type { PaintShade } from "@/lib/types";
+import { PAINT_BRANDS, type PaintShade } from "@/lib/types";
 import { UndertoneTag } from "./undertone-tag";
 import { CompareTray, CompareOverlay, COMPARE_MAX } from "./compare-shades";
 import { FanDeck } from "./fan-deck";
@@ -26,7 +26,7 @@ const FAMILIES: ReadonlyArray<{ id: string; dot: string }> = [
   { id: "Shadow", dot: "var(--charcoal-warm)" },
 ];
 
-const BRANDS = ["All brands", "Asian Paints", "Berger", "Nerolac", "Dulux"] as const;
+const BRANDS = ["All brands", ...PAINT_BRANDS] as const;
 // In the catalogue today every shade is Asian Paints; the rest are on the way.
 const BRANDS_SOON: ReadonlyArray<string> = ["Berger", "Nerolac", "Dulux"];
 const FINISHES = ["All", "Matt", "Satin", "Royale", "Velvet"] as const;

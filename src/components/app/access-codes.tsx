@@ -5,12 +5,11 @@ import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
-import type { AccessCode, OrgResponse } from "@/lib/types";
+import { PAINT_BRANDS, type AccessCode, type OrgResponse } from "@/lib/types";
 
 const VALIDITY = [3, 7, 14] as const;
-// Paint companies a shop can unlock for a guest. Matches the PaintShade `brand`
-// union; leaving none selected unlocks every company.
-const COMPANIES = ["Asian Paints", "Berger", "Nerolac", "Dulux"] as const;
+// Paint companies a shop can unlock for a guest. Leaving none selected unlocks every company.
+const COMPANIES = PAINT_BRANDS;
 
 function slugify(name: string): string {
   const base = name
