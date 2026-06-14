@@ -165,6 +165,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [projectRoom, setProjectRoom] = useState<string | null>(null);
   const [segmenting, setSegmenting] = useState(false);
   const [masksReady, setMasksReady] = useState(false);
+  // Guest AI is billed to the shop; when the shop is out of credits we silently
+  // fall back to manual wall-marking and show this gentle note (guests only).
+  const [guestAiUnavailable, setGuestAiUnavailable] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [limitReached, setLimitReached] = useState(false);
   const [accessExpired, setAccessExpired] = useState(false);
@@ -389,17 +392,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // Poll the backend until segmentation finishes. The loop itself lives in
   // src/lib/segmentation-polling.ts (pure + unit-testable); this wrapper only
   // owns the abort token: starting a new poll cancels the previous one, and the
-  // unmount cleanup above flips the live token. Status polling is a user-only
-  // API (guests never auto-segment), so this always goes through `api`.
+  // unmount cleanup above flips the live token. Guests poll their masked project
+  // (guestApi.getProject carries the same status field); everyone else uses the
+  // lightweight status endpoint.
   const pollUntilSegmented = useCallback(async (id: string) => {
     if (pollAbortRef.current) pollAbortRef.current.cancelled = true;
     const token = { cancelled: false };
     pollAbortRef.current = token;
     return pollSegmentationStatus<ProjectDetail>({
-      getStatus: () => api.getProjectStatus(id),
+      getStatus: () => (guest ? guestApi.getProject(id) : api.getProjectStatus(id)),
       isCancelled: () => token.cancelled,
     });
-  }, []);
+  }, [guest]);
 
   const validateFile = useCallback((file: File): string | null => {
     if (!ALLOWED_MIME.has(file.type)) {
@@ -432,8 +436,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         setProjectId(project.id);
         if (project.name) setProjectName(project.name);
         if (guest) {
-          // No AI auto-segment for guests — they outline walls by hand. Mark the
-          // canvas ready so the manual mask tools open.
+          // Guest AI wall-detection is billed to the issuing shop. If the shop is
+          // out of credits (402) or the AI run fails, fall back to marking walls by
+          // hand — the canvas opens either way so the guest is never blocked.
+          setGuestAiUnavailable(false);
+          try {
+            await guestApi.requestSegmentation(project.id);
+            const segmented = await pollUntilSegmented(project.id);
+            await applyProjectDetail(segmented);
+          } catch (segErr) {
+            if (segErr instanceof PollCancelledError) return;
+            setGuestAiUnavailable(true);
+          }
           setMasksReady(true);
           setDone((d) => ({ ...d, mask: true }));
         } else {
@@ -538,9 +552,23 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setError(null);
     setSegmenting(true);
     try {
-      await api.requestSegmentation(projectId);
-      const segmented = await pollUntilSegmented(projectId);
-      await applyProjectDetail(segmented);
+      if (guest) {
+        // Guest retry is billed to the shop again; a 402/failure quietly drops
+        // back to manual wall-marking rather than surfacing a hard error.
+        setGuestAiUnavailable(false);
+        try {
+          await guestApi.requestSegmentation(projectId);
+          const segmented = await pollUntilSegmented(projectId);
+          await applyProjectDetail(segmented);
+        } catch (segErr) {
+          if (segErr instanceof PollCancelledError) return;
+          setGuestAiUnavailable(true);
+        }
+      } else {
+        await api.requestSegmentation(projectId);
+        const segmented = await pollUntilSegmented(projectId);
+        await applyProjectDetail(segmented);
+      }
       setMasksReady(true);
       setDone((d) => ({ ...d, mask: true }));
     } catch (err) {
@@ -549,7 +577,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     } finally {
       setSegmenting(false);
     }
-  }, [projectId, pollUntilSegmented, applyProjectDetail]);
+  }, [projectId, guest, pollUntilSegmented, applyProjectDetail]);
 
   const handleBuyAndRetry = useCallback(async () => {
     setError(null);
@@ -823,8 +851,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const showDetailsGate = !imageUrl && !details && !openProjectId;
 
   // Wall detection can be retried without re-uploading the photo once the
-  // project exists and we're still on the mask step (guests never auto-segment).
-  const canRetrySegmentation = Boolean(projectId) && stage === "mask" && !guest;
+  // project exists and we're still on the mask step. Guests can retry too — each
+  // attempt is billed to the shop, falling back to manual if it's out of credits.
+  const canRetrySegmentation = Boolean(projectId) && stage === "mask";
   // Errors after the photo is on screen (segmentation timeout/failure, share
   // failures…) need their own surface — the DropZone one is gone by then.
   const showCanvasError = Boolean(
@@ -863,8 +892,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               <span style={controlChipStyle}>Detecting walls…</span>
             </span>
           )}
-          {masksReady && wallsNoticeVisible && (
+          {masksReady && wallsNoticeVisible && !guestAiUnavailable && (
             <span style={{ ...controlChipStyle, color: "var(--accent)" }}>Walls detected</span>
+          )}
+          {guest && guestAiUnavailable && masksReady && (
+            <span style={controlChipStyle} title="The shop's AI previews are used up — mark the walls by hand instead.">
+              AI previews unavailable — mark walls by hand
+            </span>
           )}
           {saveStatus === "saving" && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>

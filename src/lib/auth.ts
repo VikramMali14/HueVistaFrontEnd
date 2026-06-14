@@ -77,6 +77,7 @@ async function maybeClaimGuestProjects(accessToken: string) {
     /* best-effort */
   }
   jar.delete(config.guestCookie);
+  jar.delete(config.guestBrandsCookie);
 }
 
 export async function getAccessToken(): Promise<string | null> {
@@ -181,6 +182,7 @@ export async function redeemGuestAction(
     }
     const jar = await cookies();
     jar.set(config.guestCookie, MOCK_GUEST_TOKEN, { ...cookieDefaults, maxAge: 7 * 86_400 });
+    jar.delete(config.guestBrandsCookie); // mock shops unlock every brand
     return { shopName: "Mehta Paints & Hardware", code: value.toUpperCase(), validDays: 7 };
   }
   const hdrs = await headers();
@@ -191,6 +193,11 @@ export async function redeemGuestAction(
     const jar = await cookies();
     const ttlSeconds = Math.max(60, Math.floor((new Date(res.expiresAt).getTime() - Date.now()) / 1000));
     jar.set(config.guestCookie, res.guestToken, { ...cookieDefaults, maxAge: ttlSeconds });
+    if (res.allowedBrands && res.allowedBrands.length > 0) {
+      jar.set(config.guestBrandsCookie, JSON.stringify(res.allowedBrands), { ...cookieDefaults, maxAge: ttlSeconds });
+    } else {
+      jar.delete(config.guestBrandsCookie); // no restriction → every brand
+    }
     return { shopName: res.shopName, code: res.code, validDays: res.validDays };
   } catch (err) {
     if (err instanceof HttpError) {

@@ -63,6 +63,8 @@ export interface GuestRedeemResult {
   shopName: string;
   validDays: number;
   expiresAt: string;
+  /** Paint companies the shop unlocked for this guest. Empty/absent = all brands. */
+  allowedBrands?: string[];
 }
 
 export type ColorFamily =
@@ -76,13 +78,17 @@ export type ColorFamily =
   | "Greys"
   | "Browns";
 
+/** Paint companies present in the catalogue. Single source of truth for brand-scoped UI. */
+export const PAINT_BRANDS = ["Asian Paints", "Berger", "Nerolac", "Dulux"] as const;
+export type ShadeBrand = (typeof PAINT_BRANDS)[number];
+
 export interface PaintShade {
   code: string;
   name: string;
   hex: string;
   family: ColorFamily;
   lrv: number;
-  brand: "Asian Paints" | "Berger" | "Nerolac" | "Dulux";
+  brand: ShadeBrand;
   finishes: ReadonlyArray<"Matt" | "Satin" | "Royale" | "Velvet">;
 }
 
@@ -260,6 +266,8 @@ export interface AccessCode {
   expired: boolean;
   usedAt?: string | null;
   createdAt?: string | null;
+  /** Paint companies unlocked for this guest. Empty/absent = all brands. */
+  allowedBrands?: string[];
 }
 
 /** Current subscription summary (backend SubscriptionResponse). */

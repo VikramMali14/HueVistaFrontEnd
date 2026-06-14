@@ -5,9 +5,11 @@ import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
-import type { AccessCode, OrgResponse } from "@/lib/types";
+import { PAINT_BRANDS, type AccessCode, type OrgResponse } from "@/lib/types";
 
 const VALIDITY = [3, 7, 14] as const;
+// Paint companies a shop can unlock for a guest. Leaving none selected unlocks every company.
+const COMPANIES = PAINT_BRANDS;
 
 function slugify(name: string): string {
   const base = name
@@ -34,6 +36,8 @@ export function AccessCodes() {
   const [creatingOrg, setCreatingOrg] = useState(false);
 
   const [validDays, setValidDays] = useState<number>(7);
+  // Companies to unlock for the next code. Empty = every company (no restriction).
+  const [companies, setCompanies] = useState<string[]>([]);
   const [issuing, setIssuing] = useState(false);
   const [justIssued, setJustIssued] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -91,7 +95,11 @@ export function AccessCodes() {
     setIssuing(true);
     setError(null);
     try {
-      const code = await api.createAccessCode(org.id, { validDays });
+      const code = await api.createAccessCode(org.id, {
+        validDays,
+        // Omit when none are picked so the backend treats it as "all companies".
+        allowedBrands: companies.length > 0 ? companies : undefined,
+      });
       setCodes((prev) => [code, ...prev]);
       setJustIssued(code.code);
     } catch (e) {
@@ -99,7 +107,11 @@ export function AccessCodes() {
     } finally {
       setIssuing(false);
     }
-  }, [org, validDays]);
+  }, [org, validDays, companies]);
+
+  const toggleCompany = useCallback((name: string) => {
+    setCompanies((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]));
+  }, []);
 
   const copy = useCallback((code: string) => {
     navigator.clipboard?.writeText(code).then(() => {
@@ -153,33 +165,65 @@ export function AccessCodes() {
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
-        <Mono brass>{org.name}</Mono>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Mono>Validity</Mono>
-          {VALIDITY.map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setValidDays(d)}
-              aria-pressed={validDays === d}
-              style={{
-                padding: "6px 12px",
-                cursor: "pointer",
-                background: "transparent",
-                border: "1px solid " + (validDays === d ? "var(--accent)" : "var(--rule)"),
-                color: validDays === d ? "var(--accent)" : "var(--fg-mute)",
-                font: "400 11px/1 var(--mono)",
-                letterSpacing: ".18em",
-              }}
-            >
-              {d}d
-            </button>
-          ))}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <Mono brass>{org.name}</Mono>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Mono>Validity</Mono>
+            {VALIDITY.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setValidDays(d)}
+                aria-pressed={validDays === d}
+                style={{
+                  padding: "6px 12px",
+                  cursor: "pointer",
+                  background: "transparent",
+                  border: "1px solid " + (validDays === d ? "var(--accent)" : "var(--rule)"),
+                  color: validDays === d ? "var(--accent)" : "var(--fg-mute)",
+                  font: "400 11px/1 var(--mono)",
+                  letterSpacing: ".18em",
+                }}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+          <Button onClick={() => void issue()} disabled={issuing}>
+            {issuing ? <><Spinner size={14} color="currentColor" /> Issuing…</> : <>Issue a new code <span className="arr">→</span></>}
+          </Button>
         </div>
-        <Button onClick={() => void issue()} disabled={issuing}>
-          {issuing ? <><Spinner size={14} color="currentColor" /> Issuing…</> : <>Issue a new code <span className="arr">→</span></>}
-        </Button>
+
+        {/* Which paint companies this guest may browse. None selected = all companies. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <Mono>Companies</Mono>
+          {COMPANIES.map((name) => {
+            const on = companies.includes(name);
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => toggleCompany(name)}
+                aria-pressed={on}
+                style={{
+                  padding: "6px 12px",
+                  cursor: "pointer",
+                  background: on ? "var(--surface-soft)" : "transparent",
+                  border: "1px solid " + (on ? "var(--accent)" : "var(--rule)"),
+                  color: on ? "var(--accent)" : "var(--fg-mute)",
+                  font: "500 12px/1 var(--sans)",
+                  borderRadius: 999,
+                }}
+              >
+                {on ? "✓ " : ""}{name}
+              </button>
+            );
+          })}
+          <span style={{ font: "400 12px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+            {companies.length === 0 ? "All companies" : `${companies.length} selected`}
+          </span>
+        </div>
       </div>
 
       {justIssued && (

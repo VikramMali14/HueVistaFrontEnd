@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { hexToHsv } from "@/lib/color";
-import type { PaintShade } from "@/lib/types";
+import { PAINT_BRANDS, type PaintShade } from "@/lib/types";
 import { UndertoneTag } from "./undertone-tag";
 import { CompareTray, CompareOverlay, COMPARE_MAX } from "./compare-shades";
 import { FanDeck } from "./fan-deck";
@@ -26,7 +26,7 @@ const FAMILIES: ReadonlyArray<{ id: string; dot: string }> = [
   { id: "Shadow", dot: "var(--charcoal-warm)" },
 ];
 
-const BRANDS = ["All brands", "Asian Paints", "Berger", "Nerolac", "Dulux"] as const;
+const BRANDS = ["All brands", ...PAINT_BRANDS] as const;
 // In the catalogue today every shade is Asian Paints; the rest are on the way.
 const BRANDS_SOON: ReadonlyArray<string> = ["Berger", "Nerolac", "Dulux"];
 const FINISHES = ["All", "Matt", "Satin", "Royale", "Velvet"] as const;
@@ -36,7 +36,7 @@ const LRV_RANGES: ReadonlyArray<{ id: string; min: number; max: number }> = [
   { id: "25 — 60", min: 25, max: 60 },
   { id: "Over 60", min: 60, max: 100 },
 ];
-const SORTS = ["hue", "lightness", "family", "code"] as const;
+const SORTS = ["hue", "lightness", "family", "company", "code"] as const;
 type SortBy = (typeof SORTS)[number];
 
 function designFamily(s: PaintShade): string {
@@ -179,6 +179,8 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
     if (sortBy === "hue") list.sort((a, b) => hexToHsv(a.hex).h - hexToHsv(b.hex).h);
     else if (sortBy === "lightness") list.sort((a, b) => b.lrv - a.lrv);
     else if (sortBy === "family") list.sort((a, b) => a.family.localeCompare(b.family));
+    // Group every company's shades together (brand A→Z, then code within a brand).
+    else if (sortBy === "company") list.sort((a, b) => a.brand.localeCompare(b.brand) || a.code.localeCompare(b.code));
     else list.sort((a, b) => a.code.localeCompare(b.code));
     return list;
   }, [filtered, sortBy]);
