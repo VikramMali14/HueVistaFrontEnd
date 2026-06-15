@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Eyebrow, Mono } from "@/components/ui/eyebrow";
+import { useEffect, useMemo, useState } from "react";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import CircularGallery from "@/components/ui/circular-gallery";
 
 interface MoodShade {
   name: string;
@@ -68,12 +69,75 @@ const MOODS: ReadonlyArray<Mood> = [
   },
 ];
 
+// Lift a hex toward white by `amt` (0–1) for a soft top-light on each tile.
+function lighten(hex: string, amt: number): string {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n = parseInt(full, 16);
+  const r = Math.round(((n >> 16) & 255) + (255 - ((n >> 16) & 255)) * amt);
+  const g = Math.round(((n >> 8) & 255) + (255 - ((n >> 8) & 255)) * amt);
+  const b = Math.round((n & 255) + (255 - (n & 255)) * amt);
+  return `rgb(${r},${g},${b})`;
+}
+
+// A pure (SSR-safe) SVG swatch tile: a subtle top-lit gradient of the shade.
+// Kept as a data URI so it loads under the site CSP (img-src allows data:).
+function swatchImage(hex: string): string {
+  const top = lighten(hex, 0.18);
+  const svg =
+    `<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'>` +
+    `<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'>` +
+    `<stop offset='0' stop-color='${top}'/><stop offset='1' stop-color='${hex}'/>` +
+    `</linearGradient></defs>` +
+    `<rect width='800' height='600' fill='url(#g)'/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+// Canvas labels can't read CSS vars, so the gallery font is a plain system
+// stack (no web-font fetch — that would trip the strict connect-src CSP).
+const GALLERY_FONT = "600 26px ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+
 /**
- * A mood is easier to pick than a hex code. Switching moods remounts the
- * keyed strip, so each swatch replays its staggered pop (see .hv-mood-swatch).
+ * "Start with a feeling." Pick a mood and its shades arc past in a curved,
+ * draggable gallery. Each shade is a generated swatch tile; the gallery
+ * re-tints its labels with the active theme.
  */
 export function Moods() {
   const [mood, setMood] = useState<Mood>(MOODS[1]!);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  // Default to the static strip; upgrade to the WebGL gallery only once we
+  // know we're on the client AND motion is allowed. This gives SSR / no-JS /
+  // reduced-motion visitors a real, legible fallback.
+  const [mounted, setMounted] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const read = (): "dark" | "light" =>
+      document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+    setTheme(read());
+    const observer = new MutationObserver(() => setTheme(read()));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduceMotion(mq.matches);
+    const onMq = () => setReduceMotion(mq.matches);
+    mq.addEventListener("change", onMq);
+
+    return () => {
+      observer.disconnect();
+      mq.removeEventListener("change", onMq);
+    };
+  }, []);
+
+  const showGallery = mounted && !reduceMotion;
+
+  const textColor = theme === "light" ? "#2b2823" : "#eae8e3";
+
+  const items = useMemo(
+    () => mood.shades.map((s) => ({ image: swatchImage(s.hex), text: `${s.name} · ${s.code}` })),
+    [mood],
+  );
 
   return (
     <section id="moods">
@@ -83,13 +147,12 @@ export function Moods() {
         <p className="hv-mood-line" aria-live="polite">{mood.line}</p>
       </div>
 
-      <div className="reveal d1 hv-mood-pills" role="tablist" aria-label="Pick a mood">
+      <div className="reveal d1 hv-mood-pills" role="group" aria-label="Pick a mood">
         {MOODS.map((m) => (
           <button
             key={m.id}
             type="button"
-            role="tab"
-            aria-selected={m.id === mood.id}
+            aria-pressed={m.id === mood.id}
             className="hv-mood-pill"
             data-active={m.id === mood.id || undefined}
             onClick={() => setMood(m)}
@@ -99,23 +162,51 @@ export function Moods() {
         ))}
       </div>
 
-      {/* The reveal wrapper stays mounted; the keyed strip remounts per mood
-          so every swatch replays its staggered pop. */}
-      <div className="reveal d2">
-        <div key={mood.id} className="hv-mood-strip">
-          {mood.shades.map((s, i) => (
-            <div
-              key={s.code}
-              className="hv-mood-swatch"
-              data-light={s.light || undefined}
-              style={{ background: s.hex, animationDelay: `${i * 70}ms` }}
-            >
-              <span className="hv-mood-swatch-name">{s.name}</span>
-              <Mono className="hv-mood-swatch-code">{s.code}</Mono>
-            </div>
-          ))}
+      {showGallery ? (
+        <>
+          {/* Text alternative: the gallery is a WebGL canvas with no AT/keyboard
+              access, so the shades are also exposed as a visually-hidden list. */}
+          <ul className="sr-only" aria-label={`${mood.label} shades`}>
+            {mood.shades.map((s) => (
+              <li key={s.code}>{s.name} — {s.code}</li>
+            ))}
+          </ul>
+          {/* theme is intentionally NOT in the key — textColor flows through as a
+              prop, so a theme toggle re-tints without tearing down the WebGL
+              context (which would risk the browser's context cap). */}
+          <div className="reveal d2 hv-mood-gallery" aria-hidden="true">
+            <CircularGallery
+              key={mood.id}
+              items={items}
+              textColor={textColor}
+              bend={2}
+              borderRadius={0.06}
+              scrollEase={0.05}
+              scrollSpeed={2}
+              font={GALLERY_FONT}
+            />
+          </div>
+          <p className="hv-mood-hint reveal d3" aria-hidden="true">Drag, scroll or swipe to explore the shades →</p>
+        </>
+      ) : (
+        // Static fallback: the original swatch strip. Serves SSR, no-JS and
+        // prefers-reduced-motion without spinning up a WebGL context.
+        <div className="reveal d2">
+          <div key={mood.id} className="hv-mood-strip">
+            {mood.shades.map((s, i) => (
+              <div
+                key={s.code}
+                className="hv-mood-swatch"
+                data-light={s.light || undefined}
+                style={{ background: s.hex, animationDelay: `${i * 70}ms` }}
+              >
+                <span className="hv-mood-swatch-name">{s.name}</span>
+                <span className="mono hv-mood-swatch-code">{s.code}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
