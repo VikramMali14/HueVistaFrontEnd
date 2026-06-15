@@ -11,8 +11,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { config } from "@/lib/config";
 import { getAccessToken } from "@/lib/auth";
-import { mockEnabled } from "@/lib/mock";
-import { handleMockBff } from "@/lib/mock/handlers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,9 +42,6 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   if (!ALLOWED_PREFIXES.some((p) => joined === p || joined.startsWith(`${p}/`))) {
     return NextResponse.json({ message: "Forbidden path" }, { status: 403 });
   }
-
-  // MOCK_API=1 — answer from the in-memory mock backend instead of forwarding.
-  if (mockEnabled()) return handleMockBff(req, joined);
 
   // Guest endpoints authenticate with the guest token; everything else with the
   // user token. This keeps a signed-in user and a guest session cleanly separate.

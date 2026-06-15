@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { loginAction, registerAction } from "@/lib/auth";
-import { MOCK_PASSWORD, MOCK_USERS, mockEnabled } from "@/lib/mock";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Logo } from "@/components/ui/logo";
@@ -43,28 +42,6 @@ export default async function SignInPage({ searchParams }: PageProps) {
               ? "Free, no card — your projects, colours and saved previews stay with you for good."
               : "Your projects, colours and saved previews — right where you left them."}
           </Lead>
-          {!register && mockEnabled() && (
-            <aside
-              style={{
-                marginTop: 28,
-                padding: "14px 16px",
-                border: "1px dashed var(--rule-strong)",
-                borderRadius: "var(--radius)",
-                background: "var(--surface-soft)",
-                font: "400 14px/1.6 var(--mono)",
-              }}
-            >
-              <strong style={{ display: "block", letterSpacing: ".18em", textTransform: "uppercase", fontSize: 10, marginBottom: 8 }}>
-                Mock mode — test credentials
-              </strong>
-              {MOCK_USERS.map((u) => (
-                <div key={u.id}>
-                  {u.email} <span style={{ color: "var(--fg-mute)" }}>({u.role.toLowerCase()})</span>
-                </div>
-              ))}
-              <div style={{ marginTop: 6, color: "var(--fg-mute)" }}>password: {MOCK_PASSWORD}</div>
-            </aside>
-          )}
           <SignInForm
             action={register ? registerAction : loginAction}
             mode={register ? "register" : "signin"}
