@@ -5,21 +5,12 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { config } from "@/lib/config";
-import { mockEnabled } from "@/lib/mock";
-import { findProjectByShareToken, toProjectDetail } from "@/lib/mock/store";
 import type { ProjectDetail } from "@/lib/types";
 
 // Public, read-only view of a shared project — colours are shown, shade codes hidden
 // (the backend's /api/share endpoint serves the code-hidden projection).
 // cache() dedupes the call between generateMetadata and the page render.
 const fetchShared = cache(async (token: string): Promise<ProjectDetail | null> => {
-  if (mockEnabled()) {
-    const project = findProjectByShareToken(token);
-    if (!project) return null;
-    const detail = toProjectDetail(project);
-    // Match the backend's public projection: colours visible, shade codes hidden.
-    return { ...detail, regions: detail.regions.map((r) => ({ ...r, appliedShadeCode: null })) };
-  }
   try {
     const res = await fetch(`${config.internalApiOrigin}/api/share/${encodeURIComponent(token)}`, {
       headers: { Accept: "application/json" },
@@ -35,8 +26,6 @@ const fetchShared = cache(async (token: string): Promise<ProjectDetail | null> =
 function absUrl(u?: string | null): string | null {
   if (!u) return null;
   if (u.startsWith("http")) return u;
-  // Mock mode serves images from the same-origin BFF, not the backend host.
-  if (mockEnabled()) return `/bff${u.startsWith("/") ? "" : "/"}${u}`;
   return `${config.apiOrigin}${u.startsWith("/") ? "" : "/"}${u}`;
 }
 
