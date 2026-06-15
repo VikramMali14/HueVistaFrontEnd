@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
-import { deltaE, hexToLab, nearestShades, rgbToHex, rgbToLab, type RGB } from "@/lib/color";
+import { deltaE, hexToLab, nearestShades, rgbToHex } from "@/lib/color";
+import { extractPalette } from "@/lib/palette";
 import { mapToPaintShade } from "@/lib/catalogue";
 import { SHADES } from "@/lib/shades";
 import type { PaintShade } from "@/lib/types";
@@ -15,34 +16,6 @@ import { PhoneHandoff } from "@/components/shared/phone-handoff";
 
 const MAX_DIM = 1400; // cap the canvas backing store so getImageData stays fast
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-/**
- * Extract a small dominant-colour palette by quantizing pixels into coarse RGB
- * buckets, ranking by frequency, then greedily keeping the most frequent that are
- * still perceptually distinct (ΔE) from the ones already chosen.
- */
-function extractPalette(data: Uint8ClampedArray, maxColors: number): string[] {
-  const buckets = new Map<number, { r: number; g: number; b: number; n: number }>();
-  const STEP = 24;
-  for (let i = 0; i < data.length; i += 4) {
-    if (data[i + 3]! < 200) continue; // skip near-transparent
-    const r = data[i]!, g = data[i + 1]!, b = data[i + 2]!;
-    const key = Math.round(r / STEP) * 10000 + Math.round(g / STEP) * 100 + Math.round(b / STEP);
-    const cur = buckets.get(key);
-    if (cur) { cur.r += r; cur.g += g; cur.b += b; cur.n++; }
-    else buckets.set(key, { r, g, b, n: 1 });
-  }
-  const ranked = [...buckets.values()]
-    .sort((a, b) => b.n - a.n)
-    .map((c) => ({ r: c.r / c.n, g: c.g / c.n, b: c.b / c.n }));
-  const picked: RGB[] = [];
-  for (const c of ranked) {
-    if (picked.length >= maxColors) break;
-    const lab = rgbToLab(c);
-    if (picked.every((p) => deltaE(lab, rgbToLab(p)) > 12)) picked.push(c);
-  }
-  return picked.map(rgbToHex);
-}
 
 export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) {
   const catalogue = useMemo(() => (shades && shades.length > 0 ? shades : SHADES), [shades]);
@@ -193,7 +166,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
   return (
     <div className="hv-finder" style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px" }}>
       <Mono brass>Find a colour in a photo</Mono>
-      <p className="finder-lead" style={{ font: "300 italic 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 20px", maxWidth: "56ch" }}>
+      <p className="finder-lead" style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 20px", maxWidth: "56ch" }}>
         Upload a photograph, then click anywhere on it to sample a colour — we match it to the nearest real
         catalogue shade by perceptual distance. We also pull a palette from the image automatically.
       </p>
@@ -240,7 +213,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
               <path d="M4 20h16" />
             </svg>
           </span>
-          <span className="finder-drop" style={{ font: "300 italic 22px/1.2 var(--serif)", color: "var(--fg)" }}>
+          <span className="finder-drop" style={{ font: "400 22px/1.2 var(--serif)", color: "var(--fg)" }}>
             Drop a photograph here
           </span>
           <span className="btn">Choose a photograph</span>
@@ -371,20 +344,23 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
                   <span style={{ width: 48, height: 48, background: picked, border: "1px solid var(--rule-strong)", flexShrink: 0 }} />
                   <div>
                     <Mono>Sampled colour</Mono>
-                    <div className="finder-hex" style={{ font: "300 italic 22px/1 var(--serif)", color: "var(--fg)", marginTop: 4 }}>{picked}</div>
+                    <div className="finder-hex" style={{ font: "400 22px/1 var(--serif)", color: "var(--fg)", marginTop: 4 }}>{picked}</div>
                   </div>
                 </div>
                 <Mono style={{ display: "block", marginBottom: 10 }}>
                   Nearest catalogue shades{matchSource === "offline" ? " · offline" : ""}
                 </Mono>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {matches.map(({ shade, deltaE: dE }, i) => (
+                  {matches.map(({ shade, deltaE: dE }, i) => {
+                    // Translate the ΔE scale into a reading a counter user can act on.
+                    const grade = dE < 2 ? "exact" : dE < 5 ? "very close" : dE < 10 ? "close" : "nearest available";
+                    return (
                     <button
                       key={shade.code}
                       type="button"
                       onClick={() => copyCode(shade.code)}
                       title={`Copy code ${shade.code}`}
-                      aria-label={`${shade.name}, code ${shade.code}, ΔE ${dE.toFixed(1)}. Click to copy the code.`}
+                      aria-label={`${shade.name}, code ${shade.code}, ${grade} match. Click to copy the code.`}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -399,20 +375,21 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
                     >
                       <span style={{ width: 36, height: 36, background: shade.hex, border: "1px solid var(--rule-strong)", flexShrink: 0 }} />
                       <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
-                        <span className="finder-shade-name" style={{ font: "300 italic 16px/1.1 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <span className="finder-shade-name" style={{ font: "400 16px/1.1 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {shade.name}
                         </span>
-                        <Mono>{shade.code} · {shade.hex} · ΔE {dE.toFixed(1)}</Mono>
+                        <Mono>{shade.code} · {shade.hex} · ΔE {dE.toFixed(1)} · {grade}</Mono>
                       </span>
                       <Mono brass>{copied === shade.code ? "copied" : i === 0 ? "closest" : "copy"}</Mono>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             ) : (
               <div style={{ border: "1px solid var(--rule)", padding: 22, background: "var(--surface-soft)" }}>
                 <Mono>No colour sampled yet</Mono>
-                <p className="finder-empty-hint" style={{ font: "300 italic 15px/1.5 var(--serif)", color: "var(--fg-mute)", margin: "8px 0 0" }}>
+                <p className="finder-empty-hint" style={{ font: "400 15px/1.5 var(--serif)", color: "var(--fg-mute)", margin: "8px 0 0" }}>
                   Click anywhere on the photo, or pick from the palette, and we&apos;ll list the nearest shade codes.
                 </p>
               </div>

@@ -44,7 +44,7 @@ export default function RootError({
       <h1
         style={{
           fontFamily: "var(--serif, serif)",
-          fontWeight: 300,
+          fontWeight: 600,
           fontSize: "clamp(40px, 6vw, 72px)",
           letterSpacing: "-.02em",
           margin: 0,
@@ -55,7 +55,7 @@ export default function RootError({
       </h1>
       <p
         style={{
-          font: "300 italic 18px/1.5 var(--serif, serif)",
+          font: "400 18px/1.5 var(--serif, serif)",
           color: "var(--fg-soft)",
           maxWidth: 520,
           margin: 0,

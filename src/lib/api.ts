@@ -37,10 +37,13 @@ import type {
 class HttpError extends Error {
   status: number;
   fieldErrors?: Record<string, string>;
-  constructor(status: number, message: string, fieldErrors?: Record<string, string>) {
+  /** Backend machine-readable hint, e.g. "VERIFICATION_REQUIRED" / "SUBSCRIPTION_REQUIRED". */
+  code?: string;
+  constructor(status: number, message: string, fieldErrors?: Record<string, string>, code?: string) {
     super(message);
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.code = code;
   }
 }
 
@@ -62,7 +65,8 @@ async function parseError(res: Response): Promise<ApiError> {
     typeof obj.fieldErrors === "object" && obj.fieldErrors !== null
       ? (obj.fieldErrors as Record<string, string>)
       : undefined;
-  return { status: res.status, message, fieldErrors };
+  const code = typeof obj.code === "string" ? obj.code : undefined;
+  return { status: res.status, message, fieldErrors, code };
 }
 
 /**
@@ -85,7 +89,7 @@ async function browserFetch<T>(path: string, init: RequestInit = {}): Promise<T>
 
   if (!res.ok) {
     const err = await parseError(res);
-    throw new HttpError(err.status, err.message, err.fieldErrors);
+    throw new HttpError(err.status, err.message, err.fieldErrors, err.code);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -112,7 +116,7 @@ async function serverFetch<T>(
 
   if (!res.ok) {
     const err = await parseError(res);
-    throw new HttpError(err.status, err.message, err.fieldErrors);
+    throw new HttpError(err.status, err.message, err.fieldErrors, err.code);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -123,18 +127,28 @@ async function serverFetch<T>(
  * the backend with the cookie-resident access token.
  */
 export const authApi = {
-  register: (body: {
-    name: string;
-    email: string;
-    password: string;
-    // Optional retailer trial-signup fields (provision shop org + trial subscription).
-    shopName?: string;
-    city?: string;
-    state?: string;
-    phone?: string;
-    tier?: string;
-  }) =>
-    serverFetch<AuthResponse>("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
+  register: (
+    body: {
+      name: string;
+      email: string;
+      password: string;
+      // Optional retailer trial-signup fields (provision shop org + trial subscription).
+      shopName?: string;
+      city?: string;
+      state?: string;
+      phone?: string;
+      tier?: string;
+    },
+    // The browser hits this via a server action, so the backend would otherwise
+    // only ever see the frontend server's IP. Forward the real client IP so the
+    // backend's per-IP signup rate limiter buckets by the actual visitor.
+    clientIp?: string,
+  ) =>
+    serverFetch<AuthResponse>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
   login: (body: { email: string; password: string }) =>
     serverFetch<AuthResponse>("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
   refresh: (refreshToken: string) =>
@@ -145,6 +159,37 @@ export const authApi = {
     serverFetch<{ userId: string }>("/api/auth/me", { accessToken }),
   profile: (accessToken: string) =>
     serverFetch<UserProfile>("/api/auth/profile", { accessToken }),
+};
+
+/**
+ * Billing API for SERVER components (e.g. gating subscriber-only pages). Goes
+ * directly to the backend with the cookie-resident access token. The browser
+ * equivalent is `api.getCurrentSubscription()` via the BFF.
+ */
+export const billingApi = {
+  currentSubscription: (accessToken: string) =>
+    serverFetch<import("./types").SubscriptionSummary>("/api/billing/subscriptions/current", {
+      accessToken,
+    }),
+};
+
+/**
+ * Server-side guest helpers. `redeemGuest` is anonymous (no token); `claimGuest`
+ * runs right after a user signs in to re-point their guest projects to the account.
+ */
+export const guestServerApi = {
+  redeem: (code: string, clientIp?: string) =>
+    serverFetch<import("./types").GuestRedeemResult>("/api/access-codes/redeem-guest", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
+  claim: (accessToken: string, guestToken: string) =>
+    serverFetch<{ linked: number }>("/api/projects/claim-guest", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({ guestToken }),
+    }),
 };
 
 /**
@@ -272,7 +317,7 @@ export const api = {
     browserFetch<OrgResponse>("api/organizations", { method: "POST", body: JSON.stringify(body) }),
   listAccessCodes: (orgId: string) =>
     browserFetch<AccessCode[]>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`),
-  createAccessCode: (orgId: string, body: { validDays: number }) =>
+  createAccessCode: (orgId: string, body: { validDays: number; allowedBrands?: string[] }) =>
     browserFetch<AccessCode>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`, {
       method: "POST",
       body: JSON.stringify(body),
@@ -318,6 +363,45 @@ export const api = {
       `api/organizations/${encodeURIComponent(orgId)}/customers/${encodeURIComponent(customerId)}/grant-project`,
       { method: "POST" },
     ),
+};
+
+/**
+ * Guest (anonymous, access-code-scoped) creator API. Same shapes as the relevant
+ * `api` methods but hitting /api/guest/* (the BFF attaches the guest token). The
+ * guest gets ONE project and sees masked responses — real shade codes are hidden
+ * from them. AI wall-detection is available but billed to the issuing shop's quota;
+ * a 402 means the shop is out of credits and the guest marks walls by hand instead.
+ */
+export const guestApi = {
+  uploadImage: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return browserFetch<UploadedImage>("api/guest/images/upload", { method: "POST", body: form });
+  },
+  createProject: (body: { imageId: string; name?: string; roomType?: string; notes?: string }) =>
+    browserFetch<ProjectDetail>("api/guest/projects", { method: "POST", body: JSON.stringify(body) }),
+  getProject: (projectId: string) =>
+    browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}`),
+  listProjects: () => browserFetch<ProjectSummary[]>("api/guest/projects"),
+  // AI wall-detection (billed to the issuing shop). Throws HttpError 402 when the
+  // shop has no AI credits left — caller should fall back to manual wall-marking.
+  requestSegmentation: (projectId: string) =>
+    browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/segment`, {
+      method: "POST",
+    }),
+  updateRegionColors: (projectId: string, updates: RegionColorUpdate[]) =>
+    browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/regions`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    }),
+  createCustomMask: (
+    projectId: string,
+    body: { maskBase64: string; category?: string; label?: string },
+  ) =>
+    browserFetch<RegionDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/regions/custom-mask`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
 
 export { HttpError };

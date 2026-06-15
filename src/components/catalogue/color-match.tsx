@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
+import { nearestShades } from "@/lib/color";
+import { SHADES } from "@/lib/shades";
 
 interface MatchResult {
   shadeCode: string;
@@ -13,38 +15,53 @@ interface MatchResult {
 /**
  * Pick or paste any colour → the backend returns the nearest real catalogue shades
  * by CIELAB ΔE (GET /api/shades/match, public, same-origin via the Next rewrite).
+ * If the backend is unreachable, we match against the bundled catalogue instead.
  */
 export function ColorMatch() {
   const [hex, setHex] = useState("#a47148");
   const [results, setResults] = useState<MatchResult[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function findNearest() {
-    setLoading(true);
     setError(null);
+    const clean = hex.trim().replace(/^#/, "");
+    if (!/^[0-9a-fA-F]{6}$/.test(clean)) {
+      setError("Use a 6-digit hex like #A47148.");
+      setResults(null);
+      return;
+    }
+    setLoading(true);
     try {
-      const clean = hex.replace(/^#/, "");
       const res = await fetch(`/api/shades/match?hex=${encodeURIComponent(clean)}&limit=5`, {
         headers: { Accept: "application/json" },
       });
-      if (!res.ok) throw new Error("Could not match that colour. Use a 6-digit hex like #A47148.");
+      if (!res.ok) throw new Error("unreachable");
       setResults((await res.json()) as MatchResult[]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not match that colour.");
-      setResults(null);
+      setOffline(false);
+    } catch {
+      // Same task, same answer: fall back to the bundled client-side matcher.
+      setResults(
+        nearestShades(`#${clean}`, SHADES, 5).map(({ shade }) => ({
+          shadeCode: shade.code,
+          name: shade.name,
+          hexCode: shade.hex,
+        })),
+      );
+      setOffline(true);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px", marginBottom: 48 }}>
+    <div className="hv-finder" style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px", marginBottom: 48 }}>
       <Mono brass>Match any colour</Mono>
-      <p style={{ font: "300 italic 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
-        Pick or paste any colour and we&apos;ll find the nearest real catalogue shades by perceptual distance.
+      <p className="finder-lead" style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
+        Pick or paste any colour and we&apos;ll find the catalogue shades that look closest to the eye — codes intact.
       </p>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <form onSubmit={(e) => { e.preventDefault(); void findNearest(); }} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <input
           type="color"
           value={/^#[0-9a-fA-F]{6}$/.test(hex) ? hex : "#a47148"}
@@ -60,17 +77,22 @@ export function ColorMatch() {
           spellCheck={false}
           style={{ width: 130, padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", fontFamily: "var(--mono)" }}
         />
-        <button type="button" className="btn" onClick={() => void findNearest()} disabled={loading}>
+        <button type="submit" className="btn" disabled={loading}>
           {loading ? "Matching…" : "Find nearest"} <span className="arr">→</span>
         </button>
-      </div>
+      </form>
       {error && (
         <div className="field-error" role="alert" style={{ marginTop: 16 }}>
           {error}
         </div>
       )}
       {results && results.length > 0 && (
-        <div style={{ display: "flex", gap: 16, marginTop: 24, flexWrap: "wrap" }}>
+        <Mono style={{ display: "block", marginTop: 24 }}>
+          Nearest catalogue shades{offline ? " · offline" : ""}
+        </Mono>
+      )}
+      {results && results.length > 0 && (
+        <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" }}>
           {results.map((r) => (
             <div key={r.shadeCode} style={{ width: 120 }}>
               <div
@@ -80,7 +102,7 @@ export function ColorMatch() {
                   border: "1px solid var(--rule-strong)",
                 }}
               />
-              <div style={{ marginTop: 8, font: "300 italic 15px/1.2 var(--serif)" }}>{r.name}</div>
+              <div style={{ marginTop: 8, font: "400 15px/1.2 var(--serif)" }}>{r.name}</div>
               <Mono>{r.shadeCode}</Mono>
             </div>
           ))}

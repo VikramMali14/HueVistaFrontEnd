@@ -1,142 +1,161 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
-import { t } from "@/lib/i18n";
-import type { UiLocale, UiVariant } from "@/lib/types";
+import { Spinner } from "@/components/ui/spinner";
 
 export type PipelineStage = "upload" | "clean" | "mask" | "refine" | "recolor";
 
 interface PipelineBarProps {
   current: PipelineStage;
   done: Partial<Record<PipelineStage, boolean>>;
-  variant?: UiVariant;
-  locale?: UiLocale;
+  /** Stage doing background work right now — shows a spinner on that step. */
+  busy?: PipelineStage;
 }
 
 interface StageDef {
   id: PipelineStage;
-  roman: string;
   step: string;
-  premium: { name: string; hint: string };
-  classicKey: "pipeline.upload" | "pipeline.clean" | "pipeline.mask" | "pipeline.refine" | "pipeline.recolor";
+  name: string;
 }
 
 const STAGES: ReadonlyArray<StageDef> = [
-  {
-    id: "upload",
-    roman: "I",
-    step: "1",
-    premium: { name: "Upload", hint: "classified · indoor / 1024px copy" },
-    classicKey: "pipeline.upload",
-  },
-  {
-    id: "clean",
-    roman: "II",
-    step: "2",
-    premium: { name: "Clean", hint: "Nano Banana Pro · wires · debris" },
-    classicKey: "pipeline.clean",
-  },
-  {
-    id: "mask",
-    roman: "III",
-    step: "3",
-    premium: { name: "Auto-mask", hint: "Nano Banana · colour-coded" },
-    classicKey: "pipeline.mask",
-  },
-  {
-    id: "refine",
-    roman: "IV",
-    step: "4",
-    premium: { name: "Refine", hint: "SAM 2 · click any point" },
-    classicKey: "pipeline.refine",
-  },
-  {
-    id: "recolor",
-    roman: "V",
-    step: "5",
-    premium: { name: "Recolour", hint: "WebGL · 60 fps" },
-    classicKey: "pipeline.recolor",
-  },
+  { id: "upload", step: "1", name: "Add photo" },
+  { id: "clean", step: "2", name: "Tidy up" },
+  { id: "mask", step: "3", name: "Detect walls" },
+  { id: "refine", step: "4", name: "Adjust" },
+  { id: "recolor", step: "5", name: "Apply colour" },
 ];
 
-export function PipelineBar({ current, done, variant = "premium", locale = "en" }: PipelineBarProps) {
-  const isClassic = variant === "classic";
+function Chevron({ up = false }: { up?: boolean }) {
+  return (
+    <svg
+      width={12}
+      height={12}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={up ? { transform: "rotate(180deg)" } : undefined}
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
+export function PipelineBar({ current, done, busy }: PipelineBarProps) {
+  // "Tidy up" (clean) is a toggle and "Adjust" (refine) only happens when the
+  // user hand-draws a wall — the bar is ready once the CORE journey completes.
+  const ready = Boolean(done.upload && done.mask && done.recolor && !busy);
+  const [userExpanded, setUserExpanded] = useState(false);
+  // Derived during render (not an effect) so the collapse happens in the same
+  // frame ready flips — no expanded-bar flash, no double layout shift.
+  const collapsed = ready && !userExpanded;
+  const showBtnRef = useRef<HTMLButtonElement>(null);
+  const hideBtnRef = useRef<HTMLButtonElement>(null);
+  // Hand focus to the counterpart toggle so it isn't dropped on <body>.
+  const focusAfterToggleRef = useRef<"show" | "hide" | null>(null);
+  useEffect(() => {
+    if (focusAfterToggleRef.current === "show") hideBtnRef.current?.focus();
+    if (focusAfterToggleRef.current === "hide") showBtnRef.current?.focus();
+    focusAfterToggleRef.current = null;
+  });
+
+  if (collapsed) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          height: 32,
+          padding: "0 20px",
+          borderBottom: "1px solid var(--rule)",
+          background: "var(--surface)",
+        }}
+      >
+        <Mono style={{ color: "var(--accent)" }}>✓ Ready — colours apply instantly</Mono>
+        <button
+          ref={showBtnRef}
+          type="button"
+          onClick={() => {
+            focusAfterToggleRef.current = "show";
+            setUserExpanded(true);
+          }}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            background: "transparent",
+            border: "none",
+            padding: "4px 0",
+            color: "var(--fg-mute)",
+            font: "500 12px/1 var(--sans)",
+            cursor: "pointer",
+          }}
+        >
+          Show steps <Chevron />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       className="hv-pipeline r-scroll-x"
-      data-variant={variant}
       style={{
         display: "flex",
         alignItems: "center",
-        padding: isClassic ? "10px 16px" : "14px 24px",
+        padding: "12px 20px",
         borderBottom: "1px solid var(--rule)",
-        background: isClassic ? "var(--surface-soft)" : "var(--surface-overlay)",
+        background: "var(--surface)",
         gap: 12,
       }}
     >
       {STAGES.map((s, i, arr) => {
         const isDone = done[s.id];
         const isCurrent = s.id === current;
-        const label = isClassic ? t(locale, s.classicKey) : s.premium.name;
+        const isBusy = busy === s.id;
         return (
           <div
             key={s.id}
             className="hv-pipeline-step"
             aria-current={isCurrent ? "step" : undefined}
-            style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: isClassic ? 110 : 140 }}
+            style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 120 }}
           >
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                {isClassic ? (
-                  <span
-                    aria-hidden
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 20,
-                      height: 20,
-                      borderRadius: "50%",
-                      background: isDone
-                        ? "var(--accent)"
-                        : isCurrent
-                          ? "var(--surface)"
-                          : "transparent",
-                      border: "1px solid " + (isDone || isCurrent ? "var(--accent)" : "var(--rule-strong)"),
-                      color: isDone ? "var(--bg)" : isCurrent ? "var(--accent)" : "var(--fg-mute)",
-                      font: "600 11px/1 var(--sans, system-ui)",
-                    }}
-                  >
-                    {isDone ? "✓" : s.step}
-                  </span>
-                ) : (
-                  <span className="roman">{s.roman}.</span>
-                )}
-                <span
-                  style={{
-                    fontFamily: isClassic ? "var(--sans, system-ui)" : "var(--serif)",
-                    fontSize: isClassic ? 13 : 16,
-                    fontWeight: isClassic ? 500 : 400,
-                    color: isDone || isCurrent ? "var(--fg)" : "var(--fg-mute)",
-                  }}
-                >
-                  {label}
-                </span>
-                {!isClassic && (isDone || isCurrent) && (
-                  <span
-                    aria-hidden
-                    style={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: "50%",
-                      background: isDone ? "var(--accent)" : "var(--accent-soft)",
-                    }}
-                  />
-                )}
-              </div>
-              {!isClassic && (
-                <Mono style={{ fontSize: 9, letterSpacing: ".18em" }}>{s.premium.hint}</Mono>
-              )}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span
+                aria-hidden
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  background: isDone && !isBusy ? "var(--fg)" : isCurrent ? "var(--surface-soft)" : "transparent",
+                  border: "1px solid " + (isBusy ? "var(--accent)" : isDone || isCurrent ? "var(--fg)" : "var(--rule-strong)"),
+                  color: isDone && !isBusy ? "var(--bg)" : isCurrent ? "var(--fg)" : "var(--fg-mute)",
+                  font: "600 11px/1 var(--sans)",
+                }}
+              >
+                {isBusy ? <Spinner size={12} color="var(--accent)" /> : isDone ? "✓" : s.step}
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--sans)",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                  color: isBusy ? "var(--accent)" : isDone || isCurrent ? "var(--fg)" : "var(--fg-mute)",
+                }}
+              >
+                {s.name}
+              </span>
             </div>
             {i < arr.length - 1 && (
               <div
@@ -148,15 +167,37 @@ export function PipelineBar({ current, done, variant = "premium", locale = "en" 
           </div>
         );
       })}
+      {ready && (
+        <button
+          ref={hideBtnRef}
+          type="button"
+          onClick={() => {
+            focusAfterToggleRef.current = "hide";
+            setUserExpanded(false);
+          }}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            background: "transparent",
+            border: "none",
+            padding: "4px 0",
+            color: "var(--fg-mute)",
+            font: "500 12px/1 var(--sans)",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Hide <Chevron up />
+        </button>
+      )}
       <style>{`
-        /* On tablet/phone the 5 steps + sub-line hints are wider than the panel and would
-           clip. Wrap the steps onto multiple rows and drop the supplementary hint line so
-           every stage stays visible and legible. */
+        /* On tablet/phone the 5 steps are wider than the panel and would clip.
+           Wrap the steps onto multiple rows so every stage stays visible. */
         @media (max-width: 768px) {
           .hv-pipeline { padding: 12px !important; gap: 10px 16px !important; flex-wrap: wrap !important; }
           .hv-pipeline-rule { display: none !important; }
           .hv-pipeline-step { min-width: 0 !important; flex: 0 0 auto !important; }
-          .hv-pipeline-step .mono { display: none !important; }
         }
       `}</style>
     </div>

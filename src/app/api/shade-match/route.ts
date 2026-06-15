@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { config } from "@/lib/config";
+import { getAccessToken } from "@/lib/auth";
 
 /**
- * Public proxy to the backend's nearest-shade matcher. The colour-finder is a
- * public page (no auth), so it can't use the cookie-gated `/bff/*` client; this
- * same-origin route forwards the picked hex to `GET /api/shades/match`, which
- * scores the FULL seeded catalogue by CIELAB ΔE and returns the closest shades.
- * Falls through with a non-200 so the client can use its offline fallback.
+ * Session-gated proxy to the backend's nearest-shade matcher. The colour-finder
+ * is now a subscriber-only tool, so this same-origin route requires a signed-in
+ * session before forwarding the picked hex to `GET /api/shades/match` (which
+ * scores the FULL seeded catalogue by CIELAB ΔE). Unauthenticated callers get a
+ * 401; the client treats any non-200 as "use the bundled offline matcher".
  */
 export async function GET(req: NextRequest) {
+  const token = await getAccessToken();
+  if (!token) {
+    return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+  }
   const hex = req.nextUrl.searchParams.get("hex");
   const brand = req.nextUrl.searchParams.get("brand");
   const limit = req.nextUrl.searchParams.get("limit") ?? "8";

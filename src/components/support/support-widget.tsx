@@ -62,6 +62,7 @@ export function SupportWidget() {
         aria-label={open ? "Close support chat" : "Open support chat"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
+        className="hv-chat-fab"
         style={{
           position: "fixed",
           bottom: 20,
@@ -78,6 +79,7 @@ export function SupportWidget() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          transition: "transform .2s var(--ease), box-shadow .2s var(--ease)",
         }}
       >
         {open ? <CloseIcon /> : <ChatIcon />}
@@ -87,6 +89,7 @@ export function SupportWidget() {
         <div
           role="dialog"
           aria-label="Support chat"
+          className="hv-chat-pop"
           style={{
             position: "fixed",
             bottom: 88,
@@ -104,7 +107,7 @@ export function SupportWidget() {
           }}
         >
           <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--rule)", background: "var(--surface)" }}>
-            <div style={{ font: "300 italic 18px/1.1 var(--serif)", color: "var(--fg)" }}>HueVista support</div>
+            <div style={{ font: "400 18px/1.1 var(--serif)", color: "var(--fg)" }}>HueVista support</div>
             <div style={{ font: "400 10px/1.3 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: needsHuman ? "var(--accent)" : "var(--fg-mute)", marginTop: 4 }}>
               {needsHuman ? "A team member will reply" : "AI assistant · replies instantly"}
             </div>
@@ -112,7 +115,7 @@ export function SupportWidget() {
 
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
             {!convo && (
-              <p style={{ font: "300 italic 15px/1.5 var(--serif)", color: "var(--fg-mute)", margin: 0 }}>
+              <p style={{ font: "400 15px/1.5 var(--serif)", color: "var(--fg-mute)", margin: 0 }}>
                 Hi! Ask about access codes, projects, colours, billing — anything. I&apos;ll help, or pass you to a person.
               </p>
             )}

@@ -53,6 +53,14 @@ const CHAPTERS = [
     tone: "terracotta" as const,
     tag: "FIG. V",
   },
+  {
+    num: "VI.",
+    eyebrow: "Hand back · close",
+    title: <>The <i>handover.</i></>,
+    body: "The finished room goes back the way it came — on WhatsApp, to the customer's own phone, with the shade codes and finishes attached. They show it at home that evening. You mix the can the same afternoon.",
+    tone: "ink" as const,
+    tag: "FIG. VI",
+  },
 ];
 
 export default function MethodPage() {
@@ -64,8 +72,8 @@ export default function MethodPage() {
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
-            <Eyebrow>Volume II &nbsp;·&nbsp; How it works</Eyebrow>
-            <Mono>Est. MMXXVI &nbsp;·&nbsp; Made in Belgavi</Mono>
+            <Eyebrow>How it works</Eyebrow>
+            <Mono>Made in Belgavi, India</Mono>
           </div>
           <h1 className="display">From a photo,<br /><i>a painted wall.</i></h1>
           <Lead className="page-lead">A photograph leaves the customer's hand. Seconds later, the same photograph returns — its walls in any of two thousand catalogued shades, every shadow exactly where it was.</Lead>
@@ -73,10 +81,10 @@ export default function MethodPage() {
 
         {CHAPTERS.map((c, i) => (
           <article key={c.num} className="reveal hv-method-chapter" style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr", gap: 64, padding: "140px 0", borderTop: i === 0 ? "none" : "1px solid var(--rule)", alignItems: "start" }}>
-            <span style={{ fontFamily: "var(--serif)", fontWeight: 300, fontStyle: "italic", fontSize: 56, lineHeight: 1, color: "var(--brass)" }}>{c.num}</span>
+            <span style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 56, lineHeight: 1, color: "var(--brass)" }}>{c.num}</span>
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               <Eyebrow>{c.eyebrow}</Eyebrow>
-              <h2 style={{ fontFamily: "var(--serif)", fontWeight: 300, fontSize: "clamp(48px, 6vw, 84px)", lineHeight: 0.95, letterSpacing: "-.02em", color: "var(--fg)", margin: 0 }}>{c.title}</h2>
+              <h2 style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(48px, 6vw, 84px)", lineHeight: 0.95, letterSpacing: "-.02em", color: "var(--fg)", margin: 0 }}>{c.title}</h2>
               <Lead>{c.body}</Lead>
             </div>
             <div>
@@ -92,7 +100,7 @@ export default function MethodPage() {
               The colour, <i>at the counter.</i>
             </h2>
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-              <Link href="/trial" className="btn btn-brass">Begin a trial <span className="arr">→</span></Link>
+              <Link href="/trial" className="btn btn-brass">Try it free <span className="arr">→</span></Link>
               <Link href="/gallery" className="btn btn-ghost">See it on real rooms <span className="arr">→</span></Link>
             </div>
           </div>

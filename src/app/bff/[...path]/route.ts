@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { config } from "@/lib/config";
 import { getAccessToken } from "@/lib/auth";
 
@@ -17,6 +18,9 @@ export const dynamic = "force-dynamic";
 const ALLOWED_PREFIXES = [
   "api/images",
   "api/projects",
+  // Anonymous guest creator (upload + create one project + recolour), scoped by
+  // the redeemed access code. Authed with the hv_guest token, not the user token.
+  "api/guest",
   "api/auth/profile",
   "api/auth/me",
   // Email/mobile verification (send + confirm OTP). NOT "api/auth" — that would
@@ -39,7 +43,12 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
     return NextResponse.json({ message: "Forbidden path" }, { status: 403 });
   }
 
-  const token = await getAccessToken();
+  // Guest endpoints authenticate with the guest token; everything else with the
+  // user token. This keeps a signed-in user and a guest session cleanly separate.
+  const isGuestPath = joined === "api/guest" || joined.startsWith("api/guest/");
+  const token = isGuestPath
+    ? (await cookies()).get(config.guestCookie)?.value ?? null
+    : await getAccessToken();
   if (!token) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
 
   const search = req.nextUrl.search;

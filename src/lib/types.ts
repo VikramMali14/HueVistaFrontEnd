@@ -1,9 +1,6 @@
 // Must match the backend UserRole enum exactly (auth/model/UserRole.java).
 export type UserRole = "ADMIN" | "DISTRIBUTOR" | "RETAILER" | "PAINTER" | "CUSTOMER";
 export type AuthProvider = "LOCAL" | "GOOGLE";
-export type UiVariant = "premium" | "classic";
-export type UiTheme = "dark" | "light";
-export type UiLocale = "en" | "hi";
 
 export interface AuthUser {
   id: string;
@@ -12,10 +9,6 @@ export interface AuthUser {
   picture?: string | null;
   provider: AuthProvider;
   role: UserRole;
-  /** Backend-controlled UI flavour. premium = HueVista couture look; classic = enterprise/retailer look. */
-  uiVariant?: UiVariant;
-  /** Optional per-user persisted theme preference. Falls back to dark. */
-  uiTheme?: UiTheme;
   emailVerified?: boolean;
   phoneNumber?: string | null;
   phoneVerified?: boolean;
@@ -58,6 +51,20 @@ export interface ApiError {
   status: number;
   message: string;
   fieldErrors?: Record<string, string>;
+  // Machine-readable hint for specific cases (e.g. "VERIFICATION_REQUIRED",
+  // "SUBSCRIPTION_REQUIRED") so the UI can branch beyond the HTTP status.
+  code?: string;
+}
+
+/** Result of an anonymous guest redeeming a shop access code. */
+export interface GuestRedeemResult {
+  guestToken: string;
+  code: string;
+  shopName: string;
+  validDays: number;
+  expiresAt: string;
+  /** Paint companies the shop unlocked for this guest. Empty/absent = all brands. */
+  allowedBrands?: string[];
 }
 
 export type ColorFamily =
@@ -71,13 +78,17 @@ export type ColorFamily =
   | "Greys"
   | "Browns";
 
+/** Paint companies present in the catalogue. Single source of truth for brand-scoped UI. */
+export const PAINT_BRANDS = ["Asian Paints", "Berger", "Nerolac", "Dulux"] as const;
+export type ShadeBrand = (typeof PAINT_BRANDS)[number];
+
 export interface PaintShade {
   code: string;
   name: string;
   hex: string;
   family: ColorFamily;
   lrv: number;
-  brand: "Asian Paints" | "Berger" | "Nerolac" | "Dulux";
+  brand: ShadeBrand;
   finishes: ReadonlyArray<"Matt" | "Satin" | "Royale" | "Velvet">;
 }
 
@@ -255,6 +266,8 @@ export interface AccessCode {
   expired: boolean;
   usedAt?: string | null;
   createdAt?: string | null;
+  /** Paint companies unlocked for this guest. Empty/absent = all brands. */
+  allowedBrands?: string[];
 }
 
 /** Current subscription summary (backend SubscriptionResponse). */

@@ -3,24 +3,28 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { GoogleButton } from "@/components/auth/google-button";
 
 interface SignInFormProps {
   action: (formData: FormData) => Promise<{ error?: string } | void>;
   next: string;
+  /** "register" renders the free-account variant (name fields, new-password). */
+  mode?: "signin" | "register";
 }
 
-export function SignInForm({ action, next }: SignInFormProps) {
+export function SignInForm({ action, next, mode = "signin" }: SignInFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [showPassword, setShowPassword] = useState(false);
+  const register = mode === "register";
 
   return (
     <form
       style={{ display: "flex", flexDirection: "column", gap: 28, marginTop: 48 }}
       onSubmit={(e) => {
         e.preventDefault();
+        // Surface the browser's bubble on the exact offending field (works with noValidate).
+        if (!e.currentTarget.reportValidity()) return;
         const fd = new FormData(e.currentTarget);
         startTransition(async () => {
           setError(null);
@@ -28,7 +32,7 @@ export function SignInForm({ action, next }: SignInFormProps) {
             const res = await action(fd);
             if (res && "error" in res && res.error) setError(res.error);
           } catch (err) {
-            setError(err instanceof Error ? err.message : "Could not sign in.");
+            setError(err instanceof Error ? err.message : register ? "Could not create the account." : "Could not sign in.");
           }
         });
       }}
@@ -56,15 +60,32 @@ export function SignInForm({ action, next }: SignInFormProps) {
         <span style={{ flex: 1, height: 1, background: "var(--rule)" }} />
       </div>
 
+      {register && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="field">
+            <label className="field-label" htmlFor="firstName">
+              First name
+            </label>
+            <input id="firstName" name="firstName" type="text" placeholder="Priya" required autoComplete="given-name" />
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="lastName">
+              Last name
+            </label>
+            <input id="lastName" name="lastName" type="text" placeholder="Mehta" required autoComplete="family-name" />
+          </div>
+        </div>
+      )}
+
       <div className="field">
         <label className="field-label" htmlFor="email">
-          Shop email
+          Email
         </label>
         <input
           id="email"
           name="email"
           type="email"
-          placeholder="suresh@shardapaints.in"
+          placeholder="priya@mehtapaints.in"
           required
           autoComplete="email"
           inputMode="email"
@@ -73,17 +94,17 @@ export function SignInForm({ action, next }: SignInFormProps) {
       </div>
       <div className="field">
         <label className="field-label" htmlFor="password">
-          Passphrase
+          Password
         </label>
         <div style={{ position: "relative" }}>
           <input
             id="password"
             name="password"
             type={showPassword ? "text" : "password"}
-            placeholder="••••••••••••"
+            placeholder={register ? "At least eight characters" : "••••••••••••"}
             required
             minLength={8}
-            autoComplete="current-password"
+            autoComplete={register ? "new-password" : "current-password"}
             aria-invalid={error ? "true" : undefined}
             style={{ paddingRight: 56 }}
           />
@@ -91,7 +112,8 @@ export function SignInForm({ action, next }: SignInFormProps) {
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-pressed={showPassword}
-            aria-label={showPassword ? "Hide passphrase" : "Show passphrase"}
+            aria-controls="password"
+            aria-label={showPassword ? "Hide password" : "Show password"}
             style={{
               position: "absolute",
               right: 0,
@@ -109,42 +131,44 @@ export function SignInForm({ action, next }: SignInFormProps) {
           </button>
         </div>
       </div>
-      <div
-        style={{
-          display: "flex",
-          gap: 16,
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-        }}
-      >
-        <label
+      {!register && (
+        <div
           style={{
-            display: "inline-flex",
+            display: "flex",
+            gap: 16,
             alignItems: "center",
-            gap: 10,
-            font: "400 10px/1 var(--mono)",
-            letterSpacing: ".22em",
-            textTransform: "uppercase",
-            color: "var(--fg-soft)",
-            cursor: "pointer",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
           }}
         >
-          <input type="checkbox" name="remember" defaultChecked style={{ accentColor: "var(--accent)" }} />
-          Remember this counter
-        </label>
-        <Link
-          href="/sign-in/forgot"
-          style={{
-            font: "300 italic 15px/1 var(--serif)",
-            color: "var(--accent-soft)",
-            borderBottom: "1px solid var(--rule-brass)",
-            paddingBottom: 2,
-          }}
-        >
-          Forgot passphrase?
-        </Link>
-      </div>
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              font: "400 10px/1 var(--mono)",
+              letterSpacing: ".22em",
+              textTransform: "uppercase",
+              color: "var(--fg-soft)",
+              cursor: "pointer",
+            }}
+          >
+            <input type="checkbox" name="remember" defaultChecked style={{ accentColor: "var(--accent)" }} />
+            Remember me
+          </label>
+          <Link
+            href="/sign-in/forgot"
+            style={{
+              font: "400 15px/1 var(--serif)",
+              color: "var(--accent-soft)",
+              borderBottom: "1px solid var(--rule-brass)",
+              paddingBottom: 2,
+            }}
+          >
+            Forgot password?
+          </Link>
+        </div>
+      )}
       {error && (
         <div className="field-error" role="alert" aria-live="assertive">
           {error}
@@ -153,12 +177,16 @@ export function SignInForm({ action, next }: SignInFormProps) {
       <Button type="submit" disabled={pending} style={{ justifyContent: "center" }}>
         {pending ? (
           <>
-            <Spinner size={14} color="currentColor" />
-            <span>Signing in…</span>
+            <span className="hv-mix" aria-hidden>
+              <i style={{ background: "#b96b48" }} />
+              <i style={{ background: "#7b8a72" }} />
+              <i style={{ background: "#8c98a8" }} />
+            </span>
+            <span>Mixing your colours…</span>
           </>
         ) : (
           <>
-            Sign in <span className="arr">→</span>
+            {register ? "Create free account" : "Sign in"} <span className="arr">→</span>
           </>
         )}
       </Button>

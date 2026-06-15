@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
+import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
+import { ACCESS_CODE_LENGTH, normalizeAccessCode, validateAccessCode } from "@/lib/validation";
 
 export function RedeemForm() {
   const [code, setCode] = useState("");
@@ -13,8 +14,12 @@ export function RedeemForm() {
   const [validDays, setValidDays] = useState<number | null>(null);
 
   async function redeem() {
-    const value = code.trim();
-    if (!value) return;
+    const value = normalizeAccessCode(code);
+    const invalid = validateAccessCode(value);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     setStatus("redeeming");
     setError(null);
     try {
@@ -43,7 +48,7 @@ export function RedeemForm() {
           Upload a room photo and start visualising — you pick colours by feel.
         </Lead>
         {/* Full reload so the app re-renders with the new CUSTOMER role. */}
-        <a className="btn btn-brass" href="/atelier">Open the atelier <span className="arr">→</span></a>
+        <a className="btn btn-brass" href="/atelier">Open the studio <span className="arr">→</span></a>
       </div>
     );
   }
@@ -63,11 +68,16 @@ export function RedeemForm() {
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", maxWidth: 460 }}>
         <input
           value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          onChange={(e) => {
+            setCode(normalizeAccessCode(e.target.value));
+            setError(null);
+          }}
           onKeyDown={(e) => e.key === "Enter" && void redeem()}
           placeholder="e.g. 7K2NQ9PX"
           aria-label="Access code"
+          maxLength={ACCESS_CODE_LENGTH}
           spellCheck={false}
+          aria-invalid={error ? "true" : undefined}
           style={{
             flex: 1,
             minWidth: 200,
@@ -80,14 +90,14 @@ export function RedeemForm() {
             fontSize: 16,
           }}
         />
-        <Button onClick={() => void redeem()} disabled={status === "redeeming" || !code.trim()}>
+        <Button onClick={() => void redeem()} disabled={status === "redeeming" || validateAccessCode(code) !== null}>
           {status === "redeeming" ? <><Spinner size={14} color="currentColor" /> Redeeming…</> : <>Redeem <span className="arr">→</span></>}
         </Button>
       </div>
 
-      {error && <div className="field-error" role="alert" style={{ marginTop: 16 }}>{error}</div>}
+      {error && <p className="field-error" role="alert" style={{ marginTop: 16 }}>{error}</p>}
 
-      <p style={{ font: "300 italic 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 20, maxWidth: "48ch" }}>
+      <p style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 20, maxWidth: "48ch" }}>
         Redeeming switches this account to a customer of the issuing shop — one project, valid for the
         code&apos;s window. Retailers don&apos;t need a code.
       </p>

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { suggestForRole } from "@/lib/harmony";
-import type { PaintShade, RegionKind, UiVariant } from "@/lib/types";
+import type { PaintShade, RegionKind } from "@/lib/types";
 
 /** The minimal slice of a region the coordinate panel needs. */
 export interface RegionLite {
@@ -27,16 +27,13 @@ export function CoordinateSuggestions({
   regions,
   catalogue,
   onApplyToRegion,
-  variant = "premium",
 }: {
   baseHex: string;
   activeRegionId: string;
   regions: ReadonlyArray<RegionLite>;
   catalogue: ReadonlyArray<PaintShade>;
   onApplyToRegion: (regionId: string, shade: PaintShade) => void;
-  variant?: UiVariant;
 }) {
-  const isClassic = variant === "classic";
 
   const groups = useMemo(() => {
     // Start by excluding colours already placed on a wall, then grow the exclude
@@ -52,40 +49,23 @@ export function CoordinateSuggestions({
       const isActive = r.id === activeRegionId;
       // Active wall → tonal neighbours of the pick; other walls → role-coordinated.
       const role: RegionKind = isActive ? "MAIN_WALL" : r.kind;
-      const shades = suggestForRole(baseHex, role, catalogue, isClassic ? 3 : 4, seen);
+      const shades = suggestForRole(baseHex, role, catalogue, 4, seen);
       if (shades.length === 0) continue;
       out.push({ region: r, shades, isActive });
       for (const s of shades) seen.push(s.code);
     }
     return out;
-  }, [baseHex, activeRegionId, regions, catalogue, isClassic]);
+  }, [baseHex, activeRegionId, regions, catalogue]);
 
   if (groups.length === 0) return null;
 
   return (
     <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--rule)" }}>
-      {isClassic ? (
-        <span
-          style={{
-            display: "block",
-            marginBottom: 4,
-            font: "600 11px/1 var(--sans, system-ui)",
-            letterSpacing: ".06em",
-            textTransform: "uppercase",
-            color: "var(--fg-mute)",
-          }}
-        >
-          Shades that pair with this
-        </span>
-      ) : (
-        <Mono style={{ display: "block", marginBottom: 4 }}>Shades that pair · complete the look</Mono>
-      )}
+      <Mono style={{ display: "block", marginBottom: 4 }}>Shades that pair with this</Mono>
       <p
         style={{
           margin: "0 0 14px",
-          ...(isClassic
-            ? { font: "400 12px/1.4 var(--sans, system-ui)" }
-            : { font: "300 italic 13px/1.4 var(--serif)" }),
+          font: "400 12px/1.4 var(--sans)",
           color: "var(--fg-mute)",
         }}
       >
@@ -103,15 +83,13 @@ export function CoordinateSuggestions({
                   height: 11,
                   background: region.hex,
                   border: "1px solid var(--rule-strong)",
-                  borderRadius: isClassic ? "50%" : 0,
+                  borderRadius: "50%",
                   flexShrink: 0,
                 }}
               />
               <span
                 style={{
-                  ...(isClassic
-                    ? { font: "600 13px/1 var(--sans, system-ui)" }
-                    : { font: "300 italic 15px/1 var(--serif)" }),
+                  font: "600 13px/1 var(--sans)",
                   color: "var(--fg)",
                 }}
               >
@@ -141,10 +119,10 @@ export function CoordinateSuggestions({
                   <span
                     aria-hidden
                     style={{
-                      height: isClassic ? 40 : 44,
+                      height: 44,
                       background: s.hex,
                       border: "1px solid var(--rule-strong)",
-                      borderRadius: isClassic ? 4 : 0,
+                      borderRadius: 4,
                     }}
                   />
                   <span

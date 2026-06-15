@@ -10,11 +10,13 @@ import { fetchCatalogue } from "@/lib/catalogue";
 import type { PaintShade } from "@/lib/types";
 import { CatalogueToolbar } from "@/components/catalogue/catalogue-toolbar";
 import { ColorMatch } from "@/components/catalogue/color-match";
+import { CompetitorTranslator } from "@/components/catalogue/competitor-translator";
+import { WhitesFinder } from "@/components/catalogue/whites-finder";
 import { Harmonies } from "@/components/catalogue/harmonies";
 
 export const metadata: Metadata = {
   title: "Catalogue",
-  description: "Every shade. Codes intact. Filter by family, finish, LRV.",
+  description: "2,481 Asian Paints shades with real codes. Search by name, code or hex; filter by colour family and finish.",
 };
 
 export default async function CataloguePage() {
@@ -28,28 +30,40 @@ export default async function CataloguePage() {
   }
   return (
     <>
-      <Marquee items={["The Catalogue", "2,481 catalogued shades", "Asian Paints · codes intact · finishes preserved"]} />
+      <Marquee items={["The Catalogue", "Every code intact · finishes preserved", "Asian Paints · more to follow"]} />
       <SiteHeader />
       <main>
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
-            <Eyebrow>Volume II &nbsp;·&nbsp; The Catalogue</Eyebrow>
-            <Mono>2,481 shades · 4 partners</Mono>
+            <Eyebrow>Colour library</Eyebrow>
+            <Mono>{shades.length.toLocaleString("en-IN")} shades · Asian Paints · more to follow</Mono>
           </div>
           <h1 className="display">Every shade.<br /><i>Codes intact.</i></h1>
-          <Lead className="page-lead">Asian Paints at launch, with Berger and Nerolac soon to follow. Filter by family, finish, LRV, or regional style. Search by code, name, or hex.</Lead>
+          <Lead className="page-lead">Asian Paints at launch, with Berger and Nerolac to follow. Filter by colour family, finish, or light value (LRV). Search by code, name, or hex.</Lead>
         </header>
 
         <section style={{ paddingTop: 80 }}>
           <ColorMatch />
-          <p style={{ margin: "-32px 0 48px", font: "300 italic 16px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
-            Working from a photograph?{" "}
-            <Link href="/color-finder" style={{ color: "var(--accent)" }}>
-              Pull colours straight from an image →
-            </Link>
-          </p>
+          <CompetitorTranslator shades={shades} />
           <CatalogueToolbar shades={shades} />
+        </section>
+
+        <section id="whites">
+          <header style={{ marginBottom: 40 }}>
+            <div className="eyebrow-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24 }}>
+              <Eyebrow>Whites finder</Eyebrow>
+              <Mono>sorted by hidden tint</Mono>
+            </div>
+            <h2 className="display" style={{ fontSize: "clamp(36px, 5vw, 72px)", marginTop: 24 }}>
+              Hundreds of whites.<br /><i>Not one alike.</i>
+            </h2>
+            <Lead style={{ marginTop: 24 }}>
+              Every white hides a tint — warm, pinkish, greenish or cool — and on a phone they all
+              look the same. We sort them by that tint; pick two and compare them across the full screen.
+            </Lead>
+          </header>
+          <WhitesFinder shades={shades} />
         </section>
 
         <Harmonies />
@@ -60,8 +74,8 @@ export default async function CataloguePage() {
               Find the shade.<br /><i>Sell the same afternoon.</i>
             </h2>
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-              <Link className="btn btn-brass" href="/trial">Begin a trial <span className="arr">→</span></Link>
-              <Link className="btn btn-ghost" href="/method">Read the method <span className="arr">→</span></Link>
+              <Link className="btn btn-brass" href="/trial">Try it free <span className="arr">→</span></Link>
+              <Link className="btn btn-ghost" href="/method">How it works <span className="arr">→</span></Link>
             </div>
           </div>
         </section>

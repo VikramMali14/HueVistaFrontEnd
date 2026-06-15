@@ -148,16 +148,16 @@ export function PhoneHandoff({ onImage }: { onImage: (file: File) => void }) {
             {phase === "received" ? (
               <>
                 <span aria-hidden style={{ fontSize: 40, color: "var(--accent)" }}>✓</span>
-                <p style={{ font: "300 italic 18px/1.3 var(--serif)", margin: 0 }}>Photo received.</p>
+                <p style={{ font: "400 18px/1.3 var(--serif)", margin: 0 }}>Photo received.</p>
               </>
             ) : phase === "error" ? (
               <>
-                <p style={{ font: "300 italic 17px/1.4 var(--serif)", color: "var(--fg-soft)", margin: 0 }}>{error}</p>
+                <p style={{ font: "400 17px/1.4 var(--serif)", color: "var(--fg-soft)", margin: 0 }}>{error}</p>
                 <button type="button" className="btn" onClick={() => void start()}>Try again</button>
               </>
             ) : (
               <>
-                <p style={{ font: "300 italic 16px/1.45 var(--serif)", color: "var(--fg-soft)", margin: 0, maxWidth: "30ch" }}>
+                <p style={{ font: "400 16px/1.45 var(--serif)", color: "var(--fg-soft)", margin: 0, maxWidth: "30ch" }}>
                   Scan this with your phone&apos;s camera, then choose a photo. It&apos;ll appear here.
                 </p>
                 {isLocalOrigin && (

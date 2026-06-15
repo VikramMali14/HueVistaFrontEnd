@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { hexToHsv, hsvToHex, nearestShades, type HSV } from "@/lib/color";
-import type { PaintShade, UiLocale, UiVariant } from "@/lib/types";
+import type { PaintShade } from "@/lib/types";
 
 /**
  * Inline HSV colour wheel: hue around the circle, saturation along the radius,
@@ -191,8 +191,6 @@ export function CustomMatchPanel({
   onSelect,
   onApplyExact,
   catalogue,
-  variant = "premium",
-  locale = "en",
   activeRegionLabel,
   initialHex,
 }: {
@@ -200,13 +198,10 @@ export function CustomMatchPanel({
   /** Apply the picked colour exactly, without snapping to a catalogue shade. */
   onApplyExact?: (hex: string) => void;
   catalogue: ReadonlyArray<PaintShade>;
-  variant?: UiVariant;
-  locale?: UiLocale;
   activeRegionLabel?: string;
   /** Seed colour, e.g. when arriving from a shade's "Find similar" button. */
   initialHex?: string;
 }) {
-  const isClassic = variant === "classic";
   const seed = initialHex && HEX_RE.test(initialHex) ? initialHex : "#7C9CBF";
   const [hex, setHex] = useState(seed);
   const [text, setText] = useState(seed);
@@ -225,23 +220,8 @@ export function CustomMatchPanel({
   };
 
   return (
-    <div style={{ padding: isClassic ? 16 : 20, flex: 1, overflow: "auto" }}>
-      {isClassic ? (
-        <span
-          style={{
-            display: "block",
-            marginBottom: 14,
-            font: "600 11px/1 var(--sans, system-ui)",
-            letterSpacing: ".06em",
-            textTransform: "uppercase",
-            color: "var(--fg-mute)",
-          }}
-        >
-          Pick a colour
-        </span>
-      ) : (
-        <Mono style={{ display: "block", marginBottom: 14 }}>Pick a colour · nearest match</Mono>
-      )}
+    <div style={{ padding: 20, flex: 1, overflow: "auto" }}>
+      <Mono style={{ display: "block", marginBottom: 14 }}>Pick a colour</Mono>
 
       <ColorWheel hex={hex} onChange={setHex} />
 
@@ -264,7 +244,7 @@ export function CustomMatchPanel({
             flex: 1,
             padding: "9px 12px",
             border: "1px solid var(--rule-strong)",
-            borderRadius: isClassic ? 6 : 0,
+            borderRadius: 6,
             background: "var(--surface)",
             color: "var(--fg)",
             fontFamily: "var(--mono)",
@@ -286,32 +266,24 @@ export function CustomMatchPanel({
             cursor: HEX_RE.test(hex) ? "pointer" : "not-allowed",
             background: "transparent",
             border: "1px solid var(--rule-strong)",
-            borderRadius: isClassic ? 6 : 0,
+            borderRadius: 6,
             color: "var(--fg)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             gap: 8,
-            ...(isClassic
-              ? { font: "500 12px/1 var(--sans, system-ui)" }
-              : { font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }),
+            font: "500 12px/1 var(--sans)",
           }}
         >
-          <span aria-hidden style={{ width: 14, height: 14, background: hex, border: "1px solid var(--rule-strong)", borderRadius: isClassic ? 3 : 0 }} />
+          <span aria-hidden style={{ width: 14, height: 14, background: hex, border: "1px solid var(--rule-strong)", borderRadius: 3 }} />
           Use this exact colour
         </button>
       )}
 
       <div style={{ marginTop: 20 }}>
-        {isClassic ? (
-          <span style={{ display: "block", marginBottom: 10, font: "600 11px/1 var(--sans, system-ui)", letterSpacing: ".06em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
-            Nearest catalogue shades
-          </span>
-        ) : (
-          <Mono style={{ display: "block", marginBottom: 10 }}>Nearest in catalogue</Mono>
-        )}
+        <Mono style={{ display: "block", marginBottom: 10 }}>Nearest catalogue shades</Mono>
         {matches.length === 0 ? (
-          <p style={{ font: "300 italic 13px/1.4 var(--serif)", color: "var(--fg-mute)" }}>
+          <p style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
             Enter a 6-digit hex like #A47148.
           </p>
         ) : (
@@ -329,7 +301,7 @@ export function CustomMatchPanel({
                   gap: 12,
                   padding: 8,
                   border: "1px solid " + (i === 0 ? "var(--accent)" : "var(--rule)"),
-                  borderRadius: isClassic ? 6 : 0,
+                  borderRadius: 6,
                   background: "transparent",
                   cursor: "pointer",
                   textAlign: "left",
@@ -344,15 +316,13 @@ export function CustomMatchPanel({
                     flexShrink: 0,
                     background: shade.hex,
                     border: "1px solid var(--rule-strong)",
-                    borderRadius: isClassic ? 4 : 0,
+                    borderRadius: 4,
                   }}
                 />
                 <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
                   <span
                     style={{
-                      ...(isClassic
-                        ? { font: "600 13px/1.2 var(--sans, system-ui)" }
-                        : { font: "300 italic 15px/1.1 var(--serif)" }),
+                      font: "600 13px/1.2 var(--sans)",
                       color: "var(--fg)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -374,9 +344,8 @@ export function CustomMatchPanel({
 
       {activeRegionLabel && (
         <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8 }}>
-          {!isClassic && <span style={{ color: "var(--accent)" }} aria-hidden>⁂</span>}
-          <span style={{ ...(isClassic ? { font: "400 13px/1.3 var(--sans, system-ui)", color: "var(--fg-mute)" } : { font: "300 italic 13px/1.3 var(--serif)", color: "var(--fg-mute)" }) }}>
-            {isClassic ? `Applies to ${activeRegionLabel}` : `applies to ${activeRegionLabel}`}
+          <span style={{ font: "400 13px/1.3 var(--sans)", color: "var(--fg-mute)" }}>
+            {`Applies to ${activeRegionLabel}`}
           </span>
         </div>
       )}

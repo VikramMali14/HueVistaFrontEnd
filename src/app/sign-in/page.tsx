@@ -1,63 +1,71 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { loginAction } from "@/lib/auth";
+import { loginAction, registerAction } from "@/lib/auth";
 import { SiteHeader } from "@/components/layout/site-header";
-import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
+import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Logo } from "@/components/ui/logo";
+import { AuthArt } from "@/components/auth/auth-art";
 import { SignInForm } from "./form";
 
 export const metadata: Metadata = {
   title: "Sign in",
-  description: "Sign in to your HueVista atelier.",
+  description: "Sign in to your HueVista studio.",
 };
 
 interface PageProps {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; mode?: string }>;
 }
 
 export default async function SignInPage({ searchParams }: PageProps) {
-  const { next } = await searchParams;
+  const { next, mode } = await searchParams;
+  // /sign-in?mode=register — the free, no-shop account (e.g. a walk-in customer
+  // keeping their guest work). registerAction treats the shop fields as optional.
+  const register = mode === "register";
   return (
     <>
       <SiteHeader showSignIn={false} />
       <div className="auth-shell">
-        <aside className="auth-art" style={{ color: "#ebe5d7" }}>
-          <div className="corner">
-            <span className="roman" style={{ fontSize: 18 }}>I.</span>
-            <span>Plate XVII &nbsp;·&nbsp; Terracotta &nbsp;·&nbsp; AP-1428</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
+        <AuthArt>
+          <div style={{ display: "flex", flexDirection: "column", gap: "clamp(20px, 4vw, 36px)", padding: "28px 0" }}>
             <Logo size="lg" />
-            <div>
-              <Mono style={{ color: "rgba(235,229,215,.7)" }}>From the Journal</Mono>
-              <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontWeight: 300, fontSize: 32, lineHeight: 1.2, color: "#ebe5d7", maxWidth: "16ch", letterSpacing: "-.01em", marginTop: 24 }}>
-                "The colour, at the counter, before the can opens."
-              </p>
-              <Mono style={{ marginTop: 24, display: "inline-block", color: "rgba(235,229,215,.7)" }}>— On the founding of HueVista, Belgavi · MMXXV</Mono>
-            </div>
+            <p style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(21px, 4.5vw, 30px)", lineHeight: 1.15, color: "var(--ivory)", maxWidth: "18ch", letterSpacing: "-.02em", margin: 0 }}>
+              See the colour on the wall before the can opens.
+            </p>
           </div>
-          <div className="corner">
-            <span>Volume I &nbsp;·&nbsp; The Atelier</span>
-            <span>MMXXVI</span>
-          </div>
-        </aside>
+        </AuthArt>
 
         <section className="auth-form-wrap">
-          <Eyebrow>Welcome back</Eyebrow>
-          <h1>Sign in to <br /><i>your atelier.</i></h1>
-          <Lead style={{ maxWidth: "42ch" }}>The counter, the catalogue, the saved scenes — all where you left them.</Lead>
-          <SignInForm action={loginAction} next={next ?? "/dashboard"} />
-          <p className="auth-foot">New to HueVista? <Link href="/trial">Begin a fourteen-day trial.</Link></p>
+          <Eyebrow>{register ? "Create account" : "Sign in"}</Eyebrow>
+          <h1>{register ? <>Create your <i>account.</i></> : <>Welcome <i>back.</i></>}</h1>
+          <Lead style={{ maxWidth: "42ch" }}>
+            {register
+              ? "Free, no card — your projects, colours and saved previews stay with you for good."
+              : "Your projects, colours and saved previews — right where you left them."}
+          </Lead>
+          <SignInForm
+            action={register ? registerAction : loginAction}
+            mode={register ? "register" : "signin"}
+            next={next ?? "/dashboard"}
+          />
+          <p className="auth-foot">
+            {register ? (
+              <>Already have an account? <Link href={`/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in.</Link></>
+            ) : (
+              <>New to HueVista? <Link href="/trial">Start your free 14-day trial.</Link></>
+            )}
+          </p>
         </section>
       </div>
 
       <style>{`
         body { display: flex; flex-direction: column; min-height: 100vh; }
         .auth-shell { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: calc(100vh - 88px); }
-        .auth-art { position: relative; overflow: hidden; background: radial-gradient(ellipse at 30% 25%, rgba(255,235,210,.32), transparent 60%), linear-gradient(160deg, #b96b48 0%, #7a3a2f 55%, #2a100e 100%); border-right: 1px solid var(--rule); padding: 56px; color: #ebe5d7; display: flex; flex-direction: column; justify-content: space-between; }
+        .auth-art { position: relative; overflow: hidden; isolation: isolate; background: #2a100e; border-right: 1px solid var(--rule); padding: 56px; color: #ebe5d7; display: flex; flex-direction: column; justify-content: space-between; }
+        .auth-art > * { position: relative; z-index: 2; }
+        .auth-art > .auth-art-layers { position: absolute; z-index: 0; }
         .auth-art .corner { display: flex; justify-content: space-between; align-items: baseline; font: 400 10px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; color: rgba(235,229,215,.6); }
         .auth-form-wrap { display: flex; flex-direction: column; justify-content: center; padding: 80px; background: var(--bg); color: var(--fg); }
-        .auth-form-wrap h1 { font-family: var(--serif); font-weight: 300; font-size: clamp(48px, 5vw, 72px); line-height: .95; letter-spacing: -.02em; margin: 16px 0 12px; color: var(--fg); }
+        .auth-form-wrap h1 { font-family: var(--serif); font-weight: 650; font-size: clamp(40px, 4.5vw, 60px); line-height: 1; letter-spacing: -.02em; margin: 16px 0 12px; color: var(--fg); }
         .auth-form-wrap h1 i { color: var(--accent-soft); }
         .auth-form-wrap > * { max-width: 480px; width: 100%; }
         .auth-foot { margin-top: 40px; font: 300 italic 17px/1.5 var(--serif); color: var(--fg-mute); }

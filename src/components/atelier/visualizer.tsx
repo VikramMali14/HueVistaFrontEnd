@@ -12,23 +12,26 @@ import { ProjectDetailsGate, type ProjectDetails } from "./project-details-gate"
 import type { RegionLite } from "./coordinate-suggestions";
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
-import { api, HttpError } from "@/lib/api";
+import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
+import type { RecolorEngine } from "@/lib/recolor-engine";
+import {
+  PollCancelledError,
+  pollUntilSegmented as pollSegmentationStatus,
+} from "@/lib/segmentation-polling";
+import { api, guestApi, HttpError } from "@/lib/api";
+import { undertoneClash } from "@/lib/color-science";
 import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraProject } from "@/lib/payments";
-import { t } from "@/lib/i18n";
 import type {
   PaintShade,
   ProjectDetail,
   RegionCategory,
+  RegionColorUpdate,
   RegionDetail,
   RegionKind,
-  UiLocale,
-  UiVariant,
 } from "@/lib/types";
 
 interface VisualizerProps {
-  variant?: UiVariant;
-  locale?: UiLocale;
   /** When set, open this existing project: loads its SAVED masks + cleaned image from
    *  storage instead of re-running segmentation (no extra AI cost). */
   projectId?: string;
@@ -36,6 +39,10 @@ interface VisualizerProps {
   shades?: ReadonlyArray<PaintShade>;
   /** Pre-seeded project name (e.g. from the dashboard "New project" form). */
   initialName?: string;
+  /** Anonymous guest mode (redeemed a shop code, no account): CRUD goes to the
+   *  guest endpoints, there's no AI auto-segment or share link, and the single
+   *  project is owned by the access code. The shop resolves real shade codes. */
+  guest?: boolean;
 }
 
 interface RegionState {
@@ -60,13 +67,7 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_CUSTOM_MASKS = 3;
 
-const DEFAULT_REGIONS_PREMIUM: ReadonlyArray<RegionState> = [
-  { id: "main", kind: "MAIN_WALL", label: "MAIN_WALL · 01", hex: "#a47148" },
-  { id: "accent", kind: "ACCENT_WALL", label: "ACCENT_WALL", hex: "#5b6c5b" },
-  { id: "trim", kind: "TRIM", label: "TRIM", hex: "#f3eee4" },
-];
-
-const DEFAULT_REGIONS_CLASSIC: ReadonlyArray<RegionState> = [
+const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
   { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#a47148" },
   { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#5b6c5b" },
   { id: "trim", kind: "TRIM", label: "Trim", hex: "#f3eee4" },
@@ -87,16 +88,16 @@ const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
   MANUAL: "#b89968",
 };
 
-const CLASSIC_KIND_LABEL: Record<RegionKind, string> = {
+const KIND_LABEL: Record<RegionKind, string> = {
   MAIN_WALL: "Main wall",
   ACCENT_WALL: "Accent wall",
   TRIM: "Trim",
   MANUAL: "Wall",
 };
 
-function mapBackendRegion(region: RegionDetail, isClassic: boolean): RegionState {
+function mapBackendRegion(region: RegionDetail): RegionState {
   const kind = CATEGORY_TO_KIND[region.category] ?? "MANUAL";
-  const fallback = isClassic ? CLASSIC_KIND_LABEL[kind] : kind;
+  const fallback = KIND_LABEL[kind];
   const hasColor = Boolean(region.appliedHexCode || region.appliedShadeCode);
   return {
     id: `r-${region.id}`,
@@ -125,11 +126,18 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";
 
-export function Visualizer({ variant = "premium", locale = "en", projectId: openProjectId, shades, initialName }: VisualizerProps) {
-  const isClassic = variant === "classic";
+export function Visualizer({ projectId: openProjectId, shades, initialName, guest = false }: VisualizerProps) {
+  // Guest mode swaps the CRUD calls to the access-code-scoped endpoints. Signatures
+  // match the user `api`, so the rest of the flow is identical. User-only calls
+  // (segmentation, share) are guarded by `!guest` at their call sites.
+  const uploadImageCall = guest ? guestApi.uploadImage : api.uploadImage;
+  const createProjectCall = guest ? guestApi.createProject : api.createProject;
+  const getProjectCall = guest ? guestApi.getProject : api.getProject;
+  const updateRegionColorsCall = guest ? guestApi.updateRegionColors : api.updateRegionColors;
+  const createCustomMaskCall = guest ? guestApi.createCustomMask : api.createCustomMask;
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const recolorRef = useRef<Recolor | null>(null);
+  const recolorRef = useRef<RecolorEngine | null>(null);
   const srcImgRef = useRef<HTMLImageElement | null>(null);
   const maskCacheRef = useRef<Map<string, Promise<HTMLImageElement>>>(new Map());
   const baseLumaRef = useRef<Map<string, number>>(new Map());
@@ -137,6 +145,9 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
   // Monotonic id so only the LATEST in-flight auto-save may write saveStatus —
   // out-of-order responses from rapid edits can't clobber a newer one's status.
   const saveSeqRef = useRef(0);
+  // Saves that failed (colour updates AND custom-mask uploads), kept as thunks
+  // so "Retry" re-fires exactly what was lost — not just the latest payload.
+  const failedSavesRef = useRef<Array<() => Promise<void>>>([]);
   const [stage, setStage] = useState<PipelineStage>("upload");
   const [done, setDone] = useState<Partial<Record<PipelineStage, boolean>>>({});
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -144,7 +155,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [regions, setRegions] = useState<RegionState[]>(() =>
-    isClassic ? [...DEFAULT_REGIONS_CLASSIC] : [...DEFAULT_REGIONS_PREMIUM],
+    [...DEFAULT_REGIONS],
   );
   const [activeRegion, setActiveRegion] = useState<string>(regions[0]!.id);
   const [cleanOn, setCleanOn] = useState(true);
@@ -154,9 +165,16 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
   const [projectRoom, setProjectRoom] = useState<string | null>(null);
   const [segmenting, setSegmenting] = useState(false);
   const [masksReady, setMasksReady] = useState(false);
+  // Guest AI is billed to the shop; when the shop is out of credits we silently
+  // fall back to manual wall-marking and show this gentle note (guests only).
+  const [guestAiUnavailable, setGuestAiUnavailable] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [limitReached, setLimitReached] = useState(false);
   const [accessExpired, setAccessExpired] = useState(false);
+  // Retailer funnel gates (distinct from the customer entitlement ones above):
+  // verification required before the first project, and "subscribe to a plan".
+  const [needVerification, setNeedVerification] = useState(false);
+  const [needSubscription, setNeedSubscription] = useState(false);
   const [buying, setBuying] = useState(false);
   const [pendingImageId, setPendingImageId] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -173,20 +191,69 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
   // Manual mask studio.
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
   const [savingMask, setSavingMask] = useState(false);
+  // Per-region history of catalogue shades the user tried (newest first, max 5).
+  const [triedByRegion, setTriedByRegion] = useState<Record<string, PaintShade[]>>({});
+  // Project-wide history (newest first, max 10) — "that pink from before".
+  const [recentShades, setRecentShades] = useState<PaintShade[]>([]);
+  // "Copy palette" click feedback on the applied-palette strip.
+  const [paletteCopied, setPaletteCopied] = useState(false);
+  // Transient topbar notices — "Walls detected" / "Saved" auto-hide after a beat.
+  const [wallsNoticeVisible, setWallsNoticeVisible] = useState(false);
+  const [savedNoticeVisible, setSavedNoticeVisible] = useState(false);
+  // True when WebGL2 was unavailable and we fell back to the Canvas 2D engine.
+  const [basicPreview, setBasicPreview] = useState(false);
+  // 0 = try the WebGL2 engine; >= 1 = remount a fresh canvas and use the 2D
+  // engine. A canvas is locked to its first successful getContext type, so a
+  // partially-initialised WebGL2 attempt (context created, shaders failed)
+  // would leave the original canvas unable to provide a 2D context.
+  const [engineEpoch, setEngineEpoch] = useState(0);
+
+  useEffect(() => {
+    if (!masksReady) {
+      setWallsNoticeVisible(false);
+      return;
+    }
+    setWallsNoticeVisible(true);
+    const t = setTimeout(() => setWallsNoticeVisible(false), 4000);
+    return () => clearTimeout(t);
+  }, [masksReady]);
+
+  useEffect(() => {
+    if (saveStatus !== "saved") {
+      setSavedNoticeVisible(false);
+      return;
+    }
+    setSavedNoticeVisible(true);
+    const t = setTimeout(() => setSavedNoticeVisible(false), 2500);
+    return () => clearTimeout(t);
+  }, [saveStatus]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     try {
-      recolorRef.current = new Recolor(canvas);
+      if (engineEpoch === 0) {
+        recolorRef.current = new Recolor(canvas);
+      } else {
+        recolorRef.current = new Canvas2DRecolor(canvas);
+        setBasicPreview(true);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (engineEpoch === 0) {
+        // No WebGL2 — fall back to the approximate Canvas 2D engine instead of
+        // blocking the visualizer, on a freshly mounted canvas (the failed
+        // attempt may have claimed this one for WebGL2).
+        setEngineEpoch(1);
+      } else {
+        // Both engines failed — this browser genuinely can't render previews.
+        setError(err instanceof Error ? err.message : String(err));
+      }
     }
     return () => {
       recolorRef.current?.dispose();
       recolorRef.current = null;
     };
-  }, []);
+  }, [engineEpoch]);
 
   const loadMask = useCallback((url: string) => {
     const cache = maskCacheRef.current;
@@ -279,13 +346,13 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
       const mapped = detail.regions
         .slice()
         .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-        .map((r) => mapBackendRegion(r, isClassic));
+        .map((r) => mapBackendRegion(r));
       if (mapped.length > 0) {
         setRegions(mapped);
         setActiveRegion(mapped[0]!.id);
       }
     },
-    [isClassic],
+    [],
   );
 
   // Open an existing project: fetch it and render its SAVED cleaned image + masks from
@@ -298,7 +365,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
       setError(null);
       setUploading(true);
       try {
-        const detail = await api.getProject(openProjectId);
+        const detail = await getProjectCall(openProjectId);
         if (cancelled) return;
         setProjectId(detail.id);
         await applyProjectDetail(detail);
@@ -320,28 +387,23 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
     return () => {
       cancelled = true;
     };
-  }, [openProjectId, applyProjectDetail]);
+  }, [openProjectId, applyProjectDetail, getProjectCall]);
 
+  // Poll the backend until segmentation finishes. The loop itself lives in
+  // src/lib/segmentation-polling.ts (pure + unit-testable); this wrapper only
+  // owns the abort token: starting a new poll cancels the previous one, and the
+  // unmount cleanup above flips the live token. Guests poll their masked project
+  // (guestApi.getProject carries the same status field); everyone else uses the
+  // lightweight status endpoint.
   const pollUntilSegmented = useCallback(async (id: string) => {
     if (pollAbortRef.current) pollAbortRef.current.cancelled = true;
     const token = { cancelled: false };
     pollAbortRef.current = token;
-    const start = Date.now();
-    const timeoutMs = 90_000;
-    const intervalMs = 1500;
-    while (!token.cancelled) {
-      if (Date.now() - start > timeoutMs) {
-        throw new Error("Detecting walls timed out. Please try again.");
-      }
-      const status = await api.getProjectStatus(id);
-      if (status.status === "SEGMENTED") return status;
-      if (status.status === "FAILED") {
-        throw new Error(status.failureReason || "Could not detect the walls.");
-      }
-      await new Promise((r) => setTimeout(r, intervalMs));
-    }
-    throw new Error("Cancelled.");
-  }, []);
+    return pollSegmentationStatus<ProjectDetail>({
+      getStatus: () => (guest ? guestApi.getProject(id) : api.getProjectStatus(id)),
+      isCancelled: () => token.cancelled,
+    });
+  }, [guest]);
 
   const validateFile = useCallback((file: File): string | null => {
     if (!ALLOWED_MIME.has(file.type)) {
@@ -361,9 +423,11 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
       setError(null);
       setLimitReached(false);
       setAccessExpired(false);
+      setNeedVerification(false);
+      setNeedSubscription(false);
       setSegmenting(true);
       try {
-        const project = await api.createProject({
+        const project = await createProjectCall({
           imageId,
           name: details?.name,
           roomType: details?.roomType,
@@ -371,22 +435,47 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         });
         setProjectId(project.id);
         if (project.name) setProjectName(project.name);
-        await api.requestSegmentation(project.id);
-        const segmented = await pollUntilSegmented(project.id);
-        await applyProjectDetail(segmented);
-        setMasksReady(true);
-        setDone((d) => ({ ...d, mask: true }));
+        if (guest) {
+          // Guest AI wall-detection is billed to the issuing shop. If the shop is
+          // out of credits (402) or the AI run fails, fall back to marking walls by
+          // hand — the canvas opens either way so the guest is never blocked.
+          setGuestAiUnavailable(false);
+          try {
+            await guestApi.requestSegmentation(project.id);
+            const segmented = await pollUntilSegmented(project.id);
+            await applyProjectDetail(segmented);
+          } catch (segErr) {
+            if (segErr instanceof PollCancelledError) return;
+            setGuestAiUnavailable(true);
+          }
+          setMasksReady(true);
+          setDone((d) => ({ ...d, mask: true }));
+        } else {
+          await api.requestSegmentation(project.id);
+          const segmented = await pollUntilSegmented(project.id);
+          await applyProjectDetail(segmented);
+          setMasksReady(true);
+          setDone((d) => ({ ...d, mask: true }));
+        }
       } catch (err) {
+        if (err instanceof PollCancelledError) {
+          // Superseded by a newer poll or the component unmounted — not an error.
+          return;
+        }
         if (err instanceof HttpError && err.status === 401) {
           setError("Your session expired. Please sign in again.");
           setTimeout(() => {
             window.location.href = "/sign-in?next=/atelier";
           }, 1200);
         } else if (err instanceof HttpError && err.status === 402) {
-          setLimitReached(true);
+          // Retailer "subscribe to a plan" (coded) vs customer "buy one extra project".
+          if (err.code === "SUBSCRIPTION_REQUIRED") setNeedSubscription(true);
+          else setLimitReached(true);
           setError(err.message);
         } else if (err instanceof HttpError && err.status === 403) {
-          setAccessExpired(true);
+          // Retailer "verify email + mobile" (coded) vs customer access window ended.
+          if (err.code === "VERIFICATION_REQUIRED") setNeedVerification(true);
+          else setAccessExpired(true);
           setError(err.message);
         } else if (err instanceof Error) {
           setError(err.message);
@@ -397,7 +486,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         setSegmenting(false);
       }
     },
-    [pollUntilSegmented, applyProjectDetail, details],
+    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall],
   );
 
   const onFileChosen = useCallback(
@@ -425,7 +514,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         setStage("clean");
         setDone((d) => ({ ...d, upload: true }));
         try {
-          const uploaded = await api.uploadImage(file);
+          const uploaded = await uploadImageCall(file);
           if (!uploaded?.imageId) {
             throw new Error("Upload failed. Please try again.");
           }
@@ -453,8 +542,42 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         setUploading(false);
       }
     },
-    [cleanOn, createAndSegment, validateFile],
+    [cleanOn, createAndSegment, validateFile, uploadImageCall],
   );
+
+  // "Try again" after a wall-detection timeout/failure: re-runs segmentation on
+  // the ALREADY-created project, so the customer never re-uploads the photo.
+  const handleRetrySegmentation = useCallback(async () => {
+    if (!projectId) return;
+    setError(null);
+    setSegmenting(true);
+    try {
+      if (guest) {
+        // Guest retry is billed to the shop again; a 402/failure quietly drops
+        // back to manual wall-marking rather than surfacing a hard error.
+        setGuestAiUnavailable(false);
+        try {
+          await guestApi.requestSegmentation(projectId);
+          const segmented = await pollUntilSegmented(projectId);
+          await applyProjectDetail(segmented);
+        } catch (segErr) {
+          if (segErr instanceof PollCancelledError) return;
+          setGuestAiUnavailable(true);
+        }
+      } else {
+        await api.requestSegmentation(projectId);
+        const segmented = await pollUntilSegmented(projectId);
+        await applyProjectDetail(segmented);
+      }
+      setMasksReady(true);
+      setDone((d) => ({ ...d, mask: true }));
+    } catch (err) {
+      if (err instanceof PollCancelledError) return;
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setSegmenting(false);
+    }
+  }, [projectId, guest, pollUntilSegmented, applyProjectDetail]);
 
   const handleBuyAndRetry = useCallback(async () => {
     setError(null);
@@ -471,6 +594,25 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
     }
   }, [pendingImageId, createAndSegment]);
 
+  // Run a persistence call under the shared save-status machine. Failures are
+  // queued for Retry even when a newer save has since succeeded — an older
+  // request failing out of order must never be silently dropped.
+  const runSave = useCallback((save: () => Promise<void>) => {
+    const seq = ++saveSeqRef.current;
+    setSaveStatus("saving");
+    void (async () => {
+      try {
+        await save();
+        if (failedSavesRef.current.length > 0) setSaveStatus("failed");
+        else if (saveSeqRef.current === seq) setSaveStatus("saved");
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") console.warn("Auto-save failed:", err);
+        failedSavesRef.current.push(save);
+        setSaveStatus("failed");
+      }
+    })();
+  }, []);
+
   // Apply a catalogue shade to a SPECIFIC region (the active one, or any region
   // a coordinate suggestion targets). Persists when the region exists on the backend.
   const applyShadeTo = useCallback(
@@ -483,26 +625,26 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           return { ...r, hex: shade.hex, shade, applied: true };
         }),
       );
+      // Applying a colour must always show the result — never the original peek.
+      setCompare(false);
+      setTriedByRegion((prev) => {
+        const list = prev[regionId] ?? [];
+        return { ...prev, [regionId]: [shade, ...list.filter((s) => s.code !== shade.code)].slice(0, 5) };
+      });
+      setRecentShades((prev) => [shade, ...prev.filter((s) => s.code !== shade.code)].slice(0, 10));
       setStage("recolor");
       setDone((d) => ({ ...d, mask: true, recolor: true }));
 
       if (projectId && updatedBackendId !== undefined) {
-        const seq = ++saveSeqRef.current;
-        setSaveStatus("saving");
-        void (async () => {
-          try {
-            await api.updateRegionColors(projectId, [
-              { regionId: updatedBackendId!, shadeCode: shade.code, hexCode: shade.hex },
-            ]);
-            if (saveSeqRef.current === seq) setSaveStatus("saved");
-          } catch (err) {
-            if (process.env.NODE_ENV !== "production") console.warn("Auto-save failed:", err);
-            if (saveSeqRef.current === seq) setSaveStatus("failed");
-          }
-        })();
+        const payload: RegionColorUpdate[] = [
+          { regionId: updatedBackendId, shadeCode: shade.code, hexCode: shade.hex },
+        ];
+        runSave(async () => {
+          await updateRegionColorsCall(projectId, payload);
+        });
       }
     },
-    [projectId],
+    [projectId, updateRegionColorsCall, runSave],
   );
 
   const onSelectShade = useCallback(
@@ -521,27 +663,30 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           return { ...r, hex, shade: undefined, applied: true };
         }),
       );
+      // Applying a colour must always show the result — never the original peek.
+      setCompare(false);
       setStage("recolor");
       setDone((d) => ({ ...d, mask: true, recolor: true }));
 
       if (projectId && updatedBackendId !== undefined) {
-        const seq = ++saveSeqRef.current;
-        setSaveStatus("saving");
-        void (async () => {
-          try {
-            await api.updateRegionColors(projectId, [
-              { regionId: updatedBackendId!, shadeCode: null, hexCode: hex },
-            ]);
-            if (saveSeqRef.current === seq) setSaveStatus("saved");
-          } catch (err) {
-            if (process.env.NODE_ENV !== "production") console.warn("Auto-save failed:", err);
-            if (saveSeqRef.current === seq) setSaveStatus("failed");
-          }
-        })();
+        const payload: RegionColorUpdate[] = [
+          { regionId: updatedBackendId, shadeCode: null, hexCode: hex },
+        ];
+        runSave(async () => {
+          await updateRegionColorsCall(projectId, payload);
+        });
       }
     },
-    [activeRegion, projectId],
+    [activeRegion, projectId, updateRegionColorsCall, runSave],
   );
+
+  // Re-run every failed save; any that fails again re-queues itself via runSave.
+  const retrySave = useCallback(() => {
+    const pending = failedSavesRef.current;
+    if (pending.length === 0) return;
+    failedSavesRef.current = [];
+    for (const save of pending) runSave(save);
+  }, [runSave]);
 
   const customMaskCount = useMemo(() => regions.filter((r) => r.custom).length, [regions]);
   const masksRemaining = Math.max(0, MAX_CUSTOM_MASKS - customMaskCount);
@@ -577,11 +722,10 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
         setMaskStudioOpen(false);
         return;
       }
-      const seq = ++saveSeqRef.current;
-      setSavingMask(true);
-      setSaveStatus("saving");
-      try {
-        const detail = await api.createCustomMask(projectId, {
+      // Retryable thunk: on failure the Retry chip re-uploads THIS mask and
+      // wires the backendId into the region, not just the last colour change.
+      const persist = async () => {
+        const detail = await createCustomMaskCall(projectId, {
           maskBase64: mask.toDataURL("image/png"),
           category,
           label,
@@ -591,16 +735,24 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
             r.id === id ? { ...r, backendId: detail.id, maskUrl: resolveMediaUrl(detail.maskUrl) } : r,
           ),
         );
-        if (saveSeqRef.current === seq) setSaveStatus("saved");
+      };
+      const seq = ++saveSeqRef.current;
+      setSavingMask(true);
+      setSaveStatus("saving");
+      try {
+        await persist();
+        if (failedSavesRef.current.length > 0) setSaveStatus("failed");
+        else if (saveSeqRef.current === seq) setSaveStatus("saved");
       } catch (err) {
         if (process.env.NODE_ENV !== "production") console.warn("Custom mask save failed:", err);
-        if (saveSeqRef.current === seq) setSaveStatus("failed");
+        failedSavesRef.current.push(persist);
+        setSaveStatus("failed");
       } finally {
         setSavingMask(false);
         setMaskStudioOpen(false);
       }
     },
-    [projectId],
+    [projectId, createCustomMaskCall],
   );
 
   // Generate a public, code-hidden share link for this project and copy it.
@@ -626,7 +778,42 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
     }
   }, [projectId]);
 
+  // Copy the applied palette as one line per wall, e.g.
+  // "Main wall — Silken Dawn (AP-1432) #e8dcc8" (guests never see shade codes).
+  const handleCopyPalette = useCallback(async () => {
+    const lines = regions
+      .filter((r) => r.applied)
+      .map((r) => {
+        if (!r.shade) return `${r.label} — ${r.hex}`;
+        return guest
+          ? `${r.label} — ${r.shade.name} ${r.hex}`
+          : `${r.label} — ${r.shade.name} (${r.shade.code}) ${r.hex}`;
+      });
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setPaletteCopied(true);
+      setTimeout(() => setPaletteCopied(false), 1600);
+    } catch {
+      /* clipboard blocked — nothing else to do */
+    }
+  }, [regions, guest]);
+
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
+
+  // Undertone check across every painted wall: the first warm-vs-cool (or
+  // white-tint) fight found becomes a quiet note in the shade panel.
+  const clashNote = useMemo(() => {
+    const painted = regions.filter((r) => r.applied);
+    for (let i = 0; i < painted.length; i++) {
+      for (let j = i + 1; j < painted.length; j++) {
+        const verdict = undertoneClash(painted[i]!.hex, painted[j]!.hex);
+        if (verdict.clash) {
+          return `${painted[i]!.label} and ${painted[j]!.label}: ${verdict.reason}.`;
+        }
+      }
+    }
+    return null;
+  }, [regions]);
 
   // Slim region list for the shade grid's coordinate suggestions.
   const regionLites = useMemo<RegionLite[]>(
@@ -643,62 +830,58 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
   );
 
   const overlayLabel = uploading && !segmenting
-    ? t(locale, "atelier.status.uploading")
+    ? "Uploading photo"
     : segmenting
-      ? t(locale, "atelier.status.segmenting")
+      ? "Detecting walls"
       : "Working";
   const overlayHint = uploading && !segmenting
-    ? t(locale, "atelier.status.uploadingHint")
+    ? "Sending the photo to our service."
     : segmenting
-      ? t(locale, "atelier.status.segmentingHint")
+      ? "Finding the walls, trim and other paintable surfaces. This usually takes 5 to 10 seconds."
       : undefined;
 
-  // Style maps for the two variants
-  const regionLabelStyle: React.CSSProperties = isClassic
-    ? { font: "500 13px/1 var(--sans, system-ui)", color: "var(--fg)" }
-    : { font: "300 italic 14px/1 var(--serif)" };
-  const controlChipStyle: React.CSSProperties = isClassic
-    ? {
-        font: "500 12px/1 var(--sans, system-ui)",
-        letterSpacing: 0,
-        textTransform: "none",
-        color: "var(--fg-soft)",
-      }
-    : {};
+  const regionLabelStyle: React.CSSProperties = { font: "500 13px/1 var(--sans)", color: "var(--fg)" };
+  const controlChipStyle: React.CSSProperties = {
+    font: "500 12px/1 var(--sans)",
+    letterSpacing: 0,
+    textTransform: "none",
+    color: "var(--fg-soft)",
+  };
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
 
+  // Wall detection can be retried without re-uploading the photo once the
+  // project exists and we're still on the mask step. Guests can retry too — each
+  // attempt is billed to the shop, falling back to manual if it's out of credits.
+  const canRetrySegmentation = Boolean(projectId) && stage === "mask";
+  // Errors after the photo is on screen (segmentation timeout/failure, share
+  // failures…) need their own surface — the DropZone one is gone by then.
+  const showCanvasError = Boolean(
+    error && imageUrl && !uploading && !segmenting &&
+    !limitReached && !accessExpired && !needVerification && !needSubscription,
+  );
+
   return (
     <div
-      className={`hv-visualizer ${isClassic ? "is-classic" : ""}`}
+      className="hv-visualizer"
       style={{ border: "1px solid var(--rule-strong)", overflow: "hidden", background: "var(--bg)" }}
     >
       <div className="hv-vis-topbar">
-        {!isClassic && (
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <div className="brand-mark" style={{ width: 12, height: 12 }} />
-            <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)" }}>HueVista</span>
-          </div>
-        )}
         <div className="hv-vis-project">
-          {isClassic ? (
-            <span style={{ font: "500 14px/1.2 var(--sans, system-ui)", color: "var(--fg)" }}>
-              {projectName || (projectId ? `Project #${projectId.slice(0, 8)}` : t(locale, "atelier.toolbar.untitled"))}
-            </span>
-          ) : (
-            <>
-              <Mono>Project</Mono>
-              <span style={{ font: "300 italic 16px/1 var(--serif)", color: "var(--fg-soft)" }}>
-                {projectName || (projectId ? `#${projectId.slice(0, 8)}` : "Untitled")}
-              </span>
-            </>
-          )}
+          <Mono>Project</Mono>
+          <span style={{ font: "600 14px/1.2 var(--sans)", color: "var(--fg)" }}>
+            {projectName || "Untitled project"}
+          </span>
           {projectRoom && <Mono>· {projectRoom}</Mono>}
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-          {classification && !isClassic && <Mono brass>{classification}</Mono>}
-          {classification && isClassic && (
+          {basicPreview && (
+            <span style={controlChipStyle} title="WebGL2 unavailable — using the simplified renderer">
+              {"Basic preview mode — this browser doesn't support WebGL2, colours are approximate."}
+            </span>
+          )}
+          {classification && (
             <span style={{ ...controlChipStyle, color: "var(--accent)" }}>
               {classification === "INDOOR" ? "Indoor" : classification === "OUTDOOR" ? "Outdoor" : "Unknown"}
             </span>
@@ -706,44 +889,39 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           {segmenting && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <Spinner size={12} color="var(--accent)" />
-              {isClassic ? (
-                <span style={controlChipStyle}>{t(locale, "atelier.status.segmenting")}…</span>
-              ) : (
-                <Mono>Segmenting…</Mono>
-              )}
+              <span style={controlChipStyle}>Detecting walls…</span>
             </span>
           )}
-          {masksReady && (isClassic ? (
-            <span style={{ ...controlChipStyle, color: "var(--accent)" }}>
-              {t(locale, "atelier.status.masksReady")}
+          {masksReady && wallsNoticeVisible && !guestAiUnavailable && (
+            <span style={{ ...controlChipStyle, color: "var(--accent)" }}>Walls detected</span>
+          )}
+          {guest && guestAiUnavailable && masksReady && (
+            <span style={controlChipStyle} title="The shop's AI previews are used up — mark the walls by hand instead.">
+              AI previews unavailable — mark walls by hand
             </span>
-          ) : (
-            <Mono brass>Masks ready</Mono>
-          ))}
+          )}
           {saveStatus === "saving" && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <Spinner size={12} color="var(--fg-mute)" />
-              {isClassic ? (
-                <span style={controlChipStyle}>{t(locale, "atelier.status.saving")}</span>
-              ) : (
-                <Mono>Saving…</Mono>
-              )}
+              <span style={controlChipStyle}>Saving…</span>
             </span>
           )}
-          {saveStatus === "saved" && (isClassic ? (
-            <span style={controlChipStyle}>{t(locale, "atelier.status.saved")}</span>
-          ) : (
-            <Mono>Saved · auto</Mono>
-          ))}
+          {saveStatus === "saved" && savedNoticeVisible && <span style={controlChipStyle}>Saved</span>}
           {saveStatus === "failed" && (
-            <span
+            <button
+              type="button"
+              onClick={retrySave}
               style={{
                 ...controlChipStyle,
                 color: "#dc2626",
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
               }}
             >
-              {t(locale, "atelier.status.saveFailed")}
-            </span>
+              Could not save · <span style={{ textDecoration: "underline" }}>Retry</span>
+            </button>
           )}
           {shareUrl && (
             <span
@@ -762,31 +940,34 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
               </span>
             </span>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={!projectId || sharing}
-            onClick={() => void handleShare()}
-            title={projectId ? "Create a public link (colours shown, codes hidden)" : "Save the project first"}
-          >
-            {sharing ? "Sharing…" : "Share"}
-          </Button>
+          {!guest && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!projectId || sharing}
+              onClick={() => void handleShare()}
+              title={projectId ? "Create a public link (colours shown, codes hidden)" : "Save the project first"}
+            >
+              {sharing ? "Sharing…" : "Share"}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
             disabled={!imageUrl}
             onClick={() => recolorRef.current && downloadPng(recolorRef.current.exportPng())}
           >
-            {isClassic ? t(locale, "atelier.toolbar.export") : "Export"}
+            Download image
           </Button>
         </div>
       </div>
 
-      <PipelineBar current={stage} done={done} variant={variant} locale={locale} />
+      <PipelineBar current={stage} done={done} busy={segmenting ? "mask" : uploading ? "upload" : undefined} />
 
       <div className="hv-vis-body" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 0 }}>
         <div className="hv-vis-canvas-wrap" style={{ position: "relative", background: "var(--surface)" }}>
           <canvas
+            key={engineEpoch}
             ref={canvasRef}
             style={{
               position: "absolute",
@@ -799,8 +980,6 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           />
           {showDetailsGate && (
             <ProjectDetailsGate
-              variant={variant}
-              locale={locale}
               onSubmit={(d) => {
                 setDetails(d);
                 setProjectName(d.name);
@@ -810,8 +989,6 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           )}
           {!imageUrl && !showDetailsGate && !openProjectId && (
             <DropZone
-              variant={variant}
-              locale={locale}
               uploading={uploading}
               error={error}
               onChoose={() => fileRef.current?.click()}
@@ -842,7 +1019,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                   background: "var(--bg)",
                   border: "1px solid var(--rule-strong)",
                   zIndex: 5,
-                  borderRadius: isClassic ? 8 : 0,
+                  borderRadius: 8,
                   display: "flex",
                   flexDirection: "column",
                   gap: 10,
@@ -850,21 +1027,12 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                 }}
               >
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  {isClassic ? (
-                    <span style={controlChipStyle}>{t(locale, "atelier.control.tidy")}</span>
-                  ) : (
-                    <Mono>Image clean</Mono>
-                  )}
-                  <Toggle on={cleanOn} onClick={() => setCleanOn((v) => !v)} isClassic={isClassic} ariaLabel="image clean-up" />
-                  {!isClassic && <Mono>{cleanOn ? "On" : "Off"} · Nano Banana Pro</Mono>}
+                  <span style={controlChipStyle}>Tidy up image</span>
+                  <Toggle on={cleanOn} onClick={() => setCleanOn((v) => !v)} ariaLabel="image clean-up" />
                 </div>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  {isClassic ? (
-                    <span style={controlChipStyle}>Keep shadows</span>
-                  ) : (
-                    <Mono>Keep shadows</Mono>
-                  )}
-                  <Toggle on={shadowOn} onClick={() => setShadowOn((v) => !v)} isClassic={isClassic} ariaLabel="shadow preservation" />
+                  <span style={controlChipStyle}>Keep shadows</span>
+                  <Toggle on={shadowOn} onClick={() => setShadowOn((v) => !v)} ariaLabel="shadow preservation" />
                   {shadowOn ? (
                     <input
                       type="range"
@@ -876,9 +1044,7 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                       aria-label="Shadow intensity"
                       style={{ width: 80, accentColor: "var(--accent)" }}
                     />
-                  ) : (
-                    !isClassic && <Mono>Off · flat swatch</Mono>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
@@ -893,129 +1059,300 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                   background: "var(--bg)",
                   border: "1px solid var(--rule-strong)",
                   zIndex: 5,
-                  borderRadius: isClassic ? 8 : 0,
+                  borderRadius: 8,
                 }}
               >
+                {/* APPLIED-PALETTE STRIP — the "counter ticket" summary of every painted wall */}
                 <div
+                  className="hv-vis-palette"
                   style={{
                     display: "flex",
                     alignItems: "center",
+                    gap: 14,
                     padding: "10px 16px",
+                    borderBottom: "1px solid var(--rule)",
                     overflowX: "auto",
                   }}
                 >
-                  {isClassic ? (
-                    <span style={controlChipStyle}>{t(locale, "atelier.control.regions")}</span>
-                  ) : (
-                    <Mono>Regions</Mono>
-                  )}
-                  <div
-                    aria-hidden
-                    style={{
-                      width: 1,
-                      height: 16,
-                      background: "var(--rule)",
-                      marginLeft: 14,
-                      marginRight: 14,
-                    }}
-                  />
-                  {regions.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => setActiveRegion(r.id)}
-                      aria-pressed={r.id === activeRegion}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "4px 14px",
-                        borderRight: "1px solid var(--rule)",
-                        opacity: r.id === activeRegion ? 1 : 0.6,
-                        background: "transparent",
-                        borderTop: "none",
-                        borderBottom: "none",
-                        borderLeft: "none",
-                        cursor: "pointer",
-                        color: "var(--fg)",
-                      }}
-                    >
-                      <span
-                        aria-hidden
+                  {regions.some((r) => r.applied) ? (
+                    <>
+                      {regions
+                        .filter((r) => r.applied)
+                        .map((r) => (
+                          <span
+                            key={r.id}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}
+                          >
+                            <span
+                              aria-hidden
+                              style={{
+                                width: 18,
+                                height: 18,
+                                borderRadius: 5,
+                                background: r.hex,
+                                border: "1px solid var(--rule-strong)",
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span style={{ font: "500 12px/1 var(--sans)", color: "var(--fg)" }}>{r.label}</span>
+                            <span style={{ font: "400 11px/1 var(--mono)", color: "var(--fg-mute)" }}>
+                              {guest
+                                ? r.shade?.name ?? r.hex
+                                : r.shade
+                                  ? `${r.shade.name} · ${r.shade.code}`
+                                  : r.hex}
+                            </span>
+                          </span>
+                        ))}
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyPalette()}
                         style={{
-                          width: 12,
-                          height: 12,
-                          background: r.applied ? r.hex : "transparent",
+                          marginLeft: "auto",
+                          padding: "6px 12px",
+                          background: "transparent",
                           border: "1px solid var(--rule-strong)",
-                          borderRadius: isClassic ? "50%" : 0,
+                          borderRadius: 6,
+                          color: "var(--fg-soft)",
+                          whiteSpace: "nowrap",
+                          font: "500 12px/1 var(--sans)",
+                          cursor: "pointer",
                         }}
-                      />
-                      <span style={regionLabelStyle}>{r.label}</span>
-                      {!isClassic && <Mono>{r.shade?.code ?? (r.applied ? "—" : "·")}</Mono>}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setMaskStudioOpen(true)}
-                    disabled={!imageDims || masksRemaining <= 0}
-                    title={
-                      masksRemaining <= 0
-                        ? "You've reached the 3-mask limit"
-                        : "Open Mask Studio to draw or edit a wall mask"
-                    }
+                      >
+                        {paletteCopied ? "Copied" : "Copy palette"}
+                      </button>
+                    </>
+                  ) : (
+                    <span style={{ font: "400 12px/1 var(--sans)", color: "var(--fg-mute)" }}>
+                      No colours applied yet
+                    </span>
+                  )}
+                </div>
+                <div style={{ position: "relative" }}>
+                  <div
                     style={{
-                      marginLeft: "auto",
-                      padding: isClassic ? "6px 12px" : "4px 14px",
-                      background: "transparent",
-                      border: "1px solid var(--rule-strong)",
-                      borderRadius: isClassic ? 6 : 0,
-                      color: "var(--fg-soft)",
-                      opacity: imageDims && masksRemaining > 0 ? 1 : 0.5,
-                      whiteSpace: "nowrap",
-                      ...(isClassic
-                        ? { font: "500 12px/1 var(--sans, system-ui)" }
-                        : {
-                            font: "400 10px/1 var(--mono)",
-                            letterSpacing: ".22em",
-                            textTransform: "uppercase",
-                          }),
-                      cursor: imageDims && masksRemaining > 0 ? "pointer" : "not-allowed",
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "10px 44px 10px 16px",
+                      overflowX: "auto",
                     }}
                   >
-                    ✎ {isClassic ? "Mask Studio" : "Mask"}
-                  </button>
+                    <span style={{ ...controlChipStyle, whiteSpace: "nowrap" }}>Walls in this photo</span>
+                    <div
+                      aria-hidden
+                      style={{
+                        width: 1,
+                        height: 16,
+                        background: "var(--rule)",
+                        marginLeft: 14,
+                        marginRight: 14,
+                        flexShrink: 0,
+                      }}
+                    />
+                    {regions.map((r) => {
+                      const isActive = r.id === activeRegion;
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => setActiveRegion(r.id)}
+                          aria-pressed={isActive}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: "6px 14px",
+                            borderRight: "1px solid var(--rule)",
+                            opacity: isActive ? 1 : 0.75,
+                            background: isActive ? "var(--surface-soft)" : "transparent",
+                            boxShadow: isActive ? "inset 0 -2px 0 var(--accent)" : "none",
+                            borderTop: "none",
+                            borderBottom: "none",
+                            borderLeft: "none",
+                            cursor: "pointer",
+                            color: "var(--fg)",
+                            textAlign: "left",
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <span
+                            aria-hidden
+                            style={{
+                              width: 16,
+                              height: 16,
+                              background: r.applied ? r.hex : "transparent",
+                              border: "1px solid var(--rule-strong)",
+                              borderRadius: "50%",
+                              flexShrink: 0,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {r.applied && (
+                              <span
+                                style={{
+                                  font: "600 9px/1 var(--sans)",
+                                  color: "#fff",
+                                  textShadow: "0 0 2px rgba(0,0,0,.6)",
+                                }}
+                              >
+                                ✓
+                              </span>
+                            )}
+                          </span>
+                          <span style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                            <span style={regionLabelStyle}>{r.label}</span>
+                            <span className="hv-chip-sub" style={{ font: "400 11px/1 var(--sans)", color: "var(--fg-mute)" }}>
+                              {r.applied ? r.shade?.name ?? r.hex : "No colour yet"}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => setMaskStudioOpen(true)}
+                      disabled={!imageDims || masksRemaining <= 0}
+                      title={
+                        masksRemaining <= 0
+                          ? "You can add up to 3 walls"
+                          : "Open Mask Studio to draw or edit a wall mask"
+                      }
+                      style={{
+                        marginLeft: "auto",
+                        padding: "6px 12px",
+                        background: "transparent",
+                        border: "1px solid var(--rule-strong)",
+                        borderRadius: 6,
+                        color: "var(--fg-soft)",
+                        opacity: imageDims && masksRemaining > 0 ? 1 : 0.5,
+                        whiteSpace: "nowrap",
+                        font: "500 12px/1 var(--sans)",
+                        cursor: imageDims && masksRemaining > 0 ? "pointer" : "not-allowed",
+                        flexShrink: 0,
+                      }}
+                    >
+                      + Add wall
+                    </button>
+                  </div>
+                  {/* Right-edge fade — hints that the chips row scrolls horizontally. */}
+                  <span
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      bottom: 0,
+                      right: 0,
+                      width: 28,
+                      pointerEvents: "none",
+                      background: "linear-gradient(90deg, transparent, var(--bg))",
+                    }}
+                  />
                 </div>
               </div>
 
-              {/* COMPARE TOGGLE */}
+              {/* HOLD-TO-PEEK — press and hold to see the original photo */}
               <button
                 type="button"
-                onClick={() => setCompare((v) => !v)}
+                onPointerDown={() => setCompare(true)}
+                onPointerUp={() => setCompare(false)}
+                onPointerLeave={() => setCompare(false)}
+                onPointerCancel={() => setCompare(false)}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault();
+                    setCompare(true);
+                  }
+                }}
+                onKeyUp={(e) => {
+                  if (e.key === " " || e.key === "Enter") setCompare(false);
+                }}
+                onBlur={() => setCompare(false)}
                 aria-pressed={compare}
                 style={{
+                  // Top-right: clear of the control cluster (top-left) and the
+                  // two-row palette/chips overlay along the bottom.
                   position: "absolute",
-                  bottom: 80,
+                  top: 20,
                   right: 20,
-                  padding: isClassic ? "6px 12px" : "6px 10px",
+                  padding: "6px 12px",
                   background: compare ? "var(--accent)" : "var(--bg)",
                   border: "1px solid " + (compare ? "var(--accent)" : "var(--rule-strong)"),
-                  borderRadius: isClassic ? 6 : 0,
+                  borderRadius: 6,
                   color: compare ? "var(--bg)" : "var(--fg-soft)",
-                  ...(isClassic
-                    ? { font: "500 12px/1 var(--sans, system-ui)" }
-                    : { font: "400 10px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase" }),
+                  font: "500 12px/1 var(--sans)",
                   cursor: "pointer",
                   zIndex: 5,
+                  userSelect: "none",
+                  touchAction: "none",
                 }}
               >
-                {compare
-                  ? (isClassic ? t(locale, "atelier.control.before") : "Before")
-                  : (isClassic ? t(locale, "atelier.control.compare") : "Compare")}
+                Hold to see original
               </button>
             </>
           )}
+          {showCanvasError && (
+            <div
+              className="field-error"
+              role="alert"
+              style={{
+                position: "absolute",
+                top: 20,
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 6,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                maxWidth: "calc(100% - 48px)",
+                background: "var(--bg)",
+                border: "1px solid var(--rule-strong)",
+                borderRadius: 8,
+                padding: "10px 14px",
+              }}
+            >
+              <span>{error}</span>
+              {canRetrySegmentation && (
+                <button
+                  type="button"
+                  onClick={() => void handleRetrySegmentation()}
+                  style={{
+                    padding: "6px 12px",
+                    background: "transparent",
+                    border: "1px solid var(--rule-strong)",
+                    borderRadius: 6,
+                    color: "var(--fg-soft)",
+                    whiteSpace: "nowrap",
+                    font: "500 12px/1 var(--sans)",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  Try again
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                aria-label="Dismiss error"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                  color: "var(--fg-mute)",
+                  font: "500 14px/1 var(--sans)",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
           <LoaderOverlay show={uploading || segmenting} label={overlayLabel} hint={overlayHint} />
-          {(limitReached || accessExpired) && (
+          {(limitReached || accessExpired || needVerification || needSubscription) && (
             <div
               style={{
                 position: "absolute",
@@ -1035,17 +1372,39 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
                   border: "1px solid var(--rule-strong)",
                   padding: 28,
                   textAlign: "center",
-                  borderRadius: isClassic ? 10 : 0,
+                  borderRadius: 10,
                 }}
               >
-                <Mono brass>{accessExpired ? "Access ended" : "Project limit reached"}</Mono>
-                <p style={{ font: "300 italic 19px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "14px 0 22px" }}>
+                <Mono brass>
+                  {needVerification
+                    ? "Verify your account"
+                    : needSubscription
+                      ? "Subscribe to continue"
+                      : accessExpired
+                        ? "Access ended"
+                        : "Project limit reached"}
+                </Mono>
+                <p style={{ font: "400 19px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "14px 0 22px" }}>
                   {error ||
-                    (accessExpired
-                      ? "Your access has ended. Ask your retailer for a new code."
-                      : "You've used your included project.")}
+                    (needVerification
+                      ? "Verify your email and mobile number before creating your project."
+                      : needSubscription
+                        ? "Your free trial includes one project. Subscribe to a plan to create more."
+                        : accessExpired
+                          ? "Your access has ended. Ask your retailer for a new code."
+                          : "You've used your included project.")}
                 </p>
-                {!accessExpired && (
+                {needVerification && (
+                  <a className="btn btn-brass" href="/dashboard">
+                    Verify my account <span className="arr">→</span>
+                  </a>
+                )}
+                {needSubscription && (
+                  <a className="btn btn-brass" href="/pricing">
+                    See plans <span className="arr">→</span>
+                  </a>
+                )}
+                {limitReached && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
                     <Button variant="brass" onClick={() => void handleBuyAndRetry()} disabled={buying}>
                       {buying ? (
@@ -1067,8 +1426,6 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           )}
         </div>
         <ShadeGrid
-          variant={variant}
-          locale={locale}
           selected={active.shade?.code}
           onSelect={onSelectShade}
           onApplyExact={onApplyCustom}
@@ -1079,12 +1436,19 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           activeRegionId={activeRegion}
           regions={regionLites}
           onApplyToRegion={applyShadeTo}
+          hideCodes={guest}
+          onSelectRegion={(id) => setActiveRegion(id)}
+          onAddWall={() => setMaskStudioOpen(true)}
+          masksRemaining={masksRemaining}
+          triedShades={triedByRegion[activeRegion]}
+          recentShades={recentShades}
+          outdoor={classification === "OUTDOOR"}
+          clashNote={clashNote}
         />
       </div>
 
       {maskStudioOpen && imageUrl && imageDims && (
         <MaskStudio
-          variant={variant}
           imageUrl={imageUrl}
           imageDims={imageDims}
           existing={existingMasks}
@@ -1128,6 +1492,10 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
           .hv-vis-project { padding-left: 12px; }
           .hv-vis-body { grid-template-columns: 1fr !important; grid-template-rows: auto auto !important; height: auto !important; }
           .hv-vis-canvas-wrap { min-height: 60vh; }
+          /* Keep the photo visible on phones: single-line chips, and the
+             palette ticket lives in the Walls tab instead of over the image. */
+          .hv-vis-palette { display: none !important; }
+          .hv-chip-sub { display: none !important; }
         }
         @media (max-width: 480px) {
           .hv-vis-topbar { padding: 10px 12px; }
@@ -1142,12 +1510,10 @@ export function Visualizer({ variant = "premium", locale = "en", projectId: open
 function Toggle({
   on,
   onClick,
-  isClassic,
   ariaLabel,
 }: {
   on: boolean;
   onClick: () => void;
-  isClassic: boolean;
   ariaLabel: string;
 }) {
   return (
@@ -1164,7 +1530,7 @@ function Toggle({
         border: "1px solid " + (on ? "var(--accent)" : "var(--rule-strong)"),
         padding: 0,
         cursor: "pointer",
-        borderRadius: isClassic ? 999 : 0,
+        borderRadius: 999,
         flexShrink: 0,
       }}
     >
@@ -1176,7 +1542,7 @@ function Toggle({
           width: 14,
           height: 14,
           background: "var(--fg)",
-          borderRadius: isClassic ? "50%" : 0,
+          borderRadius: "50%",
         }}
       />
     </button>
@@ -1184,34 +1550,39 @@ function Toggle({
 }
 
 function DropZone({
-  variant,
-  locale,
   uploading,
   error,
   onChoose,
   onDrop,
 }: {
-  variant: UiVariant;
-  locale: UiLocale;
   uploading: boolean;
   error: string | null;
   onChoose: () => void;
   onDrop: (file: File) => void;
 }) {
-  const isClassic = variant === "classic";
+  const [isDragging, setIsDragging] = useState(false);
   return (
     <div
       onClick={onChoose}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onChoose()}
-      onDragOver={(e) => e.preventDefault()}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={() => setIsDragging(false)}
       onDrop={(e) => {
         e.preventDefault();
+        setIsDragging(false);
         const f = e.dataTransfer.files?.[0];
         if (f) onDrop(f);
       }}
       role="button"
       tabIndex={0}
-      aria-label={isClassic ? t(locale, "atelier.dropzone.choose") : "Choose or drop a photograph"}
+      aria-label="Choose a photo"
       style={{
         position: "absolute",
         inset: 0,
@@ -1219,112 +1590,89 @@ function DropZone({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: isClassic ? 14 : 18,
+        gap: 14,
         cursor: "pointer",
         padding: 40,
         textAlign: "center",
+        background: isDragging ? "var(--surface-soft)" : "transparent",
+        transition: "background .2s var(--ease)",
       }}
     >
-      {isClassic ? (
-        <>
-          <span
-            aria-hidden
-            style={{
-              width: 64,
-              height: 64,
-              border: "1px dashed var(--rule-strong)",
-              borderRadius: 12,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--accent)",
-            }}
-          >
-            <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 16V4M6 10l6-6 6 6" />
-              <path d="M4 20h16" />
-            </svg>
-          </span>
-          <h2
-            style={{
-              font: "600 28px/1.2 var(--sans, system-ui)",
-              color: "var(--fg)",
-              margin: 0,
-              maxWidth: "24ch",
-            }}
-          >
-            {t(locale, "atelier.dropzone.title")}
-          </h2>
-          <p style={{ font: "400 15px/1.5 var(--sans, system-ui)", color: "var(--fg-soft)", maxWidth: "44ch", margin: 0 }}>
-            {t(locale, "atelier.dropzone.hint")}
-          </p>
-          <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", justifyContent: "center" }}>
-            <span className="btn">{t(locale, "atelier.dropzone.choose")}</span>
-          </div>
-        </>
-      ) : (
-        <>
-          <span
-            style={{
-              font: "400 10px/1 var(--mono)",
-              letterSpacing: ".32em",
-              textTransform: "uppercase",
-              color: "var(--accent)",
-            }}
-          >
-            the atelier
-          </span>
-          <h2
-            style={{
-              fontFamily: "var(--serif)",
-              fontWeight: 300,
-              fontSize: "clamp(34px, 7vw, 64px)",
-              lineHeight: 0.95,
-              color: "var(--fg)",
-              margin: 0,
-              maxWidth: "20ch",
-            }}
-          >
-            Drop a photograph <i style={{ color: "var(--accent-soft)" }}>here.</i>
-          </h2>
-          <p style={{ font: "300 italic 19px/1.5 var(--serif)", color: "var(--fg-soft)", maxWidth: "44ch" }}>
-            JPEG, PNG, or WebP up to 10 MB. Claude will classify it as indoor or outdoor in under a second.
-          </p>
-          <div style={{ display: "flex", gap: 14, marginTop: 12 }}>
-            <span className="btn">Choose a photograph</span>
-          </div>
-        </>
-      )}
-
-      {/* Shoot the room on a phone and have it land here. Stop propagation so the
-          QR button / modal don't trigger the dropzone's click-to-choose. */}
-      <div
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-        style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}
+      <span
+        aria-hidden
+        style={{
+          width: 64,
+          height: 64,
+          border: isDragging ? "1px solid var(--accent)" : "1px dashed var(--rule-strong)",
+          borderRadius: 12,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--accent)",
+          transition: "border .2s var(--ease)",
+        }}
       >
-        {isClassic ? (
-          <span style={{ font: "400 13px/1 var(--sans, system-ui)", color: "var(--fg-mute)" }}>or</span>
-        ) : (
-          <Mono>or</Mono>
-        )}
-        <PhoneHandoff onImage={onDrop} />
+        <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 16V4M6 10l6-6 6 6" />
+          <path d="M4 20h16" />
+        </svg>
+      </span>
+      <h2
+        style={{
+          font: "600 28px/1.2 var(--serif)",
+          letterSpacing: "-.02em",
+          color: "var(--fg)",
+          margin: 0,
+          maxWidth: "24ch",
+        }}
+      >
+        {isDragging ? "Drop it here" : "Add a photo of the room"}
+      </h2>
+      <p style={{ font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "44ch", margin: 0 }}>
+        A straight-on photo in daylight works best. JPEG, PNG or WebP, up to 10 MB.
+      </p>
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          marginTop: 10,
+          flexWrap: "wrap",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <span className="btn">Choose a photo</span>
+        <span style={{ font: "400 13px/1 var(--sans)", color: "var(--fg-mute)" }}>or</span>
+        {/* Shoot the room on a phone and have it land here. Stop propagation so the
+            QR button / modal don't trigger the dropzone's click-to-choose. */}
+        <div
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          style={{ display: "inline-flex" }}
+        >
+          <PhoneHandoff onImage={onDrop} />
+        </div>
       </div>
 
       {uploading && (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--accent)" }}>
           <Spinner size={14} color="var(--accent)" />
-          {isClassic ? (
-            <span style={{ font: "500 13px/1 var(--sans, system-ui)" }}>
-              {t(locale, "atelier.dropzone.uploading")}
-            </span>
-          ) : (
-            <Mono>Uploading…</Mono>
-          )}
+          <span style={{ font: "500 13px/1 var(--sans)" }}>Uploading…</span>
         </span>
       )}
       {error && (
-        <div className="field-error" role="alert">
+        <div
+          className="field-error"
+          role="alert"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            maxWidth: "calc(100% - 48px)",
+          }}
+        >
           {error}
         </div>
       )}

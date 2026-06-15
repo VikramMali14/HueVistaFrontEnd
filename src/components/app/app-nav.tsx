@@ -2,30 +2,28 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Logo } from "@/components/ui/logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { AuthUser } from "@/lib/types";
 
 const TABS = [
-  { href: "/atelier", label: "iii · Atelier" },
-  { href: "/dashboard", label: "v · Suite" },
-  { href: "/portal", label: "vi · Annex" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/atelier", label: "Studio" },
+  { href: "/color-finder", label: "Colour finder" },
+  { href: "/portal", label: "Customer portal" },
   { href: "/products", label: "Products" },
   { href: "/inbox", label: "Inbox" },
 ] as const;
 
 interface AppNavProps {
   user: AuthUser | null;
-  themeToggle?: ReactNode;
-  variantToggle?: ReactNode;
-  localeToggle?: ReactNode;
 }
 
-export function AppNav({ user, themeToggle, variantToggle, localeToggle }: AppNavProps) {
+export function AppNav({ user }: AppNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const folio = pathname.includes("dashboard") ? "v" : pathname.includes("portal") ? "vi" : "iii";
   const visibleTabs = TABS.filter((t) => {
     if (t.href === "/portal" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     if (t.href === "/products" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
@@ -51,16 +49,14 @@ export function AppNav({ user, themeToggle, variantToggle, localeToggle }: AppNa
   return (
     <header>
       <div className="masthead-strip">
-        <span>established · mmxxvi</span>
         <span>
           <span className="dot" />
-          &nbsp;&nbsp;hue vista · belgavi · india&nbsp;&nbsp;
+          &nbsp;&nbsp;Hue Vista · Belgavi · India&nbsp;&nbsp;
           <span className="dot" />
         </span>
-        <span>folio · {folio}</span>
       </div>
       <div className="app-nav-inner">
-        <Link href="/" className="brand-logo" aria-label="HueVista — home">
+        <Link href="/dashboard" className="brand-logo" aria-label="HueVista — dashboard">
           <Logo size="sm" inverted ariaLabel={null} />
         </Link>
         <button
@@ -83,6 +79,25 @@ export function AppNav({ user, themeToggle, variantToggle, localeToggle }: AppNa
               {t.label}
             </Link>
           ))}
+          <div className="app-drawer-meta">
+            <ThemeToggle />
+            {user && (
+              <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
+            )}
+            <LogoutButton
+              className="app-tab"
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--fg-mute)",
+                padding: "12px 16px",
+                font: "400 11px/1 var(--mono)",
+                letterSpacing: ".26em",
+                textTransform: "uppercase",
+              }}
+            />
+          </div>
         </div>
         <div className="app-tabs is-desktop">
           {visibleTabs.map((t) => (
@@ -92,12 +107,10 @@ export function AppNav({ user, themeToggle, variantToggle, localeToggle }: AppNa
           ))}
         </div>
         <div className="app-nav-meta">
+          <ThemeToggle />
           {user && (
-            <span style={{ font: "300 italic 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
+            <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
           )}
-          {localeToggle}
-          {variantToggle}
-          {themeToggle}
           <LogoutButton
             className="app-tab"
             style={{
@@ -122,19 +135,21 @@ export function AppNav({ user, themeToggle, variantToggle, localeToggle }: AppNa
         />
       )}
       <style>{`
-        .masthead-strip { background: var(--bg-deep); color: var(--fg-soft); border-bottom: 1px solid var(--rule); padding: 10px var(--gutter); font: 400 10px/1 var(--mono); letter-spacing: .32em; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; }
+        .masthead-strip { background: var(--bg-deep); color: var(--fg-soft); border-bottom: 1px solid var(--rule); padding: 10px var(--gutter); font: 400 10px/1 var(--mono); letter-spacing: .32em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; }
         .masthead-strip .dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
-        .app-nav-inner { background: var(--nav-bg-strong); -webkit-backdrop-filter: blur(20px) saturate(140%); backdrop-filter: blur(20px) saturate(140%); border-bottom: 1px solid var(--rule); padding: 18px var(--gutter); display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 60; flex-wrap: wrap; }
+        .app-nav-inner { background: var(--nav-bg); -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%); border-bottom: 1px solid var(--rule); padding: 18px var(--gutter); display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 60; flex-wrap: wrap; }
         .app-tabs { display: flex; gap: 8px; margin-left: auto; }
         .app-tab { font: 400 11px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; padding: 12px 16px; color: var(--fg-mute); border: 1px solid transparent; transition: color .25s var(--ease), border-color .25s var(--ease); }
         .app-tab.active, .app-tab:hover { color: var(--fg); border-color: var(--rule-strong); }
         .app-nav-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .app-tabs.is-mobile { display: none; }
+        .app-drawer-meta { display: none; }
         @media (max-width: 900px) {
           .app-nav-inner { padding: 14px var(--gutter); }
           .app-tabs.is-desktop { display: none; }
           .app-tabs.is-mobile { display: flex; }
-          .app-nav-meta { width: 100%; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--rule); }
+          .app-nav-meta { display: none; }
+          .app-drawer-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px var(--gutter) 6px; border-top: 1px solid var(--rule); margin-top: 4px; }
         }
       `}</style>
     </header>

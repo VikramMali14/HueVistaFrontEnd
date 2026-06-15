@@ -6,10 +6,10 @@ interface LogoProps {
   /** Whether to render the pill frame around the wordmark. Defaults to true. */
   framed?: boolean;
   /**
-   * Render the logo on a solid plate that inverts against the page theme —
-   * a dark plate on a light theme, a light plate on a dark theme. The wordmark,
-   * rule and dot ring all sit on `var(--bg)` for guaranteed contrast in both
-   * the premium and classic variants. Used for the nav/header lockup.
+   * Render the logo on a solid light plate that contrasts with the dark page.
+   * The wordmark, rule and dot ring all sit on `var(--bg)` for guaranteed
+   * contrast in both the premium and classic variants. Used for the
+   * nav/header lockup.
    */
   inverted?: boolean;
   /**

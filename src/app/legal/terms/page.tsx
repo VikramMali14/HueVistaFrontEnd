@@ -23,11 +23,11 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "4 · Plans, trials and billing",
-    p: "Paid plans and any included AI render allowances are described at checkout. Trials carry no obligation. Fees are billed via our payment processor; taxes may apply. Allowances reset each billing cycle and do not roll over.",
+    p: "Paid plans and any included AI preview allowances are described at checkout. Trials carry no obligation. Fees are billed via our payment processor; taxes may apply. Allowances reset each billing cycle and do not roll over.",
   },
   {
     h: "5 · Content and ownership",
-    p: "You retain ownership of the photographs you upload and the colour mockups you create. You grant us a limited licence to process them solely to provide the service. Catalogue shade data remains the property of the respective paint manufacturers.",
+    p: "You retain ownership of the photographs you upload and the colour previews you create. You grant us a limited licence to process them solely to provide the service. Catalogue shade data remains the property of the respective paint manufacturers.",
   },
   {
     h: "6 · AI-generated previews",
@@ -43,7 +43,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "9 · Contact",
-    p: "Questions about these terms? Reach us through the in-app support widget or the contact link in the footer.",
+    p: "Questions about these terms? Reach us through the in-app support chat, or write to hello@huevista.com.",
   },
 ];
 
@@ -57,8 +57,7 @@ export default function TermsPage() {
           Terms of <i>service.</i>
         </h1>
         <Lead style={{ marginTop: 20 }}>
-          A plain-language summary of the agreement between you and HueVista. This is a starting template —
-          have it reviewed by counsel before relying on it commercially.
+          The plain-language agreement between you and HueVista. Last updated June 2026.
         </Lead>
         <div style={{ marginTop: 56, display: "flex", flexDirection: "column", gap: 36 }}>
           {SECTIONS.map((s) => (
