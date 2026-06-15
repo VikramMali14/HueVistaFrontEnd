@@ -228,6 +228,40 @@ export async function registerAction(formData: FormData) {
   redirect(next);
 }
 
+/**
+ * Completes Google sign-in. The backend OAuth success handler redirects to
+ * /sign-in/callback with the tokens in the URL fragment; the callback page reads
+ * them client-side and calls this action to persist the same HttpOnly session
+ * cookies that email/password login sets, then redirects into the app.
+ */
+export async function completeGoogleSignIn(input: {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}) {
+  "use server";
+  if (!input.accessToken || !input.refreshToken) {
+    redirect("/sign-in?error=google");
+  }
+  const jar = await cookies();
+  jar.set(config.sessionCookie, input.refreshToken, {
+    ...cookieDefaults,
+    maxAge: config.refreshTtlSeconds,
+  });
+  jar.set(config.accessCookie, input.accessToken, {
+    ...cookieDefaults,
+    maxAge: Math.max(60, input.expiresIn || 0),
+  });
+  // Honor the page the user started from (stashed before the OAuth hop).
+  const requested = jar.get("hv_oauth_next")?.value ?? "";
+  const next =
+    requested.startsWith("/") && !requested.startsWith("//") && !requested.startsWith("/\\")
+      ? requested
+      : "/atelier";
+  jar.delete("hv_oauth_next");
+  redirect(next);
+}
+
 export async function logoutAction() {
   "use server";
   const jar = await cookies();
