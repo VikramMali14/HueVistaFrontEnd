@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Inter, Inter_Tight } from "next/font/google";
 import "./globals.css";
+import { SiteBackground } from "@/components/layout/site-background";
 
 // Self-hosted via next/font. The CSS variables feed globals.css:
 // --serif (display headlines) is Inter Tight, --sans (body) is Inter,
@@ -83,7 +84,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <SiteBackground />
+        {children}
+      </body>
     </html>
   );
 }
