@@ -18,11 +18,11 @@ function isMarketingRoute(pathname: string): boolean {
   return MARKETING_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
 }
 
-// Brand-tuned palettes — warm brass over the charcoal/linen base, NOT the
-// vibrant violet from the reference. The velocity→colour ramp runs low→high,
-// so still water stays transparent and only motion reveals the metal.
-const PALETTE_DARK = ["#4a3a1f", "#b89968", "#e7d4a6"];
-const PALETTE_LIGHT = ["#d8c39a", "#b89968", "#7d6234"];
+// Vibrant violet palette from the reference design — a purple fluid over the
+// charcoal/linen base. The velocity→colour ramp runs low→high, so still water
+// stays transparent and only motion reveals the colour.
+const PALETTE_DARK = ["#5227FF", "#FF9FFC", "#B497CF"];
+const PALETTE_LIGHT = ["#5227FF", "#FF9FFC", "#B497CF"];
 
 type Theme = "dark" | "light";
 
