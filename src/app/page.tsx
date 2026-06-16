@@ -13,6 +13,7 @@ import { Testimonial } from "@/components/home/testimonial";
 import { PricingPreview } from "@/components/home/pricing-preview";
 import { Closing } from "@/components/home/closing";
 import { RevealMount } from "@/components/ui/reveal-mount";
+import ScrollStack, { ScrollStackItem } from "@/components/ui/scroll-stack";
 
 export default function HomePage() {
   return (
@@ -20,18 +21,31 @@ export default function HomePage() {
       <SiteHeader />
       <main>
         <RevealMount />
+        {/* Cinematic intro stays at the top, over the purple liquid backdrop. */}
         <Hero />
-        <Stats />
-        <MethodGrid />
-        <Partners />
-        <Services />
-        <PaintRoom />
-        <Toolkit />
-        <Moods />
-        <CataloguePreview />
-        <Testimonial />
-        <PricingPreview />
-        <Closing />
+        {/* Every content section below becomes a frosted-glass card that pins and
+            stacks as you scroll — the React Bits ScrollStack effect. */}
+        <ScrollStack
+          className="home-glass-stack"
+          useWindowScroll
+          itemDistance={120}
+          itemStackDistance={40}
+          baseScale={0.9}
+          itemScale={0.02}
+          blurAmount={0.6}
+        >
+          <ScrollStackItem><Stats /></ScrollStackItem>
+          <ScrollStackItem><MethodGrid /></ScrollStackItem>
+          <ScrollStackItem><Partners /></ScrollStackItem>
+          <ScrollStackItem><Services /></ScrollStackItem>
+          <ScrollStackItem><PaintRoom /></ScrollStackItem>
+          <ScrollStackItem><Toolkit /></ScrollStackItem>
+          <ScrollStackItem><Moods /></ScrollStackItem>
+          <ScrollStackItem><CataloguePreview /></ScrollStackItem>
+          <ScrollStackItem><Testimonial /></ScrollStackItem>
+          <ScrollStackItem><PricingPreview /></ScrollStackItem>
+          <ScrollStackItem><Closing /></ScrollStackItem>
+        </ScrollStack>
       </main>
       <Footer />
     </>
