@@ -137,7 +137,10 @@ export function AppNav({ user }: AppNavProps) {
       <style>{`
         .masthead-strip { background: var(--bg-deep); color: var(--fg-soft); border-bottom: 1px solid var(--rule); padding: 10px var(--gutter); font: 400 10px/1 var(--mono); letter-spacing: .32em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; }
         .masthead-strip .dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
-        .app-nav-inner { background: var(--nav-bg); -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%); border-bottom: 1px solid var(--rule); padding: 18px var(--gutter); display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 60; flex-wrap: wrap; }
+        /* Floating glassy bar — same surface language as the public card-nav
+           (var(--nav-bg) + blur, rounded, --rule-strong border, glass shadow),
+           just wider to hold the app tabs. Keeps the navbar in sync everywhere. */
+        .app-nav-inner { background: var(--nav-bg); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%); border: 1px solid var(--rule-strong); border-radius: 18px; box-shadow: 0 16px 40px -22px rgba(0,0,0,.5), inset 0 1px 0 rgba(var(--fg-rgb), .05); padding: 14px 20px; margin: 16px var(--gutter); display: flex; align-items: center; gap: 24px; position: sticky; top: 16px; z-index: 60; flex-wrap: wrap; }
         .app-tabs { display: flex; gap: 8px; margin-left: auto; }
         .app-tab { font: 400 11px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; padding: 12px 16px; color: var(--fg-mute); border: 1px solid transparent; transition: color .25s var(--ease), border-color .25s var(--ease); }
         .app-tab.active, .app-tab:hover { color: var(--fg); border-color: var(--rule-strong); }
@@ -145,7 +148,7 @@ export function AppNav({ user }: AppNavProps) {
         .app-tabs.is-mobile { display: none; }
         .app-drawer-meta { display: none; }
         @media (max-width: 900px) {
-          .app-nav-inner { padding: 14px var(--gutter); }
+          .app-nav-inner { padding: 12px 16px; margin: 12px 16px; top: 12px; }
           .app-tabs.is-desktop { display: none; }
           .app-tabs.is-mobile { display: flex; }
           .app-nav-meta { display: none; }

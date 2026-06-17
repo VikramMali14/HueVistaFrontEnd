@@ -129,10 +129,8 @@ html, body {
   text-rendering: optimizeLegibility;
   font-feature-settings: 'kern' 1, 'liga' 1;
 }
-/* Page base colour + ambient warm glow live on <html> so the fixed liquid
-   backdrop (.site-bg — a z-index:-1 child of <body>) composites ABOVE this base
-   yet BELOW page content. <body> itself stays transparent, otherwise its own
-   opaque box background would paint over the negative-z layer and hide it. */
+/* Page base colour + ambient warm glow live on <html>. <body> stays
+   transparent so this base layer reads through page content. */
 html {
   background:
     radial-gradient(115% 70% at 50% -8%, rgba(184,153,104,.07), transparent 56%),
@@ -1792,20 +1790,13 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 
 /* =========================================================
-   REACTBITS · fluid backdrop, card-nav, circular gallery
+   REACTBITS · card-nav, circular gallery
    Brand-tuned (brass/charcoal), theme-aware, responsive.
 ========================================================= */
 
 /* ---- WebGL hosts (from the upstream component CSS) ---- */
-.liquid-ether-container { position: relative; overflow: hidden; width: 100%; height: 100%; touch-action: none; }
 .circular-gallery { width: 100%; height: 100%; overflow: hidden; cursor: grab; }
 .circular-gallery:active { cursor: grabbing; }
-
-/* ---- Ambient liquid backdrop (mounted only on marketing routes) ---- */
-.site-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
-.site-bg .liquid-ether-container { pointer-events: none; }
-.site-bg[data-theme-bg="dark"]  { opacity: .72; }
-.site-bg[data-theme-bg="light"] { opacity: .55; }
 
 /* =========================================================
    CARD NAV — floating glassy pill that expands into cards
@@ -1966,91 +1957,4 @@ html[data-theme="light"] .hv-mood-hint { color: rgba(var(--fg-rgb), .72); }
   /* BlurText (motion/react) animates inline styles and ignores the OS setting;
      force its words to the resolved state so labels are simply legible. */
   .hv-stat-label span { opacity: 1 !important; filter: none !important; transform: none !important; }
-}
-
-/* =========================================================
-   SCROLL STACK  ·  home page glass sections (react-bits)
-   Each home section is wrapped in a .scroll-stack-card that pins
-   and stacks as you scroll, rendered as frosted glass over the
-   purple liquid backdrop. The base .scroll-stack-* rules are the
-   upstream component styling; .home-glass-stack adapts them for
-   full-width window-scroll use inside <main> and the brand glass.
-========================================================= */
-.scroll-stack-scroller {
-  position: relative;
-  width: 100%;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-.scroll-stack-inner { padding: 20vh 5rem 50rem; min-height: 100vh; }
-.scroll-stack-card {
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-  transform-origin: top center;
-  will-change: transform, filter;
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
-}
-.scroll-stack-end { width: 100%; height: 1px; }
-
-/* --- Home variant: window-scroll, full width, frosted glass --- */
-.home-glass-stack.scroll-stack-scroller { height: auto; overflow: visible; }
-.home-glass-stack .scroll-stack-inner { padding: 4vh 0 36vh; min-height: 0; }
-
-.home-glass-stack .scroll-stack-card {
-  height: auto;
-  min-height: 240px;
-  padding: clamp(40px, 5vw, 96px) clamp(24px, 4vw, 72px);
-  border-radius: 32px;
-  /* Frosted purple glass — a translucent dark panel keeps content legible
-     over the moving violet fluid while still reading as transparent glass. */
-  background:
-    linear-gradient(180deg, rgba(82, 39, 255, .10), rgba(20, 18, 30, .42)),
-    rgba(20, 18, 30, .38);
-  -webkit-backdrop-filter: blur(26px) saturate(150%);
-  backdrop-filter: blur(26px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, .14);
-  box-shadow:
-    0 30px 80px rgba(10, 6, 30, .45),
-    inset 0 1px 0 rgba(255, 255, 255, .14),
-    inset 0 0 60px rgba(82, 39, 255, .06);
-}
-html[data-theme="light"] .home-glass-stack .scroll-stack-card {
-  background:
-    linear-gradient(180deg, rgba(82, 39, 255, .08), rgba(255, 255, 255, .42)),
-    rgba(255, 255, 255, .40);
-  border: 1px solid rgba(255, 255, 255, .55);
-  box-shadow:
-    0 30px 80px rgba(82, 39, 255, .12),
-    inset 0 1px 0 rgba(255, 255, 255, .6);
-}
-
-/* Neutralise the section chrome that assumed an opaque page: drop the band
-   backgrounds, the full-bleed break-out, the heavy vertical padding and the
-   inter-section rules — the glass card now owns spacing and surface. */
-.home-glass-stack section { padding: 0; background: transparent; border: 0; }
-.home-glass-stack section + section { border-top: 0; }
-.home-glass-stack .full-bleed {
-  margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0;
-}
-.home-glass-stack .hv-stats,
-.home-glass-stack .hv-partners,
-.home-glass-stack .hv-paint-room,
-.home-glass-stack .hv-hero2 {
-  background: transparent; border: 0;
-}
-.home-glass-stack .closing-card { background: transparent; }
-
-@media (max-width: 720px) {
-  .home-glass-stack .scroll-stack-card {
-    padding: clamp(28px, 7vw, 48px) clamp(18px, 5vw, 28px);
-    border-radius: 24px;
-  }
-}
-
-/* Under reduced motion the stack still renders, just without the smooth/pin
-   churn — cards simply flow as static glass panels. */
-@media (prefers-reduced-motion: reduce) {
-  .home-glass-stack .scroll-stack-card { transform: none !important; filter: none !important; }
 }
