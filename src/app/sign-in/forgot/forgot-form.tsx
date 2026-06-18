@@ -4,9 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
-import { validateEmail } from "@/lib/validation";
+import { validateEmail, validatePhone } from "@/lib/validation";
 
 type Step = "request" | "reset" | "done";
+type Channel = "email" | "phone";
 
 async function postJson(path: string, body: unknown): Promise<{ ok: boolean; message?: string }> {
   try {
@@ -28,21 +29,38 @@ async function postJson(path: string, body: unknown): Promise<{ ok: boolean; mes
 }
 
 export function ForgotForm() {
+  const [channel, setChannel] = useState<Channel>("email");
   const [step, setStep] = useState<Step>("request");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [emailError, setEmailError] = useState<string | null>(null);
+  const [destError, setDestError] = useState<string | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  // The backend returns 200 whether or not the account exists — only a transport
-  // failure (offline, server down) reports an error here.
+  const isPhone = channel === "phone";
+  const dest = isPhone ? phone.trim() : email.trim();
+
+  const switchChannel = (c: Channel) => {
+    if (c === channel) return;
+    setChannel(c);
+    setStep("request");
+    setError(null);
+    setDestError(null);
+    setCodeError(null);
+    setPasswordError(null);
+  };
+
+  // The backend returns 200 whether or not the destination matches an account —
+  // only a transport failure (offline, server down) reports an error here.
   const requestCode = async (): Promise<boolean> => {
-    const { ok, message } = await postJson("/api/auth/forgot-password", { email: email.trim() });
+    const { ok, message } = isPhone
+      ? await postJson("/api/auth/forgot-password/phone", { phone: phone.trim() })
+      : await postJson("/api/auth/forgot-password", { email: email.trim() });
     if (!ok) {
       setError(message ?? "Could not send the code. Check your connection and try again.");
       return false;
@@ -51,12 +69,12 @@ export function ForgotForm() {
   };
 
   const request = async () => {
-    const invalid = validateEmail(email);
+    const invalid = isPhone ? validatePhone(phone) : validateEmail(email);
     if (invalid) {
-      setEmailError(invalid);
+      setDestError(invalid);
       return;
     }
-    setEmailError(null);
+    setDestError(null);
     setBusy(true);
     setError(null);
     const ok = await requestCode();
@@ -72,18 +90,21 @@ export function ForgotForm() {
   };
 
   const reset = async () => {
-    const codeMsg = code.trim().length !== 6 ? "Enter the 6-digit code from your email." : null;
+    const codeMsg =
+      code.trim().length !== 6
+        ? isPhone
+          ? "Enter the 6-digit code from the text message."
+          : "Enter the 6-digit code from your email."
+        : null;
     const pwMsg = password.length < 8 ? "Use a new password of at least 8 characters." : null;
     setCodeError(codeMsg);
     setPasswordError(pwMsg);
     if (codeMsg || pwMsg) return;
     setBusy(true);
     setError(null);
-    const { ok, message } = await postJson("/api/auth/reset-password", {
-      email: email.trim(),
-      code: code.trim(),
-      newPassword: password,
-    });
+    const { ok, message } = isPhone
+      ? await postJson("/api/auth/reset-password/phone", { phone: phone.trim(), code: code.trim(), newPassword: password })
+      : await postJson("/api/auth/reset-password", { email: email.trim(), code: code.trim(), newPassword: password });
     setBusy(false);
     if (ok) setStep("done");
     else setError(message ?? "Could not reset your password.");
@@ -103,38 +124,69 @@ export function ForgotForm() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, marginTop: 48 }}>
+      {step === "request" && (
+        <div role="group" aria-label="Reset using" style={{ display: "inline-flex", gap: 8 }}>
+          <ChannelTab active={!isPhone} onClick={() => switchChannel("email")}>Email</ChannelTab>
+          <ChannelTab active={isPhone} onClick={() => switchChannel("phone")}>Mobile</ChannelTab>
+        </div>
+      )}
+
       {step === "request" ? (
         <>
-          <div className="field">
-            <label className="field-label" htmlFor="email">Shop email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setEmailError(null);
-              }}
-              onKeyDown={(e) => e.key === "Enter" && void request()}
-              required
-              autoComplete="email"
-              inputMode="email"
-              placeholder="priya@mehtapaints.in"
-              aria-invalid={emailError ? "true" : undefined}
-              aria-describedby={emailError ? "email-error" : undefined}
-            />
-            {emailError && (
-              <p id="email-error" className="field-error" role="alert">{emailError}</p>
-            )}
-          </div>
+          {isPhone ? (
+            <div className="field">
+              <label className="field-label" htmlFor="phone">Mobile number</label>
+              <input
+                id="phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  setDestError(null);
+                }}
+                onKeyDown={(e) => e.key === "Enter" && void request()}
+                placeholder="+91 98 2210 4476"
+                aria-invalid={destError ? "true" : undefined}
+                aria-describedby={destError ? "dest-error" : undefined}
+              />
+              {destError && <p id="dest-error" className="field-error" role="alert">{destError}</p>}
+            </div>
+          ) : (
+            <div className="field">
+              <label className="field-label" htmlFor="email">Shop email</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setDestError(null);
+                }}
+                onKeyDown={(e) => e.key === "Enter" && void request()}
+                required
+                autoComplete="email"
+                inputMode="email"
+                placeholder="priya@mehtapaints.in"
+                aria-invalid={destError ? "true" : undefined}
+                aria-describedby={destError ? "dest-error" : undefined}
+              />
+              {destError && <p id="dest-error" className="field-error" role="alert">{destError}</p>}
+            </div>
+          )}
           <button type="button" className="btn" onClick={() => void request()} disabled={busy} style={{ justifyContent: "center" }}>
             {busy ? <><Spinner size={14} color="currentColor" /> Sending…</> : <>Send reset code <span className="arr">→</span></>}
           </button>
-          <Mono>If no account exists, no email is sent and no error is shown — to protect your privacy.</Mono>
+          <Mono>
+            {isPhone
+              ? "We'll text a code only if a verified mobile matches — no message, no error otherwise, to protect your privacy."
+              : "If no account exists, no email is sent and no error is shown — to protect your privacy."}
+          </Mono>
         </>
       ) : (
         <>
-          <Mono>We sent a 6-digit code to {email}. Enter it with your new password.</Mono>
+          <Mono>We sent a 6-digit code to {dest}. Enter it with your new password.</Mono>
           <div className="field">
             <label className="field-label" htmlFor="code">Reset code</label>
             <input
@@ -151,9 +203,7 @@ export function ForgotForm() {
               aria-invalid={codeError ? "true" : undefined}
               aria-describedby={codeError ? "code-error" : undefined}
             />
-            {codeError && (
-              <p id="code-error" className="field-error" role="alert">{codeError}</p>
-            )}
+            {codeError && <p id="code-error" className="field-error" role="alert">{codeError}</p>}
           </div>
           <div className="field">
             <label className="field-label" htmlFor="newpw">New password</label>
@@ -172,9 +222,7 @@ export function ForgotForm() {
               aria-invalid={passwordError ? "true" : undefined}
               aria-describedby={passwordError ? "newpw-error" : undefined}
             />
-            {passwordError && (
-              <p id="newpw-error" className="field-error" role="alert">{passwordError}</p>
-            )}
+            {passwordError && <p id="newpw-error" className="field-error" role="alert">{passwordError}</p>}
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <button type="button" className="btn" onClick={() => void reset()} disabled={busy || resending} style={{ justifyContent: "center" }}>
@@ -193,5 +241,27 @@ export function ForgotForm() {
       )}
       {error && <div className="field-error" role="alert">{error}</div>}
     </div>
+  );
+}
+
+function ChannelTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      style={{
+        font: "400 10px/1 var(--mono)",
+        letterSpacing: ".22em",
+        textTransform: "uppercase",
+        padding: "9px 16px",
+        background: active ? "var(--accent)" : "transparent",
+        color: active ? "var(--bg)" : "var(--fg-soft)",
+        border: "1px solid " + (active ? "var(--accent)" : "var(--rule-strong)"),
+        cursor: "pointer",
+      }}
+    >
+      {children}
+    </button>
   );
 }
