@@ -142,6 +142,8 @@ export const authApi = {
       state?: string;
       phone?: string;
       tier?: string;
+      // "customer" creates a CUSTOMER-role account; otherwise a RETAILER signup.
+      accountType?: string;
     },
     // The browser hits this via a server action, so the backend would otherwise
     // only ever see the frontend server's IP. Forward the real client IP so the
@@ -165,6 +167,8 @@ export const authApi = {
     serverFetch<AuthResponse>("/api/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   logout: (accessToken: string) =>
     serverFetch<{ message: string }>("/api/auth/logout", { method: "POST", accessToken }),
+  deleteAccount: (accessToken: string) =>
+    serverFetch<void>("/api/auth/account", { method: "DELETE", accessToken }),
   me: (accessToken: string) =>
     serverFetch<{ userId: string }>("/api/auth/me", { accessToken }),
   profile: (accessToken: string) =>
@@ -180,6 +184,31 @@ export const billingApi = {
   currentSubscription: (accessToken: string) =>
     serverFetch<import("./types").SubscriptionSummary>("/api/billing/subscriptions/current", {
       accessToken,
+    }),
+};
+
+/**
+ * Admin API — ROLE_ADMIN only, used from admin server actions. Goes directly to
+ * the backend with the admin's cookie-resident access token.
+ */
+export const adminApi = {
+  createRetailer: (
+    accessToken: string,
+    body: {
+      name: string;
+      email: string;
+      password: string;
+      shopName: string;
+      city?: string;
+      state?: string;
+      phone?: string;
+      tier?: string;
+    },
+  ) =>
+    serverFetch<{ id: string; name: string; email: string; role: string }>("/api/admin/retailers", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify(body),
     }),
 };
 

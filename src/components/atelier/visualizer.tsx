@@ -864,7 +864,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   return (
     <div
       className="hv-visualizer"
-      style={{ border: "1px solid var(--rule-strong)", overflow: "hidden", background: "var(--bg)" }}
+      style={{ border: "1px solid var(--rule-strong)", borderRadius: "var(--radius)", overflow: "hidden", background: "var(--bg)", boxShadow: "0 24px 60px -42px rgba(0,0,0,.5)" }}
     >
       <div className="hv-vis-topbar">
         <div className="hv-vis-project">
@@ -943,12 +943,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           {!guest && (
             <Button
               size="sm"
-              variant="ghost"
+              variant="brass"
               disabled={!projectId || sharing}
               onClick={() => void handleShare()}
               title={projectId ? "Create a public link (colours shown, codes hidden)" : "Save the project first"}
             >
-              {sharing ? "Sharing…" : "Share"}
+              {sharing ? "Sharing…" : "Share with customer"}
             </Button>
           )}
           <Button

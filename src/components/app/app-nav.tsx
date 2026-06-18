@@ -15,6 +15,7 @@ const TABS = [
   { href: "/portal", label: "Customer portal" },
   { href: "/products", label: "Products" },
   { href: "/inbox", label: "Inbox" },
+  { href: "/admin", label: "Admin" },
 ] as const;
 
 interface AppNavProps {
@@ -28,6 +29,7 @@ export function AppNav({ user }: AppNavProps) {
     if (t.href === "/portal" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     if (t.href === "/products" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     if (t.href === "/inbox" && (!user || user.role !== "ADMIN")) return false;
+    if (t.href === "/admin" && (!user || user.role !== "ADMIN")) return false;
     return true;
   });
 
@@ -82,7 +84,7 @@ export function AppNav({ user }: AppNavProps) {
           <div className="app-drawer-meta">
             <ThemeToggle />
             {user && (
-              <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
+              <Link href="/account" style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }} title="Account settings">{user.name}</Link>
             )}
             <LogoutButton
               className="app-tab"
@@ -109,7 +111,7 @@ export function AppNav({ user }: AppNavProps) {
         <div className="app-nav-meta">
           <ThemeToggle />
           {user && (
-            <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
+            <Link href="/account" style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }} title="Account settings">{user.name}</Link>
           )}
           <LogoutButton
             className="app-tab"

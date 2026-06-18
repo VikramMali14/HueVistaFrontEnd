@@ -12,9 +12,13 @@ interface SignInFormProps {
   mode?: "signin" | "register";
   /** Seed an error (e.g. when redirected back from a failed Google sign-in). */
   initialError?: string;
+  /** Passed through as a hidden field — "customer" creates a CUSTOMER-role account. */
+  accountType?: string;
+  /** Hide the Google button (the customer signup omits it so the account stays CUSTOMER). */
+  showGoogle?: boolean;
 }
 
-export function SignInForm({ action, next, mode = "signin", initialError }: SignInFormProps) {
+export function SignInForm({ action, next, mode = "signin", initialError, accountType, showGoogle = true }: SignInFormProps) {
   const [error, setError] = useState<string | null>(initialError ?? null);
   const [pending, startTransition] = useTransition();
   const [showPassword, setShowPassword] = useState(false);
@@ -42,25 +46,29 @@ export function SignInForm({ action, next, mode = "signin", initialError }: Sign
       aria-busy={pending}
     >
       <input type="hidden" name="next" value={next} />
+      {accountType && <input type="hidden" name="accountType" value={accountType} />}
 
-      <GoogleButton next={next} />
-
-      <div
-        aria-hidden
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          color: "var(--fg-mute)",
-          font: "400 10px/1 var(--mono)",
-          letterSpacing: ".24em",
-          textTransform: "uppercase",
-        }}
-      >
-        <span style={{ flex: 1, height: 1, background: "var(--rule)" }} />
-        or use your email
-        <span style={{ flex: 1, height: 1, background: "var(--rule)" }} />
-      </div>
+      {showGoogle && (
+        <>
+          <GoogleButton next={next} />
+          <div
+            aria-hidden
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              color: "var(--fg-mute)",
+              font: "400 10px/1 var(--mono)",
+              letterSpacing: ".24em",
+              textTransform: "uppercase",
+            }}
+          >
+            <span style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+            or use your email
+            <span style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+          </div>
+        </>
+      )}
 
       {register && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>

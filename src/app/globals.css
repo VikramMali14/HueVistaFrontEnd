@@ -1725,6 +1725,11 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .reveal.in .hv-cat-preview > div { opacity: 1; }
 .hv-cat-preview > div:hover { transform: scale(1.08); position: relative; z-index: 2; }
 
+/* Studio colour-picker search field — focus-visible feedback (the inner input
+   suppresses its own outline, so the wrapper carries the focus ring). */
+.hv-shade-search { border: 1px solid var(--rule-strong); background: var(--surface); transition: border-color .18s var(--ease), box-shadow .18s var(--ease); }
+.hv-shade-search:focus-within { border-color: var(--fg); box-shadow: 0 0 0 3px var(--rule); }
+
 /* Catalogue shade cards: lift on hover, settle on press */
 .hv-shade-card { transition: transform .35s var(--ease); }
 .hv-shade-card .hv-shade-swatch { transition: box-shadow .35s var(--ease); }

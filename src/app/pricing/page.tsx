@@ -148,10 +148,10 @@ export default function PricingPage() {
                       fixed ivory/brass values rather than tokens. */}
                   <tr key="cta">
                     <td style={ctaCellStyle} />
-                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
-                    <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><Link href="/trial" className="btn btn-sm" style={{ background: "#b89968", borderColor: "#b89968", color: "#15110d" }}>Start free</Link></td>
-                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
-                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-ghost btn-sm" style={{ color: "var(--ivory)", borderColor: "rgba(247,247,245,.35)" }}>Talk to us</Link></td>
+                    <td style={ctaCellStyle}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Contact us</a></td>
+                    <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-sm" style={{ background: "#b89968", borderColor: "#b89968", color: "#15110d" }}>Contact us</a></td>
+                    <td style={ctaCellStyle}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Contact us</a></td>
+                    <td style={ctaCellStyle}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-ghost btn-sm" style={{ color: "var(--ivory)", borderColor: "rgba(247,247,245,.35)" }}>Talk to us</a></td>
                   </tr>
                 </tbody>
                 </table>
@@ -170,7 +170,7 @@ export default function PricingPage() {
               <p style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", marginTop: 32 }}>
                 If your question isn't here, write to us. We answer within an afternoon.
               </p>
-              <Link href="/trial" className="text-link" style={{ marginTop: 32, display: "inline-block" }}>Write to us &nbsp;→</Link>
+              <a href="mailto:hello@huevista.com?subject=Shop%20account" className="text-link" style={{ marginTop: 32, display: "inline-block" }}>Write to us &nbsp;→</a>
             </div>
             <PricingFaq />
           </div>
@@ -183,8 +183,8 @@ export default function PricingPage() {
               Fourteen days.<br /><i>No card.</i>
             </h2>
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-              <Link href="/trial" className="btn btn-brass">Try it free <span className="arr">→</span></Link>
-              <Link href="/trial" className="btn btn-ghost">Book a demonstration <span className="arr">→</span></Link>
+              <a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-brass">Get in touch <span className="arr">→</span></a>
+              <Link href="/redeem" className="btn btn-ghost">Have a shop code? <span className="arr">→</span></Link>
             </div>
             <div style={{ marginTop: 24, font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
               GST invoice · UPI accepted · cancel anytime

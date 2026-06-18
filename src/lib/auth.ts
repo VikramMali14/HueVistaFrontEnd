@@ -2,7 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { authApi, billingApi, guestServerApi, HttpError } from "./api";
+import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
 import { config } from "./config";
 import type { AuthResponse, AuthUser } from "./types";
 
@@ -182,6 +182,9 @@ export async function registerAction(formData: FormData) {
   const state = str("state");
   const phone = str("phone");
   const tier = str("tier");
+  // "customer" → a CUSTOMER-role account (dedicated customer signup page); the shop
+  // signup omits this and stays RETAILER.
+  const accountType = str("accountType");
 
   if (!name) return { error: "Please tell us your name." };
   if (!email) return { error: "Please enter your email." };
@@ -196,7 +199,7 @@ export async function registerAction(formData: FormData) {
     undefined;
 
   try {
-    const auth = await authApi.register({ name, email, password, shopName, city, state, phone, tier }, clientIp);
+    const auth = await authApi.register({ name, email, password, shopName, city, state, phone, tier, accountType }, clientIp);
     await persistSession(auth);
     await maybeClaimGuestProjects(auth.accessToken);
   } catch (err) {
@@ -253,12 +256,71 @@ export async function completeGoogleSignIn(input: {
   return { next };
 }
 
+/**
+ * ADMIN-only: create a shop (retailer) account. The page is already gated by
+ * requireRole(["ADMIN"]) and the backend endpoint is ADMIN-only; this carries the
+ * admin's access token server-side. Returns a result (no redirect) for inline feedback.
+ */
+export async function createRetailerAction(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  const str = (k: string) => {
+    const v = String(formData.get(k) ?? "").trim();
+    return v || undefined;
+  };
+  const name = str("name");
+  const email = str("email")?.toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const shopName = str("shopName");
+  if (!name || !email || !shopName) return { error: "Owner name, email and shop name are required." };
+  if (password.length < 8) return { error: "Set an initial password of at least eight characters." };
+  try {
+    await adminApi.createRetailer(token, {
+      name,
+      email,
+      password,
+      shopName,
+      city: str("city"),
+      state: str("state"),
+      phone: str("phone"),
+      tier: str("tier"),
+    });
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 409) return { error: "An account with that email already exists." };
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Could not create the shop account. Please try again." };
+  }
+}
+
 export async function logoutAction() {
   "use server";
   const jar = await cookies();
   const access = jar.get(config.accessCookie)?.value;
   if (access) {
     try { await authApi.logout(access); } catch { /* ignore */ }
+  }
+  await clearSession();
+  redirect("/");
+}
+
+/**
+ * Permanently deletes the signed-in user's account (backend scrubs PII + revokes
+ * sessions), then clears the local session and returns home. Invoked from a
+ * <form action> so the redirect is handled by the framework (like logout).
+ */
+export async function deleteAccountAction() {
+  "use server";
+  const jar = await cookies();
+  const access = jar.get(config.accessCookie)?.value;
+  if (access) {
+    try { await authApi.deleteAccount(access); } catch { /* best-effort; clear the session regardless */ }
   }
   await clearSession();
   redirect("/");
