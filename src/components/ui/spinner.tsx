@@ -4,16 +4,20 @@ interface SpinnerProps {
   size?: number;
   color?: string;
   label?: string;
+  /** When the spinner sits inside another status/live region, render it
+   *  decorative (no role/label) to avoid duplicate screen-reader announcements. */
+  decorative?: boolean;
   style?: CSSProperties;
   className?: string;
 }
 
-export function Spinner({ size = 18, color = "currentColor", label = "Loading", style, className }: SpinnerProps) {
+export function Spinner({ size = 18, color = "currentColor", label = "Loading", decorative = false, style, className }: SpinnerProps) {
   const stroke = Math.max(1.5, size / 12);
   return (
     <span
-      role="status"
-      aria-label={label}
+      role={decorative ? undefined : "status"}
+      aria-label={decorative ? undefined : label}
+      aria-hidden={decorative ? true : undefined}
       className={className}
       style={{
         display: "inline-flex",

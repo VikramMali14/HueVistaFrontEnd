@@ -13,11 +13,11 @@ export const metadata: Metadata = {
 };
 
 interface PageProps {
-  searchParams: Promise<{ next?: string; mode?: string }>;
+  searchParams: Promise<{ next?: string; mode?: string; error?: string }>;
 }
 
 export default async function SignInPage({ searchParams }: PageProps) {
-  const { next, mode } = await searchParams;
+  const { next, mode, error } = await searchParams;
   // /sign-in?mode=register — the free, no-shop account (e.g. a walk-in customer
   // keeping their guest work). registerAction treats the shop fields as optional.
   const register = mode === "register";
@@ -46,6 +46,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
             action={register ? registerAction : loginAction}
             mode={register ? "register" : "signin"}
             next={next ?? "/dashboard"}
+            initialError={error === "google" ? "Google sign-in didn’t complete. Please try again, or use your email below." : undefined}
           />
           <p className="auth-foot">
             {register ? (

@@ -32,7 +32,7 @@ export default async function TrialPage({
             <div style={{ marginTop: 48, display: "flex", flexDirection: "column", gap: 18 }}>
               {["Full Asian Paints catalogue from day one", "Up to 30 AI previews during the trial", "No card, no nudges, no auto-renewal", "One-to-one onboarding on a 30-minute call", "Your projects stay yours — export them any time"].map((t, i) => (
                 <div key={i} style={{ display: "flex", gap: 14, alignItems: "baseline", font: "400 19px/1.4 var(--serif)", color: "var(--fg-soft)" }}>
-                  <span style={{ color: "var(--brass)", fontFamily: "var(--mono)", fontSize: 22 }}>·</span>
+                  <span style={{ color: "var(--accent-soft)", fontFamily: "var(--mono)", fontSize: 22 }}>·</span>
                   <span>{t}</span>
                 </div>
               ))}
@@ -52,7 +52,7 @@ export default async function TrialPage({
         .trial-shell { display: grid; grid-template-columns: 1fr 1.4fr; gap: 96px; padding: 100px 0 160px; }
         .trial-side { position: sticky; top: 120px; align-self: start; }
         .trial-side h1 { font-family: var(--serif); font-weight: 300; font-size: clamp(56px, 7vw, 108px); line-height: .92; letter-spacing: -.025em; margin: 24px 0 0; }
-        .trial-side h1 i { color: var(--brass-soft); }
+        .trial-side h1 i { color: var(--accent-soft); }
         @media (max-width: 1100px) {
           .trial-shell { grid-template-columns: 1fr; gap: 48px; padding-top: 60px; }
           .trial-side { position: static; }

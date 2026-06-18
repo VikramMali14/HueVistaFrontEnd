@@ -19,10 +19,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export function GET(req: NextRequest) {
-  const requested = req.nextUrl.searchParams.get("next") || "/atelier";
+  const requested = req.nextUrl.searchParams.get("next") || "/dashboard";
   // Only allow same-site relative paths; reject any attempt to point `next` at an
   // external URL, which would otherwise enable an open-redirect attack.
-  const next = SAFE_PATH.test(requested) ? requested : "/atelier";
+  const next = SAFE_PATH.test(requested) ? requested : "/dashboard";
 
   const url = new URL(`${config.apiOrigin}/oauth2/authorization/google`);
   const res = NextResponse.redirect(url.toString(), 302);

@@ -216,6 +216,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
             value={query}
             onChange={(e) => { setQuery(e.target.value); setVisible(PAGE_SIZE); }}
             placeholder="shade, code, or hex…"
+            aria-label="Search shades by name, code, or hex"
             style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--fg)", font: "400 16px/1 var(--serif)" }}
           />
         </div>

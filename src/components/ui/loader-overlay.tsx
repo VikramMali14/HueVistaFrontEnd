@@ -37,7 +37,8 @@ export function LoaderOverlay({ show, label, hint, progress, style }: LoaderOver
         ...style,
       }}
     >
-      <Spinner size={36} color="var(--accent)" label={typeof label === "string" ? label : "Loading"} />
+      {/* Decorative: the overlay itself is the status region (label below). */}
+      <Spinner size={36} color="var(--accent)" decorative />
       <div
         style={{
           font: "400 11px/1 var(--mono, ui-monospace, monospace)",

@@ -1250,10 +1250,10 @@ export function MaskStudio({
             <span aria-hidden style={{ width: 40, height: 1, background: "var(--rule)", margin: "2px 0" }} />
 
             <div style={{ display: "flex", gap: 4 }} className="hv-ms-undo">
-              <button type="button" onClick={undo} disabled={histCounts.undo === 0} aria-keyshortcuts="Control+Z" title="Undo (Ctrl+Z)" style={{ ...railBtn(false, histCounts.undo === 0), width: 29, height: 32, borderRadius: 6 }}>
+              <button type="button" onClick={undo} disabled={histCounts.undo === 0} aria-label="Undo" aria-keyshortcuts="Control+Z" title="Undo (Ctrl+Z)" style={{ ...railBtn(false, histCounts.undo === 0), width: 29, height: 32, borderRadius: 6 }}>
                 <UndoIcon />
               </button>
-              <button type="button" onClick={redo} disabled={histCounts.redo === 0} aria-keyshortcuts="Control+Y" title="Redo (Ctrl+Y)" style={{ ...railBtn(false, histCounts.redo === 0), width: 29, height: 32, borderRadius: 6 }}>
+              <button type="button" onClick={redo} disabled={histCounts.redo === 0} aria-label="Redo" aria-keyshortcuts="Control+Y" title="Redo (Ctrl+Y)" style={{ ...railBtn(false, histCounts.redo === 0), width: 29, height: 32, borderRadius: 6 }}>
                 <RedoIcon />
               </button>
             </div>

@@ -103,7 +103,7 @@ export function ProjectDetailsGate({
             style={fieldStyle}
           />
           {touched && !valid && (
-            <span className="field-error" role="alert" style={{ font: "400 12px/1.3 var(--sans, system-ui)", color: "#dc2626" }}>
+            <span className="field-error" role="alert" style={{ font: "400 12px/1.3 var(--sans, system-ui)" }}>
               Please enter a name to continue.
             </span>
           )}

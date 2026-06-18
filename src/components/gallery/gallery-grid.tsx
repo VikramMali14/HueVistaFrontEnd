@@ -47,6 +47,7 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
               key={c}
               type="button"
               className="hv-chip"
+              aria-pressed={active}
               onClick={() => setCategory(c)}
               style={{
                 padding: "8px 14px",

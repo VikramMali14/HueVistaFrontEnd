@@ -301,7 +301,7 @@ button { font-family: inherit; }
 .nav-avatar {
   display: inline-flex; align-items: center; justify-content: center;
   width: 38px; height: 38px; border-radius: 50%;
-  background: var(--sage); color: #f7f7f5; flex-shrink: 0;
+  background: var(--sage); color: var(--ivory); flex-shrink: 0;
   transition: filter .2s var(--ease);
 }
 .nav-avatar:hover { filter: brightness(1.1); }
@@ -453,6 +453,10 @@ section + section { border-top: var(--hairline) solid var(--rule); }
   background: transparent;
 }
 .text-link:hover { opacity: .65; border-bottom-color: var(--fg); }
+/* Google sign-in button: hover/focus live in CSS (inline styles can't express
+   pseudo-states, so its declared transition previously never fired). */
+.btn-google { background: var(--surface); color: var(--fg); border: 1px solid var(--rule-strong); transition: background .25s var(--ease), border-color .25s var(--ease); }
+.btn-google:hover { background: var(--surface-soft); border-color: var(--fg-mute); }
 
 /* ====== PLACEHOLDERS  ·  tonal blocks (decorative room imagery) ====== */
 .ph { position: relative; overflow: hidden; background: var(--surface); display: flex; align-items: center; justify-content: center; isolation: isolate; border-radius: var(--radius); }
@@ -468,6 +472,10 @@ section + section { border-top: var(--hairline) solid var(--rule); }
 .ph-grain::after { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); mix-blend-mode: overlay; }
 .ph-label { position: absolute; bottom: 18px; left: 18px; font: 500 13px/1 var(--sans); color: rgba(255,255,255,.78); z-index: 2; }
 .ph-tag { position: absolute; top: 18px; left: 18px; font: 500 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); z-index: 2; }
+/* Light-toned placeholders (ivory/brass gradients) need dark ink — white labels
+   were invisible on the pale top-left where the tag sits. */
+.ph[data-tone="ivory"] .ph-label, .ph[data-tone="brass"] .ph-label { color: rgba(20,20,18,.82); }
+.ph[data-tone="ivory"] .ph-tag, .ph[data-tone="brass"] .ph-tag { color: rgba(20,20,18,.62); }
 .ph-corners::before { display: none; }
 
 /* ====== REVEAL (scroll-in) ====== */
@@ -509,6 +517,8 @@ footer { background: var(--bg-deep); border-top: 1px solid var(--rule); padding:
 .field input::placeholder, .field textarea::placeholder { color: var(--fg-mute-deep); font-style: normal; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--fg); box-shadow: 0 0 0 3px var(--rule); }
 .field select { appearance: none; background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%2371716c' d='M5 6L0 0h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+/* Darker caret in light theme so it matches the (now dark) field text. */
+html[data-theme="light"] .field select { background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%232b2823' d='M5 6L0 0h10z'/%3E%3C/svg%3E"); }
 .field-error { color: var(--terracotta); font: 500 13px/1.4 var(--sans); font-style: normal; }
 
 /* ====== UTILS ====== */
@@ -591,11 +601,9 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
 @media (max-width: 1280px) {
   :root { --gutter: 32px; }
   .footer-inner { grid-template-columns: 2fr 1fr 1fr; }
-  .footer-inner > *:nth-child(5) { grid-column: span 3; border-top: 1px solid var(--rule); padding-top: 32px; margin-top: 8px; }
 }
 @media (max-width: 1100px) {
   .footer-inner { grid-template-columns: 1fr 1fr; }
-  .footer-inner > *:nth-child(5) { grid-column: span 2; }
 }
 @media (max-width: 1024px) {
   :root { --gutter: 28px; }
@@ -605,7 +613,6 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
 @media (max-width: 768px) {
   :root { --gutter: 22px; }
   section { padding: 76px 0; }
-  .nav-links { display: none; }
   .footer-bottom { flex-direction: column; align-items: flex-start; gap: 12px; }
   .page-head { padding: 52px 0 44px; }
   .page-head h1 { font-size: clamp(38px, 11vw, 72px); }
@@ -636,7 +643,7 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   section { padding: 48px 0; }
   .display { font-size: clamp(30px, 9.5vw, 52px); line-height: 1.02; }
   .page-head h1 { font-size: clamp(34px, 12vw, 60px); }
-  .marquee { font-size: 9px; }
+  .marquee-track { font-size: 9px; }
   .lead { font-size: 16px; }
   .brand { font-size: 19px; }
   .footer-inner { grid-template-columns: 1fr; }
@@ -681,8 +688,7 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   .app-tabs.is-closed { display: none; }
   .app-nav-meta { gap: 8px; }
   .app-nav-meta > span:first-child { display: none; }
-  .masthead-strip { font-size: 8px; letter-spacing: .1em; padding: 8px var(--gutter); }
-  .masthead-strip > :first-child, .masthead-strip > :last-child { display: none; }
+  .masthead-strip { display: none; }   /* single decorative child → hide the whole strip, not an empty bar */
 }
 
 /* ----- Mobile drawer scrim ----- */
@@ -710,6 +716,10 @@ input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius
   outline-offset: 2px;
 }
 button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
+/* The global ring is var(--fg), which is near-black in light theme — invisible on
+   the always-dark islands (paint-room chips, /work view toggle, mood swatches).
+   Give those controls a light ring so keyboard focus stays visible in both themes. */
+.hv-room-chip:focus-visible, .hv-work-toggle button:focus-visible, .hv-mood-swatch:focus-visible { outline-color: var(--ivory); }
 
 /* ----- High-density displays: keep canvas crisp ----- */
 canvas { image-rendering: -webkit-optimize-contrast; }
@@ -971,7 +981,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 }
 /* BlurText renders a flex <p>; centre its words and clear the default margin. */
 .hv-stat-label { font: 400 15px/1.45 var(--sans); color: rgba(247,247,245,.62); margin: 0; justify-content: center; max-width: 24ch; }
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .hv-stats { padding-top: 80px; padding-bottom: 80px; }
   .hv-stats-grid { grid-template-columns: 1fr; gap: 0; }
   .hv-stat { padding: 30px 20px; }
@@ -992,7 +1002,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-partners-brands { display: flex; gap: 48px; align-items: baseline; flex-wrap: wrap; }
 .hv-partners-brand { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 3vw, 34px); color: rgba(247,247,245,.5); }
 .hv-partners-brand.is-lead { color: var(--ivory); }
-.hv-partners-note { font: 400 10px/1.5 var(--mono); letter-spacing: .08em; color: rgba(247,247,245,.38); flex-basis: 100%; }
+.hv-partners-note { font: 400 10px/1.5 var(--mono); letter-spacing: .08em; color: rgba(247,247,245,.62); flex-basis: 100%; }
 @media (max-width: 700px) { .hv-partners-brands { gap: 22px 30px; } }
 
 /* =========================================================
@@ -1038,7 +1048,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-method-head { display: grid; grid-template-columns: 1.5fr 1fr; gap: 48px; align-items: end; margin-bottom: 72px; }
 .hv-method-title { font-size: clamp(44px, 6.5vw, 104px); margin-top: 24px; }
 .hv-method-lead { text-align: right; }
-.hv-method-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--rule); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.hv-method-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: rgba(244,244,242,.08); border-top: 1px solid rgba(244,244,242,.08); border-bottom: 1px solid rgba(244,244,242,.08); }
 .hv-method-card { background: var(--charcoal); padding: 32px 24px; display: flex; flex-direction: column; transition: background .25s var(--ease); }
 .hv-method-card:hover { background: var(--charcoal-soft); }
 .hv-method-card-num { font: 400 22px/1 var(--serif); color: var(--ivory); }
@@ -1637,7 +1647,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
    keeps .r-scroll-x horizontal scrolling and the head simply doesn't stick. */
 @media (min-width: 964px) {
   .hv-matrix-wrap { overflow-x: visible; }
-  .hv-matrix-head th { position: sticky; top: 64px; background: var(--band); z-index: 2; }
+  .hv-matrix-head th { position: sticky; top: 92px; background: var(--band); z-index: 2; }
 }
 .hv-matrix tbody tr:hover td { background: rgba(244,244,242,.035); }
 .hv-matrix tbody tr:hover td[colspan] { background: transparent; }
@@ -1671,6 +1681,11 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-chip { transition: color .2s var(--ease), background .2s var(--ease), border-color .2s var(--ease), transform .2s var(--ease); }
 .hv-chip:active { transform: scale(.97); }
 
+/* Compare slider: the handle is a 2px bar, so the default focus ring is invisible.
+   Move keyboard focus to the visible 56px grab dot. */
+.hv-compare-handle:focus-visible { outline: none; }
+.hv-compare-handle:focus-visible > span { box-shadow: 0 0 0 3px var(--ivory), 0 0 0 6px rgba(0,0,0,.45); }
+
 /* Dropdown panels (catalogue toolbar) */
 .hv-dd { animation: hv-dd-in .18s var(--ease); transform-origin: top; }
 @keyframes hv-dd-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
@@ -1703,6 +1718,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-chat-fab { transition: transform .2s var(--ease), box-shadow .2s var(--ease); }
 .hv-chat-fab:hover { transform: translateY(-2px); }
 .hv-chat-fab:active { transform: scale(.94); }
+.hv-chat-fab:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
 
 /* Home catalogue-preview: per-tile ripple keyed to --i off the reveal parent */
 .hv-cat-preview > div { opacity: 0; transition: opacity .5s var(--ease) calc(var(--i, 0) * 14ms), transform .25s var(--ease); }
@@ -1731,7 +1747,8 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   transition: color .2s var(--ease), border-color .2s var(--ease);
 }
 .hv-card-action:hover { color: var(--fg); border-color: var(--rule-strong); }
-.hv-card-action[aria-pressed="true"] { color: var(--fg); border-color: var(--rule-strong); }
+/* Pressed = filled, so "on" reads distinctly from hover and isn't color-only. */
+.hv-card-action[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 /* Fingers need more than 28px — grow the targets where there's no mouse. */
 @media (hover: none) and (pointer: coarse) {
   .hv-card-action { width: 34px; height: 34px; min-height: 34px; font-size: 15px; }
@@ -1864,7 +1881,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .cnav-avatar {
   display: inline-flex; align-items: center; justify-content: center;
   width: 36px; height: 36px; border-radius: 50%;
-  background: var(--sage); color: #f7f7f5; text-decoration: none;
+  background: var(--sage); color: var(--ivory); text-decoration: none;
   transition: filter .2s var(--ease);
 }
 .cnav-avatar:hover { filter: brightness(1.1); }

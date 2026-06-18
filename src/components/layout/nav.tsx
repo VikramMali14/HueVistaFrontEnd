@@ -225,6 +225,13 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
                       </Link>
                     </li>
                   ))}
+                  {/* The right-cluster sign-out is hidden ≤768px, so without this an
+                      authenticated user has no way to log out on mobile. */}
+                  {card.key === "start" && authed && (
+                    <li>
+                      <LogoutButton className="cnav-card-link" style={{ color: "var(--fg)" }} />
+                    </li>
+                  )}
                 </ul>
               </div>
             ))}

@@ -263,7 +263,7 @@ function Row({
       )}
 
       {error && (
-        <span className="field-error" role="alert" style={{ font: "400 12px/1.4 var(--sans, system-ui)", color: "#dc2626" }}>
+        <span className="field-error" role="alert" style={{ font: "400 12px/1.4 var(--sans, system-ui)" }}>
           {error}
         </span>
       )}

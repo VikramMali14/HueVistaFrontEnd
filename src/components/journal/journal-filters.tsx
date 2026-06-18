@@ -24,6 +24,7 @@ export function JournalFilters({ entries }: { entries: ReadonlyArray<JournalEntr
                 key={c}
                 type="button"
                 className="hv-chip"
+                aria-pressed={active}
                 onClick={() => setCategory(c)}
                 style={{
                   font: "400 10px/1 var(--mono)",

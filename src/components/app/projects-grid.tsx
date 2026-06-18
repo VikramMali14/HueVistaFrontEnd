@@ -94,7 +94,7 @@ export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
                 ) : null}
               </div>
               <div style={{ marginTop: 14 }}>
-                <span style={{ fontFamily: "var(--serif)", fontSize: 22 }}>{p.name}</span>
+                <h3 style={{ fontFamily: "var(--serif)", fontSize: 22, fontWeight: 600, margin: 0, lineHeight: 1.2 }}>{p.name}</h3>
                 <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                   <Mono>
                     {p.regionCount} region{p.regionCount === 1 ? "" : "s"}

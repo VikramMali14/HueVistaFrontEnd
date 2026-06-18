@@ -10,10 +10,12 @@ interface SignInFormProps {
   next: string;
   /** "register" renders the free-account variant (name fields, new-password). */
   mode?: "signin" | "register";
+  /** Seed an error (e.g. when redirected back from a failed Google sign-in). */
+  initialError?: string;
 }
 
-export function SignInForm({ action, next, mode = "signin" }: SignInFormProps) {
-  const [error, setError] = useState<string | null>(null);
+export function SignInForm({ action, next, mode = "signin", initialError }: SignInFormProps) {
+  const [error, setError] = useState<string | null>(initialError ?? null);
   const [pending, startTransition] = useTransition();
   const [showPassword, setShowPassword] = useState(false);
   const register = mode === "register";
@@ -90,6 +92,7 @@ export function SignInForm({ action, next, mode = "signin" }: SignInFormProps) {
           autoComplete="email"
           inputMode="email"
           aria-invalid={error ? "true" : undefined}
+          aria-describedby={error ? "signin-error" : undefined}
         />
       </div>
       <div className="field">
@@ -106,6 +109,7 @@ export function SignInForm({ action, next, mode = "signin" }: SignInFormProps) {
             minLength={8}
             autoComplete={register ? "new-password" : "current-password"}
             aria-invalid={error ? "true" : undefined}
+            aria-describedby={error ? "signin-error" : undefined}
             style={{ paddingRight: 56 }}
           />
           <button
@@ -170,7 +174,7 @@ export function SignInForm({ action, next, mode = "signin" }: SignInFormProps) {
         </div>
       )}
       {error && (
-        <div className="field-error" role="alert" aria-live="assertive">
+        <div id="signin-error" className="field-error" role="alert" aria-live="assertive">
           {error}
         </div>
       )}
