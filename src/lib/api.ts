@@ -92,7 +92,10 @@ async function browserFetch<T>(path: string, init: RequestInit = {}): Promise<T>
     throw new HttpError(err.status, err.message, err.fieldErrors, err.code);
   }
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  // Some endpoints return 200 with an empty body (e.g. an absent entitlement).
+  // res.json() throws on empty input, so parse defensively.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 async function serverFetch<T>(
@@ -119,7 +122,8 @@ async function serverFetch<T>(
     throw new HttpError(err.status, err.message, err.fieldErrors, err.code);
   }
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 /**
@@ -149,8 +153,14 @@ export const authApi = {
       body: JSON.stringify(body),
       headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
     }),
-  login: (body: { email: string; password: string }) =>
-    serverFetch<AuthResponse>("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
+  login: (body: { email: string; password: string }, clientIp?: string) =>
+    serverFetch<AuthResponse>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body),
+      // Forward the real client IP so the backend's per-IP login limiter buckets
+      // by the actual visitor, not the single frontend-server IP.
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
   refresh: (refreshToken: string) =>
     serverFetch<AuthResponse>("/api/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   logout: (accessToken: string) =>

@@ -91,9 +91,17 @@ export async function middleware(req: NextRequest) {
   // rotates refresh tokens, so we must persist the new pair (which is why this
   // can't live in a Server Component render).
   try {
+    // Forward the real client IP so the backend's per-IP refresh limiter buckets
+    // per user, not under the single frontend-server IP.
+    const fwd =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip")?.trim();
     const upstream = await fetch(`${INTERNAL_ORIGIN}/api/auth/refresh`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(fwd ? { "X-Forwarded-For": fwd } : {}),
+      },
       body: JSON.stringify({ refreshToken: refresh }),
       cache: "no-store",
     });

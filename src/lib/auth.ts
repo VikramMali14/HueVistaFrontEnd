@@ -109,8 +109,14 @@ export async function loginAction(formData: FormData) {
   if (!email || !password) {
     return { error: "Please enter your email and password." };
   }
+  // Forward the real visitor IP so the backend's per-IP login rate limiter buckets
+  // by the actual client, not the single frontend-server IP (which would make the
+  // limiter one global bucket and lock everyone out). Mirrors registerAction.
+  const hdrs = await headers();
+  const clientIp =
+    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("x-real-ip")?.trim() || undefined;
   try {
-    const auth = await authApi.login({ email, password });
+    const auth = await authApi.login({ email, password }, clientIp);
     await persistSession(auth);
     await maybeClaimGuestProjects(auth.accessToken);
   } catch (err) {
@@ -206,18 +212,24 @@ export async function registerAction(formData: FormData) {
 
 /**
  * Completes Google sign-in. The backend OAuth success handler redirects to
- * /sign-in/callback with the tokens in the URL fragment; the callback page reads
- * them client-side and calls this action to persist the same HttpOnly session
- * cookies that email/password login sets, then redirects into the app.
+ * /sign-in/callback with the tokens (URL fragment or query string); the callback
+ * page reads them client-side and calls this action to persist the same HttpOnly
+ * session cookies that email/password login sets.
+ *
+ * IMPORTANT: this action is invoked imperatively from a `useEffect` (not via a
+ * form action or `startTransition`). A `redirect()` here would throw NEXT_REDIRECT
+ * which propagates back as a REJECTED promise — the callback's `.catch` would then
+ * show "Sign-in failed" even though the cookies were already set. So instead we
+ * RETURN the destination and let the client navigate. That was the login bug.
  */
 export async function completeGoogleSignIn(input: {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
-}) {
+}): Promise<{ next: string }> {
   "use server";
   if (!input.accessToken || !input.refreshToken) {
-    redirect("/sign-in?error=google");
+    throw new Error("Google sign-in did not return valid tokens.");
   }
   const jar = await cookies();
   jar.set(config.sessionCookie, input.refreshToken, {
@@ -228,14 +240,17 @@ export async function completeGoogleSignIn(input: {
     ...cookieDefaults,
     maxAge: Math.max(60, input.expiresIn || 0),
   });
+  // Fold any active guest session into the freshly signed-in account — parity
+  // with the email/password + register flows. Best-effort; never blocks login.
+  await maybeClaimGuestProjects(input.accessToken);
   // Honor the page the user started from (stashed before the OAuth hop).
   const requested = jar.get("hv_oauth_next")?.value ?? "";
   const next =
     requested.startsWith("/") && !requested.startsWith("//") && !requested.startsWith("/\\")
       ? requested
-      : "/atelier";
+      : "/dashboard";
   jar.delete("hv_oauth_next");
-  redirect(next);
+  return { next };
 }
 
 export async function logoutAction() {
