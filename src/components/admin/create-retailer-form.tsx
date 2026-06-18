@@ -76,7 +76,7 @@ export function CreateRetailerForm() {
 
       {created && (
         <div role="status" style={{ marginTop: 24, padding: "14px 16px", border: "1px solid var(--sage)", color: "var(--fg)", font: "400 15px/1.5 var(--sans)", borderRadius: "var(--radius)" }}>
-          ✓ Shop account created for <strong>{created}</strong>. They can sign in with the email and password you set.
+          ✓ Shop account created for <strong>{created}</strong>. We&apos;ve emailed them their login — email, password and a sign-in link.
         </div>
       )}
       {error && <div className="field-error" role="alert" aria-live="assertive" style={{ marginTop: 24 }}>{error}</div>}

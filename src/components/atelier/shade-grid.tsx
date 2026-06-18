@@ -202,15 +202,13 @@ export function ShadeGrid({
         <>
           <div style={{ padding: 16, borderBottom: "1px solid var(--rule)", flexShrink: 0 }}>
             <div
+              className="hv-shade-search"
               style={{
                 display: "flex",
                 gap: 10,
                 alignItems: "center",
-                border: "1px solid var(--rule-strong)",
                 borderRadius: 6,
-                
                 padding: "8px 12px",
-                background: "var(--surface)",
               }}
             >
               <span
