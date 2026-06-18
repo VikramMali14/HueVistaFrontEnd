@@ -82,7 +82,7 @@ export function AppNav({ user }: AppNavProps) {
           <div className="app-drawer-meta">
             <ThemeToggle />
             {user && (
-              <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
+              <Link href="/account" style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }} title="Account settings">{user.name}</Link>
             )}
             <LogoutButton
               className="app-tab"
@@ -109,7 +109,7 @@ export function AppNav({ user }: AppNavProps) {
         <div className="app-nav-meta">
           <ThemeToggle />
           {user && (
-            <span style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }}>{user.name}</span>
+            <Link href="/account" style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }} title="Account settings">{user.name}</Link>
           )}
           <LogoutButton
             className="app-tab"

@@ -182,6 +182,9 @@ export async function registerAction(formData: FormData) {
   const state = str("state");
   const phone = str("phone");
   const tier = str("tier");
+  // "customer" → a CUSTOMER-role account (dedicated customer signup page); the shop
+  // signup omits this and stays RETAILER.
+  const accountType = str("accountType");
 
   if (!name) return { error: "Please tell us your name." };
   if (!email) return { error: "Please enter your email." };
@@ -196,7 +199,7 @@ export async function registerAction(formData: FormData) {
     undefined;
 
   try {
-    const auth = await authApi.register({ name, email, password, shopName, city, state, phone, tier }, clientIp);
+    const auth = await authApi.register({ name, email, password, shopName, city, state, phone, tier, accountType }, clientIp);
     await persistSession(auth);
     await maybeClaimGuestProjects(auth.accessToken);
   } catch (err) {
@@ -259,6 +262,22 @@ export async function logoutAction() {
   const access = jar.get(config.accessCookie)?.value;
   if (access) {
     try { await authApi.logout(access); } catch { /* ignore */ }
+  }
+  await clearSession();
+  redirect("/");
+}
+
+/**
+ * Permanently deletes the signed-in user's account (backend scrubs PII + revokes
+ * sessions), then clears the local session and returns home. Invoked from a
+ * <form action> so the redirect is handled by the framework (like logout).
+ */
+export async function deleteAccountAction() {
+  "use server";
+  const jar = await cookies();
+  const access = jar.get(config.accessCookie)?.value;
+  if (access) {
+    try { await authApi.deleteAccount(access); } catch { /* best-effort; clear the session regardless */ }
   }
   await clearSession();
   redirect("/");

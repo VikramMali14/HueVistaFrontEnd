@@ -59,15 +59,27 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
         { href: "/pricing", label: "Pricing" },
       ],
     },
-    {
-      key: "start",
-      label: "Get started",
-      links: [
-        { href: "/trial", label: "Start free — 14 days" },
-        { href: "/redeem", label: "Have a shop code?" },
-        authed ? { href: "/dashboard", label: "My projects" } : { href: "/sign-in", label: "Sign in" },
-      ],
-    },
+    // Logged-in visitors get a "workspace" card (Dashboard + Studio) instead of the
+    // trial/sign-in card, so the app is reachable from the public site after login.
+    authed
+      ? {
+          key: "start",
+          label: "Your workspace",
+          links: [
+            { href: "/dashboard", label: "Dashboard" },
+            { href: "/atelier", label: "Studio" },
+            { href: "/redeem", label: "Have a shop code?" },
+          ],
+        }
+      : {
+          key: "start",
+          label: "Get started",
+          links: [
+            { href: "/trial", label: "Start free — 14 days" },
+            { href: "/redeem", label: "Have a shop code?" },
+            { href: "/sign-in", label: "Sign in" },
+          ],
+        },
   ];
 
   // Build the open/close timeline once the cards are in the DOM. Rebuilt when
@@ -172,6 +184,10 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
             <ThemeToggle />
             {authed ? (
               <>
+                {/* Quick jump into the studio (hidden ≤768px; also in the workspace card). */}
+                <Link href="/atelier" className="cnav-signin">
+                  Studio
+                </Link>
                 <Link href="/dashboard" className="cnav-avatar" aria-label="Your dashboard">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <circle cx="12" cy="8" r="4" />

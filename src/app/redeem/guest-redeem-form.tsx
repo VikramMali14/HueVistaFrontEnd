@@ -54,7 +54,7 @@ export function GuestRedeemForm() {
           <Link className="btn btn-brass" href="/studio">
             Continue as a guest <span className="arr">→</span>
           </Link>
-          <Link className="btn btn-ghost" href="/sign-in?mode=register&next=/studio">
+          <Link className="btn btn-ghost" href="/join?next=/studio">
             Create a free account to keep it <span className="arr">→</span>
           </Link>
         </div>

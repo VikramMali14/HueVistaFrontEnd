@@ -142,6 +142,8 @@ export const authApi = {
       state?: string;
       phone?: string;
       tier?: string;
+      // "customer" creates a CUSTOMER-role account; otherwise a RETAILER signup.
+      accountType?: string;
     },
     // The browser hits this via a server action, so the backend would otherwise
     // only ever see the frontend server's IP. Forward the real client IP so the
@@ -165,6 +167,8 @@ export const authApi = {
     serverFetch<AuthResponse>("/api/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   logout: (accessToken: string) =>
     serverFetch<{ message: string }>("/api/auth/logout", { method: "POST", accessToken }),
+  deleteAccount: (accessToken: string) =>
+    serverFetch<void>("/api/auth/account", { method: "DELETE", accessToken }),
   me: (accessToken: string) =>
     serverFetch<{ userId: string }>("/api/auth/me", { accessToken }),
   profile: (accessToken: string) =>
