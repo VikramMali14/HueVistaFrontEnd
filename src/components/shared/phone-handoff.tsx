@@ -165,9 +165,9 @@ export function PhoneHandoff({ onImage }: { onImage: (file: File) => void }) {
                     role="alert"
                     style={{
                       font: "500 12px/1.45 var(--sans, system-ui)",
-                      color: "#b45309",
-                      background: "rgba(180,83,9,.08)",
-                      border: "1px solid rgba(180,83,9,.35)",
+                      color: "var(--terracotta)",
+                      background: "rgba(var(--fg-rgb), .05)",
+                      border: "1px solid var(--rule-strong)",
                       padding: "8px 10px",
                       margin: 0,
                       maxWidth: "32ch",

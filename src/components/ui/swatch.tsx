@@ -23,8 +23,9 @@ export function Swatch({ hex, code, size, selected, onClick, style }: SwatchProp
         width: size,
         height: size,
         aspectRatio: size ? undefined : "1/1",
-        outline: selected ? "1px solid var(--brass)" : "none",
-        outlineOffset: selected ? 3 : 0,
+        // Selected ring via box-shadow (not outline) so the global :focus-visible
+        // outline still shows for keyboard users on unselected swatches.
+        boxShadow: selected ? "0 0 0 3px var(--bg), 0 0 0 4px var(--brass)" : undefined,
         border: "none",
         cursor: "pointer",
         padding: 0,

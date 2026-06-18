@@ -314,7 +314,7 @@ export function ProductManager() {
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadImage(line.id, f); e.target.value = ""; }} />
                   {img ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <img src={img} alt={`${line.name} product photo`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (
                     <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 10, font: "400 14px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
                       {d.uploading ? "Uploading…" : "Tap to add bucket photo"}

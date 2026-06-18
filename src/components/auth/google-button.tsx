@@ -11,6 +11,7 @@ export function GoogleButton({ next = "/dashboard", label = "Continue with Googl
   return (
     <a
       href={href}
+      className="btn-google"
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -18,15 +19,11 @@ export function GoogleButton({ next = "/dashboard", label = "Continue with Googl
         gap: 12,
         width: "100%",
         padding: "14px 18px",
-        background: "var(--surface)",
-        color: "var(--fg)",
-        border: "1px solid var(--rule-strong)",
         font: "500 13px/1 var(--sans)",
         letterSpacing: "0.02em",
         textTransform: "none",
         cursor: "pointer",
         textDecoration: "none",
-        transition: "background .25s var(--ease), border-color .25s var(--ease)",
         ...style,
       }}
       aria-label={label}

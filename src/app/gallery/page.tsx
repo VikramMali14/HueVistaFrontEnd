@@ -84,7 +84,7 @@ export default function GalleryPage() {
                     ["2,481", "shades, real codes intact"],
                     ["1 tap", "preview to WhatsApp"],
                   ].map(([num, lbl]) => (
-                    <div key={lbl} style={{ borderTop: "1px solid var(--rule)", paddingTop: 18 }}>
+                    <div key={lbl} style={{ borderTop: "1px solid var(--band-rule)", paddingTop: 18 }}>
                       <div style={{ fontFamily: "var(--serif)", fontSize: 48, color: "var(--brass-soft)", lineHeight: 1 }}>{num}</div>
                       <div style={{ font: "400 15px/1.4 var(--serif)", color: "var(--ivory-soft)", marginTop: 8 }}>{lbl}</div>
                     </div>

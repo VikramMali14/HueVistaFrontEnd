@@ -913,7 +913,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               onClick={retrySave}
               style={{
                 ...controlChipStyle,
-                color: "#dc2626",
+                color: "var(--terracotta)",
                 background: "transparent",
                 border: "none",
                 padding: 0,
@@ -1541,7 +1541,9 @@ function Toggle({
           ...(on ? { right: 1 } : { left: 1 }),
           width: 14,
           height: 14,
-          background: "var(--fg)",
+          // --accent === --fg, so a var(--fg) knob vanishes on the "on" (accent)
+          // track. Paint the knob with the inverse token so it reads in both states.
+          background: on ? "var(--bg)" : "var(--fg)",
           borderRadius: "50%",
         }}
       />

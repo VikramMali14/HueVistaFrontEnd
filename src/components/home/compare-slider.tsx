@@ -81,6 +81,7 @@ export function CompareSlider({
       <span style={tagStyle("right")}>{afterShade}</span>
       <button
         type="button"
+        className="hv-compare-handle"
         aria-label="Drag to compare before and after"
         aria-valuemin={0}
         aria-valuemax={100}
