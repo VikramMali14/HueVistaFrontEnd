@@ -52,7 +52,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
             {register ? (
               <>Already have an account? <Link href={`/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in.</Link></>
             ) : (
-              <>New to HueVista? <Link href="/trial">Start your free 14-day trial.</Link></>
+              <>New to HueVista? <Link href="/join">Create a free account.</Link></>
             )}
           </p>
         </section>

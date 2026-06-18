@@ -75,7 +75,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
           key: "start",
           label: "Get started",
           links: [
-            { href: "/trial", label: "Start free — 14 days" },
+            { href: "/join", label: "Create a free account" },
             { href: "/redeem", label: "Have a shop code?" },
             { href: "/sign-in", label: "Sign in" },
           ],
@@ -204,7 +204,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
                   </Link>
                 )}
                 {showCta && (
-                  <Link href="/trial" className="cnav-cta">
+                  <Link href="/join" className="cnav-cta">
                     Get started <span className="arr">→</span>
                   </Link>
                 )}

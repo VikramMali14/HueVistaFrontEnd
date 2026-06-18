@@ -2,7 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { authApi, billingApi, guestServerApi, HttpError } from "./api";
+import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
 import { config } from "./config";
 import type { AuthResponse, AuthUser } from "./types";
 
@@ -254,6 +254,49 @@ export async function completeGoogleSignIn(input: {
       : "/dashboard";
   jar.delete("hv_oauth_next");
   return { next };
+}
+
+/**
+ * ADMIN-only: create a shop (retailer) account. The page is already gated by
+ * requireRole(["ADMIN"]) and the backend endpoint is ADMIN-only; this carries the
+ * admin's access token server-side. Returns a result (no redirect) for inline feedback.
+ */
+export async function createRetailerAction(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  const str = (k: string) => {
+    const v = String(formData.get(k) ?? "").trim();
+    return v || undefined;
+  };
+  const name = str("name");
+  const email = str("email")?.toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const shopName = str("shopName");
+  if (!name || !email || !shopName) return { error: "Owner name, email and shop name are required." };
+  if (password.length < 8) return { error: "Set an initial password of at least eight characters." };
+  try {
+    await adminApi.createRetailer(token, {
+      name,
+      email,
+      password,
+      shopName,
+      city: str("city"),
+      state: str("state"),
+      phone: str("phone"),
+      tier: str("tier"),
+    });
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 409) return { error: "An account with that email already exists." };
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Could not create the shop account. Please try again." };
+  }
 }
 
 export async function logoutAction() {

@@ -188,6 +188,31 @@ export const billingApi = {
 };
 
 /**
+ * Admin API — ROLE_ADMIN only, used from admin server actions. Goes directly to
+ * the backend with the admin's cookie-resident access token.
+ */
+export const adminApi = {
+  createRetailer: (
+    accessToken: string,
+    body: {
+      name: string;
+      email: string;
+      password: string;
+      shopName: string;
+      city?: string;
+      state?: string;
+      phone?: string;
+      tier?: string;
+    },
+  ) =>
+    serverFetch<{ id: string; name: string; email: string; role: string }>("/api/admin/retailers", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify(body),
+    }),
+};
+
+/**
  * Server-side guest helpers. `redeemGuest` is anonymous (no token); `claimGuest`
  * runs right after a user signs in to re-point their guest projects to the account.
  */

@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 // where cookies are writable — Server Components must not mutate cookies, so the
 // refresh that used to happen during render (and crashed) now happens up here.
 
-const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/products", "/color-finder", "/account"];
+const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/products", "/color-finder", "/account", "/admin"];
 // Pages that only make sense for a signed-OUT visitor. A signed-in user landing
 // here (e.g. following an old "Begin a trial" link) is bounced home — they can't
 // register or sign in again without signing out first. The Google OAuth callback
@@ -134,6 +134,7 @@ export const config = {
     "/products/:path*",
     "/color-finder/:path*",
     "/account/:path*",
+    "/admin/:path*",
     "/bff/:path*",
     // Guest-only auth pages (exact — keep /sign-in/google out of the bounce).
     "/sign-in",

@@ -49,10 +49,11 @@ export default async function JoinPage({ searchParams }: PageProps) {
           </Link>
         </p>
         <p style={{ marginTop: 16, font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
-          Run a paint shop instead?{" "}
-          <Link href="/trial" style={{ color: "var(--accent-soft)" }}>
-            Start a retailer trial.
-          </Link>
+          Run a paint shop?{" "}
+          <a href="mailto:hello@huevista.com?subject=Shop%20account" style={{ color: "var(--accent-soft)" }}>
+            Get in touch
+          </a>{" "}
+          and we&apos;ll set you up.
         </p>
       </main>
       <Footer />
