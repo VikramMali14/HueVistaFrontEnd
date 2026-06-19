@@ -80,7 +80,7 @@ export default function MethodPage() {
         </header>
 
         {CHAPTERS.map((c, i) => (
-          <article key={c.num} className="reveal hv-method-chapter" style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr", gap: 64, padding: "140px 0", borderTop: i === 0 ? "none" : "1px solid var(--rule)", alignItems: "start" }}>
+          <article key={c.num} className="reveal hv-method-chapter" style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr", gap: 64, padding: "100px 0", borderTop: i === 0 ? "none" : "1px solid var(--rule)", alignItems: "start" }}>
             <span style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 56, lineHeight: 1, color: "var(--brass)" }}>{c.num}</span>
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               <Eyebrow>{c.eyebrow}</Eyebrow>
@@ -93,7 +93,7 @@ export default function MethodPage() {
           </article>
         ))}
 
-        <section style={{ textAlign: "center", padding: "200px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(184,153,104,.10), transparent 65%)" }}>
+        <section style={{ textAlign: "center", padding: "140px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(184,153,104,.10), transparent 65%)" }}>
           <div className="reveal">
             <Mono brass>Begin</Mono>
             <h2 className="display" style={{ fontSize: "clamp(60px, 10vw, 160px)", marginTop: 32, lineHeight: 0.92 }}>

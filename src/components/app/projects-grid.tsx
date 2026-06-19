@@ -53,6 +53,7 @@ export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
           color: "var(--accent)",
           textDecoration: "none",
           background: "var(--surface-soft)",
+          borderRadius: "var(--radius)",
         }}
       >
         <span aria-hidden style={{ fontSize: 40, lineHeight: 1 }}>
@@ -87,7 +88,7 @@ export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
             style={{ textDecoration: "none", color: "inherit" }}
           >
             <article>
-              <div className="hv-proj-thumb" style={{ aspectRatio: "4 / 5", border: "1px solid var(--rule)", overflow: "hidden", background: "var(--surface)" }}>
+              <div className="hv-proj-thumb" style={{ aspectRatio: "4 / 5", border: "1px solid var(--rule)", borderRadius: "var(--radius)", overflow: "hidden", background: "var(--surface)" }}>
                 {thumb ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={thumb} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -112,7 +113,7 @@ export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
         );
       })}
       <style>{`
-        .hv-proj-new { border: 1px dashed var(--rule-strong); transition: border-color .2s var(--ease), background .2s var(--ease); }
+        .hv-proj-new { border: 1px dashed var(--rule-strong); border-radius: var(--radius); transition: border-color .2s var(--ease), background .2s var(--ease); }
         .hv-proj-new:hover { border-color: var(--accent); }
       `}</style>
     </section>

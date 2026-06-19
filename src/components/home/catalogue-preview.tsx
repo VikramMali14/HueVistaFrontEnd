@@ -19,7 +19,7 @@ export function CataloguePreview() {
           <Lead>Filter by colour family, finish, or light value (LRV). Search by code, name or hex. Find what looks closest across brands by colour science — not by approximation.</Lead>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
             <LinkButton href="/catalogue">Browse the catalogue <span className="arr">→</span></LinkButton>
-            <LinkButton href="/catalogue" variant="ghost">View a single shade <span className="arr">→</span></LinkButton>
+            <LinkButton href="/gallery" variant="ghost">See it on real walls <span className="arr">→</span></LinkButton>
           </div>
         </div>
         <div className="hv-cat-preview" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>

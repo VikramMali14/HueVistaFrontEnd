@@ -7,13 +7,13 @@ export function JournalNewsletter() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   return (
-    <section id="newsletter" style={{ background: "var(--band)", borderTop: "1px solid var(--band-rule)", borderBottom: "1px solid var(--band-rule)", padding: "140px 0", marginTop: 120, textAlign: "center" }} className="full-bleed">
+    <section id="newsletter" style={{ background: "var(--band)", borderTop: "1px solid var(--band-rule)", borderBottom: "1px solid var(--band-rule)", padding: "100px 0", marginTop: 80, textAlign: "center" }} className="full-bleed">
       <div className="reveal" style={{ maxWidth: 1100, margin: "0 auto", padding: "0 var(--gutter)" }}>
         <Mono brass>Monthly letter</Mono>
-        <h3 style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(40px, 5.5vw, 80px)", lineHeight: 1, letterSpacing: "-.015em", color: "var(--ivory)", margin: "24px 0 0" }}>
+        <h3 style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(36px, 5vw, 72px)", lineHeight: 1, letterSpacing: "-.015em", color: "var(--ivory)", margin: "20px 0 0" }}>
           One letter, <br /><i>once a month.</i>
         </h3>
-        <Lead style={{ margin: "32px auto 0", maxWidth: "48ch" }}>
+        <Lead style={{ margin: "24px auto 0", maxWidth: "48ch", color: "rgba(247,247,245,.72)" }}>
           On the first Sunday of the month, a single essay arrives in your inbox. Nothing more. Cancel quietly, any time.
         </Lead>
         <form
