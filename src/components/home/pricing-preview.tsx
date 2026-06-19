@@ -13,7 +13,7 @@ const TIERS: ReadonlyArray<Tier> = [
 export function PricingPreview() {
   return (
     <section>
-      <div className="reveal" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 80, flexWrap: "wrap", gap: 24 }}>
+      <div className="reveal" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 56, flexWrap: "wrap", gap: 24 }}>
         <h2 className="display" style={{ fontSize: "clamp(48px, 7vw, 84px)", maxWidth: "14ch" }}>For retailers, <i>not consumers.</i></h2>
         <LinkButton href="/pricing" size="lg">See all tiers <span className="arr">→</span></LinkButton>
       </div>

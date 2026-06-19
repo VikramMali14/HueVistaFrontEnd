@@ -3,8 +3,8 @@ import { Mono } from "@/components/ui/eyebrow";
 
 export function Closing() {
   return (
-    <section style={{ textAlign: "center", padding: "200px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(184,153,104,.10), transparent 65%)" }}>
-      <div className="reveal" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 32 }}>
+    <section style={{ textAlign: "center", padding: "140px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(184,153,104,.10), transparent 65%)" }}>
+      <div className="reveal" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
         
         <Mono brass>Begin</Mono>
         <h2 className="display" style={{ fontSize: "clamp(44px, 11vw, 180px)", lineHeight: 0.9, margin: 0, textAlign: "center" }}>Sell the colour<br /><i>before the can opens.</i></h2>

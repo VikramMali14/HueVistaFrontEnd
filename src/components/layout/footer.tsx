@@ -14,7 +14,7 @@ const COLUMNS = [
   {
     title: "Company",
     links: [
-      { href: "/method", label: "How we work" },
+      { href: "/work", label: "Our work" },
       { href: "/journal", label: "Journal" },
       { href: "mailto:hello@huevista.com", label: "Contact" },
     ],
