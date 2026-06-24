@@ -840,14 +840,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       ? "Finding the walls, trim and other paintable surfaces. This usually takes 5 to 10 seconds."
       : undefined;
 
-  const regionLabelStyle: React.CSSProperties = { font: "500 13px/1 var(--sans)", color: "var(--fg)" };
-  const controlChipStyle: React.CSSProperties = {
-    font: "500 12px/1 var(--sans)",
-    letterSpacing: 0,
-    textTransform: "none",
-    color: "var(--fg-soft)",
-  };
-
   const showDetailsGate = !imageUrl && !details && !openProjectId;
 
   // Wall detection can be retried without re-uploading the photo once the
@@ -866,80 +858,58 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       className="hv-visualizer"
       style={{ border: "1px solid var(--rule-strong)", borderRadius: "var(--radius)", overflow: "hidden", background: "var(--bg)", boxShadow: "0 24px 60px -42px rgba(0,0,0,.5)" }}
     >
-      <div className="hv-vis-topbar">
-        <div className="hv-vis-project">
+      <div className="hv-studio-topbar">
+        <div className="hv-studio-project">
           <Mono>Project</Mono>
-          <span style={{ font: "600 14px/1.2 var(--sans)", color: "var(--fg)" }}>
-            {projectName || "Untitled project"}
-          </span>
+          <span>{projectName || "Untitled project"}</span>
           {projectRoom && <Mono>· {projectRoom}</Mono>}
         </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+
+        <div className="hv-studio-status">
           {basicPreview && (
-            <span style={controlChipStyle} title="WebGL2 unavailable — using the simplified renderer">
-              {"Basic preview mode — this browser doesn't support WebGL2, colours are approximate."}
+            <span className="hv-status-pill" title="WebGL2 unavailable — using the simplified renderer">
+              ⚠ Basic preview
             </span>
           )}
           {classification && (
-            <span style={{ ...controlChipStyle, color: "var(--accent)" }}>
+            <span className={`hv-status-pill ${classification === "INDOOR" ? "is-accent" : ""}`}>
               {classification === "INDOOR" ? "Indoor" : classification === "OUTDOOR" ? "Outdoor" : "Unknown"}
             </span>
           )}
           {segmenting && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Spinner size={12} color="var(--accent)" />
-              <span style={controlChipStyle}>Detecting walls…</span>
+            <span className="hv-status-pill">
+              <span className="dot" />
+              Detecting walls…
             </span>
           )}
           {masksReady && wallsNoticeVisible && !guestAiUnavailable && (
-            <span style={{ ...controlChipStyle, color: "var(--accent)" }}>Walls detected</span>
+            <span className="hv-status-pill is-success">Walls detected</span>
           )}
           {guest && guestAiUnavailable && masksReady && (
-            <span style={controlChipStyle} title="The shop's AI previews are used up — mark the walls by hand instead.">
-              AI previews unavailable — mark walls by hand
+            <span className="hv-status-pill" title="The shop's AI previews are used up — mark the walls by hand instead.">
+              AI unavailable
             </span>
           )}
           {saveStatus === "saving" && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Spinner size={12} color="var(--fg-mute)" />
-              <span style={controlChipStyle}>Saving…</span>
+            <span className="hv-status-pill">
+              <span className="dot" />
+              Saving…
             </span>
           )}
-          {saveStatus === "saved" && savedNoticeVisible && <span style={controlChipStyle}>Saved</span>}
+          {saveStatus === "saved" && savedNoticeVisible && <span className="hv-status-pill is-success">Saved</span>}
           {saveStatus === "failed" && (
-            <button
-              type="button"
-              onClick={retrySave}
-              style={{
-                ...controlChipStyle,
-                color: "var(--terracotta)",
-                background: "transparent",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-              }}
-            >
+            <button type="button" className="hv-status-pill is-error" onClick={retrySave}>
               Could not save · <span style={{ textDecoration: "underline" }}>Retry</span>
             </button>
           )}
           {shareUrl && (
-            <span
-              title={shareUrl}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                maxWidth: 220,
-                overflow: "hidden",
-              }}
-            >
-              <Mono brass>{shareCopied ? "Link copied" : "Share link"}</Mono>
-              <span style={{ font: "400 11px/1 var(--mono)", color: "var(--fg-mute)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {shareUrl.replace(/^https?:\/\//, "")}
-              </span>
+            <span className="hv-status-pill is-accent" title={shareUrl}>
+              {shareCopied ? "Link copied" : "Share link"}
             </span>
           )}
+        </div>
+
+        <div className="hv-studio-actions">
           {!guest && (
             <Button
               size="sm"
@@ -948,7 +918,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               onClick={() => void handleShare()}
               title={projectId ? "Create a public link (colours shown, codes hidden)" : "Save the project first"}
             >
-              {sharing ? "Sharing…" : "Share with customer"}
+              {sharing ? "Sharing…" : "Share"}
             </Button>
           )}
           <Button
@@ -957,24 +927,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             disabled={!imageUrl}
             onClick={() => recolorRef.current && downloadPng(recolorRef.current.exportPng())}
           >
-            Download image
+            Download
           </Button>
         </div>
       </div>
 
       <PipelineBar current={stage} done={done} busy={segmenting ? "mask" : uploading ? "upload" : undefined} />
 
-      <div className="hv-vis-body" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 0 }}>
-        <div className="hv-vis-canvas-wrap" style={{ position: "relative", background: "var(--surface)" }}>
+      <div className="hv-studio-body">
+        <div className="hv-studio-canvas">
           <canvas
             key={engineEpoch}
             ref={canvasRef}
             style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
               display: imageUrl ? "block" : "none",
             }}
           />
@@ -1009,30 +974,21 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           {imageUrl && (
             <>
               {/* CONTROL CLUSTER — clean-up + shadow preservation */}
-              <div
-                className="hv-vis-control"
-                style={{
-                  position: "absolute",
-                  top: 20,
-                  left: 20,
-                  padding: "10px 14px",
-                  background: "var(--bg)",
-                  border: "1px solid var(--rule-strong)",
-                  zIndex: 5,
-                  borderRadius: 8,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                  maxWidth: "calc(100% - 40px)",
-                }}
-              >
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <span style={controlChipStyle}>Tidy up image</span>
-                  <Toggle on={cleanOn} onClick={() => setCleanOn((v) => !v)} ariaLabel="image clean-up" />
-                </div>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <span style={controlChipStyle}>Keep shadows</span>
-                  <Toggle on={shadowOn} onClick={() => setShadowOn((v) => !v)} ariaLabel="shadow preservation" />
+              <div className="hv-studio-floatbar">
+                <StudioTool
+                  icon={<CleanIcon />}
+                  label="Tidy up image"
+                  on={cleanOn}
+                  onClick={() => setCleanOn((v) => !v)}
+                  ariaLabel="image clean-up"
+                />
+                <StudioTool
+                  icon={<ShadowIcon />}
+                  label="Keep shadows"
+                  on={shadowOn}
+                  onClick={() => setShadowOn((v) => !v)}
+                  ariaLabel="shadow preservation"
+                >
                   {shadowOn ? (
                     <input
                       type="range"
@@ -1042,60 +998,30 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       value={shadowStrength}
                       onChange={(e) => setShadowStrength(Number(e.target.value))}
                       aria-label="Shadow intensity"
-                      style={{ width: 80, accentColor: "var(--accent)" }}
                     />
                   ) : null}
-                </div>
+                </StudioTool>
               </div>
 
               {/* REGION TABS */}
-              <div
-                className="hv-vis-control hv-vis-regions"
-                style={{
-                  position: "absolute",
-                  bottom: 20,
-                  left: 20,
-                  right: 20,
-                  background: "var(--bg)",
-                  border: "1px solid var(--rule-strong)",
-                  zIndex: 5,
-                  borderRadius: 8,
-                }}
-              >
+              <div className="hv-studio-regions">
                 {/* APPLIED-PALETTE STRIP — the "counter ticket" summary of every painted wall */}
                 <div
-                  className="hv-vis-palette"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 14,
-                    padding: "10px 16px",
-                    borderBottom: "1px solid var(--rule)",
-                    overflowX: "auto",
-                  }}
+                  className={`hv-studio-palette ${regions.some((r) => r.applied) ? "" : "is-empty"}`}
                 >
                   {regions.some((r) => r.applied) ? (
                     <>
                       {regions
                         .filter((r) => r.applied)
                         .map((r) => (
-                          <span
-                            key={r.id}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}
-                          >
+                          <span key={r.id} className="hv-studio-palette-item">
                             <span
                               aria-hidden
-                              style={{
-                                width: 18,
-                                height: 18,
-                                borderRadius: 5,
-                                background: r.hex,
-                                border: "1px solid var(--rule-strong)",
-                                flexShrink: 0,
-                              }}
+                              className="hv-studio-palette-swatch"
+                              style={{ background: r.hex }}
                             />
-                            <span style={{ font: "500 12px/1 var(--sans)", color: "var(--fg)" }}>{r.label}</span>
-                            <span style={{ font: "400 11px/1 var(--mono)", color: "var(--fg-mute)" }}>
+                            <span className="hv-studio-palette-label">{r.label}</span>
+                            <span className="hv-studio-palette-shade">
                               {guest
                                 ? r.shade?.name ?? r.hex
                                 : r.shade
@@ -1106,156 +1032,63 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                         ))}
                       <button
                         type="button"
+                        className="hv-studio-copy-palette"
                         onClick={() => void handleCopyPalette()}
-                        style={{
-                          marginLeft: "auto",
-                          padding: "6px 12px",
-                          background: "transparent",
-                          border: "1px solid var(--rule-strong)",
-                          borderRadius: 6,
-                          color: "var(--fg-soft)",
-                          whiteSpace: "nowrap",
-                          font: "500 12px/1 var(--sans)",
-                          cursor: "pointer",
-                        }}
                       >
                         {paletteCopied ? "Copied" : "Copy palette"}
                       </button>
                     </>
                   ) : (
-                    <span style={{ font: "400 12px/1 var(--sans)", color: "var(--fg-mute)" }}>
-                      No colours applied yet
-                    </span>
+                    <span>No colours applied yet</span>
                   )}
                 </div>
-                <div style={{ position: "relative" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      padding: "10px 44px 10px 16px",
-                      overflowX: "auto",
-                    }}
-                  >
-                    <span style={{ ...controlChipStyle, whiteSpace: "nowrap" }}>Walls in this photo</span>
-                    <div
-                      aria-hidden
-                      style={{
-                        width: 1,
-                        height: 16,
-                        background: "var(--rule)",
-                        marginLeft: 14,
-                        marginRight: 14,
-                        flexShrink: 0,
-                      }}
-                    />
-                    {regions.map((r) => {
-                      const isActive = r.id === activeRegion;
-                      return (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => setActiveRegion(r.id)}
-                          aria-pressed={isActive}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: "6px 14px",
-                            borderRight: "1px solid var(--rule)",
-                            opacity: isActive ? 1 : 0.75,
-                            background: isActive ? "var(--surface-soft)" : "transparent",
-                            boxShadow: isActive ? "inset 0 -2px 0 var(--accent)" : "none",
-                            borderTop: "none",
-                            borderBottom: "none",
-                            borderLeft: "none",
-                            cursor: "pointer",
-                            color: "var(--fg)",
-                            textAlign: "left",
-                            whiteSpace: "nowrap",
-                            flexShrink: 0,
-                          }}
+                <div className="hv-studio-region-list">
+                  {regions.map((r) => {
+                    const isActive = r.id === activeRegion;
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setActiveRegion(r.id)}
+                        aria-pressed={isActive}
+                        className={`hv-studio-region ${isActive ? "is-active" : ""}`}
+                      >
+                        <span
+                          aria-hidden
+                          className={`hv-studio-region-dot ${r.applied ? "is-applied" : ""}`}
+                          style={{ background: r.applied ? r.hex : undefined }}
                         >
-                          <span
-                            aria-hidden
-                            style={{
-                              width: 16,
-                              height: 16,
-                              background: r.applied ? r.hex : "transparent",
-                              border: "1px solid var(--rule-strong)",
-                              borderRadius: "50%",
-                              flexShrink: 0,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            {r.applied && (
-                              <span
-                                style={{
-                                  font: "600 9px/1 var(--sans)",
-                                  color: "#fff",
-                                  textShadow: "0 0 2px rgba(0,0,0,.6)",
-                                }}
-                              >
-                                ✓
-                              </span>
-                            )}
+                          {r.applied && "✓"}
+                        </span>
+                        <span className="hv-studio-region-name">
+                          <span className="hv-studio-region-title">{r.label}</span>
+                          <span className="hv-studio-region-shade">
+                            {r.applied ? r.shade?.name ?? r.hex : "No colour yet"}
                           </span>
-                          <span style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                            <span style={regionLabelStyle}>{r.label}</span>
-                            <span className="hv-chip-sub" style={{ font: "400 11px/1 var(--sans)", color: "var(--fg-mute)" }}>
-                              {r.applied ? r.shade?.name ?? r.hex : "No colour yet"}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => setMaskStudioOpen(true)}
-                      disabled={!imageDims || masksRemaining <= 0}
-                      title={
-                        masksRemaining <= 0
-                          ? "You can add up to 3 walls"
-                          : "Open Mask Studio to draw or edit a wall mask"
-                      }
-                      style={{
-                        marginLeft: "auto",
-                        padding: "6px 12px",
-                        background: "transparent",
-                        border: "1px solid var(--rule-strong)",
-                        borderRadius: 6,
-                        color: "var(--fg-soft)",
-                        opacity: imageDims && masksRemaining > 0 ? 1 : 0.5,
-                        whiteSpace: "nowrap",
-                        font: "500 12px/1 var(--sans)",
-                        cursor: imageDims && masksRemaining > 0 ? "pointer" : "not-allowed",
-                        flexShrink: 0,
-                      }}
-                    >
-                      + Add wall
-                    </button>
-                  </div>
-                  {/* Right-edge fade — hints that the chips row scrolls horizontally. */}
-                  <span
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      bottom: 0,
-                      right: 0,
-                      width: 28,
-                      pointerEvents: "none",
-                      background: "linear-gradient(90deg, transparent, var(--bg))",
-                    }}
-                  />
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    className="hv-studio-add-wall"
+                    onClick={() => setMaskStudioOpen(true)}
+                    disabled={!imageDims || masksRemaining <= 0}
+                    title={
+                      masksRemaining <= 0
+                        ? "You can add up to 3 walls"
+                        : "Open Mask Studio to draw or edit a wall mask"
+                    }
+                  >
+                    + Add wall
+                  </button>
                 </div>
               </div>
 
               {/* HOLD-TO-PEEK — press and hold to see the original photo */}
               <button
                 type="button"
+                className={`hv-studio-compare ${compare ? "is-active" : ""}`}
                 onPointerDown={() => setCompare(true)}
                 onPointerUp={() => setCompare(false)}
                 onPointerLeave={() => setCompare(false)}
@@ -1271,25 +1104,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 }}
                 onBlur={() => setCompare(false)}
                 aria-pressed={compare}
-                style={{
-                  // Top-right: clear of the control cluster (top-left) and the
-                  // two-row palette/chips overlay along the bottom.
-                  position: "absolute",
-                  top: 20,
-                  right: 20,
-                  padding: "6px 12px",
-                  background: compare ? "var(--accent)" : "var(--bg)",
-                  border: "1px solid " + (compare ? "var(--accent)" : "var(--rule-strong)"),
-                  borderRadius: 6,
-                  color: compare ? "var(--bg)" : "var(--fg-soft)",
-                  font: "500 12px/1 var(--sans)",
-                  cursor: "pointer",
-                  zIndex: 5,
-                  userSelect: "none",
-                  touchAction: "none",
-                }}
               >
-                Hold to see original
+                <CompareIcon />
+                {compare ? "Original" : "Hold to compare"}
               </button>
             </>
           )}
@@ -1460,47 +1277,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       )}
 
       <style>{`
-        .hv-vis-topbar {
-          display: flex;
-          align-items: center;
-          gap: 24px;
-          padding: 18px 24px;
-          border-bottom: 1px solid var(--rule);
-          flex-wrap: wrap;
-        }
-        .hv-visualizer.is-classic .hv-vis-topbar { padding: 12px 16px; gap: 16px; background: var(--surface); }
-        .hv-vis-project {
-          display: flex;
-          gap: 10px;
-          align-items: center;
-          border-left: 1px solid var(--rule);
-          padding-left: 20px;
-        }
-        .hv-visualizer.is-classic .hv-vis-project { border-left: none; padding-left: 0; }
-        /* Lock the working area to a fixed height so the photo never resizes when you
-           switch shade tabs. The explicit row gives the panel a DEFINITE height so its
-           internal overflow scrolls instead of stretching the row (and the image). */
-        .hv-vis-body { height: min(82vh, 820px); grid-template-rows: minmax(0, 1fr); }
-        .hv-vis-canvas-wrap { min-height: 0; overflow: hidden; }
-        /* Largest breakpoint first: at <=768 the single-column rule below must win
-           over the <=1024 two-column rule (equal specificity → source order decides). */
-        @media (max-width: 1024px) {
-          .hv-vis-body { grid-template-columns: 1fr 320px !important; }
-        }
-        @media (max-width: 768px) {
-          .hv-vis-topbar { gap: 12px; padding: 12px 16px; }
-          .hv-vis-project { padding-left: 12px; }
-          .hv-vis-body { grid-template-columns: 1fr !important; grid-template-rows: auto auto !important; height: auto !important; }
-          .hv-vis-canvas-wrap { min-height: 60vh; }
-          /* Keep the photo visible on phones: single-line chips, and the
-             palette ticket lives in the Walls tab instead of over the image. */
-          .hv-vis-palette { display: none !important; }
-          .hv-chip-sub { display: none !important; }
-        }
-        @media (max-width: 480px) {
-          .hv-vis-topbar { padding: 10px 12px; }
-          .hv-vis-project { border-left: none; padding-left: 0; width: 100%; }
-        }
+        /* Ensure the fixed-height working area still holds if any parent tries to stretch it. */
+        .hv-studio-body { height: min(82vh, 820px); grid-template-rows: minmax(0, 1fr); }
       `}</style>
     </div>
   );
@@ -1519,35 +1297,68 @@ function Toggle({
   return (
     <button
       type="button"
+      className="hv-switch"
+      data-on={on}
       onClick={onClick}
       aria-pressed={on}
       aria-label={(on ? "Turn off " : "Turn on ") + ariaLabel}
-      style={{
-        width: 34,
-        height: 18,
-        position: "relative",
-        background: on ? "var(--accent)" : "var(--surface-soft)",
-        border: "1px solid " + (on ? "var(--accent)" : "var(--rule-strong)"),
-        padding: 0,
-        cursor: "pointer",
-        borderRadius: 999,
-        flexShrink: 0,
-      }}
     >
-      <span
-        style={{
-          position: "absolute",
-          top: 1,
-          ...(on ? { right: 1 } : { left: 1 }),
-          width: 14,
-          height: 14,
-          // --accent === --fg, so a var(--fg) knob vanishes on the "on" (accent)
-          // track. Paint the knob with the inverse token so it reads in both states.
-          background: on ? "var(--bg)" : "var(--fg)",
-          borderRadius: "50%",
-        }}
-      />
+      <span className="hv-switch-knob" />
     </button>
+  );
+}
+
+/** Floating toolbar row with icon, label and a toggle (or any trailing control). */
+function StudioTool({
+  icon,
+  label,
+  on,
+  onClick,
+  ariaLabel,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  on: boolean;
+  onClick: () => void;
+  ariaLabel: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="hv-studio-tool">
+      <span className="hv-studio-tool-icon">{icon}</span>
+      <span className="hv-studio-tool-label">{label}</span>
+      <Toggle on={on} onClick={onClick} ariaLabel={ariaLabel} />
+      {children}
+    </div>
+  );
+}
+
+function CleanIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M12 11v6M8 11v6M16 11v6" />
+    </svg>
+  );
+}
+
+function ShadowIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
+      <path d="M9 21h6" />
+    </svg>
+  );
+}
+
+function CompareIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+      <path d="M12 8v8M8 12h8" opacity={0} />
+      <path d="M12 2v20" />
+    </svg>
   );
 }
 
@@ -1565,6 +1376,7 @@ function DropZone({
   const [isDragging, setIsDragging] = useState(false);
   return (
     <div
+      className={`hv-studio-dropzone ${isDragging ? "is-dragging" : ""}`}
       onClick={onChoose}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onChoose()}
       onDragEnter={(e) => {
@@ -1585,36 +1397,9 @@ function DropZone({
       role="button"
       tabIndex={0}
       aria-label="Choose a photo"
-      style={{
-        position: "absolute",
-        inset: 0,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 14,
-        cursor: "pointer",
-        padding: 40,
-        textAlign: "center",
-        background: isDragging ? "var(--surface-soft)" : "transparent",
-        transition: "background .2s var(--ease)",
-      }}
     >
-      <span
-        aria-hidden
-        style={{
-          width: 64,
-          height: 64,
-          border: isDragging ? "1px solid var(--accent)" : "1px dashed var(--rule-strong)",
-          borderRadius: 12,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--accent)",
-          transition: "border .2s var(--ease)",
-        }}
-      >
-        <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <span aria-hidden className="hv-studio-dropzone-icon">
+        <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M12 16V4M6 10l6-6 6 6" />
           <path d="M4 20h16" />
         </svg>
