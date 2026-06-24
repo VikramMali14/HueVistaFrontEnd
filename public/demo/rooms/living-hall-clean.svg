@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <defs>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c9a988"/><stop offset="1" stop-color="#b08f6c"/>
+    </linearGradient>
+  </defs>
+  <!-- plain primed walls (these get repainted by the mask passes) -->
+  <rect x="0" y="0" width="760" height="650" fill="#dcd6cc"/>
+  <rect x="760" y="0" width="440" height="650" fill="#d2ccc1"/>
+  <!-- baseboard / trim -->
+  <rect x="0" y="650" width="1200" height="34" fill="#efe9df"/>
+  <!-- floor -->
+  <rect x="0" y="684" width="1200" height="216" fill="url(#floor)"/>
+  <g opacity="0.18" stroke="#7c5e42" stroke-width="2">
+    <line x1="0" y1="740" x2="1200" y2="740"/><line x1="0" y1="800" x2="1200" y2="800"/><line x1="0" y1="860" x2="1200" y2="860"/>
+  </g>
+  <!-- window on accent wall (decor, outside masks) -->
+  <rect x="860" y="120" width="250" height="320" fill="#acc7d6" stroke="#efe9df" stroke-width="14"/>
+  <line x1="985" y1="120" x2="985" y2="440" stroke="#efe9df" stroke-width="10"/>
+  <line x1="860" y1="280" x2="1110" y2="280" stroke="#efe9df" stroke-width="10"/>
+  <!-- framed art on main wall (decor) -->
+  <rect x="150" y="150" width="180" height="230" fill="#efe9df" stroke="#b59470" stroke-width="8"/>
+  <rect x="172" y="172" width="136" height="186" fill="#cdb2a0"/>
+  <!-- sofa over the floor -->
+  <g>
+    <rect x="220" y="610" width="560" height="150" rx="26" fill="#8a8f86"/>
+    <rect x="240" y="560" width="520" height="90" rx="22" fill="#9aa096"/>
+    <rect x="200" y="640" width="60" height="120" rx="18" fill="#7e837a"/>
+    <rect x="740" y="640" width="60" height="120" rx="18" fill="#7e837a"/>
+  </g>
+</svg>

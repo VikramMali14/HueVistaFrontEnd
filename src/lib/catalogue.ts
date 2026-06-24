@@ -1,4 +1,6 @@
 import { config } from "./config";
+import { isDemoMode } from "./demo/flag";
+import { SHADES } from "./shades";
 import type { ColorFamily, PaintShade } from "./types";
 
 /** Subset of the backend ShadeResponse the catalogue uses. */
@@ -67,6 +69,9 @@ export function mapToPaintShade(b: BackendShade): PaintShade {
  * failure so the caller can fall back to the bundled sample shades.
  */
 export async function fetchCatalogue(): Promise<PaintShade[]> {
+  // DEMO_MODE: no backend — serve the bundled catalogue directly (avoids a slow
+  // failed fetch to a dead origin). Studio + colour finder render the full set.
+  if (isDemoMode()) return [...SHADES];
   const res = await fetch(`${config.internalApiOrigin}/api/shades`, {
     headers: { Accept: "application/json" },
     next: { revalidate: 3600 }, // catalogue changes rarely

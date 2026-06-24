@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <rect x="0" y="0" width="1200" height="900" fill="#2b2a28"/>
+  <rect x="0" y="560" width="1200" height="120" fill="#3a3733"/>
+  <rect x="120" y="300" width="360" height="260" fill="#333029"/>
+  <rect x="720" y="300" width="360" height="260" fill="#333029"/>
+  <rect x="0" y="680" width="1200" height="220" fill="#26241f"/>
+  <text x="600" y="470" font-family="monospace" font-size="26" fill="#6b665c" text-anchor="middle" letter-spacing="3">UNDEREXPOSED</text>
+</svg>

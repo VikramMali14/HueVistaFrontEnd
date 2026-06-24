@@ -23,6 +23,11 @@ const INTERNAL_ORIGIN = (
   "http://localhost:8080"
 ).replace(/\/$/, "");
 
+// Offline demo mode: there is no backend to refresh against, so any present
+// session is treated as valid (the demo login mints a 7-day access cookie, so
+// this is only a belt-and-braces guard).
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "1";
+
 function cookieOpts(maxAge: number) {
   return {
     httpOnly: true,
@@ -86,6 +91,9 @@ export async function middleware(req: NextRequest) {
 
   // No session at all → bounce.
   if (!refresh) return denied();
+
+  // Demo mode: no backend to refresh against — a refresh cookie alone is enough.
+  if (DEMO_MODE) return NextResponse.next();
 
   // Access expired but a refresh token is present → refresh it here. The backend
   // rotates refresh tokens, so we must persist the new pair (which is why this

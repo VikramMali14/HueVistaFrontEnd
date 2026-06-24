@@ -11,6 +11,8 @@
  */
 
 import { config } from "./config";
+import { HttpError } from "./http-error";
+import { isDemoMode } from "./demo/flag";
 import type {
   AccessCode,
   ApiError,
@@ -33,19 +35,6 @@ import type {
   UserProfile,
   VerificationStatus,
 } from "./types";
-
-class HttpError extends Error {
-  status: number;
-  fieldErrors?: Record<string, string>;
-  /** Backend machine-readable hint, e.g. "VERIFICATION_REQUIRED" / "SUBSCRIPTION_REQUIRED". */
-  code?: string;
-  constructor(status: number, message: string, fieldErrors?: Record<string, string>, code?: string) {
-    super(message);
-    this.status = status;
-    this.fieldErrors = fieldErrors;
-    this.code = code;
-  }
-}
 
 async function parseError(res: Response): Promise<ApiError> {
   let payload: unknown = null;
@@ -102,6 +91,13 @@ async function serverFetch<T>(
   path: string,
   init: RequestInit & { accessToken?: string } = {},
 ): Promise<T> {
+  // DEMO_MODE: no backend exists — answer auth/billing/admin/guest server-action
+  // calls from canned fixtures. Throws HttpError for the error cases (e.g. a bad
+  // login → 401) exactly like the real backend, so the auth actions branch right.
+  if (isDemoMode()) {
+    const { demoServerFetch } = await import("./demo/server");
+    return demoServerFetch<T>(path, init);
+  }
   const { accessToken, headers, ...rest } = init;
   const url = `${config.internalApiOrigin}${path.startsWith("/") ? path : `/${path}`}`;
   const res = await fetch(url, {
