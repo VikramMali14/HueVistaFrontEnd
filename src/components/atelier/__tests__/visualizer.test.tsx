@@ -330,7 +330,7 @@ describe("Visualizer — happy path (upload → segment → regions)", () => {
     expect(screen.getByText("Indoor")).toBeInTheDocument();
     expect(screen.getAllByText("Left feature wall").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Window trim").length).toBeGreaterThan(0);
-    expect(screen.getByText("Walls in this photo")).toBeInTheDocument();
+    // Region chips render without a redundant heading label in the redesigned selector.
 
     // No error surface anywhere.
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -425,7 +425,7 @@ describe("Visualizer — recolor engine fallback", () => {
 
     render(<Visualizer initialName="Test room" />);
 
-    expect(await screen.findByText(/Basic preview mode/)).toBeInTheDocument();
+    expect(await screen.findByText(/Basic preview/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -440,6 +440,6 @@ describe("Visualizer — recolor engine fallback", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Canvas 2D rendering is not supported in this browser.",
     );
-    expect(screen.queryByText(/Basic preview mode/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Basic preview/)).not.toBeInTheDocument();
   });
 });

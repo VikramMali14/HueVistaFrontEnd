@@ -148,23 +148,19 @@ export function ShadeGrid({
     return "Walls";
   };
 
+  const tabIcon = (tabId: Tab) => {
+    if (tabId === "Catalogue") return <PaletteIcon />;
+    if (tabId === "AI Suggest") return <SparkleIcon />;
+    if (tabId === "Custom") return <DropperIcon />;
+    return <WallsIcon />;
+  };
+
   const showCoordinate =
     Boolean(baseHex) && Boolean(activeRegionId) && Boolean(onApplyToRegion) && (regions?.length ?? 0) > 0;
 
   return (
-    <div
-      className="hv-shade-grid"
-      style={{ display: "flex", flexDirection: "column", borderLeft: "1px solid var(--rule)", height: "100%", minHeight: 0 }}
-    >
-      <div
-        role="tablist"
-        style={{
-          borderBottom: "1px solid var(--rule)",
-          display: "flex",
-          background: "var(--surface)",
-          flexShrink: 0,
-        }}
-      >
+    <div className="hv-studio-panel">
+      <div className="hv-studio-tabs" role="tablist">
         {TABS.map((tabId) => {
           const isActive = tab === tabId;
           return (
@@ -174,24 +170,9 @@ export function ShadeGrid({
               role="tab"
               aria-selected={isActive}
               onClick={() => setTab(tabId)}
-              style={{
-                flex: 1,
-                textAlign: "center",
-                padding: "12px 0",
-                fontFamily: "var(--sans)",
-                fontStyle: "normal",
-                fontWeight: isActive ? 600 : 500,
-                fontSize: 13,
-                color: isActive ? "var(--fg)" : "var(--fg-mute)",
-                borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
-                marginBottom: -1,
-                background: "transparent",
-                borderTop: "none",
-                borderLeft: "none",
-                borderRight: "none",
-                cursor: "pointer",
-              }}
+              className={`hv-studio-tab ${isActive ? "is-active" : ""}`}
             >
+              {tabIcon(tabId)}
               {tabLabel(tabId)}
             </button>
           );
@@ -200,26 +181,9 @@ export function ShadeGrid({
 
       {tab === "Catalogue" && (
         <>
-          <div style={{ padding: 16, borderBottom: "1px solid var(--rule)", flexShrink: 0 }}>
-            <div
-              className="hv-shade-search"
-              style={{
-                display: "flex",
-                gap: 10,
-                alignItems: "center",
-                borderRadius: 6,
-                padding: "8px 12px",
-              }}
-            >
-              <span
-                aria-hidden
-                style={{
-                  fontFamily: "var(--sans)",
-                  fontStyle: "normal",
-                  fontSize: 14,
-                  color: "var(--fg-mute)",
-                }}
-              >
+          <div className="hv-studio-filter-bar">
+            <div className="hv-studio-search">
+              <span aria-hidden style={{ color: "var(--fg-mute)", display: "inline-flex" }}>
                 <SearchIcon />
               </span>
               <input
@@ -227,107 +191,65 @@ export function ShadeGrid({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search by name or code"
                 aria-label="Search by name or code"
-                style={{
-                  flex: 1,
-                  background: "transparent",
-                  border: "none",
-                  outline: "none",
-                  color: "var(--fg)",
-                  fontFamily: "var(--sans)",
-                  fontStyle: "normal",
-                  fontSize: 14,
-                  padding: 0,
-                }}
               />
             </div>
-          </div>
-
-          <div style={{ padding: 12, borderBottom: "1px solid var(--rule)", flexShrink: 0 }}>
-            <Mono style={{ marginBottom: 10, display: "block" }}>Family</Mono>
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            <div className="hv-studio-pills">
               {FAMILIES.map((f) => (
                 <button
                   key={f}
                   type="button"
                   onClick={() => setFamily(f)}
-                  style={{
-                    padding: "6px 10px",
-                    font: "500 12px/1 var(--sans)",
-                    border: "1px solid " + (family === f ? "var(--accent)" : "var(--rule)"),
-                    borderRadius: 999,
-                    color: family === f ? "var(--accent)" : "var(--fg-mute)",
-                    background: family === f ? "var(--surface-soft)" : "transparent",
-                    cursor: "pointer",
-                  }}
+                  className={`hv-studio-pill ${family === f ? "is-active" : ""}`}
                 >
                   {f}
                 </button>
               ))}
             </div>
-          </div>
 
           {/* COMPANY filter — only shown when more than one brand is available. */}
           {availableBrands.length > 1 && (
-            <div style={{ padding: 12, borderBottom: "1px solid var(--rule)", flexShrink: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <Mono>Company</Mono>
-                {selectedBrands.size > 0 && (
+            <div className="hv-studio-filter-row">
+              <Mono>Company</Mono>
+              {selectedBrands.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedBrands(new Set())}
+                  style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--accent)", font: "500 11px/1 var(--sans)" }}
+                >
+                  All companies
+                </button>
+              )}
+            </div>
+          )}
+          {availableBrands.length > 1 && (
+            <div className="hv-studio-pills">
+              {availableBrands.map((brand) => {
+                const on = selectedBrands.has(brand);
+                return (
                   <button
+                    key={brand}
                     type="button"
-                    onClick={() => setSelectedBrands(new Set())}
-                    style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--accent)", font: "500 11px/1 var(--sans)" }}
+                    onClick={() =>
+                      setSelectedBrands((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(brand)) next.delete(brand);
+                        else next.add(brand);
+                        return next;
+                      })
+                    }
+                    aria-pressed={on}
+                    className={`hv-studio-pill ${on ? "is-active" : ""}`}
                   >
-                    All companies
+                    {on ? "✓ " : ""}{brand}
                   </button>
-                )}
-              </div>
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                {availableBrands.map((brand) => {
-                  const on = selectedBrands.has(brand);
-                  return (
-                    <button
-                      key={brand}
-                      type="button"
-                      onClick={() =>
-                        setSelectedBrands((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(brand)) next.delete(brand);
-                          else next.add(brand);
-                          return next;
-                        })
-                      }
-                      aria-pressed={on}
-                      style={{
-                        padding: "6px 10px",
-                        font: "500 12px/1 var(--sans)",
-                        border: "1px solid " + (on ? "var(--accent)" : "var(--rule)"),
-                        borderRadius: 999,
-                        color: on ? "var(--accent)" : "var(--fg-mute)",
-                        background: on ? "var(--surface-soft)" : "transparent",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {on ? "✓ " : ""}{brand}
-                    </button>
-                  );
-                })}
-              </div>
+                );
+              })}
             </div>
           )}
 
           {/* TOP 50 ↔ BY COMPANY toggle */}
-          <div
-            style={{
-              padding: "12px 16px",
-              borderBottom: "1px solid var(--rule)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              flexShrink: 0,
-            }}
-          >
-            <div style={{ display: "flex", gap: 4 }}>
+          <div className="hv-studio-filter-row">
+            <div className="hv-studio-pills">
               {([
                 ["top50", "Top 50"],
                 ["company", "By company"],
@@ -337,15 +259,7 @@ export function ShadeGrid({
                   type="button"
                   onClick={() => setSection(key)}
                   aria-pressed={section === key}
-                  style={{
-                    padding: "6px 12px",
-                    border: "1px solid " + (section === key ? "var(--accent)" : "var(--rule)"),
-                    borderRadius: 999,
-                    color: section === key ? "var(--accent)" : "var(--fg-mute)",
-                    background: section === key ? "var(--surface-soft)" : "transparent",
-                    cursor: "pointer",
-                    font: "500 12px/1 var(--sans)",
-                  }}
+                  className={`hv-studio-pill ${section === key ? "is-active" : ""}`}
                 >
                   {lbl}
                 </button>
@@ -357,6 +271,7 @@ export function ShadeGrid({
                 : `${byCompany.length} ${byCompany.length === 1 ? "brand" : "brands"}`}
             </Mono>
           </div>
+          </div>
 
           {/* Scrolling colour area — fixed-size swatches, the IMAGE never resizes. */}
           <div style={{ padding: 16, flex: 1, minHeight: 0, overflow: "auto" }}>
@@ -367,7 +282,7 @@ export function ShadeGrid({
             ) : section === "top50" ? (
               <SwatchGrid shades={top} selected={selected} onSelect={onSelect} hideCodes={hideCodes} />
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                 {byCompany.map(({ brand, list }) => (
                   <div key={brand}>
                     <div
@@ -378,12 +293,7 @@ export function ShadeGrid({
                         marginBottom: 10,
                       }}
                     >
-                      <span
-                        style={{
-                          font: "600 14px/1 var(--sans)",
-                          color: "var(--fg)",
-                        }}
-                      >
+                      <span style={{ font: "600 14px/1 var(--sans)", color: "var(--fg)" }}>
                         {brand}
                       </span>
                       <Mono>{list.length}</Mono>
@@ -444,18 +354,8 @@ export function ShadeGrid({
       )}
 
       {clashNote && (
-        <div
-          role="note"
-          style={{
-            padding: "10px 16px",
-            borderTop: "1px solid var(--rule)",
-            flexShrink: 0,
-            font: "400 12.5px/1.45 var(--sans)",
-            color: "var(--fg-soft)",
-            background: "var(--surface)",
-          }}
-        >
-          ⚠ {clashNote}
+        <div className="hv-studio-note" role="note" style={{ borderRadius: 0, borderWidth: "1px 0", marginTop: 0 }}>
+          <p>⚠ {clashNote}</p>
         </div>
       )}
 
@@ -479,8 +379,6 @@ export function ShadeGrid({
                 style={{
                   width: 28,
                   height: 28,
-                  // Keeps the swatch square on touch devices, where the global
-                  // coarse-pointer rule would stretch buttons to 44px tall.
                   minHeight: 28,
                   background: s.hex,
                   border: "1px solid var(--rule-strong)",
@@ -563,36 +461,21 @@ function SwatchGrid({
   onSelect: (shade: PaintShade) => void;
   hideCodes?: boolean;
 }) {
-  const tile = 50;
   return (
-    <div
-      className="hv-swatches"
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(auto-fill, ${tile}px)`,
-        gap: 6,
-        justifyContent: "space-between",
-      }}
-    >
+    <div className="hv-studio-swatches">
       {shades.map((s) => (
         <button
           key={s.code}
           type="button"
           onClick={() => onSelect(s)}
-          title={hideCodes ? s.name : `${s.name} · ${s.code}`}
           aria-label={hideCodes ? s.name : `${s.name}, code ${s.code}`}
-          style={{
-            background: s.hex,
-            width: "100%",
-            height: tile,
-            border: "none",
-            cursor: "pointer",
-            padding: 0,
-            outline: selected === s.code ? "2px solid var(--accent)" : "none",
-            outlineOffset: 2,
-            borderRadius: 4,
-          }}
-        />
+          className={`hv-studio-swatch ${selected === s.code ? "is-selected" : ""}`}
+        >
+          <span className="hv-studio-swatch-color" style={{ background: s.hex }} />
+          <span className="hv-studio-swatch-label">
+            {hideCodes ? s.name : `${s.name} · ${s.code}`}
+          </span>
+        </button>
       ))}
     </div>
   );
@@ -642,22 +525,9 @@ function SelectedShadeDetail({
 
   if (!shade) {
     return (
-      <div
-        style={{
-          borderTop: "1px solid var(--rule)",
-          padding: 16,
-          background: "var(--surface-soft)",
-          flexShrink: 0,
-        }}
-      >
+      <div className="hv-studio-detail">
         <Mono>No colour selected</Mono>
-        <p
-          style={{
-            font: "400 13px/1.5 var(--sans)",
-            color: "var(--fg-soft)",
-            margin: "6px 0 0",
-          }}
-        >
+        <p className="hv-studio-detail-empty">
           Pick a colour above. It paints the selected wall straight away.
         </p>
       </div>
@@ -670,57 +540,22 @@ function SelectedShadeDetail({
       type="button"
       onClick={() => onSelectShade(s)}
       title={hideCodes ? s.name : `${s.name} · ${s.code}`}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 7,
-        padding: "5px 10px 5px 5px",
-        border: "1px solid var(--rule-strong)",
-        borderRadius: 999,
-        background: "var(--surface)",
-        color: "var(--fg)",
-        font: "500 12px/1 var(--sans)",
-        cursor: "pointer",
-      }}
+      className="hv-studio-chip"
     >
-      <span aria-hidden style={{ width: 18, height: 18, minHeight: 18, borderRadius: "50%", background: s.hex, border: "1px solid var(--rule-strong)" }} />
+      <span aria-hidden className="hv-studio-chip-dot" style={{ background: s.hex }} />
       {s.name}
     </button>
   );
 
   return (
-    <div
-      style={{
-        borderTop: "1px solid var(--rule)",
-        padding: 16,
-        background: "var(--surface-soft)",
-        flexShrink: 0,
-      }}
-    >
-      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            background: shade.hex,
-            border: "1px solid var(--rule-strong)",
-            borderRadius: 6,
-            flexShrink: 0,
-          }}
-        />
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 0 }}>
-          <span
-            style={{
-              fontFamily: "var(--sans)",
-              fontWeight: 600,
-              fontSize: 16,
-              lineHeight: 1.2,
-              color: "var(--fg)",
-            }}
-          >
-            {shade.name}
+    <div className="hv-studio-detail">
+      <div className="hv-studio-detail-head">
+        <div className="hv-studio-detail-swatch" style={{ background: shade.hex }} />
+        <div className="hv-studio-detail-info">
+          <span className="hv-studio-detail-name">{shade.name}</span>
+          <span className="hv-studio-detail-meta">
+            {hideCodes ? `${shade.hex} · LRV ${shade.lrv}` : `${shade.code} · ${shade.hex} · LRV ${shade.lrv}`}
           </span>
-          <Mono>{hideCodes ? `${shade.hex} · LRV ${shade.lrv}` : `${shade.code} · ${shade.hex} · LRV ${shade.lrv}`}</Mono>
           <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <UndertoneTag hex={shade.hex} prefix />
             {shift && shift.score >= LIGHT_SHIFT_BADGE && (
@@ -735,14 +570,14 @@ function SelectedShadeDetail({
           </span>
         </div>
         {/* Fan-deck steppers: flip through the strip like a paper shade card. */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+        <div className="hv-studio-steppers">
           <button
             type="button"
             onClick={() => lighter && onSelectShade(lighter)}
             disabled={!lighter}
             title={lighter ? `One step lighter: ${lighter.name}` : "No lighter step in this family"}
             aria-label={lighter ? `Apply one step lighter, ${lighter.name}` : "No lighter step"}
-            className="hv-step-btn"
+            className="hv-studio-step"
           >
             ↑
           </button>
@@ -752,7 +587,7 @@ function SelectedShadeDetail({
             disabled={!darker}
             title={darker ? `One step darker: ${darker.name}` : "No darker step in this family"}
             aria-label={darker ? `Apply one step darker, ${darker.name}` : "No darker step"}
-            className="hv-step-btn"
+            className="hv-studio-step"
           >
             ↓
           </button>
@@ -760,25 +595,25 @@ function SelectedShadeDetail({
       </div>
 
       {darkRoomAlts.length > 0 && (
-        <div role="note" style={{ marginTop: 12, padding: "10px 12px", border: "1px solid var(--rule)", borderRadius: 8, background: "var(--surface)" }}>
-          <p style={{ margin: 0, font: "400 12.5px/1.45 var(--sans)", color: "var(--fg-soft)" }}>
+        <div className="hv-studio-note" role="note">
+          <p>
             This is a deep shade (LRV {shade.lrv}) — the room may feel dark without strong light.
             Same colour, a step lighter:
           </p>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          <div className="hv-studio-note-chips">
             {darkRoomAlts.map(altChip)}
           </div>
         </div>
       )}
 
       {fadeRisky && (
-        <div role="note" style={{ marginTop: 12, padding: "10px 12px", border: "1px solid var(--rule)", borderRadius: 8, background: "var(--surface)" }}>
-          <p style={{ margin: 0, font: "400 12.5px/1.45 var(--sans)", color: "var(--fg-soft)" }}>
+        <div className="hv-studio-note" role="note">
+          <p>
             Deep {hideCodes ? "shades like this" : `shades like ${shade.name}`} fade faster in
             strong Indian sun on outside walls.{fadeAlts.length > 0 ? " Nearby colours that hold up longer:" : ""}
           </p>
           {fadeAlts.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+            <div className="hv-studio-note-chips">
               {fadeAlts.map(altChip)}
             </div>
           )}
@@ -805,19 +640,11 @@ function SelectedShadeDetail({
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+      <div className="hv-studio-detail-actions">
         <button
           type="button"
           onClick={onFindSimilar}
-          style={{
-            padding: "8px 12px",
-            font: "500 12px/1 var(--sans)",
-            border: "1px solid var(--rule-strong)",
-            borderRadius: 6,
-            background: "var(--surface)",
-            color: "var(--fg)",
-            cursor: "pointer",
-          }}
+          className="btn btn-sm btn-ghost"
         >
           Find similar
         </button>
@@ -825,23 +652,11 @@ function SelectedShadeDetail({
           type="button"
           onClick={onApply}
           title="Apply this shade to the active wall"
-          style={{
-            padding: "8px 12px",
-            font: "500 12px/1 var(--sans)",
-            border: "1px solid var(--rule-strong)",
-            borderRadius: 6,
-            background: "var(--surface)",
-            color: "var(--fg)",
-            cursor: "pointer",
-          }}
+          className="btn btn-sm"
         >
           Apply to wall
         </button>
       </div>
-      <style>{`
-        .hv-step-btn { width: 30px; height: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--surface); color: var(--fg); cursor: pointer; font: 500 13px/1 var(--sans); padding: 0; }
-        .hv-step-btn:disabled { opacity: .35; cursor: default; }
-      `}</style>
     </div>
   );
 }
@@ -943,7 +758,7 @@ function RegionsListPanel({
   return (
     <div style={{ padding: 16, flex: 1, minHeight: 0, overflow: "auto" }}>
       <Mono style={{ display: "block", marginBottom: 10 }}>Detected walls</Mono>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {list.map((r) => {
           const isActive = r.id === activeRegionId;
           return (
@@ -952,17 +767,7 @@ function RegionsListPanel({
               type="button"
               onClick={() => onPickRegion(r.id)}
               aria-pressed={isActive}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 12px",
-                background: isActive ? "var(--surface-soft)" : "transparent",
-                border: "1px solid " + (isActive ? "var(--rule-strong)" : "var(--rule)"),
-                borderRadius: 6,
-                cursor: "pointer",
-                textAlign: "left",
-              }}
+              className={`hv-studio-region-card ${isActive ? "is-active" : ""}`}
             >
               <span
                 aria-hidden
@@ -989,19 +794,8 @@ function RegionsListPanel({
           onClick={() => onAddWall?.()}
           disabled={addDisabled}
           title={addDisabled ? "You can add up to 3 walls" : "Draw a wall we missed"}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "10px 12px",
-            background: "transparent",
-            border: "1px dashed var(--rule-strong)",
-            borderRadius: 6,
-            color: "var(--fg-soft)",
-            font: "500 13px/1.2 var(--sans)",
-            cursor: addDisabled ? "not-allowed" : "pointer",
-            opacity: addDisabled ? 0.5 : 1,
-          }}
+          className="hv-studio-add-wall"
+          style={{ marginLeft: 0, marginTop: 4 }}
         >
           + Add wall
         </button>
@@ -1018,6 +812,47 @@ function SearchIcon() {
     <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="11" cy="11" r="7" />
       <path d="M21 21l-4.3-4.3" />
+    </svg>
+  );
+}
+
+function PaletteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
+      <path d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+      <path d="M18 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+      <path d="M6 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+    </svg>
+  );
+}
+
+function SparkleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z" />
+      <path d="M18 14l1 2.5L21.5 18l-2.5 1L18 21.5l-1-2.5L14.5 18l2.5-1L18 14z" />
+    </svg>
+  );
+}
+
+function DropperIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M19 11l-6-6-1.5 1.5" />
+      <path d="M15 15l-3 3a2.828 2.828 0 1 1-4-4l3-3" />
+      <path d="M14 7l3 3" />
+      <path d="M5 19l-2 2" />
+      <path d="M3 21l2-2" />
+    </svg>
+  );
+}
+
+function WallsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 21h18M5 21V7l8-4 8 4v14M9 21v-6h6v6" />
     </svg>
   );
 }
