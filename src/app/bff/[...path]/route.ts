@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { config } from "@/lib/config";
 import { getAccessToken } from "@/lib/auth";
+import { isDemoMode } from "@/lib/demo/flag";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +51,14 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
     ? (await cookies()).get(config.guestCookie)?.value ?? null
     : await getAccessToken();
   if (!token) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
+
+  // DEMO_MODE: no backend — answer from in-memory fixtures. Sits AFTER the
+  // allow-list + auth checks so 403/401 semantics still hold, and INSTEAD of the
+  // upstream fetch below.
+  if (isDemoMode()) {
+    const { demoBff } = await import("@/lib/demo/bff");
+    return demoBff(req, joined, token);
+  }
 
   const search = req.nextUrl.search;
   const target = `${config.internalApiOrigin}/${joined}${search}`;

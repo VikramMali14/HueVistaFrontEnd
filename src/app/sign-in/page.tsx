@@ -5,6 +5,8 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Logo } from "@/components/ui/logo";
 import { AuthArt } from "@/components/auth/auth-art";
+import { DemoCredentials } from "@/components/auth/demo-credentials";
+import { DEMO_MODE } from "@/lib/demo/flag";
 import { SignInForm } from "./form";
 
 export const metadata: Metadata = {
@@ -42,6 +44,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
               ? "Free, no card — your projects, colours and saved previews stay with you for good."
               : "Your projects, colours and saved previews — right where you left them."}
           </Lead>
+          {DEMO_MODE && !register && <DemoCredentials />}
           <SignInForm
             action={register ? registerAction : loginAction}
             mode={register ? "register" : "signin"}

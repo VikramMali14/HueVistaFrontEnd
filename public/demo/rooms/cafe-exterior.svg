@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfe0ef"/><stop offset="1" stop-color="#e6f2f7"/></linearGradient></defs>
+  <rect x="0" y="0" width="1200" height="120" fill="url(#sky)"/>
+  <!-- facade (repainted) -->
+  <rect x="0" y="120" width="1200" height="470" fill="#cfc7ba"/>
+  <!-- awning / signage band (trim, repainted) -->
+  <rect x="0" y="300" width="1200" height="52" fill="#e7ded0"/>
+  <!-- pavement -->
+  <rect x="0" y="590" width="1200" height="310" fill="#9b9b97"/>
+  <g opacity="0.2" stroke="#6f6f6c" stroke-width="2"><line x1="0" y1="690" x2="1200" y2="690"/><line x1="0" y1="790" x2="1200" y2="790"/></g>
+  <!-- shopfront windows + door (decor, outside masks) -->
+  <rect x="120" y="380" width="300" height="210" fill="#9fc0cf" stroke="#5b4a3a" stroke-width="10"/>
+  <rect x="780" y="380" width="300" height="210" fill="#9fc0cf" stroke="#5b4a3a" stroke-width="10"/>
+  <rect x="520" y="360" width="160" height="230" fill="#6f5848" stroke="#4a3a2c" stroke-width="8"/>
+  <text x="600" y="288" font-family="Georgia, serif" font-size="40" fill="#5b4a3a" text-anchor="middle">BREW &amp; CO</text>
+</svg>
