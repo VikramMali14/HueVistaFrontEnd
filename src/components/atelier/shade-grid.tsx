@@ -35,7 +35,7 @@ const FAMILIES: ReadonlyArray<ColorFamily | "All"> = [
   "Browns",
 ];
 
-const TABS = ["Catalogue", "AI Suggest", "Custom", "Regions"] as const;
+const TABS = ["Catalogue", "AI Suggest", "Custom"] as const;
 type Tab = (typeof TABS)[number];
 
 /** How the Catalogue tab groups its shades. */
@@ -143,16 +143,14 @@ export function ShadeGrid({
 
   const tabLabel = (tabId: Tab) => {
     if (tabId === "Catalogue") return "Colours";
-    if (tabId === "AI Suggest") return "Suggestions";
-    if (tabId === "Custom") return "Custom";
-    return "Walls";
+    if (tabId === "AI Suggest") return "AI Suggest";
+    return "Custom";
   };
 
   const tabIcon = (tabId: Tab) => {
     if (tabId === "Catalogue") return <PaletteIcon />;
     if (tabId === "AI Suggest") return <SparkleIcon />;
-    if (tabId === "Custom") return <DropperIcon />;
-    return <WallsIcon />;
+    return <DropperIcon />;
   };
 
   const showCoordinate =
@@ -180,47 +178,31 @@ export function ShadeGrid({
       </div>
 
       {tab === "Catalogue" && (
-        <>
-          <div className="hv-studio-filter-bar">
-            <div className="hv-studio-search">
-              <span aria-hidden style={{ color: "var(--fg-mute)", display: "inline-flex" }}>
-                <SearchIcon />
-              </span>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name or code"
-                aria-label="Search by name or code"
-              />
-            </div>
-            <div className="hv-studio-pills">
-              {FAMILIES.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFamily(f)}
-                  className={`hv-studio-pill ${family === f ? "is-active" : ""}`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
+        <div className="hv-studio-filter-bar">
+          <div className="hv-studio-search">
+            <span aria-hidden style={{ color: "var(--fg-mute)", display: "inline-flex" }}>
+              <SearchIcon />
+            </span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name or code"
+              aria-label="Search by name or code"
+            />
+          </div>
+          <div className="hv-studio-pills">
+            {FAMILIES.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFamily(f)}
+                className={`hv-studio-pill ${family === f ? "is-active" : ""}`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
 
-          {/* COMPANY filter — only shown when more than one brand is available. */}
-          {availableBrands.length > 1 && (
-            <div className="hv-studio-filter-row">
-              <Mono>Company</Mono>
-              {selectedBrands.size > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedBrands(new Set())}
-                  style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--accent)", font: "500 11px/1 var(--sans)" }}
-                >
-                  All companies
-                </button>
-              )}
-            </div>
-          )}
           {availableBrands.length > 1 && (
             <div className="hv-studio-pills">
               {availableBrands.map((brand) => {
@@ -247,7 +229,6 @@ export function ShadeGrid({
             </div>
           )}
 
-          {/* TOP 50 ↔ BY COMPANY toggle */}
           <div className="hv-studio-filter-row">
             <div className="hv-studio-pills">
               {([
@@ -271,31 +252,30 @@ export function ShadeGrid({
                 : `${byCompany.length} ${byCompany.length === 1 ? "brand" : "brands"}`}
             </Mono>
           </div>
-          </div>
+        </div>
+      )}
 
-          {/* Scrolling colour area — fixed-size swatches, the IMAGE never resizes. */}
-          <div style={{ padding: 16, flex: 1, minHeight: 0, overflow: "auto" }}>
+      <div className="hv-studio-scroll">
+        <RegionStrip
+          regions={regions}
+          activeRegionId={activeRegionId}
+          onSelectRegion={onSelectRegion}
+          onAddWall={onAddWall}
+          masksRemaining={masksRemaining}
+        />
+
+        {tab === "Catalogue" && (
+          <>
             {shown.length === 0 ? (
-              <p style={{ font: "400 14px/1.4 var(--serif)", color: "var(--fg-mute)" }}>
-                No shades match. Clear the search or family filter.
-              </p>
+              <p className="hv-studio-empty">No shades match. Clear the search or family filter.</p>
             ) : section === "top50" ? (
               <SwatchGrid shades={top} selected={selected} onSelect={onSelect} hideCodes={hideCodes} />
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+              <div className="hv-studio-by-company">
                 {byCompany.map(({ brand, list }) => (
                   <div key={brand}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "baseline",
-                        justifyContent: "space-between",
-                        marginBottom: 10,
-                      }}
-                    >
-                      <span style={{ font: "600 14px/1 var(--sans)", color: "var(--fg)" }}>
-                        {brand}
-                      </span>
+                    <div className="hv-studio-brand-head">
+                      <span>{brand}</span>
                       <Mono>{list.length}</Mono>
                     </div>
                     <SwatchGrid shades={list} selected={selected} onSelect={onSelect} hideCodes={hideCodes} />
@@ -303,153 +283,85 @@ export function ShadeGrid({
                 ))}
               </div>
             )}
+          </>
+        )}
 
-            {showCoordinate && (
-              <CoordinateSuggestions
-                baseHex={baseHex!}
-                activeRegionId={activeRegionId!}
-                regions={regions!}
-                catalogue={catalogue}
-                onApplyToRegion={onApplyToRegion!}
-              />
-            )}
+        {tab === "AI Suggest" && (
+          <AISuggestPanel onSelect={onSelect} catalogue={catalogue} />
+        )}
 
-            {activeRegionLabel && (
-              <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ font: "400 13px/1.3 var(--sans)", color: "var(--fg-mute)" }}>
-                  {`Will paint: ${activeRegionLabel}`}
-                </span>
-              </div>
-            )}
+        {tab === "Custom" && (
+          <CustomMatchPanel
+            onSelect={onSelect}
+            onApplyExact={onApplyExact}
+            catalogue={catalogue}
+            activeRegionLabel={activeRegionLabel}
+            initialHex={customSeed}
+          />
+        )}
+
+        {clashNote && (
+          <div className="hv-studio-note" role="note">
+            <p>⚠ {clashNote}</p>
           </div>
-        </>
-      )}
+        )}
 
-      {tab === "AI Suggest" && (
-        <AISuggestPanel onSelect={onSelect} catalogue={catalogue} />
-      )}
+        {showCoordinate && (
+          <div className="hv-studio-suggest-section">
+            <Mono>Complete the look</Mono>
+            <CoordinateSuggestions
+              baseHex={baseHex!}
+              activeRegionId={activeRegionId!}
+              regions={regions!}
+              catalogue={catalogue}
+              onApplyToRegion={onApplyToRegion!}
+            />
+          </div>
+        )}
 
-      {tab === "Custom" && (
-        <CustomMatchPanel
-          onSelect={onSelect}
-          onApplyExact={onApplyExact}
+        <SelectedShadeDetail
+          shade={activeShade}
           catalogue={catalogue}
-          activeRegionLabel={activeRegionLabel}
-          initialHex={customSeed}
-        />
-      )}
-
-      {tab === "Regions" && (
-        <RegionsListPanel
-          regions={regions}
-          activeRegionId={activeRegionId}
+          outdoor={outdoor}
+          onSelectShade={onSelect}
+          onFindSimilar={
+            activeShade
+              ? () => {
+                  setCustomSeed(activeShade.hex);
+                  setTab("Custom");
+                }
+              : undefined
+          }
+          onApply={activeShade ? () => onSelect(activeShade) : undefined}
           hideCodes={hideCodes}
-          onPickRegion={(id) => {
-            onSelectRegion?.(id);
-            setTab("Catalogue");
-          }}
-          onAddWall={onAddWall}
-          masksRemaining={masksRemaining}
         />
-      )}
 
-      {clashNote && (
-        <div className="hv-studio-note" role="note" style={{ borderRadius: 0, borderWidth: "1px 0", marginTop: 0 }}>
-          <p>⚠ {clashNote}</p>
-        </div>
-      )}
-
-      {triedShades && triedShades.length > 0 && (
-        <div
-          style={{
-            padding: "10px 16px",
-            borderTop: "1px solid var(--rule)",
-            flexShrink: 0,
-          }}
-        >
-          <Mono style={{ display: "block", marginBottom: 8 }}>Tried on this wall</Mono>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {triedShades.map((s) => (
-              <button
-                key={s.code}
-                type="button"
-                onClick={() => onSelect(s)}
-                title={hideCodes ? s.name : `${s.name} · ${s.code}`}
-                aria-label={hideCodes ? `Reapply ${s.name}` : `Reapply ${s.name}, code ${s.code}`}
-                style={{
-                  width: 28,
-                  height: 28,
-                  minHeight: 28,
-                  background: s.hex,
-                  border: "1px solid var(--rule-strong)",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-              />
-            ))}
+        {recentShades &&
+          recentShades.length > 0 &&
+          recentShades.some((s) => !(triedShades ?? []).some((t) => t.code === s.code)) && (
+          <div className="hv-studio-recent-section">
+            <Mono>Recent colours</Mono>
+            <div className="hv-studio-recent-list">
+              {recentShades.map((s) => (
+                <button
+                  key={s.code}
+                  type="button"
+                  onClick={() => onSelect(s)}
+                  title={hideCodes ? s.name : `${s.name} · ${s.code}`}
+                  aria-label={hideCodes ? `Apply ${s.name} again` : `Apply ${s.name} again, code ${s.code}`}
+                  className="hv-studio-recent-swatch"
+                  style={{ background: s.hex }}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Across-walls memory: "that pink from before", one tap away. Only
-          shown when it offers something the per-wall row above doesn't. */}
-      {recentShades &&
-        recentShades.length > 0 &&
-        recentShades.some((s) => !(triedShades ?? []).some((t) => t.code === s.code)) && (
-        <div
-          style={{
-            padding: "10px 16px",
-            borderTop: "1px solid var(--rule)",
-            flexShrink: 0,
-          }}
-        >
-          <Mono style={{ display: "block", marginBottom: 8 }}>Recently tried · all walls</Mono>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {recentShades.map((s) => (
-              <button
-                key={s.code}
-                type="button"
-                onClick={() => onSelect(s)}
-                title={hideCodes ? s.name : `${s.name} · ${s.code}`}
-                aria-label={hideCodes ? `Apply ${s.name} again` : `Apply ${s.name} again, code ${s.code}`}
-                style={{
-                  width: 28,
-                  height: 28,
-                  minHeight: 28,
-                  background: s.hex,
-                  border: "1px solid var(--rule-strong)",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      <SelectedShadeDetail
-        shade={activeShade}
-        catalogue={catalogue}
-        outdoor={outdoor}
-        onSelectShade={onSelect}
-        onFindSimilar={
-          activeShade
-            ? () => {
-                setCustomSeed(activeShade.hex);
-                setTab("Custom");
-              }
-            : undefined
-        }
-        onApply={activeShade ? () => onSelect(activeShade) : undefined}
-        hideCodes={hideCodes}
-      />
+        )}
+      </div>
     </div>
   );
 }
 
-/** A scrolling block of fixed-size square swatches. */
+/** A scrolling block of rectangular colour tiles. */
 function SwatchGrid({
   shades,
   selected,
@@ -473,7 +385,7 @@ function SwatchGrid({
         >
           <span className="hv-studio-swatch-color" style={{ background: s.hex }} />
           <span className="hv-studio-swatch-label">
-            {hideCodes ? s.name : `${s.name} · ${s.code}`}
+            {hideCodes ? s.name : `${s.name}`}
           </span>
         </button>
       ))}
@@ -737,55 +649,43 @@ function AISuggestPanel({
   );
 }
 
-function RegionsListPanel({
+function RegionStrip({
   regions,
   activeRegionId,
-  hideCodes = false,
-  onPickRegion,
+  onSelectRegion,
   onAddWall,
   masksRemaining,
 }: {
   regions?: ReadonlyArray<RegionLite>;
   activeRegionId?: string;
-  hideCodes?: boolean;
-  /** Selects the region AND flips back to the Catalogue tab to pick its colour. */
-  onPickRegion: (id: string) => void;
+  onSelectRegion?: (id: string) => void;
   onAddWall?: () => void;
   masksRemaining?: number;
 }) {
   const list = regions ?? [];
+  if (list.length === 0) return null;
   const addDisabled = masksRemaining !== undefined && masksRemaining <= 0;
   return (
-    <div style={{ padding: 16, flex: 1, minHeight: 0, overflow: "auto" }}>
-      <Mono style={{ display: "block", marginBottom: 10 }}>Detected walls</Mono>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div className="hv-studio-region-strip">
+      <div className="hv-studio-region-strip-scroll">
         {list.map((r) => {
           const isActive = r.id === activeRegionId;
           return (
             <button
               key={r.id}
               type="button"
-              onClick={() => onPickRegion(r.id)}
+              onClick={() => onSelectRegion?.(r.id)}
               aria-pressed={isActive}
-              className={`hv-studio-region-card ${isActive ? "is-active" : ""}`}
+              className={`hv-studio-region-chip ${isActive ? "is-active" : ""}`}
             >
               <span
                 aria-hidden
-                style={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: "50%",
-                  background: r.applied ? r.hex : "transparent",
-                  border: "1px solid var(--rule-strong)",
-                  flexShrink: 0,
-                }}
-              />
-              <span style={{ font: "500 13px/1.2 var(--sans)", color: "var(--fg)", flex: 1, minWidth: 0 }}>
-                {r.label}
+                className="hv-studio-region-chip-dot"
+                style={{ background: r.applied ? r.hex : undefined }}
+              >
+                {r.applied && "✓"}
               </span>
-              <span style={{ font: "400 11px/1 var(--mono)", color: "var(--fg-mute)", whiteSpace: "nowrap" }}>
-                {r.applied ? (hideCodes ? "" : r.shadeCode ?? "") : "No colour yet"}
-              </span>
+              <span className="hv-studio-region-chip-name">{r.label}</span>
             </button>
           );
         })}
@@ -794,15 +694,11 @@ function RegionsListPanel({
           onClick={() => onAddWall?.()}
           disabled={addDisabled}
           title={addDisabled ? "You can add up to 3 walls" : "Draw a wall we missed"}
-          className="hv-studio-add-wall"
-          style={{ marginLeft: 0, marginTop: 4 }}
+          className="hv-studio-add-wall-chip"
         >
-          + Add wall
+          + Wall
         </button>
       </div>
-      <p style={{ font: "400 12px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "10px 0 0" }}>
-        Tap a wall above, then pick its colour.
-      </p>
     </div>
   );
 }
@@ -849,10 +745,3 @@ function DropperIcon() {
   );
 }
 
-function WallsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 21h18M5 21V7l8-4 8 4v14M9 21v-6h6v6" />
-    </svg>
-  );
-}

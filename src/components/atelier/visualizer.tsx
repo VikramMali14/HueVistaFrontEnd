@@ -195,8 +195,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [triedByRegion, setTriedByRegion] = useState<Record<string, PaintShade[]>>({});
   // Project-wide history (newest first, max 10) — "that pink from before".
   const [recentShades, setRecentShades] = useState<PaintShade[]>([]);
-  // "Copy palette" click feedback on the applied-palette strip.
-  const [paletteCopied, setPaletteCopied] = useState(false);
+
   // Transient topbar notices — "Walls detected" / "Saved" auto-hide after a beat.
   const [wallsNoticeVisible, setWallsNoticeVisible] = useState(false);
   const [savedNoticeVisible, setSavedNoticeVisible] = useState(false);
@@ -778,26 +777,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
   }, [projectId]);
 
-  // Copy the applied palette as one line per wall, e.g.
-  // "Main wall — Silken Dawn (AP-1432) #e8dcc8" (guests never see shade codes).
-  const handleCopyPalette = useCallback(async () => {
-    const lines = regions
-      .filter((r) => r.applied)
-      .map((r) => {
-        if (!r.shade) return `${r.label} — ${r.hex}`;
-        return guest
-          ? `${r.label} — ${r.shade.name} ${r.hex}`
-          : `${r.label} — ${r.shade.name} (${r.shade.code}) ${r.hex}`;
-      });
-    try {
-      await navigator.clipboard.writeText(lines.join("\n"));
-      setPaletteCopied(true);
-      setTimeout(() => setPaletteCopied(false), 1600);
-    } catch {
-      /* clipboard blocked — nothing else to do */
-    }
-  }, [regions, guest]);
-
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
   // Undertone check across every painted wall: the first warm-vs-cool (or
@@ -854,10 +833,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   );
 
   return (
-    <div
-      className="hv-visualizer"
-      style={{ border: "1px solid var(--rule-strong)", borderRadius: "var(--radius)", overflow: "hidden", background: "var(--bg)", boxShadow: "0 24px 60px -42px rgba(0,0,0,.5)" }}
-    >
+    <div className="hv-visualizer">
       <div className="hv-studio-topbar">
         <div className="hv-studio-project">
           <Mono>Project</Mono>
@@ -935,333 +911,256 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       <PipelineBar current={stage} done={done} busy={segmenting ? "mask" : uploading ? "upload" : undefined} />
 
       <div className="hv-studio-body">
-        <div className="hv-studio-canvas">
-          <canvas
-            key={engineEpoch}
-            ref={canvasRef}
-            style={{
-              display: imageUrl ? "block" : "none",
-            }}
-          />
-          {showDetailsGate && (
-            <ProjectDetailsGate
-              onSubmit={(d) => {
-                setDetails(d);
-                setProjectName(d.name);
-                setProjectRoom(d.roomType ?? null);
-              }}
-            />
-          )}
-          {!imageUrl && !showDetailsGate && !openProjectId && (
-            <DropZone
-              uploading={uploading}
-              error={error}
-              onChoose={() => fileRef.current?.click()}
-              onDrop={(file) => void onFileChosen(file)}
-            />
-          )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void onFileChosen(f);
-              e.target.value = "";
-            }}
-          />
-          {imageUrl && (
-            <>
-              {/* CONTROL CLUSTER — clean-up + shadow preservation */}
-              <div className="hv-studio-floatbar">
-                <StudioTool
-                  icon={<CleanIcon />}
-                  label="Tidy up image"
-                  on={cleanOn}
-                  onClick={() => setCleanOn((v) => !v)}
-                  ariaLabel="image clean-up"
-                />
-                <StudioTool
-                  icon={<ShadowIcon />}
-                  label="Keep shadows"
-                  on={shadowOn}
-                  onClick={() => setShadowOn((v) => !v)}
-                  ariaLabel="shadow preservation"
-                >
-                  {shadowOn ? (
-                    <input
-                      type="range"
-                      min={0.2}
-                      max={1}
-                      step={0.05}
-                      value={shadowStrength}
-                      onChange={(e) => setShadowStrength(Number(e.target.value))}
-                      aria-label="Shadow intensity"
-                    />
-                  ) : null}
-                </StudioTool>
-              </div>
-
-              {/* REGION TABS */}
-              <div className="hv-studio-regions">
-                {/* APPLIED-PALETTE STRIP — the "counter ticket" summary of every painted wall */}
-                <div
-                  className={`hv-studio-palette ${regions.some((r) => r.applied) ? "" : "is-empty"}`}
-                >
-                  {regions.some((r) => r.applied) ? (
-                    <>
-                      {regions
-                        .filter((r) => r.applied)
-                        .map((r) => (
-                          <span key={r.id} className="hv-studio-palette-item">
-                            <span
-                              aria-hidden
-                              className="hv-studio-palette-swatch"
-                              style={{ background: r.hex }}
-                            />
-                            <span className="hv-studio-palette-label">{r.label}</span>
-                            <span className="hv-studio-palette-shade">
-                              {guest
-                                ? r.shade?.name ?? r.hex
-                                : r.shade
-                                  ? `${r.shade.name} · ${r.shade.code}`
-                                  : r.hex}
-                            </span>
-                          </span>
-                        ))}
-                      <button
-                        type="button"
-                        className="hv-studio-copy-palette"
-                        onClick={() => void handleCopyPalette()}
-                      >
-                        {paletteCopied ? "Copied" : "Copy palette"}
-                      </button>
-                    </>
-                  ) : (
-                    <span>No colours applied yet</span>
-                  )}
-                </div>
-                <div className="hv-studio-region-list">
-                  {regions.map((r) => {
-                    const isActive = r.id === activeRegion;
-                    return (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => setActiveRegion(r.id)}
-                        aria-pressed={isActive}
-                        className={`hv-studio-region ${isActive ? "is-active" : ""}`}
-                      >
-                        <span
-                          aria-hidden
-                          className={`hv-studio-region-dot ${r.applied ? "is-applied" : ""}`}
-                          style={{ background: r.applied ? r.hex : undefined }}
-                        >
-                          {r.applied && "✓"}
-                        </span>
-                        <span className="hv-studio-region-name">
-                          <span className="hv-studio-region-title">{r.label}</span>
-                          <span className="hv-studio-region-shade">
-                            {r.applied ? r.shade?.name ?? r.hex : "No colour yet"}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    className="hv-studio-add-wall"
-                    onClick={() => setMaskStudioOpen(true)}
-                    disabled={!imageDims || masksRemaining <= 0}
-                    title={
-                      masksRemaining <= 0
-                        ? "You can add up to 3 walls"
-                        : "Open Mask Studio to draw or edit a wall mask"
-                    }
-                  >
-                    + Add wall
-                  </button>
-                </div>
-              </div>
-
-              {/* HOLD-TO-PEEK — press and hold to see the original photo */}
-              <button
-                type="button"
-                className={`hv-studio-compare ${compare ? "is-active" : ""}`}
-                onPointerDown={() => setCompare(true)}
-                onPointerUp={() => setCompare(false)}
-                onPointerLeave={() => setCompare(false)}
-                onPointerCancel={() => setCompare(false)}
-                onKeyDown={(e) => {
-                  if (e.key === " " || e.key === "Enter") {
-                    e.preventDefault();
-                    setCompare(true);
-                  }
-                }}
-                onKeyUp={(e) => {
-                  if (e.key === " " || e.key === "Enter") setCompare(false);
-                }}
-                onBlur={() => setCompare(false)}
-                aria-pressed={compare}
-              >
-                <CompareIcon />
-                {compare ? "Original" : "Hold to compare"}
-              </button>
-            </>
-          )}
-          {showCanvasError && (
-            <div
-              className="field-error"
-              role="alert"
+        <div className="hv-studio-canvas-wrap">
+          <div className="hv-studio-canvas">
+            <canvas
+              key={engineEpoch}
+              ref={canvasRef}
               style={{
-                position: "absolute",
-                top: 20,
-                left: "50%",
-                transform: "translateX(-50%)",
-                zIndex: 6,
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                maxWidth: "calc(100% - 48px)",
-                background: "var(--bg)",
-                border: "1px solid var(--rule-strong)",
-                borderRadius: 8,
-                padding: "10px 14px",
+                display: imageUrl ? "block" : "none",
               }}
-            >
-              <span>{error}</span>
-              {canRetrySegmentation && (
+            />
+            {showDetailsGate && (
+              <ProjectDetailsGate
+                onSubmit={(d) => {
+                  setDetails(d);
+                  setProjectName(d.name);
+                  setProjectRoom(d.roomType ?? null);
+                }}
+              />
+            )}
+            {!imageUrl && !showDetailsGate && !openProjectId && (
+              <DropZone
+                uploading={uploading}
+                error={error}
+                onChoose={() => fileRef.current?.click()}
+                onDrop={(file) => void onFileChosen(file)}
+              />
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onFileChosen(f);
+                e.target.value = "";
+              }}
+            />
+            {imageUrl && (
+              <>
+                {/* CONTROL CLUSTER — clean-up + shadow preservation */}
+                <div className="hv-studio-floatbar">
+                  <StudioTool
+                    icon={<CleanIcon />}
+                    label="Tidy up image"
+                    on={cleanOn}
+                    onClick={() => setCleanOn((v) => !v)}
+                    ariaLabel="image clean-up"
+                  />
+                  <StudioTool
+                    icon={<ShadowIcon />}
+                    label="Keep shadows"
+                    on={shadowOn}
+                    onClick={() => setShadowOn((v) => !v)}
+                    ariaLabel="shadow preservation"
+                  >
+                    {shadowOn ? (
+                      <input
+                        type="range"
+                        min={0.2}
+                        max={1}
+                        step={0.05}
+                        value={shadowStrength}
+                        onChange={(e) => setShadowStrength(Number(e.target.value))}
+                        aria-label="Shadow intensity"
+                      />
+                    ) : null}
+                  </StudioTool>
+                </div>
+
+                {/* HOLD-TO-PEEK — press and hold to see the original photo */}
                 <button
                   type="button"
-                  onClick={() => void handleRetrySegmentation()}
+                  className={`hv-studio-compare ${compare ? "is-active" : ""}`}
+                  onPointerDown={() => setCompare(true)}
+                  onPointerUp={() => setCompare(false)}
+                  onPointerLeave={() => setCompare(false)}
+                  onPointerCancel={() => setCompare(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      setCompare(true);
+                    }
+                  }}
+                  onKeyUp={(e) => {
+                    if (e.key === " " || e.key === "Enter") setCompare(false);
+                  }}
+                  onBlur={() => setCompare(false)}
+                  aria-pressed={compare}
+                >
+                  <CompareIcon />
+                  {compare ? "Original" : "Hold to compare"}
+                </button>
+              </>
+            )}
+            {showCanvasError && (
+              <div
+                className="field-error"
+                role="alert"
+                style={{
+                  position: "absolute",
+                  top: 20,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  zIndex: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  maxWidth: "calc(100% - 48px)",
+                  background: "var(--bg)",
+                  border: "1px solid var(--rule-strong)",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                }}
+              >
+                <span>{error}</span>
+                {canRetrySegmentation && (
+                  <button
+                    type="button"
+                    onClick={() => void handleRetrySegmentation()}
+                    style={{
+                      padding: "6px 12px",
+                      background: "transparent",
+                      border: "1px solid var(--rule-strong)",
+                      borderRadius: 6,
+                      color: "var(--fg-soft)",
+                      whiteSpace: "nowrap",
+                      font: "500 12px/1 var(--sans)",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    Try again
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  aria-label="Dismiss error"
                   style={{
-                    padding: "6px 12px",
                     background: "transparent",
-                    border: "1px solid var(--rule-strong)",
-                    borderRadius: 6,
-                    color: "var(--fg-soft)",
-                    whiteSpace: "nowrap",
-                    font: "500 12px/1 var(--sans)",
+                    border: "none",
+                    padding: 0,
+                    color: "var(--fg-mute)",
+                    font: "500 14px/1 var(--sans)",
                     cursor: "pointer",
                     flexShrink: 0,
                   }}
                 >
-                  Try again
+                  ×
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setError(null)}
-                aria-label="Dismiss error"
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  padding: 0,
-                  color: "var(--fg-mute)",
-                  font: "500 14px/1 var(--sans)",
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                ×
-              </button>
-            </div>
-          )}
-          <LoaderOverlay show={uploading || segmenting} label={overlayLabel} hint={overlayHint} />
-          {(limitReached || accessExpired || needVerification || needSubscription) && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(0,0,0,0.55)",
-                zIndex: 10,
-                padding: 24,
-              }}
-            >
+              </div>
+            )}
+            <LoaderOverlay show={uploading || segmenting} label={overlayLabel} hint={overlayHint} />
+            {(limitReached || accessExpired || needVerification || needSubscription) && (
               <div
                 style={{
-                  maxWidth: 420,
-                  background: "var(--bg)",
-                  border: "1px solid var(--rule-strong)",
-                  padding: 28,
-                  textAlign: "center",
-                  borderRadius: 10,
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(0,0,0,0.55)",
+                  zIndex: 10,
+                  padding: 24,
                 }}
               >
-                <Mono brass>
-                  {needVerification
-                    ? "Verify your account"
-                    : needSubscription
-                      ? "Subscribe to continue"
-                      : accessExpired
-                        ? "Access ended"
-                        : "Project limit reached"}
-                </Mono>
-                <p style={{ font: "400 19px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "14px 0 22px" }}>
-                  {error ||
-                    (needVerification
-                      ? "Verify your email and mobile number before creating your project."
+                <div
+                  style={{
+                    maxWidth: 420,
+                    background: "var(--bg)",
+                    border: "1px solid var(--rule-strong)",
+                    padding: 28,
+                    textAlign: "center",
+                    borderRadius: 10,
+                  }}
+                >
+                  <Mono brass>
+                    {needVerification
+                      ? "Verify your account"
                       : needSubscription
-                        ? "Your free trial includes one project. Subscribe to a plan to create more."
+                        ? "Subscribe to continue"
                         : accessExpired
-                          ? "Your access has ended. Ask your retailer for a new code."
-                          : "You've used your included project.")}
-                </p>
-                {needVerification && (
-                  <a className="btn btn-brass" href="/dashboard">
-                    Verify my account <span className="arr">→</span>
-                  </a>
-                )}
-                {needSubscription && (
-                  <a className="btn btn-brass" href="/pricing">
-                    See plans <span className="arr">→</span>
-                  </a>
-                )}
-                {limitReached && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
-                    <Button variant="brass" onClick={() => void handleBuyAndRetry()} disabled={buying}>
-                      {buying ? (
-                        <>
-                          <Spinner size={14} color="currentColor" />
-                          <span>Opening payment…</span>
-                        </>
-                      ) : (
-                        <>
-                          Buy another project <span className="arr">→</span>
-                        </>
-                      )}
-                    </Button>
-                    <Mono>or ask your retailer to add one</Mono>
-                  </div>
-                )}
+                          ? "Access ended"
+                          : "Project limit reached"}
+                  </Mono>
+                  <p style={{ font: "400 19px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "14px 0 22px" }}>
+                    {error ||
+                      (needVerification
+                        ? "Verify your email and mobile number before creating your project."
+                        : needSubscription
+                          ? "Your free trial includes one project. Subscribe to a plan to create more."
+                          : accessExpired
+                            ? "Your access has ended. Ask your retailer for a new code."
+                            : "You've used your included project.")}
+                  </p>
+                  {needVerification && (
+                    <a className="btn btn-brass" href="/dashboard">
+                      Verify my account <span className="arr">→</span>
+                    </a>
+                  )}
+                  {needSubscription && (
+                    <a className="btn btn-brass" href="/pricing">
+                      See plans <span className="arr">→</span>
+                    </a>
+                  )}
+                  {limitReached && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
+                      <Button variant="brass" onClick={() => void handleBuyAndRetry()} disabled={buying}>
+                        {buying ? (
+                          <>
+                            <Spinner size={14} color="currentColor" />
+                            <span>Opening payment…</span>
+                          </>
+                        ) : (
+                          <>
+                            Buy another project <span className="arr">→</span>
+                          </>
+                        )}
+                      </Button>
+                      <Mono>or ask your retailer to add one</Mono>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-        <ShadeGrid
-          selected={active.shade?.code}
-          onSelect={onSelectShade}
-          onApplyExact={onApplyCustom}
-          activeShade={active.shade}
-          activeRegionLabel={active.label}
-          shades={shades}
-          baseHex={active.applied ? active.hex : undefined}
-          activeRegionId={activeRegion}
-          regions={regionLites}
-          onApplyToRegion={applyShadeTo}
-          hideCodes={guest}
-          onSelectRegion={(id) => setActiveRegion(id)}
-          onAddWall={() => setMaskStudioOpen(true)}
-          masksRemaining={masksRemaining}
-          triedShades={triedByRegion[activeRegion]}
-          recentShades={recentShades}
-          outdoor={classification === "OUTDOOR"}
-          clashNote={clashNote}
-        />
+
+        <div className="hv-studio-sidebar">
+          <ShadeGrid
+            selected={active.shade?.code}
+            onSelect={onSelectShade}
+            onApplyExact={onApplyCustom}
+            activeShade={active.shade}
+            activeRegionLabel={active.label}
+            shades={shades}
+            baseHex={active.applied ? active.hex : undefined}
+            activeRegionId={activeRegion}
+            regions={regionLites}
+            onApplyToRegion={applyShadeTo}
+            hideCodes={guest}
+            onSelectRegion={(id) => setActiveRegion(id)}
+            onAddWall={() => setMaskStudioOpen(true)}
+            masksRemaining={masksRemaining}
+            triedShades={triedByRegion[activeRegion]}
+            recentShades={recentShades}
+            outdoor={classification === "OUTDOOR"}
+            clashNote={clashNote}
+          />
+        </div>
       </div>
 
       {maskStudioOpen && imageUrl && imageDims && (
@@ -1276,10 +1175,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         />
       )}
 
-      <style>{`
-        /* Ensure the fixed-height working area still holds if any parent tries to stretch it. */
-        .hv-studio-body { height: min(82vh, 820px); grid-template-rows: minmax(0, 1fr); }
-      `}</style>
+
     </div>
   );
 }
