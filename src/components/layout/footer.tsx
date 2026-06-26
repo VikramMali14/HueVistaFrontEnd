@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Logo } from "@/components/ui/logo";
 
 const COLUMNS = [
   {
@@ -7,7 +6,7 @@ const COLUMNS = [
     links: [
       { href: "/method", label: "How it works" },
       { href: "/catalogue", label: "Colour library" },
-      { href: "/work", label: "Our work" },
+      { href: "/gallery", label: "Gallery" },
       { href: "/pricing", label: "Pricing" },
     ],
   },
@@ -26,13 +25,12 @@ export function Footer() {
     <footer>
       <div className="footer-inner">
         <div className="footer-col">
-          <Link href="/" aria-label="HueVista — home" style={{ display: "inline-block", marginBottom: 24 }}>
-            <Logo size="sm" inverted ariaLabel={null} />
+          <Link href="/" aria-label="HueVista — home" style={{ display: "inline-block", marginBottom: 16 }}>
+            <span style={{ font: "700 18px/1 var(--serif)", letterSpacing: "-.02em", color: "var(--fg)" }}>HueVista</span>
           </Link>
-          <p className="body" style={{ fontSize: 15, maxWidth: "34ch", marginTop: 16 }}>
+          <p className="body" style={{ fontSize: 14, maxWidth: "34ch", marginTop: 12, color: "var(--fg-mute)" }}>
             Preview any paint colour on real walls before the can opens.
-            Built in Belgavi, India for paint shops — and the customers at
-            their counters.
+            Built in Belgavi, India for paint shops and their customers.
           </p>
         </div>
         {COLUMNS.map((col) => (

@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Inter, Inter_Tight } from "next/font/google";
+import { JetBrains_Mono, Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
 // Self-hosted via next/font. The CSS variables feed globals.css:
-// --serif (display headlines) is Inter Tight, --sans (body) is Inter,
-// --mono (codes, data labels) is IBM Plex Mono.
-const display = Inter_Tight({
+// --serif (display headlines) is Space Grotesk, --sans (body) is Inter,
+// --mono (codes, data labels) is JetBrains Mono.
+const display = Space_Grotesk({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-serif",
   display: "swap",
 });
@@ -18,7 +18,7 @@ const sans = Inter({
   display: "swap",
 });
 
-const mono = IBM_Plex_Mono({
+const mono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-mono",
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#171614",
+  themeColor: "#0a090f",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,

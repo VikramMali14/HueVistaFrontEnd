@@ -59,7 +59,7 @@ export async function buyExtraProject(prefill?: { name?: string; email?: string 
       name: "HueVista",
       description: "One extra project",
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
-      theme: { color: "#b89968" },
+      theme: { color: "#7c5cff" },
       handler: async (resp: CheckoutSuccess) => {
         try {
           await api.verifyProjectCredit({

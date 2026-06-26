@@ -93,7 +93,7 @@ export default function MethodPage() {
           </article>
         ))}
 
-        <section style={{ textAlign: "center", padding: "140px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(184,153,104,.10), transparent 65%)" }}>
+        <section style={{ textAlign: "center", padding: "140px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(124,92,255,.10), transparent 65%)" }}>
           <div className="reveal">
             <Mono brass>Begin</Mono>
             <h2 className="display" style={{ fontSize: "clamp(60px, 10vw, 160px)", marginTop: 32, lineHeight: 0.92 }}>

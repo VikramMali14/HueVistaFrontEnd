@@ -2,7 +2,7 @@
 
 The web frontend for [HueVista](https://github.com/VikramMali14/HueVista) — an AI-powered paint shade visualiser for the Indian paint retail trade.
 
-Built with **Next.js 15 (App Router) + TypeScript + React 19**, designed to match the editorial "Charcoal Couture" design system and engineered for load, latency and security.
+Built with **Next.js 15 (App Router) + TypeScript + React 19**, dressed in the "Midnight Spectrum" design system — a cold deep-violet canvas with an electric‑purple accent, Space Grotesk display type and JetBrains Mono data labels — and engineered for load, latency and security.
 
 ---
 

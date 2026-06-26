@@ -15,18 +15,19 @@ export function Hero() {
       <div className="hv-hero2-bg" aria-hidden />
 
       <div className="hv-hero2-inner">
-        <p className="mono hv-rise" style={{ font: "500 11px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(247,247,245,.55)", margin: 0 }}>
-          For paint retailers — sell colour at the counter
+        <p className="mono hv-rise" style={{ font: "500 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "rgba(247,247,245,.5)", margin: 0, display: "inline-flex", alignItems: "center", gap: 10 }}>
+          <span style={{ display: "inline-block", width: 18, height: 1, background: "var(--accent)", flexShrink: 0 }} aria-hidden />
+          Paint visualiser · Indian counters
         </p>
         <h1 className="display hv-hero2-title hv-rise">
-          See any colour
-          <span>on your walls.</span>
+          See any paint colour
+          <span style={{ color: "rgba(247,247,245,.58)" }}>on your walls.</span>
         </h1>
+        <p className="hv-hero2-sub reveal" style={{ maxWidth: "46ch" }}>Upload a photo of a room and preview any paint colour on the walls in seconds. Built for paint shops and their customers.</p>
         <div className="hv-hero2-cta reveal d1">
           <LinkButton href="/trial" size="lg">Get started <span className="arr">→</span></LinkButton>
           <LinkButton href="/method" size="lg" variant="ghost">How it works <span className="arr">→</span></LinkButton>
         </div>
-        <p className="hv-hero2-sub reveal d2">Built for paint counters. Start free — no card needed.</p>
       </div>
 
       <figure className="hv-hero2-demo reveal d2">
