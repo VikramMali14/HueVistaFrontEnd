@@ -2007,6 +2007,34 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
     max-height: none;
   }
 }
+/* Guest studio (/studio) — lock the workspace to the viewport, exactly like the
+   atelier above, so the PAGE never scrolls and only the shade panel scrolls
+   inside it. Without this the body's min-height (560px) plus the sticky header
+   overflow the viewport on shorter laptop screens, producing a confusing double
+   scroll: the canvas and the lower panel sections (suggestions, selected shade,
+   recent colours) drift upward as you scroll. Below 901px the layout stacks and
+   scrolls normally. */
+@media (min-width: 901px) {
+  .hv-studio-page {
+    padding-bottom: 16px;
+  }
+  .hv-studio-page .hv-visualizer {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 120px);     /* below the sticky header + page padding */
+    min-height: 420px;
+    overflow: hidden;
+  }
+  .hv-studio-page .hv-studio-topbar {
+    flex-shrink: 0;
+  }
+  .hv-studio-page .hv-studio-body {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+  }
+}
 .hv-visualizer {
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius);
