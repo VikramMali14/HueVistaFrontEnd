@@ -1969,11 +1969,18 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-atelier-page {
   margin-top: -20px;
 }
-/* Lock the studio workspace to the viewport (desktop): the page itself
-   never scrolls, the image panel stays fixed, and only the shade card
-   scrolls inside. Below 900px the layout stacks and scrolls normally. */
+/* Lock the studio workspace to the viewport (desktop) AND let it span the
+   full screen width — breaking out of the app's centred max-width column —
+   so every pixel is used. The page never scrolls, the image panel stays
+   fixed, and only the shade card scrolls inside. Below 900px the layout
+   stacks and scrolls normally. */
 @media (min-width: 901px) {
   .hv-atelier-page {
+    /* Full-bleed: ignore the parent max-width + horizontal padding. */
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-top: -20px;
     margin-bottom: -96px;            /* cancel the app <main> bottom padding */
   }
   .hv-atelier-page .hv-visualizer {
@@ -1982,8 +1989,17 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
     height: calc(100vh - 184px);     /* below the nav, down to the viewport floor */
     min-height: 420px;
     overflow: hidden;
+    /* Edge-to-edge: drop the rounded frame so it reads as a full workspace. */
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    box-shadow: none;
   }
-  .hv-atelier-page .hv-studio-topbar { flex-shrink: 0; }
+  .hv-atelier-page .hv-studio-topbar {
+    flex-shrink: 0;
+    padding-left: var(--gutter);
+    padding-right: var(--gutter);
+  }
   .hv-atelier-page .hv-studio-body {
     flex: 1 1 auto;
     height: auto;
@@ -2392,14 +2408,14 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 13px 0;
+  gap: 6px;
+  padding: 10px 0;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   cursor: pointer;
-  font: 500 13px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   color: var(--fg-mute);
   transition: color .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
 }
@@ -2408,19 +2424,19 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-tab svg { width: 14px; height: 14px; }
 
 .hv-studio-filter-bar {
-  padding: 14px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--rule);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   flex-shrink: 0;
 }
 .hv-studio-search {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  border-radius: 8px;
-  padding: 9px 12px;
+  border-radius: 7px;
+  padding: 6px 10px;
   border: 1px solid var(--rule-strong);
   background: var(--surface);
   transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
@@ -2432,17 +2448,17 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border: none;
   outline: none;
   color: var(--fg);
-  font: 400 14px/1 var(--sans);
+  font: 400 13px/1 var(--sans);
   padding: 0;
 }
 .hv-studio-pills {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 }
 .hv-studio-pill {
-  padding: 6px 12px;
-  font: 500 12px/1 var(--sans);
+  padding: 4px 10px;
+  font: 500 11px/1 var(--sans);
   border: 1px solid var(--rule);
   border-radius: var(--radius-pill);
   color: var(--fg-mute);
@@ -2467,10 +2483,10 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 .hv-studio-empty {
   font: 400 14px/1.4 var(--serif);
@@ -2555,25 +2571,25 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 /* Swatch grid — rectangular tiles */
 .hv-studio-swatches {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 8px;
 }
 .hv-studio-swatch {
   position: relative;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 3 / 2;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   padding: 0;
   background: transparent;
   transition: transform .15s var(--ease), box-shadow .15s var(--ease);
   overflow: hidden;
 }
-.hv-studio-swatch:hover { transform: translateY(-3px); z-index: 2; box-shadow: 0 10px 24px -12px rgba(0,0,0,.5); }
+.hv-studio-swatch:hover { transform: translateY(-2px); z-index: 2; box-shadow: 0 8px 18px -10px rgba(0,0,0,.5); }
 .hv-studio-swatch.is-selected { box-shadow: 0 0 0 2px var(--accent); }
 .hv-studio-swatch-color {
   position: absolute; inset: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--rule-strong);
 }
 .hv-studio-swatch-label {
@@ -2581,9 +2597,9 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 8px 9px 7px;
-  background: linear-gradient(transparent, rgba(0,0,0,.6));
-  font: 500 10.5px/1.2 var(--sans);
+  padding: 6px 7px 5px;
+  background: linear-gradient(transparent, rgba(0,0,0,.62));
+  font: 500 9.5px/1.2 var(--sans);
   color: #fff;
   text-shadow: 0 1px 2px rgba(0,0,0,.5);
   text-align: left;
@@ -2761,7 +2777,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 /* Body layout — left image stays fixed, right side scrolls */
 .hv-studio-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 432px;
+  grid-template-columns: minmax(0, 1fr) 524px;
   gap: 0;
   height: calc(100vh - 224px);
   min-height: 560px;
@@ -2827,7 +2843,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 
 /* Responsive */
 @media (max-width: 1100px) {
-  .hv-studio-body { grid-template-columns: minmax(0, 1fr) 360px; }
+  .hv-studio-body { grid-template-columns: minmax(0, 1fr) 440px; }
 }
 @media (max-width: 900px) {
   .hv-studio-body {

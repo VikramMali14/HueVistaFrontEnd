@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { LoaderOverlay } from "@/components/ui/loader-overlay";
 import { Spinner } from "@/components/ui/spinner";
 import { type PipelineStage } from "./pipeline-bar";
-import { StudioProgress } from "./studio-progress";
 import { ShadeGrid } from "./shade-grid";
 import { MaskStudio, type ExistingMask } from "./mask-studio";
 import { ProjectDetailsGate, type ProjectDetails } from "./project-details-gate";
@@ -159,7 +158,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [...DEFAULT_REGIONS],
   );
   const [activeRegion, setActiveRegion] = useState<string>(regions[0]!.id);
-  const [cleanOn, setCleanOn] = useState(true);
+  // Image clean-up is always on; the visible toggle was retired.
+  const cleanOn = true;
   const [compare, setCompare] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string | null>(initialName ?? null);
@@ -186,9 +186,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [details, setDetails] = useState<ProjectDetails | null>(
     initialName ? { name: initialName } : null,
   );
-  // Shadow / relief preservation (opt-in).
-  const [shadowOn, setShadowOn] = useState(false);
-  const [shadowStrength, setShadowStrength] = useState(0.7);
+  // Shadow / relief preservation — always on at 65%; the visible toggle
+  // and intensity slider were retired.
+  const shadowOn = true;
+  const shadowStrength = 0.65;
   // Manual mask studio.
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
   const [savingMask, setSavingMask] = useState(false);
@@ -949,36 +950,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             />
             {imageUrl && (
               <>
-                {/* CONTROL CLUSTER — clean-up + shadow preservation */}
-                <div className="hv-studio-floatbar">
-                  <StudioTool
-                    icon={<CleanIcon />}
-                    label="Tidy up image"
-                    on={cleanOn}
-                    onClick={() => setCleanOn((v) => !v)}
-                    ariaLabel="image clean-up"
-                  />
-                  <StudioTool
-                    icon={<ShadowIcon />}
-                    label="Keep shadows"
-                    on={shadowOn}
-                    onClick={() => setShadowOn((v) => !v)}
-                    ariaLabel="shadow preservation"
-                  >
-                    {shadowOn ? (
-                      <input
-                        type="range"
-                        min={0.2}
-                        max={1}
-                        step={0.05}
-                        value={shadowStrength}
-                        onChange={(e) => setShadowStrength(Number(e.target.value))}
-                        aria-label="Shadow intensity"
-                      />
-                    ) : null}
-                  </StudioTool>
-                </div>
-
                 {/* HOLD-TO-PEEK — press and hold to see the original photo */}
                 <button
                   type="button"
@@ -1002,15 +973,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   <CompareIcon />
                   {compare ? "Original" : "Hold to compare"}
                 </button>
-
-                {/* BOTTOM PROGRESS — photo → walls → recolour → share */}
-                <StudioProgress
-                  done={done}
-                  busy={segmenting ? "mask" : uploading ? "upload" : undefined}
-                  shade={active.applied && active.shade ? { name: active.shade.name, code: active.shade.code, hex: active.hex } : null}
-                  hideCode={guest}
-                  shared={Boolean(shareUrl)}
-                />
               </>
             )}
             {showCanvasError && (
@@ -1185,74 +1147,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
 
     </div>
-  );
-}
-
-/** Small on/off switch, shared by the clean-up and shadow controls. */
-function Toggle({
-  on,
-  onClick,
-  ariaLabel,
-}: {
-  on: boolean;
-  onClick: () => void;
-  ariaLabel: string;
-}) {
-  return (
-    <button
-      type="button"
-      className="hv-switch"
-      data-on={on}
-      onClick={onClick}
-      aria-pressed={on}
-      aria-label={(on ? "Turn off " : "Turn on ") + ariaLabel}
-    >
-      <span className="hv-switch-knob" />
-    </button>
-  );
-}
-
-/** Floating toolbar row with icon, label and a toggle (or any trailing control). */
-function StudioTool({
-  icon,
-  label,
-  on,
-  onClick,
-  ariaLabel,
-  children,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  on: boolean;
-  onClick: () => void;
-  ariaLabel: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="hv-studio-tool">
-      <span className="hv-studio-tool-icon">{icon}</span>
-      <span className="hv-studio-tool-label">{label}</span>
-      <Toggle on={on} onClick={onClick} ariaLabel={ariaLabel} />
-      {children}
-    </div>
-  );
-}
-
-function CleanIcon() {
-  return (
-    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M12 11v6M8 11v6M16 11v6" />
-    </svg>
-  );
-}
-
-function ShadowIcon() {
-  return (
-    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
-      <path d="M9 21h6" />
-    </svg>
   );
 }
 
