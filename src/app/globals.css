@@ -2568,11 +2568,12 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-add-wall-chip:hover:not(:disabled) { background: var(--surface-soft); border-color: var(--fg-mute); }
 .hv-studio-add-wall-chip:disabled { opacity: .45; cursor: not-allowed; }
 
-/* Swatch grid — rectangular tiles */
+/* Swatch grid — rectangular tiles. Denser tiles so ~8–9 rows of colours are
+   visible at once instead of ~5 (smaller minmax = more columns AND more rows). */
 .hv-studio-swatches {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 6px;
 }
 .hv-studio-swatch {
   position: relative;
