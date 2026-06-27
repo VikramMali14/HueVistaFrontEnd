@@ -57,7 +57,7 @@ const MATRIX: ReadonlyArray<Section> = [
 
 const cellStyle: React.CSSProperties = { textAlign: "left", padding: "22px 24px", borderBottom: "1px solid var(--rule)", fontFamily: "var(--sans)", fontWeight: 400, fontSize: 15, color: "var(--ivory-soft)", verticalAlign: "top" };
 const featCellStyle: React.CSSProperties = { ...cellStyle, color: "var(--ivory)", fontFamily: "var(--serif)", fontSize: 19 };
-const featuredColStyle: React.CSSProperties = { background: "rgba(184,153,104,.05)", color: "var(--ivory)" };
+const featuredColStyle: React.CSSProperties = { background: "rgba(124,92,255,.05)", color: "var(--ivory)" };
 const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px", borderBottom: "1px solid var(--rule-strong)", font: "400 10px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", color: "var(--brass)" };
 const sectionHeadStyle: React.CSSProperties = { font: "400 22px/1 var(--serif)", color: "var(--brass-soft)", padding: "56px 24px 12px" };
 const yesStyle: React.CSSProperties = { color: "var(--brass)", fontFamily: "var(--mono)", fontSize: 13 };
@@ -109,7 +109,7 @@ export default function PricingPage() {
               </h2>
             </div>
             <div className="reveal d1" style={{ marginTop: 64 }}>
-              <p className="mono hv-matrix-hint" style={{ marginBottom: 14, color: "#cbb08a" }}>
+              <p className="mono hv-matrix-hint" style={{ marginBottom: 14, color: "var(--accent-soft)" }}>
                 Swipe to compare every tier →
               </p>
               {/* Overflow is lifted at >=964px (globals) so the sticky thead can
@@ -122,7 +122,7 @@ export default function PricingPage() {
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹499 / mo</div></th>
                     {/* Literal metallic on the always-dark band. Opaque composite
                         so the tint survives sticky overlap. */}
-                    <th style={{ ...headStyle, color: "#cbb08a", background: "linear-gradient(rgba(184,153,104,.08), rgba(184,153,104,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "#cbb08a" }}>₹999 / mo</div></th>
+                    <th style={{ ...headStyle, color: "var(--accent-soft)", background: "linear-gradient(rgba(124,92,255,.08), rgba(124,92,255,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "var(--accent-soft)" }}>₹999 / mo</div></th>
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Business<div style={thPriceStyle}>₹1,999 / mo</div></th>
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Enterprise<div style={thPriceStyle}>On request</div></th>
                   </tr>
@@ -149,7 +149,7 @@ export default function PricingPage() {
                   <tr key="cta">
                     <td style={ctaCellStyle} />
                     <td style={ctaCellStyle}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Contact us</a></td>
-                    <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-sm" style={{ background: "#b89968", borderColor: "#b89968", color: "#15110d" }}>Contact us</a></td>
+                    <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-sm" style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#0a0a0f" }}>Contact us</a></td>
                     <td style={ctaCellStyle}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Contact us</a></td>
                     <td style={ctaCellStyle}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-ghost btn-sm" style={{ color: "var(--ivory)", borderColor: "rgba(247,247,245,.35)" }}>Talk to us</a></td>
                   </tr>
@@ -176,7 +176,7 @@ export default function PricingPage() {
           </div>
         </section>
 
-        <section style={{ textAlign: "center", padding: "180px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(184,153,104,.10), transparent 65%)" }}>
+        <section style={{ textAlign: "center", padding: "180px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(124,92,255,.10), transparent 65%)" }}>
           <div className="reveal">
             <Mono brass>Commencement</Mono>
             <h2 className="display" style={{ fontSize: "clamp(56px, 9vw, 142px)", marginTop: 32, lineHeight: 0.92 }}>

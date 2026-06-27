@@ -31,7 +31,7 @@ export function JournalFilters({ entries }: { entries: ReadonlyArray<JournalEntr
                   letterSpacing: ".26em",
                   textTransform: "uppercase",
                   padding: "8px 14px",
-                  background: active ? "rgba(184,153,104,.08)" : "transparent",
+                  background: active ? "rgba(124,92,255,.08)" : "transparent",
                   color: active ? "var(--brass)" : "var(--fg-soft)",
                   border: "1px solid " + (active ? "var(--rule-brass)" : "transparent"),
                   cursor: "pointer",

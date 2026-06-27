@@ -3,7 +3,7 @@ import { Mono } from "@/components/ui/eyebrow";
 
 export function Closing() {
   return (
-    <section style={{ textAlign: "center", padding: "140px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(184,153,104,.10), transparent 65%)" }}>
+    <section style={{ textAlign: "center", padding: "140px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(124,92,255,.10), transparent 65%)" }}>
       <div className="reveal" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
         
         <Mono brass>Begin</Mono>

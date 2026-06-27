@@ -31,7 +31,7 @@ export function PricingTiers() {
   return (
     <>
       <div className="reveal d2" style={{ marginTop: 32, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
-        <div style={{ display: "inline-flex", border: "1px solid var(--rule-strong)", background: "var(--charcoal-soft)" }}>
+        <div style={{ display: "inline-flex", border: "1px solid var(--rule-strong)", borderRadius: 999, overflow: "hidden", background: "var(--surface)" }}>
           {(["monthly", "annual"] as const).map((p) => (
             <button
               key={p}
@@ -40,8 +40,8 @@ export function PricingTiers() {
               aria-pressed={period === p}
               style={{
                 padding: "12px 22px",
-                background: period === p ? "var(--ivory)" : "transparent",
-                color: period === p ? "var(--charcoal)" : "var(--ivory-soft)",
+                background: period === p ? "var(--fg)" : "transparent",
+                color: period === p ? "var(--bg)" : "var(--fg-soft)",
                 border: "none",
                 font: "400 10px/1 var(--mono)",
                 letterSpacing: ".26em",
@@ -49,9 +49,8 @@ export function PricingTiers() {
                 cursor: "pointer",
               }}
             >
-              {/* Literal metallic — keeps the accent legible on the charcoal toggle plate. */}
               {p === "monthly" ? "Monthly" : (
-                <>Annual <span style={{ color: period === p ? "var(--brass-deep)" : "#b89968" }}>· 2 months free</span></>
+                <>Annual <span style={{ color: period === p ? "var(--accent-deep)" : "var(--accent)" }}>· 2 months free</span></>
               )}
             </button>
           ))}
@@ -69,54 +68,54 @@ export function PricingTiers() {
       <section style={{ paddingTop: 60 }}>
         <div className="reveal r-cols-lg-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
           {TIERS.map((t) => (
-            <div key={t.name} className={t.featured ? "hv-tier hv-tier--featured" : "hv-tier"} style={{ background: t.featured ? "var(--ivory)" : "var(--charcoal-soft)", color: t.featured ? "var(--charcoal)" : "var(--ivory)", padding: "56px 36px", display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
-              {t.ribbon && (<span style={{ position: "absolute", top: 0, right: 24, background: "#b89968", color: "#15110d", font: "500 9px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", padding: "8px 14px", transform: "translateY(-50%)" }}>{t.ribbon}</span>)}
-              <div style={{ font: "400 11px/1 var(--mono)", letterSpacing: ".3em", textTransform: "uppercase", color: t.featured ? "var(--brass-deep)" : "var(--brass)" }}>{t.name}</div>
+            <div key={t.name} className={t.featured ? "hv-tier hv-tier--featured" : "hv-tier"} style={{ background: t.featured ? "var(--accent)" : "var(--charcoal-soft)", color: t.featured ? "#fff" : "var(--ivory)", padding: "56px 36px", display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
+              {t.ribbon && (<span style={{ position: "absolute", top: 0, right: 24, background: "#fff", color: "var(--accent-deep)", font: "500 9px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", padding: "8px 14px", transform: "translateY(-50%)" }}>{t.ribbon}</span>)}
+              <div style={{ font: "400 11px/1 var(--mono)", letterSpacing: ".3em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.85)" : "var(--brass)" }}>{t.name}</div>
               {/* Tall enough for the two-line annual state — no jump on toggle. */}
               <div key={period} className="hv-price-swap" style={{ minHeight: 104 }}>
                 {t.monthlyN === null || t.annualN === null ? (
                   <>
-                    <div style={{ font: "italic 600 40px/1.2 var(--serif)", letterSpacing: "-.02em", whiteSpace: "nowrap", color: t.featured ? "var(--charcoal)" : "var(--ivory)" }}>On request</div>
-                    <div style={{ marginTop: 8, font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: t.featured ? "var(--mute-deep)" : "var(--mute)" }}>custom commercial terms</div>
+                    <div style={{ font: "italic 600 40px/1.2 var(--serif)", letterSpacing: "-.02em", whiteSpace: "nowrap", color: t.featured ? "#fff" : "var(--ivory)" }}>On request</div>
+                    <div style={{ marginTop: 8, font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)" }}>custom commercial terms</div>
                   </>
                 ) : period === "monthly" ? (
-                  <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "var(--charcoal)" : "var(--ivory)" }}>
+                  <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "#fff" : "var(--ivory)" }}>
                     ₹{inr(t.monthlyN)}
-                    <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "var(--mute-deep)" : "var(--mute)", marginLeft: 6 }}>/ month</span>
+                    <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)", marginLeft: 6 }}>/ month</span>
                   </div>
                 ) : (
                   <>
-                    <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "var(--charcoal)" : "var(--ivory)" }}>
+                    <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "#fff" : "var(--ivory)" }}>
                       ₹{inr(Math.round(t.annualN / 12))}
-                      <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "var(--mute-deep)" : "var(--mute)", marginLeft: 6 }}>/ mo billed annually</span>
+                      <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)", marginLeft: 6 }}>/ mo billed annually</span>
                     </div>
                     <div style={{ marginTop: 10, font: "400 15px/1.3 var(--serif)" }}>
-                      <span style={{ textDecoration: "line-through", color: t.featured ? "var(--mute-deep)" : "var(--mute)" }}>₹{inr(t.monthlyN * 12)}</span>
-                      <span style={{ color: t.featured ? "var(--charcoal)" : "var(--ivory-soft)", marginLeft: 8 }}>₹{inr(t.annualN)} / year</span>
+                      <span style={{ textDecoration: "line-through", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)" }}>₹{inr(t.monthlyN * 12)}</span>
+                      <span style={{ color: t.featured ? "#fff" : "var(--ivory-soft)", marginLeft: 8 }}>₹{inr(t.annualN)} / year</span>
                     </div>
                   </>
                 )}
               </div>
-              <p style={{ font: "400 17px/1.5 var(--serif)", color: t.featured ? "var(--mute-deep)" : "var(--ivory-soft)", borderTop: "1px solid " + (t.featured ? "rgba(21,17,13,.12)" : "var(--rule)"), paddingTop: 18 }}>{t.lede}</p>
+              <p style={{ font: "400 17px/1.5 var(--serif)", color: t.featured ? "rgba(255,255,255,.85)" : "var(--ivory-soft)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.25)" : "var(--rule)"), paddingTop: 18 }}>{t.lede}</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
                 {t.inherits && (
-                  <div style={{ font: "italic 400 14px/1.45 var(--serif)", color: t.featured ? "var(--mute-deep)" : "var(--mute)" }}>{t.inherits}</div>
+                  <div style={{ font: "italic 400 14px/1.45 var(--serif)", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)" }}>{t.inherits}</div>
                 )}
                 {t.features.map((f) => (
-                  <div key={f} style={{ display: "flex", gap: 10, font: "300 15px/1.45 var(--sans)", color: t.featured ? "var(--charcoal)" : "var(--ivory-soft)" }}>
-                    <span aria-hidden style={{ color: t.featured ? "var(--brass-deep)" : "var(--brass)", fontFamily: "var(--mono)", fontSize: 12, lineHeight: "22px" }}>✓</span>
+                  <div key={f} style={{ display: "flex", gap: 10, font: "300 15px/1.45 var(--sans)", color: t.featured ? "#fff" : "var(--ivory-soft)" }}>
+                    <span aria-hidden style={{ color: t.featured ? "#fff" : "var(--brass)", fontFamily: "var(--mono)", fontSize: 12, lineHeight: "22px" }}>✓</span>
                     <span>{f}</span>
                   </div>
                 ))}
                 {t.note && (
-                  <div style={{ font: "italic 400 13px/1.5 var(--serif)", color: t.featured ? "var(--mute-deep)" : "var(--mute)", marginTop: 4 }}>{t.note}</div>
+                  <div style={{ font: "italic 400 13px/1.5 var(--serif)", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)", marginTop: 4 }}>{t.note}</div>
                 )}
               </div>
               <div style={{ marginTop: "auto" }}>
                 <Link
                   href="/trial"
                   className={t.featured ? "btn" : "btn btn-ghost"}
-                  style={t.featured ? { background: "var(--charcoal)", color: "var(--ivory)", borderColor: "var(--charcoal)" } : undefined}
+                  style={t.featured ? { background: "#fff", color: "var(--accent-deep)", borderColor: "#fff" } : undefined}
                 >
                   {t.ctaLabel} <span className="arr">→</span>
                 </Link>
