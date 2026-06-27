@@ -521,7 +521,11 @@ html[data-theme="light"] .field select { background-image: url("data:image/svg+x
 ========================================================= */
 
 /* ----- Base mobile-safe behaviours ----- */
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* overflow-x: clip on BOTH html and body — body's clip alone doesn't reach the
+   viewport (overflow propagates up), so a wide child like the pricing feature
+   table leaked horizontal page scroll on mobile. clip (not hidden) guards this
+   without creating a scroll container, so position: sticky keeps working. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow-x: clip; }
 body { overflow-x: clip; }
 img, video, canvas, svg { max-width: 100%; height: auto; }
 button, a, [role="button"] { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
