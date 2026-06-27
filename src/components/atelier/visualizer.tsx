@@ -5,7 +5,8 @@ import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { LoaderOverlay } from "@/components/ui/loader-overlay";
 import { Spinner } from "@/components/ui/spinner";
-import { PipelineBar, type PipelineStage } from "./pipeline-bar";
+import { type PipelineStage } from "./pipeline-bar";
+import { StudioProgress } from "./studio-progress";
 import { ShadeGrid } from "./shade-grid";
 import { MaskStudio, type ExistingMask } from "./mask-studio";
 import { ProjectDetailsGate, type ProjectDetails } from "./project-details-gate";
@@ -908,8 +909,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         </div>
       </div>
 
-      <PipelineBar current={stage} done={done} busy={segmenting ? "mask" : uploading ? "upload" : undefined} />
-
       <div className="hv-studio-body">
         <div className="hv-studio-canvas-wrap">
           <div className="hv-studio-canvas">
@@ -1003,6 +1002,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   <CompareIcon />
                   {compare ? "Original" : "Hold to compare"}
                 </button>
+
+                {/* BOTTOM PROGRESS — photo → walls → recolour → share */}
+                <StudioProgress
+                  done={done}
+                  busy={segmenting ? "mask" : uploading ? "upload" : undefined}
+                  shade={active.applied && active.shade ? { name: active.shade.name, code: active.shade.code, hex: active.hex } : null}
+                  hideCode={guest}
+                  shared={Boolean(shareUrl)}
+                />
               </>
             )}
             {showCanvasError && (

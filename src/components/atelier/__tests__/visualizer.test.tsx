@@ -326,7 +326,7 @@ describe("Visualizer — happy path (upload → segment → regions)", () => {
 
     // Mask stage reached: notice chip + classification + the backend regions
     // rendered as wall chips.
-    expect(await screen.findByText("Walls detected")).toBeInTheDocument();
+    expect((await screen.findAllByText("Walls detected")).length).toBeGreaterThan(0);
     expect(screen.getByText("Indoor")).toBeInTheDocument();
     expect(screen.getAllByText("Left feature wall").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Window trim").length).toBeGreaterThan(0);
@@ -365,7 +365,7 @@ describe("Visualizer — segmentation give-up and retry", () => {
     expect(api.uploadImage).toHaveBeenCalledTimes(1); // unchanged
     expect(api.createProject).toHaveBeenCalledTimes(1); // unchanged
 
-    expect(await screen.findByText("Walls detected")).toBeInTheDocument();
+    expect((await screen.findAllByText("Walls detected")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Left feature wall").length).toBeGreaterThan(0);
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
