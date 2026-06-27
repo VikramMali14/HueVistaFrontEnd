@@ -1898,10 +1898,12 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .cnav-panel {
   position: absolute; top: calc(100% + 8px); left: 0; right: 0;
   height: 0; overflow: hidden; visibility: hidden;
-  background: var(--nav-bg-strong);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
-  backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid rgba(255,255,255,.09);
+  /* Solid (not translucent): this dropdown nests inside .cnav, whose own
+     backdrop-filter means the panel's backdrop-filter can't blur the page —
+     so a translucent panel let the hero content bleed through and clash with
+     the links (badly in light mode). A solid surface keeps the menu legible. */
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
   border-radius: 16px;
   box-shadow: 0 24px 60px -20px rgba(0,0,0,.7);
 }
