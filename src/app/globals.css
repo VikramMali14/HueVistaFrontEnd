@@ -1969,6 +1969,28 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-atelier-page {
   margin-top: -20px;
 }
+/* Lock the studio workspace to the viewport (desktop): the page itself
+   never scrolls, the image panel stays fixed, and only the shade card
+   scrolls inside. Below 900px the layout stacks and scrolls normally. */
+@media (min-width: 901px) {
+  .hv-atelier-page {
+    margin-bottom: -96px;            /* cancel the app <main> bottom padding */
+  }
+  .hv-atelier-page .hv-visualizer {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 184px);     /* below the nav, down to the viewport floor */
+    min-height: 420px;
+    overflow: hidden;
+  }
+  .hv-atelier-page .hv-studio-topbar { flex-shrink: 0; }
+  .hv-atelier-page .hv-studio-body {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+  }
+}
 .hv-visualizer {
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius);
