@@ -104,7 +104,7 @@ export default function PricingPage() {
           <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
             <div className="reveal">
               <Eyebrow>Feature matrix</Eyebrow>
-              <h2 className="display" style={{ fontSize: "clamp(48px, 6.5vw, 96px)", marginTop: 24 }}>
+              <h2 className="display" style={{ fontSize: "clamp(48px, 6.5vw, 96px)", marginTop: 24, color: "var(--ivory)" }}>
                 Every line item, <i>compared.</i>
               </h2>
             </div>

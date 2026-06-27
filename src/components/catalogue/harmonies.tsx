@@ -38,7 +38,7 @@ export function Harmonies() {
           <div aria-hidden className="r-hide-md" />
           <div>
             <Eyebrow>Curated harmonies</Eyebrow>
-            <h2 className="display" style={{ fontSize: "clamp(48px, 6.5vw, 96px)", marginTop: 24 }}>
+            <h2 className="display" style={{ fontSize: "clamp(48px, 6.5vw, 96px)", marginTop: 24, color: "var(--ivory)" }}>
               Three-shade <i>combinations.</i>
             </h2>
           </div>
