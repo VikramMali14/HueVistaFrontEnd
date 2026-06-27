@@ -2424,41 +2424,42 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-tab svg { width: 14px; height: 14px; }
 
 .hv-studio-filter-bar {
-  padding: 9px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--rule);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 .hv-studio-search {
   display: flex;
-  gap: 8px;
+  gap: 7px;
   align-items: center;
   border-radius: 7px;
-  padding: 6px 10px;
+  padding: 5px 9px;
   border: 1px solid var(--rule-strong);
   background: var(--surface);
   transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
 }
-.hv-studio-search:focus-within { border-color: var(--fg); box-shadow: 0 0 0 3px var(--rule); }
+.hv-studio-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,92,255,.18); }
+.hv-studio-search svg { width: 15px; height: 15px; }
 .hv-studio-search input {
   flex: 1;
   background: transparent;
   border: none;
   outline: none;
   color: var(--fg);
-  font: 400 13px/1 var(--sans);
+  font: 400 12.5px/1 var(--sans);
   padding: 0;
 }
 .hv-studio-pills {
   display: flex;
-  gap: 5px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 .hv-studio-pill {
-  padding: 4px 10px;
-  font: 500 11px/1 var(--sans);
+  padding: 3px 9px;
+  font: 500 10.5px/1 var(--sans);
   border: 1px solid var(--rule);
   border-radius: var(--radius-pill);
   color: var(--fg-mute);
@@ -2475,6 +2476,32 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+.hv-studio-filter-row .mono { font-size: 10px; }
+
+/* Segmented control — "Top 50 / By company" view switch */
+.hv-studio-seg {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+.hv-studio-seg-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 11px;
+  border-radius: var(--radius-pill);
+  font: 500 11px/1 var(--sans);
+  color: var(--fg-mute);
+  cursor: pointer;
+  transition: color .15s var(--ease), background .15s var(--ease);
+}
+.hv-studio-seg-btn:hover:not(.is-active) { color: var(--fg); }
+.hv-studio-seg-btn.is-active {
+  background: var(--surface-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--rule-brass);
 }
 
 /* Scrollable content area inside the right panel */

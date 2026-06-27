@@ -230,7 +230,7 @@ export function ShadeGrid({
           )}
 
           <div className="hv-studio-filter-row">
-            <div className="hv-studio-pills">
+            <div className="hv-studio-seg" role="group" aria-label="Group colours">
               {([
                 ["top50", "Top 50"],
                 ["company", "By company"],
@@ -240,7 +240,7 @@ export function ShadeGrid({
                   type="button"
                   onClick={() => setSection(key)}
                   aria-pressed={section === key}
-                  className={`hv-studio-pill ${section === key ? "is-active" : ""}`}
+                  className={`hv-studio-seg-btn ${section === key ? "is-active" : ""}`}
                 >
                   {lbl}
                 </button>
