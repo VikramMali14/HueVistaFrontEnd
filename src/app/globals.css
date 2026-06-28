@@ -2916,7 +2916,12 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 @media (max-width: 900px) {
   .hv-studio-body {
-    grid-template-columns: 1fr !important;
+    /* minmax(0, 1fr), not a bare 1fr: a plain 1fr is minmax(auto,1fr), whose
+       'auto' floor lets the canvas + shade grid push the column past the
+       viewport (~28px), clipping the "Hold to compare" button and the right
+       swatch column. minmax(0,…) lets the track shrink to fit, like the
+       desktop rule above. */
+    grid-template-columns: minmax(0, 1fr) !important;
     grid-template-rows: minmax(320px, 50vh) auto !important;
     height: auto !important;
     max-height: none;
