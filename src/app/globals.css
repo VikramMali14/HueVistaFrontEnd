@@ -521,7 +521,11 @@ html[data-theme="light"] .field select { background-image: url("data:image/svg+x
 ========================================================= */
 
 /* ----- Base mobile-safe behaviours ----- */
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* overflow-x: clip on BOTH html and body — body's clip alone doesn't reach the
+   viewport (overflow propagates up), so a wide child like the pricing feature
+   table leaked horizontal page scroll on mobile. clip (not hidden) guards this
+   without creating a scroll container, so position: sticky keeps working. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow-x: clip; }
 body { overflow-x: clip; }
 img, video, canvas, svg { max-width: 100%; height: auto; }
 button, a, [role="button"] { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
@@ -1894,10 +1898,12 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .cnav-panel {
   position: absolute; top: calc(100% + 8px); left: 0; right: 0;
   height: 0; overflow: hidden; visibility: hidden;
-  background: var(--nav-bg-strong);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
-  backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid rgba(255,255,255,.09);
+  /* Solid (not translucent): this dropdown nests inside .cnav, whose own
+     backdrop-filter means the panel's backdrop-filter can't blur the page —
+     so a translucent panel let the hero content bleed through and clash with
+     the links (badly in light mode). A solid surface keeps the menu legible. */
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
   border-radius: 16px;
   box-shadow: 0 24px 60px -20px rgba(0,0,0,.7);
 }
@@ -2001,6 +2007,34 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
     padding-right: var(--gutter);
   }
   .hv-atelier-page .hv-studio-body {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+  }
+}
+/* Guest studio (/studio) — lock the workspace to the viewport, exactly like the
+   atelier above, so the PAGE never scrolls and only the shade panel scrolls
+   inside it. Without this the body's min-height (560px) plus the sticky header
+   overflow the viewport on shorter laptop screens, producing a confusing double
+   scroll: the canvas and the lower panel sections (suggestions, selected shade,
+   recent colours) drift upward as you scroll. Below 901px the layout stacks and
+   scrolls normally. */
+@media (min-width: 901px) {
+  .hv-studio-page {
+    padding-bottom: 16px;
+  }
+  .hv-studio-page .hv-visualizer {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 120px);     /* below the sticky header + page padding */
+    min-height: 420px;
+    overflow: hidden;
+  }
+  .hv-studio-page .hv-studio-topbar {
+    flex-shrink: 0;
+  }
+  .hv-studio-page .hv-studio-body {
     flex: 1 1 auto;
     height: auto;
     min-height: 0;
@@ -2424,41 +2458,42 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-tab svg { width: 14px; height: 14px; }
 
 .hv-studio-filter-bar {
-  padding: 9px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--rule);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 .hv-studio-search {
   display: flex;
-  gap: 8px;
+  gap: 7px;
   align-items: center;
   border-radius: 7px;
-  padding: 6px 10px;
+  padding: 5px 9px;
   border: 1px solid var(--rule-strong);
   background: var(--surface);
   transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
 }
-.hv-studio-search:focus-within { border-color: var(--fg); box-shadow: 0 0 0 3px var(--rule); }
+.hv-studio-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,92,255,.18); }
+.hv-studio-search svg { width: 15px; height: 15px; }
 .hv-studio-search input {
   flex: 1;
   background: transparent;
   border: none;
   outline: none;
   color: var(--fg);
-  font: 400 13px/1 var(--sans);
+  font: 400 12.5px/1 var(--sans);
   padding: 0;
 }
 .hv-studio-pills {
   display: flex;
-  gap: 5px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 .hv-studio-pill {
-  padding: 4px 10px;
-  font: 500 11px/1 var(--sans);
+  padding: 3px 9px;
+  font: 500 10.5px/1 var(--sans);
   border: 1px solid var(--rule);
   border-radius: var(--radius-pill);
   color: var(--fg-mute);
@@ -2475,6 +2510,32 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+.hv-studio-filter-row .mono { font-size: 10px; }
+
+/* Segmented control — "Top 50 / By company" view switch */
+.hv-studio-seg {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+.hv-studio-seg-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 11px;
+  border-radius: var(--radius-pill);
+  font: 500 11px/1 var(--sans);
+  color: var(--fg-mute);
+  cursor: pointer;
+  transition: color .15s var(--ease), background .15s var(--ease);
+}
+.hv-studio-seg-btn:hover:not(.is-active) { color: var(--fg); }
+.hv-studio-seg-btn.is-active {
+  background: var(--surface-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--rule-brass);
 }
 
 /* Scrollable content area inside the right panel */
@@ -2568,11 +2629,12 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-add-wall-chip:hover:not(:disabled) { background: var(--surface-soft); border-color: var(--fg-mute); }
 .hv-studio-add-wall-chip:disabled { opacity: .45; cursor: not-allowed; }
 
-/* Swatch grid — rectangular tiles */
+/* Swatch grid — rectangular tiles. Denser tiles so ~8–9 rows of colours are
+   visible at once instead of ~5 (smaller minmax = more columns AND more rows). */
 .hv-studio-swatches {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 6px;
 }
 .hv-studio-swatch {
   position: relative;
