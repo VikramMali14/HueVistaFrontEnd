@@ -152,7 +152,12 @@ export function AppNav({ user }: AppNavProps) {
         @media (max-width: 900px) {
           .app-nav-inner { padding: 12px 16px; margin: 12px 16px; top: 12px; }
           .app-tabs.is-desktop { display: none; }
-          .app-tabs.is-mobile { display: flex; }
+          /* Only show the drawer when it's actually open. The :not(.is-closed)
+             selector is needed so this rule outranks globals.css
+             '.app-tabs.is-closed { display:none }' — they have equal specificity,
+             and this inline <style> would otherwise win on source order and keep
+             the menu permanently expanded over the page on mobile. */
+          .app-tabs.is-mobile:not(.is-closed) { display: flex; }
           .app-nav-meta { display: none; }
           .app-drawer-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px var(--gutter) 6px; border-top: 1px solid var(--rule); margin-top: 4px; }
         }

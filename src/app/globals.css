@@ -945,8 +945,12 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 /* =========================================================
    HOME · STATS band (big numbers, dark)
 ========================================================= */
+/* This is an intentionally dark band in BOTH themes (white figures on near-black),
+   like the partners/room bands. Use the theme-invariant --charcoal-deep so the
+   background stays dark in light theme too — otherwise --bg-deep flips to a pale
+   lavender and the hardcoded --ivory text becomes near-invisible. */
 .hv-stats {
-  background: var(--bg-deep); color: var(--ivory);
+  background: var(--charcoal-deep); color: var(--ivory);
   padding-top: 88px; padding-bottom: 88px;
   text-align: center;
   border-top: 1px solid rgba(234,232,227,.08);
