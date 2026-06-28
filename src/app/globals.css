@@ -1866,7 +1866,10 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .cnav-cta {
   display: inline-flex; align-items: center; gap: 5px;
   font: 600 11px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase;
-  color: #0a0a0f; background: var(--fg);
+  /* Pair with the bg token, not a hardcoded near-black: background is var(--fg),
+     so the label must be var(--bg). In light theme --fg is dark, and the old
+     fixed #0a0a0f made this primary CTA near-black-on-near-black (invisible). */
+  color: var(--bg); background: var(--fg);
   padding: 11px 18px; border-radius: 999px; white-space: nowrap; text-decoration: none;
   transition: opacity .2s var(--ease);
 }
