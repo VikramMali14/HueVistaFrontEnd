@@ -16,7 +16,7 @@ import {
 import { UndertoneTag } from "@/components/catalogue/undertone-tag";
 import { CustomMatchPanel } from "./color-wheel";
 import { CoordinateSuggestions, type RegionLite } from "./coordinate-suggestions";
-import type { ColorFamily, PaintShade } from "@/lib/types";
+import type { ColorFamily, PaintShade, RegionKind } from "@/lib/types";
 
 function pickShade(shades: ReadonlyArray<PaintShade>, idx: number): PaintShade {
   return shades[idx] ?? shades[idx % shades.length] ?? shades[0]!;
@@ -291,7 +291,13 @@ export function ShadeGrid({
         )}
 
         {tab === "AI Suggest" && (
-          <AISuggestPanel onSelect={onSelect} catalogue={catalogue} />
+          <AISuggestPanel
+            onSelect={onSelect}
+            catalogue={catalogue}
+            regions={regions}
+            activeRegionId={activeRegionId}
+            onApplyToRegion={onApplyToRegion}
+          />
         )}
 
         {tab === "Custom" && (
@@ -580,15 +586,45 @@ function SelectedShadeDetail({
 function AISuggestPanel({
   onSelect,
   catalogue,
+  regions,
+  activeRegionId,
+  onApplyToRegion,
 }: {
   onSelect: (shade: PaintShade) => void;
   catalogue: ReadonlyArray<PaintShade>;
+  regions?: ReadonlyArray<RegionLite>;
+  activeRegionId?: string;
+  onApplyToRegion?: (regionId: string, shade: PaintShade) => void;
 }) {
   const combos = [
     { name: "Quiet morning", rationale: "Soft ivory main, sage accent, slate trim.", shades: [pickShade(catalogue, 0), pickShade(catalogue, 14), pickShade(catalogue, 16)] },
     { name: "Warm afternoon", rationale: "Earthy and warm; reads well in sun.", shades: [pickShade(catalogue, 5), pickShade(catalogue, 12), pickShade(catalogue, 0)] },
     { name: "Cool evening", rationale: "For studies and reading rooms.", shades: [pickShade(catalogue, 17), pickShade(catalogue, 15), pickShade(catalogue, 3)] },
   ];
+
+  // "Apply" puts the whole palette on the room at once: shade 0 → main wall,
+  // shade 1 → accent wall, shade 2 → trim — each to its matching region. Falls
+  // back to the active wall only when we can't map regions (e.g. no per-region
+  // apply available, or the project has a single surface).
+  const applyCombo = (shades: PaintShade[]) => {
+    const byKind = (k: RegionKind) => regions?.find((r) => r.kind === k);
+    const main = byKind("MAIN_WALL") ?? regions?.find((r) => r.id === activeRegionId) ?? regions?.[0];
+    const targets: Array<[RegionLite | undefined, PaintShade | undefined]> = [
+      [main, shades[0]],
+      [byKind("ACCENT_WALL"), shades[1]],
+      [byKind("TRIM"), shades[2]],
+    ];
+    let applied = false;
+    if (onApplyToRegion) {
+      for (const [region, shade] of targets) {
+        if (region && shade) {
+          onApplyToRegion(region.id, shade);
+          applied = true;
+        }
+      }
+    }
+    if (!applied && shades[0]) onSelect(shades[0]); // single-surface / no mapping → active wall
+  };
   return (
     <div style={{ padding: 16, flex: 1, minHeight: 0, overflow: "auto" }}>
       <Mono style={{ display: "block", marginBottom: 14 }}>Three suggestions</Mono>
@@ -640,10 +676,11 @@ function AISuggestPanel({
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button
                 type="button"
-                onClick={() => onSelect(c.shades[0]!)}
+                onClick={() => applyCombo(c.shades)}
                 className="btn btn-sm"
+                title="Apply the whole palette — main, accent and trim — across the room"
               >
-                Apply
+                Apply all
               </button>
             </div>
           </div>
