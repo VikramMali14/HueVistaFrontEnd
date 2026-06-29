@@ -13,6 +13,8 @@ export interface RegionLite {
   hex: string;
   applied: boolean;
   shadeCode?: string;
+  /** Hand-drawn wall (vs. AI-detected) — only these can be deleted. */
+  custom?: boolean;
 }
 
 /**

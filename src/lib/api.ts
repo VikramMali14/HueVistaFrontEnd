@@ -293,6 +293,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // Delete a hand-drawn wall. The backend rejects non-manual (AI-detected) regions.
+  deleteRegion: (projectId: string, regionId: number) =>
+    browserFetch<void>(
+      `api/projects/${encodeURIComponent(projectId)}/regions/${regionId}`,
+      { method: "DELETE" },
+    ),
   // --- Subscription (retailer AI plan / trial) ---
   getCurrentSubscription: () =>
     browserFetch<import("./types").SubscriptionSummary>("api/billing/subscriptions/current"),
@@ -437,6 +443,11 @@ export const guestApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  deleteRegion: (projectId: string, regionId: number) =>
+    browserFetch<void>(
+      `api/guest/projects/${encodeURIComponent(projectId)}/regions/${regionId}`,
+      { method: "DELETE" },
+    ),
 };
 
 export { HttpError };

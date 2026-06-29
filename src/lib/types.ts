@@ -115,6 +115,9 @@ export interface RegionDetail {
   appliedShadeCode?: string | null;
   appliedHexCode?: string | null;
   displayOrder?: number | null;
+  /** True for walls the user drew by hand (vs. AI-detected). Only these may be
+   *  deleted. Survives reload independently of the region's category. */
+  manual?: boolean;
 }
 
 export interface ProjectDetail {

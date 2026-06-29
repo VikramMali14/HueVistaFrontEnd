@@ -64,6 +64,8 @@ interface ShadeGridProps {
   onSelectRegion?: (id: string) => void;
   /** Open the Mask Studio to draw a new wall. */
   onAddWall?: () => void;
+  /** Remove a hand-drawn wall (only offered for custom regions). */
+  onDeleteWall?: (id: string) => void;
   /** Hand-drawn masks still allowed (3-mask cap); disables "+ Add wall" at 0. */
   masksRemaining?: number;
   /** Shades previously applied to the ACTIVE region — one-tap re-apply. */
@@ -90,6 +92,7 @@ export function ShadeGrid({
   hideCodes = false,
   onSelectRegion,
   onAddWall,
+  onDeleteWall,
   masksRemaining,
   triedShades,
   recentShades,
@@ -261,6 +264,7 @@ export function ShadeGrid({
           activeRegionId={activeRegionId}
           onSelectRegion={onSelectRegion}
           onAddWall={onAddWall}
+          onDeleteWall={onDeleteWall}
           masksRemaining={masksRemaining}
         />
 
@@ -654,12 +658,14 @@ function RegionStrip({
   activeRegionId,
   onSelectRegion,
   onAddWall,
+  onDeleteWall,
   masksRemaining,
 }: {
   regions?: ReadonlyArray<RegionLite>;
   activeRegionId?: string;
   onSelectRegion?: (id: string) => void;
   onAddWall?: () => void;
+  onDeleteWall?: (id: string) => void;
   masksRemaining?: number;
 }) {
   const list = regions ?? [];
@@ -670,23 +676,42 @@ function RegionStrip({
       <div className="hv-studio-region-strip-scroll">
         {list.map((r) => {
           const isActive = r.id === activeRegionId;
+          // Only hand-drawn walls can be removed — AI-detected ones have no ✕.
+          const canDelete = Boolean(r.custom && onDeleteWall);
           return (
-            <button
+            <div
               key={r.id}
-              type="button"
-              onClick={() => onSelectRegion?.(r.id)}
-              aria-pressed={isActive}
               className={`hv-studio-region-chip ${isActive ? "is-active" : ""}`}
             >
-              <span
-                aria-hidden
-                className="hv-studio-region-chip-dot"
-                style={{ background: r.applied ? r.hex : undefined }}
+              <button
+                type="button"
+                onClick={() => onSelectRegion?.(r.id)}
+                aria-pressed={isActive}
+                className="hv-studio-region-chip-select"
               >
-                {r.applied && "✓"}
-              </span>
-              <span className="hv-studio-region-chip-name">{r.label}</span>
-            </button>
+                <span
+                  aria-hidden
+                  className="hv-studio-region-chip-dot"
+                  style={{ background: r.applied ? r.hex : undefined }}
+                >
+                  {r.applied && "✓"}
+                </span>
+                <span className="hv-studio-region-chip-name">{r.label}</span>
+              </button>
+              {canDelete && (
+                <button
+                  type="button"
+                  className="hv-studio-region-chip-del"
+                  onClick={() => onDeleteWall?.(r.id)}
+                  aria-label={`Delete ${r.label}`}
+                  title={`Delete ${r.label} (you can re-draw it any time)`}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+                    <path d="M6 6l12 12M6 18L18 6" />
+                  </svg>
+                </button>
+              )}
+            </div>
           );
         })}
         <button
