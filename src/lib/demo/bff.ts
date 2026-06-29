@@ -187,9 +187,22 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
         appliedShadeCode: null,
         appliedHexCode: null,
         displayOrder: project ? project.regions.length : 0,
+        manual: true, // hand-drawn — deletable, survives reload
       };
       if (project) project.regions.push(region);
       return json(region);
+    }
+    // Delete a hand-drawn wall (only manual regions; AI walls are protected).
+    if (seg[3] === "regions" && seg.length === 5 && method === "DELETE") {
+      const regionId = Number(seg[4]);
+      if (project) {
+        const r = project.regions.find((x) => x.id === regionId);
+        if (!r) return json({ message: "Region not found." }, 404);
+        if (!r.manual) return json({ message: "Only hand-drawn walls can be deleted." }, 400);
+        project.regions = project.regions.filter((x) => x.id !== regionId);
+        project.updatedAt = nowIso();
+      }
+      return json(undefined); // 204 No Content
     }
     if (seg.length === 3 && method === "GET") {
       // Open existing project (never 404 — fall back so /atelier?project=x works).

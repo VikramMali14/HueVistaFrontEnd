@@ -107,7 +107,9 @@ function mapBackendRegion(region: RegionDetail): RegionState {
     hex: region.appliedHexCode || DEFAULT_HEX_FOR_KIND[kind],
     // Reopened projects render every saved colour at once, not just one wall.
     applied: hasColor,
-    custom: kind === "MANUAL",
+    // "Manual" survives reload via the backend's explicit flag; fall back to the
+    // category for older rows saved before the flag existed.
+    custom: region.manual === true || kind === "MANUAL",
     // Route relative backend mask URLs through the BFF so auth is attached and the canvas
     // stays untainted; S3 presigned URLs pass through unchanged.
     maskUrl: resolveMediaUrl(region.maskUrl),
@@ -135,6 +137,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const getProjectCall = guest ? guestApi.getProject : api.getProject;
   const updateRegionColorsCall = guest ? guestApi.updateRegionColors : api.updateRegionColors;
   const createCustomMaskCall = guest ? guestApi.createCustomMask : api.createCustomMask;
+  const deleteRegionCall = guest ? guestApi.deleteRegion : api.deleteRegion;
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const recolorRef = useRef<RecolorEngine | null>(null);
@@ -756,6 +759,36 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [projectId, createCustomMaskCall],
   );
 
+  // Delete a hand-drawn wall. Guard rails: only regions the user created by
+  // hand (custom) can be removed — AI-detected walls have no delete control and
+  // are rejected here too. Removes it from the composite immediately (optimistic),
+  // moves the active selection off it, frees a custom-mask slot, and deletes the
+  // backend row when the region was persisted.
+  const handleDeleteWall = useCallback(
+    (regionId: string) => {
+      const target = regions.find((r) => r.id === regionId);
+      if (!target || !target.custom) return;
+
+      setRegions((prev) => prev.filter((r) => r.id !== regionId));
+      setActiveRegion((cur) =>
+        cur === regionId ? (regions.find((r) => r.id !== regionId)?.id ?? cur) : cur,
+      );
+      setTriedByRegion((prev) => {
+        if (!(regionId in prev)) return prev;
+        const next = { ...prev };
+        delete next[regionId];
+        return next;
+      });
+
+      if (projectId && target.backendId != null) {
+        void deleteRegionCall(projectId, target.backendId).catch((err) => {
+          if (process.env.NODE_ENV !== "production") console.warn("Delete region failed:", err);
+        });
+      }
+    },
+    [regions, projectId, deleteRegionCall],
+  );
+
   // Generate a public, code-hidden share link for this project and copy it.
   const handleShare = useCallback(async () => {
     if (!projectId) return;
@@ -806,6 +839,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         hex: r.hex,
         applied: Boolean(r.applied),
         shadeCode: r.shade?.code,
+        custom: Boolean(r.custom),
       })),
     [regions],
   );
@@ -1124,6 +1158,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             hideCodes={guest}
             onSelectRegion={(id) => setActiveRegion(id)}
             onAddWall={() => setMaskStudioOpen(true)}
+            onDeleteWall={handleDeleteWall}
             masksRemaining={masksRemaining}
             triedShades={triedByRegion[activeRegion]}
             recentShades={recentShades}
