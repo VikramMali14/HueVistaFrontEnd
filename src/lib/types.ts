@@ -92,7 +92,14 @@ export interface PaintShade {
   finishes: ReadonlyArray<"Matt" | "Satin" | "Royale" | "Velvet">;
 }
 
-export type RegionKind = "MAIN_WALL" | "ACCENT_WALL" | "TRIM" | "MANUAL";
+export type RegionKind =
+  | "MAIN_WALL"
+  | "ACCENT_WALL"
+  | "TRIM"
+  | "CEILING"
+  | "DOOR"
+  | "WINDOW"
+  | "MANUAL";
 
 export interface Region {
   id: string;
@@ -104,7 +111,15 @@ export interface Region {
 
 export type ProjectStatus = "CREATED" | "SEGMENTING" | "SEGMENTED" | "FAILED";
 
-export type RegionCategory = "MAIN_WALL" | "ACCENT_WALL" | "OTHER_WALL" | "TRIM" | "MANUAL";
+export type RegionCategory =
+  | "MAIN_WALL"
+  | "ACCENT_WALL"
+  | "OTHER_WALL"
+  | "TRIM"
+  | "CEILING"
+  | "DOOR"
+  | "WINDOW"
+  | "MANUAL";
 
 export interface RegionDetail {
   id: number;
