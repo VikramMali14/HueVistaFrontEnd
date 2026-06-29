@@ -68,9 +68,9 @@ const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_CUSTOM_MASKS = 3;
 
 const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
-  { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#a47148" },
-  { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#5b6c5b" },
-  { id: "trim", kind: "TRIM", label: "Trim", hex: "#f3eee4" },
+  { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#baad9c" },
+  { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#a77e60" },
+  { id: "trim", kind: "TRIM", label: "Border", hex: "#432211" },
 ];
 
 const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
@@ -78,20 +78,33 @@ const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
   ACCENT_WALL: "ACCENT_WALL",
   OTHER_WALL: "ACCENT_WALL",
   TRIM: "TRIM",
+  CEILING: "CEILING",
+  DOOR: "DOOR",
+  WINDOW: "WINDOW",
   MANUAL: "MANUAL",
 };
 
+// Fallback swatches used only when the backend hasn't supplied an appliedHexCode
+// (e.g. the pre-upload placeholders and hand-drawn masks). Auto-detected regions
+// arrive already painted with the scene's reference colour from segmentation, so
+// these mirror the interior reference palette for consistency.
 const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
-  MAIN_WALL: "#a47148",
-  ACCENT_WALL: "#5b6c5b",
-  TRIM: "#f3eee4",
+  MAIN_WALL: "#baad9c",
+  ACCENT_WALL: "#a77e60",
+  TRIM: "#432211",
+  CEILING: "#ffffff",
+  DOOR: "#3b2110",
+  WINDOW: "#3b2110",
   MANUAL: "#b89968",
 };
 
 const KIND_LABEL: Record<RegionKind, string> = {
   MAIN_WALL: "Main wall",
   ACCENT_WALL: "Accent wall",
-  TRIM: "Trim",
+  TRIM: "Border",
+  CEILING: "Ceiling",
+  DOOR: "Doors",
+  WINDOW: "Windows",
   MANUAL: "Wall",
 };
 
