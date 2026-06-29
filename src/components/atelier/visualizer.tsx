@@ -78,9 +78,6 @@ const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
   ACCENT_WALL: "ACCENT_WALL",
   OTHER_WALL: "ACCENT_WALL",
   TRIM: "TRIM",
-  CEILING: "CEILING",
-  DOOR: "DOOR",
-  WINDOW: "WINDOW",
   MANUAL: "MANUAL",
 };
 
@@ -92,9 +89,6 @@ const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
   MAIN_WALL: "#baad9c",
   ACCENT_WALL: "#a77e60",
   TRIM: "#432211",
-  CEILING: "#ffffff",
-  DOOR: "#3b2110",
-  WINDOW: "#3b2110",
   MANUAL: "#b89968",
 };
 
@@ -102,9 +96,6 @@ const KIND_LABEL: Record<RegionKind, string> = {
   MAIN_WALL: "Main wall",
   ACCENT_WALL: "Accent wall",
   TRIM: "Border",
-  CEILING: "Ceiling",
-  DOOR: "Doors",
-  WINDOW: "Windows",
   MANUAL: "Wall",
 };
 
