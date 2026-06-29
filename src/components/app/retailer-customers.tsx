@@ -15,7 +15,11 @@ function formatAccessLeft(iso?: string | null): string {
   if (ms <= 0) return "expired";
   const days = Math.floor(ms / 86_400_000);
   const hours = Math.floor((ms % 86_400_000) / 3_600_000);
-  return days > 0 ? `${days} d ${hours} h` : `${hours} h`;
+  // Don't tack a redundant "0 h" onto whole-day spans (was "87 d 0 h"); and never
+  // show a bare "0 h" in the last hour — fall back to minutes.
+  if (days > 0) return hours > 0 ? `${days} d ${hours} h` : `${days} d`;
+  if (hours > 0) return `${hours} h`;
+  return `${Math.max(1, Math.floor((ms % 3_600_000) / 60_000))} m`;
 }
 
 /**

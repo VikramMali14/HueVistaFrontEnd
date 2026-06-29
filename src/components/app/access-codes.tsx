@@ -265,7 +265,7 @@ export function AccessCodes() {
                   )}
                 </span>
                 <span role="cell" className="mono" data-label="Validity">{c.validDays} days</span>
-                <span role="cell" className="mono" data-label="Expires">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : "—"}</span>
+                <span role="cell" className="mono" data-label="Expires">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</span>
                 <span role="cell" data-label="Status" style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
               </div>
             );
