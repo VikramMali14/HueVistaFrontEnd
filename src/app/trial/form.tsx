@@ -13,7 +13,7 @@ interface TrialFormProps {
 }
 
 const TIERS = [
-  { v: "starter", l: "Starter · ₹499", d: "Single counter, single device. 20 AI previews a month." },
+  { v: "starter", l: "Starter · ₹19", d: "Single counter, single device. 20 AI previews a month." },
   { v: "pro", l: "Professional · ₹999", d: "Recommended. 60 AI previews a month, 3 devices." },
   { v: "business", l: "Business · ₹1,999", d: "Multi-shop, white-label, 150 AI previews a month, painter portal." },
 ];

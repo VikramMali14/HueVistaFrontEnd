@@ -119,7 +119,7 @@ export default function PricingPage() {
                 <thead className="hv-matrix-head">
                   <tr>
                     <th style={{ ...headStyle, width: "34%" }}>Capability</th>
-                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹499 / mo</div></th>
+                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹19 / mo</div></th>
                     {/* Literal metallic on the always-dark band. Opaque composite
                         so the tint survives sticky overlap. */}
                     <th style={{ ...headStyle, color: "var(--accent-soft)", background: "linear-gradient(rgba(124,92,255,.08), rgba(124,92,255,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "var(--accent-soft)" }}>₹999 / mo</div></th>
