@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { PurchasablePlan } from "./types";
 
 declare global {
   interface Window {
@@ -31,6 +32,22 @@ function loadCheckout(): Promise<void> {
     s.onerror = () => reject(new Error("Could not load the payment library."));
     document.body.appendChild(s);
   });
+}
+
+/**
+ * Start a paid monthly subscription for {@param plan}. Asks the backend to create
+ * a Razorpay subscription, then sends the browser to the returned hosted checkout
+ * URL where the retailer pays; the Razorpay webhook activates the plan afterwards.
+ *
+ * Does not resolve on success — it navigates away. Throws (incl. HttpError 401 when
+ * the user isn't signed in) so the caller can route to sign-in or show an error.
+ */
+export async function subscribeToPlan(plan: PurchasablePlan): Promise<void> {
+  const sub = await api.createSubscription({ plan });
+  if (!sub.paymentUrl) {
+    throw new Error("Could not start checkout. Please try again.");
+  }
+  window.location.href = sub.paymentUrl;
 }
 
 interface CheckoutSuccess {

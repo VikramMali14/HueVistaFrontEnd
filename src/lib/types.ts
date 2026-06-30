@@ -284,7 +284,14 @@ export interface SubscriptionSummary {
   aiGenerationsUsed: number;
   aiGenerationsLimit: number;
   aiGenerationsRemaining: number;
+  // Present on a freshly CREATED subscription: the Razorpay hosted checkout URL the
+  // buyer is sent to in order to pay and activate the plan.
+  paymentUrl?: string | null;
+  razorpaySubscriptionId?: string | null;
 }
+
+/** Plans a retailer can purchase directly (Enterprise is custom-priced — contact sales). */
+export type PurchasablePlan = "STARTER" | "PROFESSIONAL" | "BUSINESS";
 
 /** Razorpay order details returned by the backend to open Checkout for a one-time project purchase. */
 export interface ProjectCreditOrder {
