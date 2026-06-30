@@ -302,6 +302,13 @@ export const api = {
   // --- Subscription (retailer AI plan / trial) ---
   getCurrentSubscription: () =>
     browserFetch<import("./types").SubscriptionSummary>("api/billing/subscriptions/current"),
+  // Start a paid subscription: backend creates a Razorpay subscription and returns
+  // a hosted checkout `paymentUrl`. Requires an authenticated retailer (401 if not).
+  createSubscription: (body: { plan: import("./types").PurchasablePlan; quantity?: number }) =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/subscriptions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   // --- Customer project entitlement (allowance + day-validity) ---
   getMyEntitlement: () => browserFetch<CustomerEntitlement | null>("api/me/entitlement"),
   // One-time purchase of an extra project (Razorpay): order -> Checkout -> verify.

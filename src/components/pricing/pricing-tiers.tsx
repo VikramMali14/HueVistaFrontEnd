@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { subscribeToPlan } from "@/lib/payments";
+import { HttpError } from "@/lib/http-error";
+import type { PurchasablePlan } from "@/lib/types";
 
 interface Tier {
   name: string;
@@ -14,12 +17,14 @@ interface Tier {
   featured: boolean;
   ribbon?: string;
   ctaLabel: string;
+  /** Set on the directly-purchasable tiers; undefined for Enterprise (contact sales). */
+  plan?: PurchasablePlan;
 }
 
 const TIERS: ReadonlyArray<Tier> = [
-  { name: "Starter", monthlyN: 499, annualN: 4990, lede: "For a single shop. The studio, the full colour library, and easy sharing with customers.", featured: false, features: ["20 AI previews / month", "Full Asian Paints colour library", "WhatsApp & link share", "1 device", "Email support"], ctaLabel: "Try it free" },
-  { name: "Professional", monthlyN: 999, annualN: 9990, lede: "For busy shops. Automatic wall detection, per-wall recolouring, and paint quantity estimates.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["60 AI previews / month", "Per-wall recolouring", "Manual wall selection", "Paint quantity estimator", "3 devices", "Priority support"], ctaLabel: "Try it free" },
-  { name: "Business", monthlyN: 1999, annualN: 19990, lede: "For multi-shop dealers. Your own branded subdomain, your palette, your name on it.", featured: false, inherits: "Everything in Professional, plus", note: "White-label activation ₹1,499 one-time.", features: ["150 AI previews / month", "White-label subdomain", "Custom palette & wordmark", "10 devices", "Painter portal (beta)", "Dedicated account manager"], ctaLabel: "Try it free" },
+  { name: "Starter", plan: "STARTER", monthlyN: 499, annualN: 4990, lede: "For a single shop. The studio, the full colour library, and easy sharing with customers.", featured: false, features: ["20 AI previews / month", "Full Asian Paints colour library", "WhatsApp & link share", "1 device", "Email support"], ctaLabel: "Try it free" },
+  { name: "Professional", plan: "PROFESSIONAL", monthlyN: 999, annualN: 9990, lede: "For busy shops. Automatic wall detection, per-wall recolouring, and paint quantity estimates.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["60 AI previews / month", "Per-wall recolouring", "Manual wall selection", "Paint quantity estimator", "3 devices", "Priority support"], ctaLabel: "Try it free" },
+  { name: "Business", plan: "BUSINESS", monthlyN: 1999, annualN: 19990, lede: "For multi-shop dealers. Your own branded subdomain, your palette, your name on it.", featured: false, inherits: "Everything in Professional, plus", note: "White-label activation ₹1,499 one-time.", features: ["150 AI previews / month", "White-label subdomain", "Custom palette & wordmark", "10 devices", "Painter portal (beta)", "Dedicated account manager"], ctaLabel: "Try it free" },
   { name: "Enterprise", monthlyN: null, annualN: null, lede: "For manufacturers and large chains. SLA, API access, dedicated catalogue ingestion.", featured: false, inherits: "Everything in Business, plus", note: "Distributor commissions on request.", features: ["Unlimited AI previews", "API & SDK access", "Dedicated catalogue ingest", "SLA · 99.9%", "Unlimited devices", "Named technical lead"], ctaLabel: "Talk to us" },
 ];
 
@@ -28,6 +33,26 @@ const MAX_SAVED = Math.max(...TIERS.filter((t) => t.monthlyN !== null && t.annua
 
 export function PricingTiers() {
   const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
+  const [busyPlan, setBusyPlan] = useState<PurchasablePlan | null>(null);
+  const [payError, setPayError] = useState<{ plan: PurchasablePlan; message: string } | null>(null);
+
+  // "Buy now": create a Razorpay subscription and hand off to its hosted checkout.
+  // Not signed in (401) → route to sign-in and come back to pricing to continue.
+  async function handleBuy(plan: PurchasablePlan) {
+    setPayError(null);
+    setBusyPlan(plan);
+    try {
+      await subscribeToPlan(plan); // navigates away to Razorpay on success
+    } catch (e) {
+      if (e instanceof HttpError && e.status === 401) {
+        window.location.href = `/sign-in?next=${encodeURIComponent("/pricing")}`;
+        return;
+      }
+      setPayError({ plan, message: e instanceof Error ? e.message : "Could not start checkout." });
+      setBusyPlan(null);
+    }
+  }
+
   return (
     <>
       <div className="reveal d2" style={{ marginTop: 32, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
@@ -112,15 +137,41 @@ export function PricingTiers() {
                 )}
               </div>
               <div style={{ marginTop: "auto" }}>
-                <Link
-                  href="/trial"
-                  className={t.featured ? "btn" : "btn btn-ghost"}
-                  style={t.featured ? { background: "#fff", color: "var(--accent-deep)", borderColor: "#fff" } : undefined}
-                >
-                  {t.ctaLabel} <span className="arr">→</span>
-                </Link>
+                {t.plan ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => void handleBuy(t.plan!)}
+                      disabled={busyPlan === t.plan}
+                      className="btn"
+                      style={t.featured ? { background: "#fff", color: "var(--accent-deep)", borderColor: "#fff" } : undefined}
+                    >
+                      {busyPlan === t.plan ? "Starting checkout…" : (<>Buy now <span className="arr">→</span></>)}
+                    </button>
+                    <Link
+                      href="/trial"
+                      className="btn btn-ghost"
+                      style={t.featured ? { borderColor: "rgba(255,255,255,.55)", color: "#fff" } : undefined}
+                    >
+                      Try for 14 days
+                    </Link>
+                  </div>
+                ) : (
+                  <Link
+                    href="/trial"
+                    className={t.featured ? "btn" : "btn btn-ghost"}
+                    style={t.featured ? { background: "#fff", color: "var(--accent-deep)", borderColor: "#fff" } : undefined}
+                  >
+                    {t.ctaLabel} <span className="arr">→</span>
+                  </Link>
+                )}
+                {payError && payError.plan === t.plan && (
+                  <div className="field-error" role="alert" style={{ marginTop: 10 }}>
+                    {payError.message}
+                  </div>
+                )}
                 <div style={{ marginTop: 12, font: "400 10px/1.5 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--mute-deep)" }}>
-                  {t.monthlyN === null ? "We reply within an afternoon" : "14 days free · no card"}
+                  {t.monthlyN === null ? "We reply within an afternoon" : "Billed monthly · cancel anytime · 14-day free trial"}
                 </div>
               </div>
             </div>
