@@ -227,6 +227,16 @@ async function chooseFile(container: HTMLElement, file: File) {
   await act(async () => {
     fireEvent.change(fileInput(container), { target: { files: [file] } });
   });
+  // A valid photo now shows a local preview with a confirm prompt; the backend
+  // isn't touched until the user continues. Click it so the upload→segment
+  // cascade runs. Invalid files never reach the preview (no button), so the
+  // validation tests still correctly assert "never uploaded".
+  const confirm = screen.queryByRole("button", { name: /Continue with this image/i });
+  if (confirm) {
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+  }
 }
 
 beforeEach(() => {
@@ -298,6 +308,52 @@ describe("Visualizer — upload validation", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Photo is larger than 10 MB. Use a smaller copy.",
     );
+    expect(api.uploadImage).not.toHaveBeenCalled();
+  });
+});
+
+describe("Visualizer — confirm before processing", () => {
+  it("previews a chosen photo and touches no backend until the user continues", async () => {
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+
+    // Preview + confirm prompt are shown; nothing has been sent yet.
+    const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
+    expect(screen.getByRole("button", { name: /Choose a different photo/i })).toBeInTheDocument();
+    expect(api.uploadImage).not.toHaveBeenCalled();
+    expect(api.createProject).not.toHaveBeenCalled();
+    expect(api.requestSegmentation).not.toHaveBeenCalled();
+
+    // Confirming is the first point any billable call happens.
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+    expect(api.uploadImage).toHaveBeenCalledTimes(1);
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1");
+  });
+
+  it("discards the preview on 'choose different' without any backend call", async () => {
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: /Choose a different photo/i }));
+    });
+
+    // Back to the drop zone; nothing was ever uploaded.
+    expect(screen.getByText("Add a photo of the room")).toBeInTheDocument();
     expect(api.uploadImage).not.toHaveBeenCalled();
   });
 });

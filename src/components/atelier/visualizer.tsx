@@ -185,6 +185,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [needSubscription, setNeedSubscription] = useState(false);
   const [buying, setBuying] = useState(false);
   const [pendingImageId, setPendingImageId] = useState<string | null>(null);
+  // A photo the user has picked/received but NOT yet confirmed. While set, we show
+  // a local preview with a Continue/Choose-different prompt; no upload, no
+  // classification and no (billable) segmentation runs until the user confirms.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -497,7 +501,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall],
   );
 
-  const onFileChosen = useCallback(
+  // Pick / receive a photo (file picker, drag-drop, or phone hand-off) and show it
+  // as a LOCAL preview only. Nothing is sent to the backend here — no upload, no
+  // classification, no segmentation — so choosing the wrong photo never costs an
+  // AI call. The user confirms via confirmSelection() before any of that runs.
+  const selectFile = useCallback(
     async (file: File) => {
       setError(null);
       const validation = validateFile(file);
@@ -505,53 +513,86 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         setError(validation);
         return;
       }
-      setUploading(true);
-      setMasksReady(false);
-      setProjectId(null);
-      setSaveStatus("idle");
-      maskCacheRef.current.clear();
-      baseLumaRef.current.clear();
       try {
         const localUrl = URL.createObjectURL(file);
         const img = await loadImage(localUrl);
         srcImgRef.current = img;
         recolorRef.current?.setImage(img);
         recolorRef.current?.renderBase();
-        setImageUrl(localUrl);
+        setImageUrl((prev) => {
+          if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+          return localUrl;
+        });
         setImageDims({ w: img.naturalWidth, h: img.naturalHeight });
-        setStage("clean");
-        setDone((d) => ({ ...d, upload: true }));
-        try {
-          const uploaded = await uploadImageCall(file);
-          if (!uploaded?.imageId) {
-            throw new Error("Upload failed. Please try again.");
-          }
-          setClassification(uploaded.imageType);
-          setPendingImageId(uploaded.imageId);
-          setStage("mask");
-          setDone((d) => ({ ...d, upload: true, clean: cleanOn }));
-
-          await createAndSegment(uploaded.imageId);
-        } catch (err) {
-          if (err instanceof HttpError && err.status === 401) {
-            setError("Your session expired. Please sign in again.");
-            setTimeout(() => {
-              window.location.href = "/sign-in?next=/atelier";
-            }, 1200);
-          } else if (err instanceof Error) {
-            setError(err.message);
-          } else {
-            setError("Something went wrong.");
-          }
-        }
+        setPendingFile(file);
+        // Still on the upload step — nothing created on the backend yet.
+        setStage("upload");
+        setDone((d) => ({ ...d, upload: false, clean: false, mask: false }));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not open the image.");
-      } finally {
-        setUploading(false);
       }
     },
-    [cleanOn, createAndSegment, validateFile, uploadImageCall],
+    [validateFile],
   );
+
+  // User confirmed the previewed photo. THIS is the first point any billable
+  // backend / AI call happens: upload + classify, then create the project and
+  // request segmentation.
+  const confirmSelection = useCallback(async () => {
+    const file = pendingFile;
+    if (!file) return;
+    setUploading(true);
+    setMasksReady(false);
+    setProjectId(null);
+    setSaveStatus("idle");
+    maskCacheRef.current.clear();
+    baseLumaRef.current.clear();
+    try {
+      setStage("clean");
+      setDone((d) => ({ ...d, upload: true }));
+      try {
+        const uploaded = await uploadImageCall(file);
+        if (!uploaded?.imageId) {
+          throw new Error("Upload failed. Please try again.");
+        }
+        setClassification(uploaded.imageType);
+        setPendingImageId(uploaded.imageId);
+        setStage("mask");
+        setDone((d) => ({ ...d, upload: true, clean: cleanOn }));
+
+        await createAndSegment(uploaded.imageId);
+      } catch (err) {
+        if (err instanceof HttpError && err.status === 401) {
+          setError("Your session expired. Please sign in again.");
+          setTimeout(() => {
+            window.location.href = "/sign-in?next=/atelier";
+          }, 1200);
+        } else if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Something went wrong.");
+        }
+      }
+    } finally {
+      setUploading(false);
+      setPendingFile(null);
+    }
+  }, [pendingFile, cleanOn, createAndSegment, uploadImageCall]);
+
+  // Discard the previewed photo without sending anything to the backend, and
+  // return to the upload drop-zone so the user can pick or re-scan another.
+  const chooseDifferent = useCallback(() => {
+    setPendingFile(null);
+    setError(null);
+    srcImgRef.current = null;
+    setImageDims(null);
+    setStage("upload");
+    setDone((d) => ({ ...d, upload: false, clean: false, mask: false }));
+    setImageUrl((prev) => {
+      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, []);
 
   // "Try again" after a wall-detection timeout/failure: re-runs segmentation on
   // the ALREADY-created project, so the customer never re-uploads the photo.
@@ -972,7 +1013,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 uploading={uploading}
                 error={error}
                 onChoose={() => fileRef.current?.click()}
-                onDrop={(file) => void onFileChosen(file)}
+                onDrop={(file) => void selectFile(file)}
               />
             )}
             <input
@@ -982,11 +1023,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               style={{ display: "none" }}
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) void onFileChosen(f);
+                if (f) void selectFile(f);
                 e.target.value = "";
               }}
             />
-            {imageUrl && (
+            {imageUrl && !pendingFile && (
               <>
                 {/* HOLD-TO-PEEK — press and hold to see the original photo */}
                 <button
@@ -1012,6 +1053,41 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   {compare ? "Original" : "Hold to compare"}
                 </button>
               </>
+            )}
+            {pendingFile && !uploading && !segmenting && (
+              <div
+                role="group"
+                aria-label="Confirm your photo"
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  bottom: 20,
+                  transform: "translateX(-50%)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "14px 18px",
+                  background: "var(--bg)",
+                  border: "1px solid var(--rule-strong)",
+                  borderRadius: 12,
+                  maxWidth: "min(92%, 440px)",
+                  textAlign: "center",
+                  zIndex: 5,
+                }}
+              >
+                <p style={{ margin: 0, font: "400 15px/1.4 var(--serif)", color: "var(--fg)" }}>
+                  Use this photo? Nothing is sent for processing until you continue.
+                </p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                  <button type="button" className="btn btn-ghost" onClick={chooseDifferent}>
+                    Choose a different photo
+                  </button>
+                  <button type="button" className="btn btn-brass" onClick={() => void confirmSelection()}>
+                    Continue with this image →
+                  </button>
+                </div>
+              </div>
             )}
             {showCanvasError && (
               <div
