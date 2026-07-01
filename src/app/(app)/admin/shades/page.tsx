@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireRole, getUploadBrands } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { ShadeUploadForm } from "@/components/admin/shade-upload-form";
+import { DeleteAllShades } from "@/components/admin/delete-all-shades";
 
 export const metadata: Metadata = {
   title: "Admin · Upload shades",
@@ -30,6 +31,7 @@ export default async function AdminShadesPage() {
         to the catalogue; ones already present are skipped.
       </Lead>
       <ShadeUploadForm initialBrands={brands} />
+      <DeleteAllShades />
     </div>
   );
 }

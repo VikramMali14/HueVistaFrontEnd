@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
-import type { ShadeUploadResult, UploadBrand } from "./api";
+import type { DeleteAllShadesResult, ShadeUploadResult, UploadBrand } from "./api";
 import { config } from "./config";
 import type { AuthResponse, AuthUser } from "./types";
 
@@ -342,6 +342,26 @@ export async function uploadShadesAction(payload: {
       return { error: err.message };
     }
     return { error: "Upload failed. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: wipe the entire shade catalog (all brands). The backend clears the
+ * applied-colour references projects' regions hold and evicts the shade caches;
+ * brands themselves are left intact. Destructive and irreversible.
+ */
+export async function deleteAllShadesAction(): Promise<{ result?: DeleteAllShadesResult; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { result: await adminApi.deleteAllShades(token) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Delete failed. Please try again." };
   }
 }
 
