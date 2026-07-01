@@ -34,20 +34,65 @@ function loadCheckout(): Promise<void> {
   });
 }
 
+interface SubscriptionCheckoutSuccess {
+  razorpay_payment_id: string;
+  razorpay_subscription_id: string;
+  razorpay_signature: string;
+}
+
 /**
- * Start a paid monthly subscription for {@param plan}. Asks the backend to create
- * a Razorpay subscription, then sends the browser to the returned hosted checkout
- * URL where the retailer pays; the Razorpay webhook activates the plan afterwards.
+ * Start a paid monthly subscription for {@param plan}. Asks the backend to create a
+ * Razorpay subscription, opens the in-app Razorpay Checkout for it, then verifies the
+ * payment on the server so the plan is ACTIVE the moment this resolves — no waiting on
+ * the webhook, and the buyer never leaves the app.
  *
- * Does not resolve on success — it navigates away. Throws (incl. HttpError 401 when
- * the user isn't signed in) so the caller can route to sign-in or show an error.
+ * Resolves `true` once the subscription is verified/active, `false` if the buyer closes
+ * the Checkout without paying. Throws on a real error (incl. HttpError 401 when the user
+ * isn't signed in) so the caller can route to sign-in or show a message.
+ *
+ * Falls back to the hosted `paymentUrl` (full-page redirect) only if the in-app Checkout
+ * can't be used — e.g. the backend didn't return a key/subscription id.
  */
-export async function subscribeToPlan(plan: PurchasablePlan): Promise<void> {
+export async function subscribeToPlan(plan: PurchasablePlan): Promise<boolean> {
   const sub = await api.createSubscription({ plan });
-  if (!sub.paymentUrl) {
+
+  if (!sub.razorpayKeyId || !sub.razorpaySubscriptionId) {
+    if (sub.paymentUrl) {
+      window.location.href = sub.paymentUrl;
+      return await new Promise<boolean>(() => {}); // navigating away; never resolves
+    }
     throw new Error("Could not start checkout. Please try again.");
   }
-  window.location.href = sub.paymentUrl;
+
+  await loadCheckout();
+  if (!window.Razorpay) throw new Error("Payment library unavailable.");
+
+  const keyId = sub.razorpayKeyId;
+  const subscriptionId = sub.razorpaySubscriptionId;
+
+  return new Promise<boolean>((resolve, reject) => {
+    const rzp = new window.Razorpay!({
+      key: keyId,
+      subscription_id: subscriptionId,
+      name: "HueVista",
+      description: `${sub.planDisplayName} plan`,
+      theme: { color: "#7c5cff" },
+      handler: async (resp: SubscriptionCheckoutSuccess) => {
+        try {
+          await api.verifySubscription({
+            subscriptionId: resp.razorpay_subscription_id,
+            paymentId: resp.razorpay_payment_id,
+            signature: resp.razorpay_signature,
+          });
+          resolve(true);
+        } catch (e) {
+          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+        }
+      },
+      modal: { ondismiss: () => resolve(false) },
+    });
+    rzp.open();
+  });
 }
 
 interface CheckoutSuccess {

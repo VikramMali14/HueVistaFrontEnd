@@ -12,11 +12,11 @@ export const metadata: Metadata = {
 };
 
 interface DashboardPageProps {
-  searchParams: Promise<{ denied?: string }>;
+  searchParams: Promise<{ denied?: string; subscribed?: string }>;
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const [{ denied }, user] = await Promise.all([searchParams, getCurrentUser()]);
+  const [{ denied, subscribed }, user] = await Promise.all([searchParams, getCurrentUser()]);
   // The audience is India-only, so IST is the right clock for the greeting.
   const h = Number(new Intl.DateTimeFormat("en-IN", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Kolkata" }).format(new Date()));
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
@@ -36,6 +36,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           }}
         >
           That page is reserved for retailers and administrators. We brought you back to your dashboard.
+        </div>
+      )}
+      {subscribed === "1" && (
+        <div
+          role="status"
+          style={{
+            marginBottom: 24,
+            padding: "12px 16px",
+            border: "1px solid var(--accent)",
+            background: "var(--surface-soft)",
+            color: "var(--fg)",
+            font: "300 16px/1.4 var(--serif)",
+            borderRadius: "var(--radius)",
+          }}
+        >
+          You&rsquo;re all set — your subscription is active. Welcome aboard.
         </div>
       )}
       <header style={{ marginBottom: 32 }}>

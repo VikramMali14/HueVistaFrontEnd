@@ -309,6 +309,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // Verify the Razorpay Checkout success payload and activate the plan synchronously
+  // (so the retailer is ACTIVE on return without waiting for the webhook).
+  verifySubscription: (body: { subscriptionId: string; paymentId: string; signature: string }) =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/subscriptions/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   // --- Customer project entitlement (allowance + day-validity) ---
   getMyEntitlement: () => browserFetch<CustomerEntitlement | null>("api/me/entitlement"),
   // One-time purchase of an extra project (Razorpay): order -> Checkout -> verify.

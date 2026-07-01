@@ -288,6 +288,9 @@ export interface SubscriptionSummary {
   // buyer is sent to in order to pay and activate the plan.
   paymentUrl?: string | null;
   razorpaySubscriptionId?: string | null;
+  // Present on a freshly CREATED subscription: the Razorpay key used to open the
+  // in-app Checkout for `razorpaySubscriptionId`.
+  razorpayKeyId?: string | null;
 }
 
 /** Plans a retailer can purchase directly (Enterprise is custom-priced — contact sales). */

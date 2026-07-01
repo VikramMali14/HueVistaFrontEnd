@@ -36,13 +36,19 @@ export function PricingTiers() {
   const [busyPlan, setBusyPlan] = useState<PurchasablePlan | null>(null);
   const [payError, setPayError] = useState<{ plan: PurchasablePlan; message: string } | null>(null);
 
-  // "Buy now": create a Razorpay subscription and hand off to its hosted checkout.
-  // Not signed in (401) → route to sign-in and come back to pricing to continue.
+  // "Buy now": create a Razorpay subscription, pay in the in-app Checkout, then land
+  // on the dashboard with the plan already active. Not signed in (401) → route to
+  // sign-in and come back to pricing to continue. Closing Checkout re-enables the button.
   async function handleBuy(plan: PurchasablePlan) {
     setPayError(null);
     setBusyPlan(plan);
     try {
-      await subscribeToPlan(plan); // navigates away to Razorpay on success
+      const paid = await subscribeToPlan(plan);
+      if (paid) {
+        window.location.href = "/dashboard?subscribed=1";
+        return; // keep the button busy through navigation
+      }
+      setBusyPlan(null); // buyer dismissed the checkout
     } catch (e) {
       if (e instanceof HttpError && e.status === 401) {
         window.location.href = `/sign-in?next=${encodeURIComponent("/pricing")}`;
