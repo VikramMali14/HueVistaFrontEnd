@@ -1,0 +1,32 @@
+[
+  {
+    "code": "9436",
+    "name": "Air Breeze",
+    "hex": "#F3EDE8",
+    "family": "Off Whites",
+    "colorTemperature": "cool",
+    "tonality": "light",
+    "featureTag": "Recommended",
+    "popularity": 1,
+    "suitableRooms": ["living room", "bedroom"],
+    "pageUrl": "https://example.com/shades/air-breeze"
+  },
+  {
+    "code": "7112",
+    "name": "Terracotta Warmth",
+    "hex": "#C46A4B",
+    "family": "Earths",
+    "colorTemperature": "warm",
+    "tonality": "medium",
+    "popularity": 2,
+    "suitableRooms": ["exterior"]
+  },
+  {
+    "code": "3050",
+    "name": "Deep Ocean",
+    "hex": "#274C66",
+    "family": "Blues",
+    "colorTemperature": "cool",
+    "tonality": "dark"
+  }
+]

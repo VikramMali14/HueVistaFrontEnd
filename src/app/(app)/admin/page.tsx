@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { CreateRetailerForm } from "@/components/admin/create-retailer-form";
@@ -24,6 +25,11 @@ export default async function AdminPage() {
         Provision a retailer with their shop, an organization and a free trial subscription. They sign in with
         the email and initial password you set, then can change it from their account.
       </Lead>
+      <p style={{ marginTop: 16 }}>
+        <Link href="/admin/shades" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          Upload company shades →
+        </Link>
+      </p>
       <CreateRetailerForm />
     </div>
   );
