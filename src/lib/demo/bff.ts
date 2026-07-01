@@ -18,6 +18,7 @@ import type {
   RegionDetail,
   ShareLink,
   ShopProduct,
+  SubscriptionSummary,
   SupportConversation,
   SupportMessage,
   UploadedImage,
@@ -213,6 +214,36 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   // ---------- Billing ----------
   if (path === "api/billing/subscriptions/current" && method === "GET") {
     if (user.role === "CUSTOMER") return json({ message: "No subscription." }, 404);
+    return json(store.subscription);
+  }
+  if (path === "api/billing/subscriptions" && method === "POST") {
+    const body = await readJson(req);
+    const plan = (String(body.plan ?? "PROFESSIONAL") as SubscriptionSummary["plan"]);
+    const limits: Record<string, number> = { STARTER: 20, PROFESSIONAL: 60, BUSINESS: 150, ENTERPRISE: 2147483647 };
+    const names: Record<string, string> = { STARTER: "Starter", PROFESSIONAL: "Professional", BUSINESS: "Business", ENTERPRISE: "Enterprise" };
+    // A freshly-created (unpaid) subscription: hand back the ids the in-app Checkout needs.
+    return json({
+      id: nextId("sub"),
+      plan,
+      planDisplayName: names[plan] ?? plan,
+      status: "CREATED",
+      trial: false,
+      currentPeriodEnd: null,
+      aiGenerationsUsed: 0,
+      aiGenerationsLimit: limits[plan] ?? 60,
+      aiGenerationsRemaining: limits[plan] ?? 60,
+      razorpaySubscriptionId: nextId("rzpsub"),
+      razorpayKeyId: "rzp_test_demo",
+    } satisfies SubscriptionSummary);
+  }
+  if (path === "api/billing/subscriptions/verify" && method === "POST") {
+    // Simulate a verified payment: promote the retailer's subscription to a paid ACTIVE plan.
+    store.subscription = {
+      ...store.subscription,
+      status: "ACTIVE",
+      trial: false,
+      currentPeriodEnd: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+    };
     return json(store.subscription);
   }
   if (path === "api/me/entitlement" && method === "GET") {
