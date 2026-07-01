@@ -3,6 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
+import type { ShadeUploadResult, UploadBrand } from "./api";
 import { config } from "./config";
 import type { AuthResponse, AuthUser } from "./types";
 
@@ -308,6 +309,39 @@ export async function logoutAction() {
   }
   await clearSession();
   redirect("/");
+}
+
+/** ADMIN: companies for the shade-upload dropdown. Empty list on any failure so the
+ *  page still renders (an admin can always add a new company). */
+export async function getUploadBrands(): Promise<UploadBrand[]> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return [];
+  try {
+    return await adminApi.listUploadBrands(token);
+  } catch {
+    return [];
+  }
+}
+
+/** ADMIN: bulk-import a JSON array of shades for an existing or newly named company. */
+export async function uploadShadesAction(payload: {
+  brandSlug?: string;
+  brandName?: string;
+  shades: unknown[];
+}): Promise<{ result?: ShadeUploadResult; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { result: await adminApi.uploadShades(token, payload) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Upload failed. Please try again." };
+  }
 }
 
 /**

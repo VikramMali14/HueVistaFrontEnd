@@ -1,23 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Eyebrow, Lead } from "@/components/ui/eyebrow";
+import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-
-interface Brand {
-  id: number;
-  name: string;
-  slug: string;
-}
-
-interface UploadResult {
-  brand: string;
-  slug: string;
-  total: number;
-  inserted: number;
-  skipped: number;
-}
+import { uploadShadesAction } from "@/lib/auth";
+import type { ShadeUploadResult, UploadBrand } from "@/lib/api";
 
 /** Loosely-typed shade row, straight from the uploaded JSON. */
 type RawShade = Record<string, unknown>;
@@ -35,11 +22,10 @@ function previewHex(v: unknown): string {
   return h.startsWith("#") ? h : `#${h}`;
 }
 
-export function ShadeUploadForm() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [brandsError, setBrandsError] = useState<string | null>(null);
+export function ShadeUploadForm({ initialBrands }: { initialBrands: UploadBrand[] }) {
+  const [brands, setBrands] = useState<UploadBrand[]>(initialBrands);
 
-  const [company, setCompany] = useState("");   // "" | slug | ADD_NEW
+  const [company, setCompany] = useState(""); // "" | slug | ADD_NEW
   const [newName, setNewName] = useState("");
 
   const [shades, setShades] = useState<RawShade[] | null>(null);
@@ -47,28 +33,11 @@ export function ShadeUploadForm() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<UploadResult | null>(null);
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<ShadeUploadResult | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/shade-upload/brands", { headers: { Accept: "application/json" } });
-        if (!res.ok) throw new Error();
-        const data = (await res.json()) as Brand[];
-        if (!cancelled) setBrands(data);
-      } catch {
-        if (!cancelled) setBrandsError("Could not load companies — you can still add a new one.");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   function ingestFile(file: File) {
     setParseError(null);
@@ -117,61 +86,37 @@ export function ShadeUploadForm() {
   }
 
   const companyChosen = company === ADD_NEW ? newName.trim().length > 0 : company.length > 0;
-  const canSubmit = companyChosen && !!shades && shades.length > 0 && !submitting;
+  const canSubmit = companyChosen && !!shades && shades.length > 0 && !pending;
 
-  async function submit() {
+  function submit() {
     if (!shades) return;
-    setSubmitting(true);
-    setSubmitError(null);
-    setResult(null);
     const payload =
-      company === ADD_NEW
-        ? { brandName: newName.trim(), shades }
-        : { brandSlug: company, shades };
-    try {
-      const res = await fetch("/api/shade-upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setSubmitError((data && (data.message as string)) || "Upload failed. Please try again.");
+      company === ADD_NEW ? { brandName: newName.trim(), shades } : { brandSlug: company, shades };
+    startTransition(async () => {
+      setSubmitError(null);
+      setResult(null);
+      const res = await uploadShadesAction(payload);
+      if (res.error || !res.result) {
+        setSubmitError(res.error ?? "Upload failed. Please try again.");
         return;
       }
-      setResult(data as UploadResult);
-      // Refresh the company list so a newly-created company shows up in the dropdown.
-      if (company === ADD_NEW && data?.slug) {
+      const r = res.result;
+      setResult(r);
+      // Surface a newly-created company in the dropdown and select it.
+      if (company === ADD_NEW) {
         setBrands((prev) =>
-          prev.some((b) => b.slug === data.slug)
+          prev.some((b) => b.slug === r.slug)
             ? prev
-            : [...prev, { id: -1, name: data.brand as string, slug: data.slug as string }].sort((a, b) =>
-                a.name.localeCompare(b.name),
-              ),
+            : [...prev, { id: -1, name: r.brand, slug: r.slug }].sort((a, b) => a.name.localeCompare(b.name)),
         );
-        setCompany(data.slug as string);
+        setCompany(r.slug);
         setNewName("");
       }
-    } catch {
-      setSubmitError("Network error — could not reach the server.");
-    } finally {
-      setSubmitting(false);
-    }
+    });
   }
 
   return (
-    <div>
-      <header style={{ marginBottom: 36 }}>
-        <Eyebrow>Catalogue · bulk import</Eyebrow>
-        <h1 className="display" style={{ fontSize: "clamp(38px, 5vw, 64px)", marginTop: 12 }}>
-          Upload a company&apos;s <i>shades</i>
-        </h1>
-        <Lead style={{ marginTop: 18, maxWidth: "56ch" }}>
-          Pick a paint company (or add a new one), then drop in a JSON array of its shades. New shades are
-          added to the catalogue; ones already present are skipped.
-        </Lead>
-      </header>
-
+    <div style={{ marginTop: 40 }}>
       {/* Step 1 — company */}
       <section style={{ marginBottom: 32 }}>
         <label htmlFor="company" style={labelStyle}>
@@ -203,9 +148,6 @@ export function ShadeUploadForm() {
             aria-label="New company name"
             style={{ ...inputStyle, marginTop: 10 }}
           />
-        )}
-        {brandsError && (
-          <p style={{ ...hintStyle, color: "var(--fg-mute)", marginTop: 8 }}>{brandsError}</p>
         )}
       </section>
 
@@ -300,10 +242,10 @@ export function ShadeUploadForm() {
 
       {/* Submit */}
       <div style={{ marginTop: 32, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-        <Button onClick={() => void submit()} disabled={!canSubmit}>
-          {submitting ? (
+        <Button onClick={() => submit()} disabled={!canSubmit} variant="brass">
+          {pending ? (
             <>
-              <Spinner size={14} color="currentColor" /> Uploading…
+              <Spinner size={14} color="currentColor" decorative /> Uploading…
             </>
           ) : (
             <>

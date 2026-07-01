@@ -206,7 +206,36 @@ export const adminApi = {
       accessToken,
       body: JSON.stringify(body),
     }),
+  // Companies for the shade-upload dropdown.
+  listUploadBrands: (accessToken: string) =>
+    serverFetch<UploadBrand[]>("/api/admin/paint/brands", { accessToken }),
+  // Bulk-import a JSON array of shades for an existing or new company.
+  uploadShades: (
+    accessToken: string,
+    body: { brandSlug?: string; brandName?: string; shades: unknown[] },
+  ) =>
+    serverFetch<ShadeUploadResult>("/api/admin/paint/upload", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify(body),
+    }),
 };
+
+/** A company as shown in the shade-upload dropdown. */
+export interface UploadBrand {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+/** Result of a bulk shade upload. */
+export interface ShadeUploadResult {
+  brand: string;
+  slug: string;
+  total: number;
+  inserted: number;
+  skipped: number;
+}
 
 /**
  * Server-side guest helpers. `redeemGuest` is anonymous (no token); `claimGuest`
