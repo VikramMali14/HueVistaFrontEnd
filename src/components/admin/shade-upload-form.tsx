@@ -32,6 +32,7 @@ export function ShadeUploadForm({ initialBrands }: { initialBrands: UploadBrand[
   const [fileName, setFileName] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [enrich, setEnrich] = useState(true);
 
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<ShadeUploadResult | null>(null);
@@ -91,7 +92,9 @@ export function ShadeUploadForm({ initialBrands }: { initialBrands: UploadBrand[
   function submit() {
     if (!shades) return;
     const payload =
-      company === ADD_NEW ? { brandName: newName.trim(), shades } : { brandSlug: company, shades };
+      company === ADD_NEW
+        ? { brandName: newName.trim(), shades, enrich }
+        : { brandSlug: company, shades, enrich };
     startTransition(async () => {
       setSubmitError(null);
       setResult(null);
@@ -240,8 +243,28 @@ export function ShadeUploadForm({ initialBrands }: { initialBrands: UploadBrand[
         </section>
       )}
 
+      {/* AI enrichment toggle */}
+      <label style={{ marginTop: 28, display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", maxWidth: "60ch" }}>
+        <input
+          type="checkbox"
+          checked={enrich}
+          onChange={(e) => setEnrich(e.target.checked)}
+          style={{ marginTop: 3, width: 16, height: 16, accentColor: "var(--accent)" }}
+        />
+        <span>
+          <span style={{ font: "500 14px/1.4 var(--serif)", color: "var(--fg)" }}>
+            Enrich each shade with AI
+          </span>
+          <span style={{ ...hintStyle, display: "block", marginTop: 2 }}>
+            Sends every new shade to Claude for style tags, mood, finish recommendations and a description —
+            just like the seeded catalogue. Uncheck for a fast, no-cost import; large files take longer with
+            this on.
+          </span>
+        </span>
+      </label>
+
       {/* Submit */}
-      <div style={{ marginTop: 32, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ marginTop: 24, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
         <Button onClick={() => submit()} disabled={!canSubmit} variant="brass">
           {pending ? (
             <>

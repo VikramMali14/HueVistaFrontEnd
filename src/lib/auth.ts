@@ -329,6 +329,7 @@ export async function uploadShadesAction(payload: {
   brandSlug?: string;
   brandName?: string;
   shades: unknown[];
+  enrich?: boolean;
 }): Promise<{ result?: ShadeUploadResult; error?: string }> {
   "use server";
   const token = await getAccessToken();

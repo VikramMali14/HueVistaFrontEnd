@@ -212,7 +212,7 @@ export const adminApi = {
   // Bulk-import a JSON array of shades for an existing or new company.
   uploadShades: (
     accessToken: string,
-    body: { brandSlug?: string; brandName?: string; shades: unknown[] },
+    body: { brandSlug?: string; brandName?: string; shades: unknown[]; enrich?: boolean },
   ) =>
     serverFetch<ShadeUploadResult>("/api/admin/paint/upload", {
       method: "POST",
