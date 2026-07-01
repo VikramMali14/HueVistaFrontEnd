@@ -219,6 +219,13 @@ export const adminApi = {
       accessToken,
       body: JSON.stringify(body),
     }),
+  // Wipe the entire shade catalog (all brands). The backend also clears the applied-colour
+  // references projects' regions hold and evicts the shade caches.
+  deleteAllShades: (accessToken: string) =>
+    serverFetch<DeleteAllShadesResult>("/api/admin/paint/shades", {
+      method: "DELETE",
+      accessToken,
+    }),
 };
 
 /** A company as shown in the shade-upload dropdown. */
@@ -235,6 +242,13 @@ export interface ShadeUploadResult {
   total: number;
   inserted: number;
   skipped: number;
+}
+
+/** Result of wiping the whole shade catalog. */
+export interface DeleteAllShadesResult {
+  deletedShades: number;
+  clearedRegionReferences: number;
+  message: string;
 }
 
 /**
