@@ -14,13 +14,10 @@ import {
   sunFadeRisk,
 } from "@/lib/color-science";
 import { UndertoneTag } from "@/components/catalogue/undertone-tag";
+import { generatePalettes } from "@/lib/palettes";
 import { CustomMatchPanel } from "./color-wheel";
 import { CoordinateSuggestions, type RegionLite } from "./coordinate-suggestions";
 import type { ColorFamily, PaintShade, RegionKind } from "@/lib/types";
-
-function pickShade(shades: ReadonlyArray<PaintShade>, idx: number): PaintShade {
-  return shades[idx] ?? shades[idx % shades.length] ?? shades[0]!;
-}
 
 const FAMILIES: ReadonlyArray<ColorFamily | "All"> = [
   "All",
@@ -37,6 +34,12 @@ const FAMILIES: ReadonlyArray<ColorFamily | "All"> = [
 
 const TABS = ["Catalogue", "AI Suggest", "Custom"] as const;
 type Tab = (typeof TABS)[number];
+
+// Light/Medium/Dark quick filter, in LRV terms a painter would recognise.
+const TONES = ["All", "Light", "Medium", "Dark"] as const;
+type Tone = (typeof TONES)[number];
+const toneOf = (lrv: number): Exclude<Tone, "All"> =>
+  lrv >= 55 ? "Light" : lrv >= 25 ? "Medium" : "Dark";
 
 /** How the Catalogue tab groups its shades. */
 type Section = "top50" | "company";
@@ -105,6 +108,7 @@ export function ShadeGrid({
   clashNote,
 }: ShadeGridProps) {
   const [family, setFamily] = useState<(typeof FAMILIES)[number]>("All");
+  const [tone, setTone] = useState<Tone>("All");
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("Catalogue");
   const [section, setSection] = useState<Section>("top50");
@@ -135,11 +139,12 @@ export function ShadeGrid({
     const q = deferredQuery.trim().toLowerCase();
     return catalogue.filter((s) => {
       if (family !== "All" && s.family !== family) return false;
+      if (tone !== "All" && toneOf(s.lrv) !== tone) return false;
       if (selectedBrands.size > 0 && !selectedBrands.has(s.brand)) return false;
       if (!q) return true;
       return s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.hex.toLowerCase().includes(q);
     });
-  }, [catalogue, family, selectedBrands, deferredQuery]);
+  }, [catalogue, family, tone, selectedBrands, deferredQuery]);
 
   const top = useMemo(() => shown.slice(0, TOP_N), [shown]);
 
@@ -221,6 +226,20 @@ export function ShadeGrid({
             ))}
           </div>
 
+          <div className="hv-studio-pills" role="group" aria-label="Filter by depth">
+            {TONES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTone(t)}
+                aria-pressed={tone === t}
+                className={`hv-studio-pill ${tone === t ? "is-active" : ""}`}
+              >
+                {t === "All" ? "Any depth" : t}
+              </button>
+            ))}
+          </div>
+
           {availableBrands.length > 1 && (
             <div className="hv-studio-pills">
               {availableBrands.map((brand) => {
@@ -286,7 +305,7 @@ export function ShadeGrid({
         {tab === "Catalogue" && (
           <>
             {shown.length === 0 ? (
-              <p className="hv-studio-empty">No shades match. Clear the search or family filter.</p>
+              <p className="hv-studio-empty">No shades match. Clear the search, family or depth filter.</p>
             ) : section === "top50" ? (
               <SwatchGrid shades={top} selected={selected} onSelect={onSelect} hideCodes={hideCodes} />
             ) : (
@@ -315,6 +334,8 @@ export function ShadeGrid({
             regions={regions}
             activeRegionId={activeRegionId}
             onApplyToRegion={onApplyToRegion}
+            baseHex={baseHex}
+            hideCodes={hideCodes}
           />
         )}
 
@@ -325,6 +346,7 @@ export function ShadeGrid({
             catalogue={catalogue}
             activeRegionLabel={activeRegionLabel}
             initialHex={customSeed}
+            hideCodes={hideCodes}
           />
         )}
 
@@ -648,27 +670,35 @@ function SelectedShadeDetail({
   );
 }
 
+const PALETTE_ROLES = ["Main", "Accent", "Trim"] as const;
+
 function AISuggestPanel({
   onSelect,
   catalogue,
   regions,
   activeRegionId,
   onApplyToRegion,
+  baseHex,
+  hideCodes = false,
 }: {
   onSelect: (shade: PaintShade) => void;
   catalogue: ReadonlyArray<PaintShade>;
   regions?: ReadonlyArray<RegionLite>;
   activeRegionId?: string;
   onApplyToRegion?: (regionId: string, shade: PaintShade) => void;
+  /** Colour already on the active wall — anchors every palette when present. */
+  baseHex?: string;
+  hideCodes?: boolean;
 }) {
-  const combos = [
-    { name: "Quiet morning", rationale: "Soft ivory main, sage accent, slate trim.", shades: [pickShade(catalogue, 0), pickShade(catalogue, 14), pickShade(catalogue, 16)] },
-    { name: "Warm afternoon", rationale: "Earthy and warm; reads well in sun.", shades: [pickShade(catalogue, 5), pickShade(catalogue, 12), pickShade(catalogue, 0)] },
-    { name: "Cool evening", rationale: "For studies and reading rooms.", shades: [pickShade(catalogue, 17), pickShade(catalogue, 15), pickShade(catalogue, 3)] },
-  ];
+  // Shuffle counter: nudges anchored palettes, jumps unanchored ones to a new seed.
+  const [variant, setVariant] = useState(0);
+  const palettes = useMemo(
+    () => generatePalettes(catalogue, baseHex, variant),
+    [catalogue, baseHex, variant],
+  );
 
-  // "Apply" puts the whole palette on the room at once: shade 0 → main wall,
-  // shade 1 → accent wall, shade 2 → trim — each to its matching region. Falls
+  // "Apply" puts the whole palette on the room at once: main → main wall,
+  // accent → accent wall, trim → trim — each to its matching region. Falls
   // back to the active wall only when we can't map regions (e.g. no per-region
   // apply available, or the project has a single surface).
   const applyCombo = (shades: PaintShade[]) => {
@@ -690,66 +720,127 @@ function AISuggestPanel({
     }
     if (!applied && shades[0]) onSelect(shades[0]); // single-surface / no mapping → active wall
   };
+
+  if (palettes.length === 0) {
+    return (
+      <div style={{ padding: 16, flex: 1, minHeight: 0, overflow: "auto" }}>
+        <p className="hv-studio-empty">The catalogue is still loading — palettes will appear here.</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: 16, flex: 1, minHeight: 0, overflow: "auto" }}>
-      <Mono style={{ display: "block", marginBottom: 14 }}>Three suggestions</Mono>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+        <Mono>Room palettes</Mono>
+        <button
+          type="button"
+          className="btn btn-sm btn-ghost"
+          onClick={() => setVariant((v) => v + 1)}
+          title="Different suggestions with the same rules"
+        >
+          ↻ Shuffle
+        </button>
+      </div>
+      <p style={{ font: "400 12px/1.45 var(--sans)", color: "var(--fg-mute)", margin: "0 0 14px" }}>
+        {baseHex ? (
+          <>
+            Built around the colour on your wall
+            <span
+              aria-hidden
+              style={{ display: "inline-block", width: 10, height: 10, background: baseHex, border: "1px solid var(--rule-strong)", borderRadius: 3, margin: "0 4px", verticalAlign: "-1px" }}
+            />
+            — every swatch is a real catalogue shade.
+          </>
+        ) : (
+          "Pick a colour first and the palettes build around it — every swatch is a real catalogue shade."
+        )}
+      </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {combos.map((c) => (
-          <div
-            key={c.name}
-            style={{
-              border: "1px solid var(--rule)",
-              padding: 14,
-              borderRadius: 8,
-              background: "var(--surface)",
-            }}
-          >
+        {palettes.map((p) => {
+          const trio = [p.main, p.accent, p.trim];
+          return (
             <div
-              style={{ font: "600 14px/1.2 var(--sans)", color: "var(--fg)" }}
-            >
-              {c.name}
-            </div>
-            <p
+              key={p.name}
               style={{
-                font: "400 13px/1.45 var(--sans)",
-                color: "var(--fg-mute)",
-                margin: "6px 0 12px",
+                border: "1px solid var(--rule)",
+                padding: 14,
+                borderRadius: 8,
+                background: "var(--surface)",
               }}
             >
-              {c.rationale}
-            </p>
-            <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-              {c.shades.map((s) => (
-                <button
-                  key={s.code}
-                  type="button"
-                  onClick={() => onSelect(s)}
-                  title={`${s.name} · ${s.code}`}
-                  aria-label={`Apply ${s.name}`}
-                  style={{
-                    flex: 1,
-                    aspectRatio: "1 / 1",
-                    background: s.hex,
-                    border: "1px solid var(--rule-strong)",
-                    borderRadius: 4,
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
-                />
-              ))}
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                onClick={() => applyCombo(c.shades)}
-                className="btn btn-sm"
-                title="Apply the whole palette — main, accent and trim — across the room"
+              <div style={{ font: "600 14px/1.2 var(--sans)", color: "var(--fg)" }}>{p.name}</div>
+              <p
+                style={{
+                  font: "400 13px/1.45 var(--sans)",
+                  color: "var(--fg-mute)",
+                  margin: "6px 0 12px",
+                }}
               >
-                Apply all
-              </button>
+                {p.rationale}
+              </p>
+              <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                {trio.map((s, i) => (
+                  <button
+                    key={s.code}
+                    type="button"
+                    onClick={() => onSelect(s)}
+                    title={hideCodes ? `${s.name} → active wall` : `${s.name} · ${s.code} → active wall`}
+                    aria-label={`Apply ${s.name} to the active wall`}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 5,
+                      padding: 0,
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span
+                      aria-hidden
+                      style={{
+                        width: "100%",
+                        aspectRatio: "4 / 3",
+                        background: s.hex,
+                        border: "1px solid var(--rule-strong)",
+                        borderRadius: 4,
+                      }}
+                    />
+                    <span style={{ font: "400 9px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+                      {PALETTE_ROLES[i]}
+                    </span>
+                    <span
+                      style={{
+                        font: "400 11px/1.25 var(--sans)",
+                        color: "var(--fg-soft)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        width: "100%",
+                      }}
+                    >
+                      {s.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => applyCombo(trio)}
+                  className="btn btn-sm"
+                  title="Apply the whole palette — main, accent and trim — across the room"
+                >
+                  Apply all
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
