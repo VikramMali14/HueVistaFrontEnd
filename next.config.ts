@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const apiOrigin = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8080";
@@ -106,6 +107,10 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   productionBrowserSourceMaps: false,
+  // The default incremental cache rejects fetch responses over 2MB, which the
+  // shade catalogue exceeds; any custom handler is exempt from that limit.
+  cacheHandler: path.join(process.cwd(), "cache-handler.js"),
+  cacheMaxMemorySize: 0, // disable the default in-memory LRU; the handler stores everything
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns,
