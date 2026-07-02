@@ -20,6 +20,7 @@ vi.mock("@/lib/api", () => {
       listAccessCodes: vi.fn(),
       createAccessCode: vi.fn(),
       createOrganization: vi.fn(),
+      listShadeBrands: vi.fn(),
     },
   };
 });
@@ -51,6 +52,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.listMyOrgs).mockResolvedValue([ORG]);
   vi.mocked(api.listAccessCodes).mockResolvedValue(CODES);
+  vi.mocked(api.listShadeBrands).mockResolvedValue([
+    { name: "Asian Paints", slug: "asian-paints", shadeCount: 2200 },
+    { name: "Birla Opus", slug: "birla-opus", shadeCount: 2322 },
+  ]);
 });
 
 describe("AccessCodes — accessible table semantics", () => {

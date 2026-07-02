@@ -78,9 +78,21 @@ export type ColorFamily =
   | "Greys"
   | "Browns";
 
-/** Paint companies present in the catalogue. Single source of truth for brand-scoped UI. */
+/**
+ * Well-known paint companies, used as a fallback when the live catalogue is
+ * unreachable (demo mode / bundled sample shades). The real brand list is dynamic —
+ * derived from the shades the backend returns — so a newly uploaded company
+ * (e.g. "Birla Opus") appears without a code change.
+ */
 export const PAINT_BRANDS = ["Asian Paints", "Berger", "Nerolac", "Dulux"] as const;
-export type ShadeBrand = (typeof PAINT_BRANDS)[number];
+export type ShadeBrand = string;
+
+/** A company present in the shade catalogue (backend GET /api/shades/brands). */
+export interface ShadeBrandSummary {
+  name: string;
+  slug: string;
+  shadeCount: number;
+}
 
 export interface PaintShade {
   code: string;

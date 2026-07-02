@@ -30,12 +30,14 @@ function normalizeFamily(raw: string | null | undefined): ColorFamily {
   return "Neutrals";
 }
 
+/**
+ * Keep whatever company name the backend sent — the catalogue is multi-brand and
+ * new companies arrive via the admin shade upload, so there is no fixed list to
+ * normalise against. Only a missing name falls back to "Asian Paints".
+ */
 function normalizeBrand(raw: string | null | undefined): PaintShade["brand"] {
-  const b = (raw ?? "").toLowerCase();
-  if (b.includes("berger")) return "Berger";
-  if (b.includes("nerolac")) return "Nerolac";
-  if (b.includes("dulux")) return "Dulux";
-  return "Asian Paints";
+  const b = (raw ?? "").trim();
+  return b.length > 0 ? b : "Asian Paints";
 }
 
 function normalizeFinishes(raw: string[] | null | undefined): Finish[] {

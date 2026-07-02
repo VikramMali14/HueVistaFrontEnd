@@ -8,8 +8,6 @@ import { api, HttpError } from "@/lib/api";
 import { PAINT_BRANDS, type AccessCode, type OrgResponse } from "@/lib/types";
 
 const VALIDITY = [3, 7, 14] as const;
-// Paint companies a shop can unlock for a guest. Leaving none selected unlocks every company.
-const COMPANIES = PAINT_BRANDS;
 
 function slugify(name: string): string {
   const base = name
@@ -36,6 +34,10 @@ export function AccessCodes() {
   const [creatingOrg, setCreatingOrg] = useState(false);
 
   const [validDays, setValidDays] = useState<number>(7);
+  // Paint companies a shop can unlock for a guest — the live list of companies that
+  // actually have shades in the catalogue. Falls back to the well-known brands if
+  // the endpoint is unreachable. Leaving none selected unlocks every company.
+  const [companyOptions, setCompanyOptions] = useState<ReadonlyArray<string>>(PAINT_BRANDS);
   // Companies to unlock for the next code. Empty = every company (no restriction).
   const [companies, setCompanies] = useState<string[]>([]);
   const [issuing, setIssuing] = useState(false);
@@ -49,6 +51,16 @@ export function AccessCodes() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load codes.");
     }
+  }, []);
+
+  useEffect(() => {
+    api
+      .listShadeBrands()
+      .then((brands) => {
+        const names = brands.map((b) => b.name).filter(Boolean);
+        if (names.length > 0) setCompanyOptions(names);
+      })
+      .catch(() => {}); // keep the static fallback
   }, []);
 
   useEffect(() => {
@@ -198,7 +210,7 @@ export function AccessCodes() {
         {/* Which paint companies this guest may browse. None selected = all companies. */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <Mono>Companies</Mono>
-          {COMPANIES.map((name) => {
+          {companyOptions.map((name) => {
             const on = companies.includes(name);
             return (
               <button

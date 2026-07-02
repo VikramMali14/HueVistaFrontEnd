@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useCallback, useDeferredValue, useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { SHADES } from "@/lib/shades";
 import {
@@ -41,6 +41,11 @@ type Tab = (typeof TABS)[number];
 /** How the Catalogue tab groups its shades. */
 type Section = "top50" | "company";
 const TOP_N = 50;
+// With a 10k+ catalogue a company can hold thousands of shades — mounting them all
+// at once freezes the panel. Each company starts with one screenful and grows in
+// steps as the user asks for more.
+const COMPANY_INITIAL = 48;
+const COMPANY_STEP = 240;
 
 interface ShadeGridProps {
   selected?: string;
@@ -107,8 +112,13 @@ export function ShadeGrid({
   // incoming `shades` are already limited to the brands the shop unlocked, so
   // these checkboxes let them narrow further within that allowed set.
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
+  // How many swatches each company section currently shows (keyed by brand name).
+  const [companyVisible, setCompanyVisible] = useState<Record<string, number>>({});
   // Seed colour for the Custom (nearest-match) panel, set by a shade's "Find similar".
   const [customSeed, setCustomSeed] = useState<string | undefined>(undefined);
+  // Keep keystrokes snappy on a 10k-shade catalogue: the input updates immediately,
+  // the filtered grid re-renders at deferred priority.
+  const deferredQuery = useDeferredValue(query);
 
   const catalogue = useMemo<ReadonlyArray<PaintShade>>(
     () => (shades && shades.length > 0 ? shades : SHADES),
@@ -122,16 +132,21 @@ export function ShadeGrid({
   );
 
   const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     return catalogue.filter((s) => {
       if (family !== "All" && s.family !== family) return false;
       if (selectedBrands.size > 0 && !selectedBrands.has(s.brand)) return false;
       if (!q) return true;
       return s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.hex.toLowerCase().includes(q);
     });
-  }, [catalogue, family, selectedBrands, query]);
+  }, [catalogue, family, selectedBrands, deferredQuery]);
 
   const top = useMemo(() => shown.slice(0, TOP_N), [shown]);
+
+  // Stable identity so the memoised CompanySection isn't re-rendered by a new callback.
+  const showMoreOfCompany = useCallback((brand: string, next: number) => {
+    setCompanyVisible((prev) => ({ ...prev, [brand]: next }));
+  }, []);
 
   // Group the filtered shades by brand, preserving first-seen order.
   const byCompany = useMemo(() => {
@@ -277,13 +292,16 @@ export function ShadeGrid({
             ) : (
               <div className="hv-studio-by-company">
                 {byCompany.map(({ brand, list }) => (
-                  <div key={brand}>
-                    <div className="hv-studio-brand-head">
-                      <span>{brand}</span>
-                      <Mono>{list.length}</Mono>
-                    </div>
-                    <SwatchGrid shades={list} selected={selected} onSelect={onSelect} hideCodes={hideCodes} />
-                  </div>
+                  <CompanySection
+                    key={brand}
+                    brand={brand}
+                    list={list}
+                    visible={companyVisible[brand] ?? COMPANY_INITIAL}
+                    onShowMore={showMoreOfCompany}
+                    selected={selected}
+                    onSelect={onSelect}
+                    hideCodes={hideCodes}
+                  />
                 ))}
               </div>
             )}
@@ -402,6 +420,53 @@ function SwatchGrid({
     </div>
   );
 }
+
+/**
+ * One company's block in the "By company" view. Memoised so growing one company's
+ * grid (or typing elsewhere) doesn't re-render every other company's swatches —
+ * with 10k+ shades that re-render is what used to freeze the panel.
+ */
+const CompanySection = memo(function CompanySection({
+  brand,
+  list,
+  visible,
+  onShowMore,
+  selected,
+  onSelect,
+  hideCodes,
+}: {
+  brand: string;
+  list: ReadonlyArray<PaintShade>;
+  visible: number;
+  onShowMore: (brand: string, next: number) => void;
+  selected?: string;
+  onSelect: (shade: PaintShade) => void;
+  hideCodes?: boolean;
+}) {
+  const slice = useMemo(
+    () => (list.length > visible ? list.slice(0, visible) : list),
+    [list, visible],
+  );
+  return (
+    <div>
+      <div className="hv-studio-brand-head">
+        <span>{brand}</span>
+        <Mono>{slice.length < list.length ? `${slice.length} of ${list.length}` : list.length}</Mono>
+      </div>
+      <SwatchGrid shades={slice} selected={selected} onSelect={onSelect} hideCodes={hideCodes} />
+      {slice.length < list.length && (
+        <button
+          type="button"
+          className="btn btn-sm btn-ghost"
+          style={{ margin: "8px 16px 4px" }}
+          onClick={() => onShowMore(brand, visible + COMPANY_STEP)}
+        >
+          Show {Math.min(COMPANY_STEP, list.length - slice.length)} more
+        </button>
+      )}
+    </div>
+  );
+});
 
 function SelectedShadeDetail({
   shade,

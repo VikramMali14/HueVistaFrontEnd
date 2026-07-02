@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { hexToHsv } from "@/lib/color";
 import { PAINT_BRANDS, type PaintShade } from "@/lib/types";
@@ -26,9 +26,7 @@ const FAMILIES: ReadonlyArray<{ id: string; dot: string }> = [
   { id: "Shadow", dot: "var(--charcoal-warm)" },
 ];
 
-const BRANDS = ["All brands", ...PAINT_BRANDS] as const;
-// In the catalogue today every shade is Asian Paints; the rest are on the way.
-const BRANDS_SOON: ReadonlyArray<string> = ["Berger", "Nerolac", "Dulux"];
+const ALL_BRANDS = "All brands";
 const FINISHES = ["All", "Matt", "Satin", "Royale", "Velvet"] as const;
 const LRV_RANGES: ReadonlyArray<{ id: string; min: number; max: number }> = [
   { id: "0 — 100", min: 0, max: 100 },
@@ -128,7 +126,7 @@ function FilterDropdown({ id, label, value, options, onChange, soon, openId, set
 export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade> }) {
   const [query, setQuery] = useState("");
   const [family, setFamily] = useState("All families");
-  const [brand, setBrand] = useState<(typeof BRANDS)[number]>("All brands");
+  const [brand, setBrand] = useState<string>(ALL_BRANDS);
   const [finish, setFinish] = useState<(typeof FINISHES)[number]>("All");
   const [lrv, setLrv] = useState<(typeof LRV_RANGES)[number]["id"]>("0 — 100");
   const [sortBy, setSortBy] = useState<SortBy>("hue");
@@ -142,6 +140,14 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   const [wallShade, setWallShade] = useState<PaintShade | null>(null);
   const [savedToast, setSavedToast] = useState<string | null>(null);
   const { boards, refresh } = useBoards();
+
+  // Companies actually present in the catalogue drive the dropdown; well-known
+  // brands with no shades yet stay listed but disabled ("· soon").
+  const { brandOptions, brandsSoon } = useMemo(() => {
+    const present = Array.from(new Set(shades.map((s) => s.brand))).sort((a, b) => a.localeCompare(b));
+    const soon = PAINT_BRANDS.filter((b) => !present.includes(b));
+    return { brandOptions: [ALL_BRANDS, ...present, ...soon], brandsSoon: soon };
+  }, [shades]);
 
   const compareShades = useMemo(
     () => compareCodes.map((c) => shades.find((s) => s.code === c)).filter((s): s is PaintShade => Boolean(s)),
@@ -161,23 +167,33 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
     setTimeout(() => setSavedToast(null), 1800);
   };
 
+  // Deferred so typing stays responsive while a 10k-shade list re-filters.
+  const deferredQuery = useDeferredValue(query);
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     const range = LRV_RANGES.find((r) => r.id === lrv) ?? LRV_RANGES[0]!;
     return shades.filter((s) => {
       if (family !== "All families" && designFamily(s) !== family) return false;
-      if (brand !== "All brands" && s.brand !== brand) return false;
+      if (brand !== ALL_BRANDS && s.brand !== brand) return false;
       if (finish !== "All" && !s.finishes.includes(finish as never)) return false;
       if (s.lrv < range.min || s.lrv > range.max) return false;
       if (!q) return true;
       return s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.hex.toLowerCase().includes(q);
     });
-  }, [shades, query, family, brand, finish, lrv]);
+  }, [shades, deferredQuery, family, brand, finish, lrv]);
 
   const sorted = useMemo(() => {
+    if (sortBy === "hue") {
+      // Compute each shade's hue once, then sort — the naive comparator re-derives
+      // HSV on every comparison, which is ~250k conversions for 10k shades.
+      return filtered
+        .map((s) => ({ s, h: hexToHsv(s.hex).h }))
+        .sort((a, b) => a.h - b.h)
+        .map(({ s }) => s);
+    }
     const list = [...filtered];
-    if (sortBy === "hue") list.sort((a, b) => hexToHsv(a.hex).h - hexToHsv(b.hex).h);
-    else if (sortBy === "lightness") list.sort((a, b) => b.lrv - a.lrv);
+    if (sortBy === "lightness") list.sort((a, b) => b.lrv - a.lrv);
     else if (sortBy === "family") list.sort((a, b) => a.family.localeCompare(b.family));
     // Group every company's shades together (brand A→Z, then code within a brand).
     else if (sortBy === "company") list.sort((a, b) => a.brand.localeCompare(b.brand) || a.code.localeCompare(b.code));
@@ -186,7 +202,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   }, [filtered, sortBy]);
 
   const clearAll = () => {
-    setQuery(""); setFamily("All families"); setBrand("All brands"); setFinish("All"); setLrv("0 — 100"); setVisible(PAGE_SIZE);
+    setQuery(""); setFamily("All families"); setBrand(ALL_BRANDS); setFinish("All"); setLrv("0 — 100"); setVisible(PAGE_SIZE);
   };
 
   const copyCode = (code: string) => {
@@ -220,7 +236,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
             style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--fg)", font: "400 16px/1 var(--serif)" }}
           />
         </div>
-        <FilterDropdown id="brand" label="Brand" value={brand} options={BRANDS} soon={BRANDS_SOON} onChange={(v) => { setBrand(v as never); setVisible(PAGE_SIZE); }} openId={openId} setOpenId={setOpenId} />
+        <FilterDropdown id="brand" label="Brand" value={brand} options={brandOptions} soon={brandsSoon} onChange={(v) => { setBrand(v); setVisible(PAGE_SIZE); }} openId={openId} setOpenId={setOpenId} />
         <FilterDropdown id="finish" label="Finish" value={finish} options={FINISHES} onChange={(v) => { setFinish(v as never); setVisible(PAGE_SIZE); }} openId={openId} setOpenId={setOpenId} />
         <FilterDropdown id="lrv" label="LRV" value={lrv} options={LRV_RANGES.map((r) => r.id)} onChange={(v) => { setLrv(v as never); setVisible(PAGE_SIZE); }} openId={openId} setOpenId={setOpenId} />
         <button type="button" onClick={clearAll} style={{ padding: "18px 20px", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase" }}>Clear</button>
@@ -385,7 +401,8 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
       )}
 
       <style>{`
-        .hv-shade-card { transition: transform .35s var(--ease); }
+        /* 10k-shade catalogues: skip layout + paint for cards far off-screen. */
+        .hv-shade-card { transition: transform .35s var(--ease); content-visibility: auto; contain-intrinsic-size: auto 200px auto 320px; }
         .hv-shade-card .hv-shade-swatch { transition: box-shadow .35s var(--ease); }
         .hv-shade-card:hover { transform: translateY(-4px); }
         .hv-shade-card:hover .hv-shade-swatch { box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 28px 48px -18px rgba(0,0,0,.7); }

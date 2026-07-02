@@ -2679,6 +2679,9 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   background: transparent;
   transition: transform .15s var(--ease), box-shadow .15s var(--ease);
   overflow: hidden;
+  /* 10k-shade catalogues: skip layout + paint for tiles far off-screen. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 96px auto 64px;
 }
 .hv-studio-swatch:hover { transform: translateY(-2px); z-index: 2; box-shadow: 0 8px 18px -10px rgba(0,0,0,.5); }
 .hv-studio-swatch.is-selected { box-shadow: 0 0 0 2px var(--accent); }
