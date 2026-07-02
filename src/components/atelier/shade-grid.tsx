@@ -17,20 +17,7 @@ import { UndertoneTag } from "@/components/catalogue/undertone-tag";
 import { generatePalettes } from "@/lib/palettes";
 import { CustomMatchPanel } from "./color-wheel";
 import { CoordinateSuggestions, type RegionLite } from "./coordinate-suggestions";
-import type { ColorFamily, PaintShade, RegionKind } from "@/lib/types";
-
-const FAMILIES: ReadonlyArray<ColorFamily | "All"> = [
-  "All",
-  "Whites",
-  "Neutrals",
-  "Earths",
-  "Reds",
-  "Greens",
-  "Blues",
-  "Yellows",
-  "Greys",
-  "Browns",
-];
+import type { PaintShade, RegionKind } from "@/lib/types";
 
 const TABS = ["Catalogue", "AI Suggest", "Custom"] as const;
 type Tab = (typeof TABS)[number];
@@ -107,7 +94,7 @@ export function ShadeGrid({
   outdoor = false,
   clashNote,
 }: ShadeGridProps) {
-  const [family, setFamily] = useState<(typeof FAMILIES)[number]>("All");
+  const [family, setFamily] = useState<string>("All");
   const [tone, setTone] = useState<Tone>("All");
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("Catalogue");
@@ -132,6 +119,12 @@ export function ShadeGrid({
   // Distinct paint companies present in the (already brand-scoped) catalogue, sorted.
   const availableBrands = useMemo(
     () => Array.from(new Set(catalogue.map((s) => s.brand))).sort((a, b) => a.localeCompare(b)),
+    [catalogue],
+  );
+
+  // Family pills come from whatever families the shades table actually holds.
+  const families = useMemo(
+    () => ["All", ...Array.from(new Set(catalogue.map((s) => s.family))).sort((a, b) => a.localeCompare(b))],
     [catalogue],
   );
 
@@ -214,7 +207,7 @@ export function ShadeGrid({
             />
           </div>
           <div className="hv-studio-pills">
-            {FAMILIES.map((f) => (
+            {families.map((f) => (
               <button
                 key={f}
                 type="button"

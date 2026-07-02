@@ -67,6 +67,12 @@ export interface GuestRedeemResult {
   allowedBrands?: string[];
 }
 
+/**
+ * Canonical colour families, used for the bundled sample shades and as the
+ * fallback bucket when a catalogue shade has no family in the shades table.
+ * Live shades keep whatever family their brand's data actually uses (e.g.
+ * "Off Whites"), so filter UIs must derive their options from the data.
+ */
 export type ColorFamily =
   | "Whites"
   | "Neutrals"
@@ -98,10 +104,12 @@ export interface PaintShade {
   code: string;
   name: string;
   hex: string;
-  family: ColorFamily;
+  /** The brand's own family name from the shades table, e.g. "Off Whites". */
+  family: string;
   lrv: number;
   brand: ShadeBrand;
-  finishes: ReadonlyArray<"Matt" | "Satin" | "Royale" | "Velvet">;
+  /** Recommended finishes as the shades table spells them, e.g. "Matt", "Eggshell". */
+  finishes: ReadonlyArray<string>;
 }
 
 export type RegionKind = "MAIN_WALL" | "ACCENT_WALL" | "TRIM" | "MANUAL";
