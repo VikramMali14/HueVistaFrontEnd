@@ -369,6 +369,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // Companies that actually have shades in the catalogue (name + slug + count).
+  listShadeBrands: () =>
+    browserFetch<import("./types").ShadeBrandSummary[]>("api/shades/brands"),
   // --- Paint product catalogue (shopkeeper-managed) ---
   listPaintBrands: () => browserFetch<PaintBrand[]>("api/paint/brands"),
   addPaintBrand: (body: { name: string }) =>

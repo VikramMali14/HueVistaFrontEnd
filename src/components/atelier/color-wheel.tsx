@@ -2,8 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
+import { UndertoneTag } from "@/components/catalogue/undertone-tag";
 import { hexToHsv, hsvToHex, nearestShades, type HSV } from "@/lib/color";
+import { closenessRating, lrvFromHex } from "@/lib/color-science";
 import type { PaintShade } from "@/lib/types";
+
+/** Chrome/Edge screen eyedropper — lets a user lift a colour off the room photo. */
+interface EyeDropperApi {
+  open: () => Promise<{ sRGBHex: string }>;
+}
+function getEyeDropper(): (new () => EyeDropperApi) | undefined {
+  if (typeof window === "undefined") return undefined;
+  return (window as unknown as { EyeDropper?: new () => EyeDropperApi }).EyeDropper;
+}
 
 /**
  * Inline HSV colour wheel: hue around the circle, saturation along the radius,
@@ -193,6 +204,7 @@ export function CustomMatchPanel({
   catalogue,
   activeRegionLabel,
   initialHex,
+  hideCodes = false,
 }: {
   onSelect: (shade: PaintShade) => void;
   /** Apply the picked colour exactly, without snapping to a catalogue shade. */
@@ -201,10 +213,16 @@ export function CustomMatchPanel({
   activeRegionLabel?: string;
   /** Seed colour, e.g. when arriving from a shade's "Find similar" button. */
   initialHex?: string;
+  /** Guest mode: hide real shade codes (guests pick by colour; the shop reads codes). */
+  hideCodes?: boolean;
 }) {
   const seed = initialHex && HEX_RE.test(initialHex) ? initialHex : "#7C9CBF";
   const [hex, setHex] = useState(seed);
   const [text, setText] = useState(seed);
+  // Screen eyedropper is Chromium-only; render the button only where it works.
+  // State (not render-time detection) so SSR and first client render agree.
+  const [canEyeDrop, setCanEyeDrop] = useState(false);
+  useEffect(() => setCanEyeDrop(Boolean(getEyeDropper())), []);
 
   // Keep the free-text field in sync when the wheel drives the colour.
   useEffect(() => setText(hex), [hex]);
@@ -217,6 +235,17 @@ export function CustomMatchPanel({
   const onText = (value: string) => {
     setText(value);
     if (HEX_RE.test(value)) setHex(value.startsWith("#") ? value : `#${value}`);
+  };
+
+  const pickFromScreen = async () => {
+    const EyeDropper = getEyeDropper();
+    if (!EyeDropper) return;
+    try {
+      const { sRGBHex } = await new EyeDropper().open();
+      if (HEX_RE.test(sRGBHex)) setHex(sRGBHex);
+    } catch {
+      // User pressed Esc — nothing to do.
+    }
   };
 
   return (
@@ -251,7 +280,41 @@ export function CustomMatchPanel({
             fontSize: 13,
           }}
         />
+        {canEyeDrop && (
+          <button
+            type="button"
+            onClick={pickFromScreen}
+            title="Pick a colour straight off your room photo"
+            aria-label="Pick a colour from the screen"
+            style={{
+              width: 40,
+              height: 36,
+              border: "1px solid var(--rule-strong)",
+              borderRadius: 6,
+              background: "transparent",
+              color: "var(--fg-soft)",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M19 11l-6-6-1.5 1.5" />
+              <path d="M15 15l-3 3a2.828 2.828 0 1 1-4-4l3-3" />
+              <path d="M14 7l3 3" />
+              <path d="M5 19l-2 2" />
+            </svg>
+          </button>
+        )}
       </div>
+
+      {HEX_RE.test(hex) && (
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <UndertoneTag hex={hex} prefix />
+          <Mono>≈ LRV {lrvFromHex(hex)}</Mono>
+        </div>
+      )}
 
       {onApplyExact && (
         <button
@@ -293,8 +356,8 @@ export function CustomMatchPanel({
                 key={shade.code}
                 type="button"
                 onClick={() => onSelect(shade)}
-                title={`${shade.name} · ${shade.code} · ΔE ${deltaE.toFixed(1)}`}
-                aria-label={`Apply ${shade.name}, code ${shade.code}`}
+                title={hideCodes ? `${shade.name} · ${shade.brand}` : `${shade.name} · ${shade.code} · ΔE ${deltaE.toFixed(1)}`}
+                aria-label={hideCodes ? `Apply ${shade.name}` : `Apply ${shade.name}, code ${shade.code}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -332,10 +395,10 @@ export function CustomMatchPanel({
                     {shade.name}
                   </span>
                   <Mono>
-                    {shade.code} · {shade.hex} · ΔE {deltaE.toFixed(1)}
+                    {hideCodes ? shade.brand : `${shade.brand} · ${shade.code} · ${shade.hex}`}
                   </Mono>
                 </span>
-                {i === 0 && <Mono brass>closest</Mono>}
+                <Mono brass={i === 0}>{closenessRating(deltaE)}</Mono>
               </button>
             ))}
           </div>

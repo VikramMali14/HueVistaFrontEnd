@@ -67,6 +67,12 @@ export interface GuestRedeemResult {
   allowedBrands?: string[];
 }
 
+/**
+ * Canonical colour families, used for the bundled sample shades and as the
+ * fallback bucket when a catalogue shade has no family in the shades table.
+ * Live shades keep whatever family their brand's data actually uses (e.g.
+ * "Off Whites"), so filter UIs must derive their options from the data.
+ */
 export type ColorFamily =
   | "Whites"
   | "Neutrals"
@@ -78,18 +84,32 @@ export type ColorFamily =
   | "Greys"
   | "Browns";
 
-/** Paint companies present in the catalogue. Single source of truth for brand-scoped UI. */
+/**
+ * Well-known paint companies, used as a fallback when the live catalogue is
+ * unreachable (demo mode / bundled sample shades). The real brand list is dynamic —
+ * derived from the shades the backend returns — so a newly uploaded company
+ * (e.g. "Birla Opus") appears without a code change.
+ */
 export const PAINT_BRANDS = ["Asian Paints", "Berger", "Nerolac", "Dulux"] as const;
-export type ShadeBrand = (typeof PAINT_BRANDS)[number];
+export type ShadeBrand = string;
+
+/** A company present in the shade catalogue (backend GET /api/shades/brands). */
+export interface ShadeBrandSummary {
+  name: string;
+  slug: string;
+  shadeCount: number;
+}
 
 export interface PaintShade {
   code: string;
   name: string;
   hex: string;
-  family: ColorFamily;
+  /** The brand's own family name from the shades table, e.g. "Off Whites". */
+  family: string;
   lrv: number;
   brand: ShadeBrand;
-  finishes: ReadonlyArray<"Matt" | "Satin" | "Royale" | "Velvet">;
+  /** Recommended finishes as the shades table spells them, e.g. "Matt", "Eggshell". */
+  finishes: ReadonlyArray<string>;
 }
 
 export type RegionKind = "MAIN_WALL" | "ACCENT_WALL" | "TRIM" | "MANUAL";

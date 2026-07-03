@@ -1,3 +1,5 @@
+import { hexToLab } from "./color";
+import { chroma, labHue } from "./color-science";
 import { config } from "./config";
 import { isDemoMode } from "./demo/flag";
 import { SHADES } from "./shades";
@@ -14,35 +16,68 @@ interface BackendShade {
   finishRecommendations?: string[] | null;
 }
 
-const ALLOWED_FINISHES = ["Matt", "Satin", "Royale", "Velvet"] as const;
-type Finish = (typeof ALLOWED_FINISHES)[number];
-
-function normalizeFamily(raw: string | null | undefined): ColorFamily {
-  const f = (raw ?? "").toLowerCase();
-  if (f.includes("white")) return "Whites";
-  if (f.includes("blue")) return "Blues";
-  if (f.includes("green")) return "Greens";
-  if (f.includes("red")) return "Reds";
-  if (f.includes("yellow") || f.includes("gold")) return "Yellows";
-  if (f.includes("grey") || f.includes("gray")) return "Greys";
-  if (f.includes("brown") || f.includes("wood")) return "Browns";
-  if (f.includes("earth") || f.includes("terracotta") || f.includes("tan") || f.includes("ochre")) return "Earths";
-  return "Neutrals";
+function titleCase(s: string): string {
+  return s.replace(/\S+/g, (w) => w[0]!.toUpperCase() + w.slice(1).toLowerCase());
 }
 
+/**
+ * Family filters are built from whatever the shades table actually holds, so a
+ * shade keeps its brand's own family name (tidied to title case) — "off whites"
+ * stays "Off Whites" rather than being squashed into a fixed bucket. Only a
+ * shade with no family at all gets one derived from its colour, so it still
+ * lands under a sensible filter pill.
+ */
+function normalizeFamily(raw: string | null | undefined, hex: string): string {
+  const t = (raw ?? "").trim();
+  return t.length > 0 ? titleCase(t) : familyFromColor(hex);
+}
+
+/** Canonical family for a colour, from CIELAB lightness / chroma / hue bands. */
+function familyFromColor(hex: string): ColorFamily {
+  const lab = hexToLab(hex);
+  const c = chroma(lab);
+  if (lab.L >= 85 && c < 12) return "Whites";
+  if (c < 6) return "Greys";
+  if (c < 12) return "Neutrals";
+  const h = labHue(lab);
+  if (h < 45) return "Reds";
+  if (h < 75) return lab.L < 45 ? "Browns" : "Earths";
+  if (h < 115) return "Yellows";
+  if (h < 180) return "Greens";
+  if (h < 315) return "Blues";
+  return "Reds";
+}
+
+/**
+ * Keep whatever company name the backend sent — the catalogue is multi-brand and
+ * new companies arrive via the admin shade upload, so there is no fixed list to
+ * normalise against. Only a missing name falls back to "Asian Paints".
+ */
 function normalizeBrand(raw: string | null | undefined): PaintShade["brand"] {
-  const b = (raw ?? "").toLowerCase();
-  if (b.includes("berger")) return "Berger";
-  if (b.includes("nerolac")) return "Nerolac";
-  if (b.includes("dulux")) return "Dulux";
-  return "Asian Paints";
+  const b = (raw ?? "").trim();
+  return b.length > 0 ? b : "Asian Paints";
 }
 
-function normalizeFinishes(raw: string[] | null | undefined): Finish[] {
-  const picked = (raw ?? [])
-    .map((x) => ALLOWED_FINISHES.find((a) => a.toLowerCase() === String(x).toLowerCase()))
-    .filter((x): x is Finish => Boolean(x));
-  return picked.length > 0 ? picked : ["Matt"];
+/** Common spellings mapped to the display name the Indian market uses. */
+const FINISH_ALIASES: Record<string, string> = { matte: "Matt" };
+
+/**
+ * Keep whatever finishes the shades table recommends (tidied + deduped) — the
+ * finish filter is built from these, so nothing is squashed into a fixed list.
+ * No data means no finishes; we don't invent a default.
+ */
+function normalizeFinishes(raw: string[] | null | undefined): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const r of raw ?? []) {
+    const t = String(r).trim();
+    if (!t) continue;
+    const label = FINISH_ALIASES[t.toLowerCase()] ?? titleCase(t);
+    if (seen.has(label)) continue;
+    seen.add(label);
+    out.push(label);
+  }
+  return out;
 }
 
 function normalizeHex(raw: string | null | undefined): string {
@@ -53,11 +88,12 @@ function normalizeHex(raw: string | null | undefined): string {
 
 export function mapToPaintShade(b: BackendShade): PaintShade {
   const lrvNum = typeof b.lrv === "number" ? b.lrv : Number(b.lrv);
+  const hex = normalizeHex(b.hexCode);
   return {
     code: b.shadeCode ?? "—",
     name: b.name ?? "Unnamed",
-    hex: normalizeHex(b.hexCode),
-    family: normalizeFamily(b.shadeFamily),
+    hex,
+    family: normalizeFamily(b.shadeFamily, hex),
     lrv: Number.isFinite(lrvNum) ? Math.round(lrvNum) : 50,
     brand: normalizeBrand(b.brandName),
     finishes: normalizeFinishes(b.finishRecommendations),

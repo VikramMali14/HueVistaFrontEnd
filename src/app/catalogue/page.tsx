@@ -16,7 +16,7 @@ import { Harmonies } from "@/components/catalogue/harmonies";
 
 export const metadata: Metadata = {
   title: "Catalogue",
-  description: "2,481 Asian Paints shades with real codes. Search by name, code or hex; filter by colour family and finish.",
+  description: "Thousands of paint shades with real codes across every company we carry. Search by name, code or hex; filter by colour family and finish.",
 };
 
 export default async function CataloguePage() {
@@ -28,19 +28,21 @@ export default async function CataloguePage() {
   } catch {
     shades = [...SHADES];
   }
+  const brands = Array.from(new Set(shades.map((s) => s.brand))).sort((a, b) => a.localeCompare(b));
+  const brandLine = brands.length === 1 ? brands[0]! : `${brands.length} companies`;
   return (
     <>
-      <Marquee items={["The Catalogue", "Every code intact · finishes preserved", "Asian Paints · more to follow"]} />
+      <Marquee items={["The Catalogue", "Every code intact · finishes preserved", `${brandLine} · more to follow`]} />
       <SiteHeader />
       <main>
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
             <Eyebrow>Colour library</Eyebrow>
-            <Mono>{shades.length.toLocaleString("en-IN")} shades · Asian Paints · more to follow</Mono>
+            <Mono>{shades.length.toLocaleString("en-IN")} shades · {brandLine} · more to follow</Mono>
           </div>
           <h1 className="display">Every shade.<br /><i>Codes intact.</i></h1>
-          <Lead className="page-lead">Asian Paints at launch, with Berger and Nerolac to follow. Filter by colour family, finish, or light value (LRV). Search by code, name, or hex.</Lead>
+          <Lead className="page-lead">{brands.join(", ")} — with more companies to follow. Filter by colour family, finish, or light value (LRV). Search by code, name, or hex.</Lead>
         </header>
 
         <section style={{ paddingTop: 80 }}>

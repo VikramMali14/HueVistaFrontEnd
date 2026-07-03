@@ -126,7 +126,9 @@ export type WhiteTint = "warm" | "pinkish" | "greenish" | "cool" | "neutral";
 export const WHITE_TINTS: ReadonlyArray<WhiteTint> = ["warm", "pinkish", "neutral", "greenish", "cool"];
 
 export function isWhiteShade(s: PaintShade): boolean {
-  if (s.family === "Whites") return true;
+  // Family names come straight from each brand's data — "Whites", "off whites",
+  // "Whites & Off Whites" all count.
+  if (s.family.toLowerCase().includes("white")) return true;
   const lab = hexToLab(s.hex);
   return s.lrv >= 72 && chroma(lab) < 10;
 }

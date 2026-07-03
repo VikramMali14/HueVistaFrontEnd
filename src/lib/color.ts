@@ -85,10 +85,19 @@ export function nearestShades<T extends { hex: string }>(
   n = 5,
 ): Array<{ shade: T; deltaE: number }> {
   const t = hexToLab(target);
-  return pool
-    .map((shade) => ({ shade, deltaE: deltaE(t, hexToLab(shade.hex)) }))
-    .sort((a, b) => a.deltaE - b.deltaE)
-    .slice(0, Math.max(1, n));
+  const keep = Math.max(1, n);
+  // Single-pass top-N instead of mapping + sorting the whole pool — this runs on
+  // every colour-wheel drag tick, and the pool is the full 10k+ catalogue.
+  const best: Array<{ shade: T; deltaE: number }> = [];
+  for (const shade of pool) {
+    const d = deltaE(t, hexToLab(shade.hex));
+    if (best.length === keep && d >= best[keep - 1]!.deltaE) continue;
+    let i = best.length;
+    while (i > 0 && best[i - 1]!.deltaE > d) i--;
+    best.splice(i, 0, { shade, deltaE: d });
+    if (best.length > keep) best.pop();
+  }
+  return best;
 }
 
 // ── HSV ⇄ RGB (for the colour wheel picker) ────────────────────────────────
