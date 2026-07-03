@@ -249,7 +249,8 @@ export function CustomMatchPanel({
   };
 
   return (
-    <div style={{ padding: 20, flex: 1, overflow: "auto" }}>
+    // The panel's shared scroll area handles overflow — no nested scrollbar here.
+    <div style={{ padding: 4 }}>
       <Mono style={{ display: "block", marginBottom: 14 }}>Pick a colour</Mono>
 
       <ColorWheel hex={hex} onChange={setHex} />
