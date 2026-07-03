@@ -2519,6 +2519,37 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   gap: 12px;
 }
 .hv-studio-filter-row .mono { font-size: 10px; }
+.hv-studio-filter-row > .hv-studio-search { flex: 1; min-width: 0; }
+
+/* "Filters" toggle — family/depth/company pills fold away so the fixed header
+   stays compact; the count shows how many filters are narrowing the grid. */
+.hv-studio-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--fg-mute);
+  font: 500 11.5px/1 var(--sans);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease);
+}
+.hv-studio-filter-toggle:hover { color: var(--fg); border-color: var(--fg-mute); }
+.hv-studio-filter-toggle.is-active { color: var(--accent); border-color: var(--accent); }
+.hv-studio-filter-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 2px;
+}
+.hv-studio-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
 
 /* Segmented control — "Top 50 / By company" view switch */
 .hv-studio-seg {
@@ -2577,17 +2608,19 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: var(--fg);
 }
 
-/* Region strip — horizontal wall selector */
+/* Region strip — horizontal wall selector, pinned above the scroll area so the
+   active wall is always visible and one tap away, whatever tab is open. */
 .hv-studio-region-strip {
   flex-shrink: 0;
-  margin: -4px -4px 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg);
 }
 .hv-studio-region-strip-scroll {
   display: flex;
   align-items: center;
   gap: 6px;
   overflow-x: auto;
-  padding: 4px;
+  padding: 8px 10px;
 }
 /* The chip is a container (pill) holding a select button and, for hand-drawn
    walls, a ✕ delete button — kept as siblings so we never nest <button>s. */
@@ -2683,7 +2716,12 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   content-visibility: auto;
   contain-intrinsic-size: auto 96px auto 64px;
 }
-.hv-studio-swatch:hover { transform: translateY(-2px); z-index: 2; box-shadow: 0 8px 18px -10px rgba(0,0,0,.5); }
+/* Hover-lift only on devices with a real pointer — on touch screens the :hover
+   state sticks after a tap, leaving the tapped tile raised on top of its
+   neighbours (the "card stays up" bug). */
+@media (hover: hover) {
+  .hv-studio-swatch:hover { transform: translateY(-2px); z-index: 2; box-shadow: 0 8px 18px -10px rgba(0,0,0,.5); }
+}
 .hv-studio-swatch.is-selected { box-shadow: 0 0 0 2px var(--accent); }
 .hv-studio-swatch-color {
   position: absolute; inset: 0;
@@ -2820,41 +2858,230 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border: 1px solid var(--rule-strong);
 }
 
-/* Suggestion & recent sections */
-.hv-studio-suggest-section {
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-  padding: 14px;
-  background: var(--surface);
+/* Selection dock — pinned footer of the panel. Constant-height rows (selected
+   colour + recent strip) so picking a colour from ANY tab shows feedback in the
+   same place, and the layout never jumps as sections come and go. */
+.hv-studio-dock {
   flex-shrink: 0;
-}
-.hv-studio-suggest-section > .hv-studio-note {
-  margin-top: 10px;
-}
-.hv-studio-recent-section {
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-  padding: 12px 14px;
+  border-top: 1px solid var(--rule);
   background: var(--surface);
-  flex-shrink: 0;
-}
-.hv-studio-recent-list {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
+  flex-direction: column;
 }
-.hv-studio-recent-swatch {
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
+.hv-studio-dock-tips {
+  max-height: min(320px, 38vh);
+  overflow-y: auto;
+  padding: 12px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hv-studio-dock-tips .hv-studio-note { margin-top: 0; }
+.hv-studio-dock-tips-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.hv-studio-dock-tips-row .btn { margin-left: auto; }
+.hv-studio-dock-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 8px;
+}
+.hv-studio-dock-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--rule-strong);
+  flex-shrink: 0;
+}
+.hv-studio-dock-swatch.is-empty { border-style: dashed; background: transparent; }
+.hv-studio-dock-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.hv-studio-dock-name {
+  font: 600 13.5px/1.2 var(--sans);
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hv-studio-dock-meta {
+  font: 500 10px/1.2 var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--fg-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hv-studio-dock-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.hv-studio-dock-tipsbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  white-space: nowrap;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--fg-soft);
+  font: 500 11px/1 var(--sans);
+  cursor: pointer;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+.hv-studio-dock-tipsbtn:hover:not(:disabled) { background: var(--surface-soft); color: var(--fg); }
+.hv-studio-dock-tipsbtn:disabled { opacity: .4; cursor: default; }
+.hv-studio-dock-tipsbtn.has-warn { color: var(--terracotta); border-color: var(--terracotta); }
+.hv-studio-dock-tipsbtn.is-open { background: var(--surface-soft); color: var(--fg); }
+.hv-studio-dock-recent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px 9px;
+  min-height: 40px;
+}
+.hv-studio-dock-recent-list {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+  padding: 2px; /* room for the current-colour ring */
+}
+.hv-studio-dock-recent-swatch {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
   border: 1px solid var(--rule-strong);
   border-radius: 6px;
   cursor: pointer;
   padding: 0;
   transition: transform .12s var(--ease);
 }
-.hv-studio-recent-swatch:hover { transform: scale(1.08); }
+@media (hover: hover) {
+  .hv-studio-dock-recent-swatch:hover { transform: scale(1.08); }
+}
+.hv-studio-dock-recent-swatch.is-current { box-shadow: 0 0 0 2px var(--accent); }
+.hv-studio-dock-recent-empty {
+  font: 400 11.5px/1.2 var(--sans);
+  color: var(--fg-mute);
+}
+
+/* AI Suggest tab */
+.hv-ai-panel {
+  display: flex;
+  flex-direction: column;
+}
+.hv-ai-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.hv-ai-rebuild {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  width: 100%;
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+  font: 500 12px/1.3 var(--sans);
+  cursor: pointer;
+  transition: background .15s var(--ease);
+}
+.hv-ai-rebuild:hover { background: var(--surface-soft); }
+.hv-ai-intro {
+  font: 400 12px/1.45 var(--sans);
+  color: var(--fg-mute);
+  margin: 0 0 14px;
+}
+.hv-ai-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.hv-ai-card {
+  border: 1px solid var(--rule);
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+.hv-ai-card-name {
+  font: 600 14px/1.2 var(--sans);
+  color: var(--fg);
+}
+.hv-ai-card-rationale {
+  font: 400 13px/1.45 var(--sans);
+  color: var(--fg-mute);
+  margin: 6px 0 12px;
+}
+.hv-ai-trio {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.hv-ai-swatch {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.hv-ai-swatch-color {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  transition: box-shadow .15s var(--ease);
+}
+@media (hover: hover) {
+  .hv-ai-swatch:hover .hv-ai-swatch-color { box-shadow: 0 0 0 2px var(--accent); }
+}
+.hv-ai-swatch-role {
+  font: 400 9px/1 var(--mono);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--fg-mute);
+}
+.hv-ai-swatch-name {
+  font: 400 11px/1.25 var(--sans);
+  color: var(--fg-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+.hv-ai-card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
 
 /* Region list panel */
 .hv-studio-region-card {
