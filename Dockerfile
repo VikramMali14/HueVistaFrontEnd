@@ -20,4 +20,7 @@ COPY --from=build /app/public ./public
 COPY --from=build /app/next.config.ts ./next.config.ts
 COPY --from=build /app/cache-handler.js ./cache-handler.js
 EXPOSE 3000
+# Node ships fetch; no extra packages needed for the probe.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
+    CMD node -e "fetch('http://localhost:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 CMD ["npm", "run", "start"]
