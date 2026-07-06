@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getShopLeads, requireRole, updateShopLeadStatusAction } from "@/lib/auth";
+import { getAuditLog, getShopLeads, requireRole, searchUsersAction, updateShopLeadStatusAction } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { CreateRetailerForm } from "@/components/admin/create-retailer-form";
 import { ShopLeads } from "@/components/admin/shop-leads";
+import { UserSearch } from "@/components/admin/user-search";
+import { AuditLog } from "@/components/admin/audit-log";
 
 export const metadata: Metadata = {
   title: "Admin · Create shop",
@@ -16,7 +18,7 @@ export const metadata: Metadata = {
  */
 export default async function AdminPage() {
   await requireRole(["ADMIN"]);
-  const leads = await getShopLeads();
+  const [leads, audit] = await Promise.all([getShopLeads(), getAuditLog()]);
   return (
     <div style={{ maxWidth: 760 }}>
       <Eyebrow>Admin · shop accounts</Eyebrow>
@@ -43,6 +45,27 @@ export default async function AdminPage() {
           then mark the lead converted.
         </p>
         <ShopLeads initial={leads} updateAction={updateShopLeadStatusAction} />
+      </section>
+
+      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+        <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
+          Find a user
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch", marginBottom: 24 }}>
+          Look anyone up by name or email — shop owners, customers and admins alike.
+        </p>
+        <UserSearch searchAction={searchUsersAction} />
+      </section>
+
+      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+        <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
+          Audit trail
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch", marginBottom: 24 }}>
+          Every sensitive action the platform records — role changes, deletions, password
+          changes, subscription events. Latest fifty, newest first.
+        </p>
+        <AuditLog initial={audit} refreshAction={getAuditLog} />
       </section>
     </div>
   );

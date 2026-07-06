@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
-import type { DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
+import type { AdminUserRow, AuditLogRow, DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
 import { config } from "./config";
 import type { AuthResponse, AuthUser } from "./types";
 
@@ -337,6 +337,36 @@ export async function updateShopLeadStatusAction(
   } catch (err) {
     if (err instanceof HttpError) return { error: err.message };
     return { error: "Could not update the lead. Please try again." };
+  }
+}
+
+/** ADMIN: find users by name or email (top 20 matches, newest first). */
+export async function searchUsersAction(
+  q: string,
+): Promise<{ users?: AdminUserRow[]; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  const query = q.trim();
+  if (!query) return { users: [] };
+  try {
+    return { users: await adminApi.searchUsers(token, query) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Search failed. Please try again." };
+  }
+}
+
+/** ADMIN: the audit trail (latest 50, optional exact-action filter). Empty on any
+ *  failure so the admin page still renders. */
+export async function getAuditLog(action?: string): Promise<AuditLogRow[]> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return [];
+  try {
+    return await adminApi.listAuditLog(token, action?.trim() || undefined);
+  } catch {
+    return [];
   }
 }
 
