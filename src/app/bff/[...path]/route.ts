@@ -46,10 +46,15 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
 
   // Guest endpoints authenticate with the guest token; everything else with the
   // user token. This keeps a signed-in user and a guest session cleanly separate.
+  // One deliberate fallback: a guest with NO user session still needs non-guest
+  // GETs like /api/images/files/** (their own photo, when the backend stores
+  // files locally instead of S3) — the backend authorises the guest principal
+  // against the file's access-code prefix, so handing it the guest token is safe.
   const isGuestPath = joined === "api/guest" || joined.startsWith("api/guest/");
+  const jar = await cookies();
   const token = isGuestPath
-    ? (await cookies()).get(config.guestCookie)?.value ?? null
-    : await getAccessToken();
+    ? (jar.get(config.guestCookie)?.value ?? null)
+    : ((await getAccessToken()) ?? jar.get(config.guestCookie)?.value ?? null);
   if (!token) return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
 
   // DEMO_MODE: no backend — answer from in-memory fixtures. Sits AFTER the
