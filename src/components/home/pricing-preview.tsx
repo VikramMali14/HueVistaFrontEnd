@@ -6,8 +6,8 @@ interface Tier { name: string; price: string; feature: string; featured?: boolea
 const TIERS: ReadonlyArray<Tier> = [
   { name: "Starter", price: "₹19", feature: "20 AI previews / mo" },
   { name: "Professional", price: "₹999", feature: "60 AI previews / mo", featured: true },
-  { name: "Business", price: "₹1,999", feature: "150 / mo · white-label" },
-  { name: "Enterprise", price: "On request", feature: "Unlimited · API" },
+  { name: "Business", price: "₹1,999", feature: "150 / mo · multi-shop" },
+  { name: "Enterprise", price: "On request", feature: "Unlimited previews" },
 ];
 
 export function PricingPreview() {
@@ -44,7 +44,7 @@ export function PricingPreview() {
           </div>
         ))}
       </div>
-      <Mono style={{ display: "block", marginTop: 24 }}>Every tier starts with the same fourteen-day free trial · no card · cancel anytime</Mono>
+      <Mono style={{ display: "block", marginTop: 24 }}>Every new shop starts with a 14-day trial · no card · we set you up</Mono>
     </section>
   );
 }

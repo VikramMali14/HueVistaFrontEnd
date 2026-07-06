@@ -152,10 +152,47 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
     if (!project) return json({ message: "No project." }, 404);
     const tail = seg.slice(3).join("/");
 
+    if (!tail && method === "PATCH") {
+      // Partial update (rename etc.) — only provided fields change.
+      const body = await readJson(req);
+      if (typeof body.name === "string" && body.name.trim()) project.name = body.name.trim();
+      if (typeof body.roomType === "string") project.roomType = body.roomType.trim() || null;
+      if (typeof body.notes === "string") project.notes = body.notes.trim() || null;
+      project.updatedAt = nowIso();
+      return json(liveResponse(project));
+    }
     if (tail === "segment" && method === "POST") {
       project.status = "SEGMENTED";
       project.updatedAt = nowIso();
       return json(liveResponse(project));
+    }
+    if (tail === "send-to-shop" && method === "POST") {
+      // Guest "I'm done" — idempotent stamp, like the backend.
+      if (!project.sentToShopAt) project.sentToShopAt = nowIso();
+      return json(liveResponse(project));
+    }
+    if (tail === "recommendations" && method === "POST") {
+      // Canned Claude palettes so the AI panel is demoable offline.
+      const shade = (id: number, code: string, name: string, hex: string) =>
+        ({ id, shadeCode: code, name, hexCode: hex, brand: "Asian Paints", deltaE: 1.2 });
+      return json({
+        projectId: project.id,
+        imageType: "INDOOR",
+        combinations: [
+          { name: "Morning Chai", rationale: "Warm neutrals that keep the room bright while the trim grounds it.",
+            primaryHex: "#d9c7ae", primaryShade: shade(101, "AP-8477", "Morning Fog", "#d9c7ae"),
+            accentHex: "#a9714b", accentShade: shade(102, "AP-8542", "Terracotta Ray", "#a9714b"),
+            trimHex: "#4a3527", trimShade: shade(103, "AP-8318", "Deep Walnut", "#4a3527") },
+          { name: "Monsoon Sky", rationale: "A cool, calming pairing that flatters the daylight in the photo.",
+            primaryHex: "#c9d4d9", primaryShade: shade(104, "AP-9123", "Silver Drizzle", "#c9d4d9"),
+            accentHex: "#476a7a", accentShade: shade(105, "AP-9188", "Harbour Blue", "#476a7a"),
+            trimHex: "#f2efe8", trimShade: shade(106, "AP-9001", "Ivory Lace", "#f2efe8") },
+          { name: "Haldi Glow", rationale: "A confident accent wall with soft companions for the other surfaces.",
+            primaryHex: "#efe6d4", primaryShade: shade(107, "AP-7719", "Cream Silk", "#efe6d4"),
+            accentHex: "#d99a2b", accentShade: shade(108, "AP-7788", "Turmeric Gold", "#d99a2b"),
+            trimHex: "#6d5a3f", trimShade: shade(109, "AP-7645", "Aged Brass", "#6d5a3f") },
+        ],
+      });
     }
     if (tail === "status" && method === "GET") {
       return json(liveResponse({ ...project, status: "SEGMENTED" }));
@@ -367,6 +404,12 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
     if (!match) return json({ message: "That code wasn't found." }, 404);
     if (match.used) return json({ message: "That code has already been used." }, 409);
     return json({ ...match, used: true, usedAt: nowIso() });
+  }
+  // The shop's view of a guest's room (portal "View room"). Single demo tenant:
+  // any code resolves to the first seeded project.
+  if (seg[0] === "api" && seg[1] === "access-codes" && seg[3] === "guest-project" && method === "GET") {
+    const project = store.projects[0];
+    return json(project ? liveResponse(project) : undefined);
   }
 
   // ---------- Support ----------

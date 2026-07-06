@@ -15,9 +15,17 @@ import {
 } from "@/lib/color-science";
 import { UndertoneTag } from "@/components/catalogue/undertone-tag";
 import { generatePalettes } from "@/lib/palettes";
+import { mapToPaintShade } from "@/lib/catalogue";
+import { HttpError } from "@/lib/http-error";
 import { CustomMatchPanel } from "./color-wheel";
 import { CoordinateSuggestions, type RegionLite } from "./coordinate-suggestions";
-import type { PaintShade, RegionKind } from "@/lib/types";
+import type {
+  AiColorCombo,
+  AiMatchedShade,
+  AiRecommendationResponse,
+  PaintShade,
+  RegionKind,
+} from "@/lib/types";
 
 const TABS = ["Catalogue", "AI Suggest", "Custom"] as const;
 type Tab = (typeof TABS)[number];
@@ -71,6 +79,9 @@ interface ShadeGridProps {
   outdoor?: boolean;
   /** Undertone-clash message computed across applied regions, if any. */
   clashNote?: string | null;
+  /** Ask Claude for palettes tuned to THIS photo (costs 1 AI preview). Absent
+   *  for guests and until the project exists — the section hides itself. */
+  onFetchAiPalettes?: () => Promise<AiRecommendationResponse>;
 }
 
 /**
@@ -103,6 +114,7 @@ export function ShadeGrid({
   recentShades,
   outdoor = false,
   clashNote,
+  onFetchAiPalettes,
 }: ShadeGridProps) {
   const [family, setFamily] = useState<string>("All");
   const [tone, setTone] = useState<Tone>("All");
@@ -386,6 +398,7 @@ export function ShadeGrid({
             onApplyToRegion={onApplyToRegion}
             baseHex={baseHex}
             hideCodes={hideCodes}
+            onFetchAiPalettes={onFetchAiPalettes}
           />
         )}
 
@@ -761,6 +774,7 @@ function AISuggestPanel({
   onApplyToRegion,
   baseHex,
   hideCodes = false,
+  onFetchAiPalettes,
 }: {
   onSelect: (shade: PaintShade) => void;
   catalogue: ReadonlyArray<PaintShade>;
@@ -770,6 +784,8 @@ function AISuggestPanel({
   /** Colour already on the active wall — anchors every palette when present. */
   baseHex?: string;
   hideCodes?: boolean;
+  /** Claude palettes for THIS photo (1 AI preview per ask); hidden when absent. */
+  onFetchAiPalettes?: () => Promise<AiRecommendationResponse>;
 }) {
   // Suggestions are anchored to a snapshot taken when the tab opens. Applying a
   // colour changes the wall — but must NOT rebuild the cards under the user's
@@ -794,7 +810,7 @@ function AISuggestPanel({
   // back to the active wall only when we can't map regions (e.g. no per-region
   // apply available, or the project has a single surface). Targets the LIVE
   // regions, not the snapshot, so paint always lands on the real walls.
-  const applyCombo = (shades: PaintShade[]) => {
+  const applyCombo = (shades: ReadonlyArray<PaintShade | undefined>) => {
     const byKind = (k: RegionKind) => regions?.find((r) => r.kind === k);
     const main = byKind("MAIN_WALL") ?? regions?.find((r) => r.id === activeRegionId) ?? regions?.[0];
     const targets: Array<[RegionLite | undefined, PaintShade | undefined]> = [
@@ -814,16 +830,28 @@ function AISuggestPanel({
     if (!applied && shades[0]) onSelect(shades[0]); // single-surface / no mapping → active wall
   };
 
-  if (palettes.length === 0) {
-    return <p className="hv-studio-empty">The catalogue is still loading — palettes will appear here.</p>;
-  }
-
   const showPairings =
     Boolean(snap.baseHex) && Boolean(activeRegionId) && Boolean(onApplyToRegion) && snap.regions.length > 0;
 
   return (
     <div className="hv-ai-panel">
-      {stale && (
+      {onFetchAiPalettes && (
+        <ClaudePicksSection
+          fetchPalettes={onFetchAiPalettes}
+          catalogue={catalogue}
+          onSelect={onSelect}
+          onApplyCombo={applyCombo}
+          hideCodes={hideCodes}
+        />
+      )}
+
+      {/* The free, local Room palettes need the catalogue; Claude's picks above
+          do not, so an empty/loading catalogue only blanks THIS half. */}
+      {palettes.length === 0 && (
+        <p className="hv-studio-empty">The catalogue is still loading — palettes will appear here.</p>
+      )}
+
+      {palettes.length > 0 && stale && (
         <button
           type="button"
           onClick={rebuild}
@@ -834,68 +862,72 @@ function AISuggestPanel({
         </button>
       )}
 
-      <div className="hv-ai-head">
-        <Mono>Room palettes</Mono>
-        <button
-          type="button"
-          className="btn btn-sm btn-ghost"
-          onClick={shuffle}
-          title="Different suggestions with the same rules"
-        >
-          ↻ Shuffle
-        </button>
-      </div>
-      <p className="hv-ai-intro">
-        {snap.baseHex ? (
-          <>
-            Built around the colour on your wall
-            <span
-              aria-hidden
-              style={{ display: "inline-block", width: 10, height: 10, background: snap.baseHex, border: "1px solid var(--rule-strong)", borderRadius: 3, margin: "0 4px", verticalAlign: "-1px" }}
-            />
-            — every swatch is a real catalogue shade.
-          </>
-        ) : (
-          "Pick a colour first and the palettes build around it — every swatch is a real catalogue shade."
-        )}
-      </p>
-      <div className="hv-ai-cards">
-        {palettes.map((p) => {
-          const trio = [p.main, p.accent, p.trim];
-          return (
-            <div key={p.name} className="hv-ai-card">
-              <div className="hv-ai-card-name">{p.name}</div>
-              <p className="hv-ai-card-rationale">{p.rationale}</p>
-              <div className="hv-ai-trio">
-                {trio.map((s, i) => (
-                  <button
-                    key={s.code}
-                    type="button"
-                    onClick={() => onSelect(s)}
-                    title={hideCodes ? `${s.name} → active wall` : `${s.name} · ${s.code} → active wall`}
-                    aria-label={`Apply ${s.name} to the active wall`}
-                    className="hv-ai-swatch"
-                  >
-                    <span aria-hidden className="hv-ai-swatch-color" style={{ background: s.hex }} />
-                    <span className="hv-ai-swatch-role">{PALETTE_ROLES[i]}</span>
-                    <span className="hv-ai-swatch-name">{s.name}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="hv-ai-card-actions">
-                <button
-                  type="button"
-                  onClick={() => applyCombo(trio)}
-                  className="btn btn-sm"
-                  title="Apply the whole palette — main, accent and trim — across the room"
-                >
-                  Apply all
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {palettes.length > 0 && (
+        <>
+          <div className="hv-ai-head">
+            <Mono>Room palettes</Mono>
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              onClick={shuffle}
+              title="Different suggestions with the same rules"
+            >
+              ↻ Shuffle
+            </button>
+          </div>
+          <p className="hv-ai-intro">
+            {snap.baseHex ? (
+              <>
+                Built around the colour on your wall
+                <span
+                  aria-hidden
+                  style={{ display: "inline-block", width: 10, height: 10, background: snap.baseHex, border: "1px solid var(--rule-strong)", borderRadius: 3, margin: "0 4px", verticalAlign: "-1px" }}
+                />
+                — every swatch is a real catalogue shade.
+              </>
+            ) : (
+              "Pick a colour first and the palettes build around it — every swatch is a real catalogue shade."
+            )}
+          </p>
+          <div className="hv-ai-cards">
+            {palettes.map((p) => {
+              const trio = [p.main, p.accent, p.trim];
+              return (
+                <div key={p.name} className="hv-ai-card">
+                  <div className="hv-ai-card-name">{p.name}</div>
+                  <p className="hv-ai-card-rationale">{p.rationale}</p>
+                  <div className="hv-ai-trio">
+                    {trio.map((s, i) => (
+                      <button
+                        key={s.code}
+                        type="button"
+                        onClick={() => onSelect(s)}
+                        title={hideCodes ? `${s.name} → active wall` : `${s.name} · ${s.code} → active wall`}
+                        aria-label={`Apply ${s.name} to the active wall`}
+                        className="hv-ai-swatch"
+                      >
+                        <span aria-hidden className="hv-ai-swatch-color" style={{ background: s.hex }} />
+                        <span className="hv-ai-swatch-role">{PALETTE_ROLES[i]}</span>
+                        <span className="hv-ai-swatch-name">{s.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="hv-ai-card-actions">
+                    <button
+                      type="button"
+                      onClick={() => applyCombo(trio)}
+                      className="btn btn-sm"
+                      title="Apply the whole palette — main, accent and trim — across the room"
+                    >
+                      Apply all
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {showPairings && (
         <CoordinateSuggestions
@@ -905,6 +937,161 @@ function AISuggestPanel({
           catalogue={catalogue}
           onApplyToRegion={onApplyToRegion!}
         />
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Claude's picks" — palettes generated by Claude Vision from the actual project
+ * photo (backend POST /recommendations). Unlike the free Room palettes below
+ * (local catalogue math), each ask costs one AI preview from the shop's monthly
+ * quota, so NOTHING is fetched until the retailer explicitly asks. A 402 (out
+ * of previews / unsubscribed) gets its own message; every other failure keeps
+ * the button usable for a retry — a failed run is refunded server-side.
+ */
+function ClaudePicksSection({
+  fetchPalettes,
+  catalogue,
+  onSelect,
+  onApplyCombo,
+  hideCodes = false,
+}: {
+  fetchPalettes: () => Promise<AiRecommendationResponse>;
+  catalogue: ReadonlyArray<PaintShade>;
+  onSelect: (shade: PaintShade) => void;
+  onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
+  hideCodes?: boolean;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [combos, setCombos] = useState<AiColorCombo[] | null>(null);
+  const [error, setError] = useState<{ message: string; quota: boolean } | null>(null);
+
+  // Prefer the real catalogue entry for a matched code (correct LRV/finishes);
+  // fall back to a shade built from the payload so the swatch still applies.
+  const byCode = useMemo(() => {
+    const m = new Map<string, PaintShade>();
+    for (const s of catalogue) m.set(s.code, s);
+    return m;
+  }, [catalogue]);
+
+  const toShade = useCallback(
+    (matched: AiMatchedShade | null | undefined): PaintShade | undefined => {
+      if (!matched?.shadeCode) return undefined;
+      return (
+        byCode.get(matched.shadeCode) ??
+        mapToPaintShade({
+          shadeCode: matched.shadeCode,
+          name: matched.name,
+          hexCode: matched.hexCode,
+          shadeFamily: matched.shadeFamily,
+          brandName: matched.brand,
+        })
+      );
+    },
+    [byCode],
+  );
+
+  const ask = () => {
+    setLoading(true);
+    setError(null);
+    void (async () => {
+      try {
+        const res = await fetchPalettes();
+        setCombos(res.combinations ?? []);
+      } catch (err) {
+        if (err instanceof HttpError && err.status === 402) {
+          setError({ message: err.message, quota: true });
+        } else {
+          setError({
+            message: err instanceof Error ? err.message : "Could not fetch suggestions.",
+            quota: false,
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  };
+
+  const cards = useMemo(
+    () =>
+      (combos ?? [])
+        .map((c) => ({
+          combo: c,
+          trio: [toShade(c.primaryShade), toShade(c.accentShade), toShade(c.trimShade)] as const,
+        }))
+        .filter(({ trio }) => trio.some(Boolean)),
+    [combos, toShade],
+  );
+
+  return (
+    <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: "1px solid var(--rule)" }}>
+      <div className="hv-ai-head">
+        <Mono brass>Claude&rsquo;s picks · from your photo</Mono>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={ask}
+          disabled={loading}
+          title="Claude looks at the room photo and suggests three palettes matched to real catalogue shades. Each ask uses one AI preview."
+        >
+          {loading ? "Asking…" : combos ? "Ask again · 1 preview" : "Ask Claude · 1 preview"}
+        </button>
+      </div>
+      {!combos && !loading && !error && (
+        <p className="hv-ai-intro">
+          Palettes tuned to this exact photo — its light, furnishings and mood. Each ask uses one
+          AI preview from your monthly quota; the Room palettes below stay free.
+        </p>
+      )}
+      {error && (
+        <p className="field-error" role="alert">
+          {error.quota
+            ? "You're out of AI previews this month. Upgrade your plan or wait for the reset — the free Room palettes below still work."
+            : error.message}
+        </p>
+      )}
+      {combos && cards.length === 0 && !loading && (
+        <p className="hv-studio-empty">Claude couldn&rsquo;t match catalogue shades for this photo — try again.</p>
+      )}
+      {cards.length > 0 && (
+        <div className="hv-ai-cards">
+          {cards.map(({ combo, trio }) => (
+            <div key={combo.name} className="hv-ai-card">
+              <div className="hv-ai-card-name">{combo.name}</div>
+              {combo.rationale && <p className="hv-ai-card-rationale">{combo.rationale}</p>}
+              <div className="hv-ai-trio">
+                {trio.map((s, i) =>
+                  s ? (
+                    <button
+                      key={`${combo.name}-${s.code}-${i}`}
+                      type="button"
+                      onClick={() => onSelect(s)}
+                      title={hideCodes ? `${s.name} → active wall` : `${s.name} · ${s.code} → active wall`}
+                      aria-label={`Apply ${s.name} to the active wall`}
+                      className="hv-ai-swatch"
+                    >
+                      <span aria-hidden className="hv-ai-swatch-color" style={{ background: s.hex }} />
+                      <span className="hv-ai-swatch-role">{PALETTE_ROLES[i]}</span>
+                      <span className="hv-ai-swatch-name">{s.name}</span>
+                    </button>
+                  ) : null,
+                )}
+              </div>
+              <div className="hv-ai-card-actions">
+                <button
+                  type="button"
+                  onClick={() => onApplyCombo(trio)}
+                  className="btn btn-sm"
+                  title="Apply the whole palette — main, accent and trim — across the room"
+                >
+                  Apply all
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

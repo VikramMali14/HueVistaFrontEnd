@@ -189,9 +189,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // a local preview with a Continue/Choose-different prompt; no upload, no
   // classification and no (billable) segmentation runs until the user confirms.
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  // AI-preview quota, shown in the topbar so the cost is visible at the moment
+  // it's spent (wall detection and Claude palettes each use one; recolouring is
+  // free). Null hides the pill: guests (the shop's budget, not theirs),
+  // customers (no subscription → 404) and fetch failures.
+  const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  // Guest "I'm done" hand-off to the issuing shop (guest mode only).
+  const [sentToShop, setSentToShop] = useState(false);
+  const [sendingToShop, setSendingToShop] = useState(false);
+  // Inline rename in the topbar (signed-in users with a saved project).
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  // Set when Escape cancels the edit so the input's blur doesn't commit it.
+  const skipRenameCommitRef = useRef(false);
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(null);
   // Step 0 — project details captured before anything is created on the backend.
   const [details, setDetails] = useState<ProjectDetails | null>(
@@ -335,6 +348,27 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     };
   }, []);
 
+  // Load the AI-preview count on entry and re-read it after anything that can
+  // spend (or refund) a credit. Best-effort: any failure just hides the pill —
+  // the backend remains the authority on every charge.
+  const refreshQuota = useCallback(() => {
+    if (guest) return;
+    api
+      .getCurrentSubscription()
+      .then((s) => {
+        if (s?.status === "ACTIVE") {
+          setQuota({ used: s.aiGenerationsUsed, limit: s.aiGenerationsLimit });
+        } else {
+          setQuota(null);
+        }
+      })
+      .catch(() => setQuota(null));
+  }, [guest]);
+
+  useEffect(() => {
+    refreshQuota();
+  }, [refreshQuota]);
+
   const applyProjectDetail = useCallback(
     async (detail: ProjectDetail) => {
       const rc = recolorRef.current;
@@ -355,6 +389,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       }
       if (detail.name) setProjectName(detail.name);
       if (detail.roomType) setProjectRoom(detail.roomType);
+      if (detail.sentToShopAt) setSentToShop(true);
       const mapped = detail.regions
         .slice()
         .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
@@ -496,9 +531,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         }
       } finally {
         setSegmenting(false);
+        refreshQuota(); // segmentation charges on success / refunds on failure
       }
     },
-    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall],
+    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota],
   );
 
   // Pick / receive a photo (file picker, drag-drop, or phone hand-off) and show it
@@ -625,8 +661,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setSegmenting(false);
+      refreshQuota(); // retry charges on success / refunds on failure
     }
-  }, [projectId, guest, pollUntilSegmented, applyProjectDetail]);
+  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota]);
 
   const handleBuyAndRetry = useCallback(async () => {
     setError(null);
@@ -857,6 +894,38 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
   }, [projectId]);
 
+  // Commit the inline rename: optimistic (the topbar updates immediately), with
+  // a revert + error message if the backend rejects it. No-ops on blank/unchanged.
+  const commitRename = useCallback(async () => {
+    const name = nameDraft.trim();
+    setRenaming(false);
+    if (!projectId || !name || name === (projectName ?? "")) return;
+    const prev = projectName;
+    setProjectName(name);
+    try {
+      await api.updateProject(projectId, { name });
+    } catch (err) {
+      setProjectName(prev);
+      setError(err instanceof Error ? err.message : "Could not rename the project.");
+    }
+  }, [nameDraft, projectId, projectName]);
+
+  // Guest "I'm done — this is the one": hands the project to the issuing shop
+  // (idempotent server-side; the shop owner also gets an email heads-up).
+  const handleSendToShop = useCallback(async () => {
+    if (!projectId) return;
+    setSendingToShop(true);
+    setError(null);
+    try {
+      await guestApi.sendToShop(projectId);
+      setSentToShop(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send this to the shop.");
+    } finally {
+      setSendingToShop(false);
+    }
+  }, [projectId]);
+
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
   // Undertone check across every painted wall: the first warm-vs-cool (or
@@ -889,6 +958,24 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [regions],
   );
 
+  // Claude photo palettes: signed-in users with a saved project only. Guests
+  // never get the section (their AI budget is the shop's segmentation quota),
+  // and before the project exists there's no photo on the backend to analyse.
+  // Every ask re-reads the quota pill — charged on success, refunded on failure.
+  const fetchAiPalettes = useMemo(
+    () =>
+      !guest && projectId
+        ? async () => {
+            try {
+              return await api.getAiRecommendations(projectId);
+            } finally {
+              refreshQuota();
+            }
+          }
+        : undefined,
+    [guest, projectId, refreshQuota],
+  );
+
   const overlayLabel = uploading && !segmenting
     ? "Uploading photo"
     : segmenting
@@ -918,11 +1005,62 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       <div className="hv-studio-topbar">
         <div className="hv-studio-project">
           <Mono>Project</Mono>
-          <span>{projectName || "Untitled project"}</span>
+          {renaming ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={() => {
+                if (!skipRenameCommitRef.current) void commitRename();
+                skipRenameCommitRef.current = false;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") {
+                  skipRenameCommitRef.current = true;
+                  setRenaming(false);
+                }
+              }}
+              aria-label="Project name"
+              maxLength={200}
+              style={{
+                font: "inherit",
+                color: "inherit",
+                background: "var(--surface)",
+                border: "1px solid var(--rule-strong)",
+                borderRadius: 4,
+                padding: "2px 8px",
+                minWidth: 140,
+              }}
+            />
+          ) : !guest && projectId ? (
+            <button
+              type="button"
+              onClick={() => {
+                setNameDraft(projectName ?? "");
+                setRenaming(true);
+              }}
+              title="Rename this project"
+              style={{ font: "inherit", color: "inherit", background: "transparent", border: "none", cursor: "text", padding: 0, display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <span>{projectName || "Untitled project"}</span>
+              <span aria-hidden style={{ color: "var(--fg-mute)", fontSize: 12 }}>✎</span>
+            </button>
+          ) : (
+            <span>{projectName || "Untitled project"}</span>
+          )}
           {projectRoom && <Mono>· {projectRoom}</Mono>}
         </div>
 
         <div className="hv-studio-status">
+          {quota && (
+            <span
+              className={`hv-status-pill ${quota.used >= quota.limit ? "is-error" : ""}`}
+              title="AI previews used this month. Wall detection and Claude palettes each use one; trying shades and recolouring are free."
+            >
+              {quota.used}/{quota.limit >= 2147483647 ? "∞" : quota.limit} AI previews
+            </span>
+          )}
           {basicPreview && (
             <span className="hv-status-pill" title="WebGL2 unavailable — using the simplified renderer">
               ⚠ Basic preview
@@ -976,6 +1114,23 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               title={projectId ? "Create a public link (colours shown, codes hidden)" : "Save the project first"}
             >
               {sharing ? "Sharing…" : "Share"}
+            </Button>
+          )}
+          {guest && (
+            <Button
+              size="sm"
+              variant="brass"
+              disabled={!projectId || sendingToShop || sentToShop}
+              onClick={() => void handleSendToShop()}
+              title={
+                sentToShop
+                  ? "The shop has your room and colours."
+                  : projectId
+                    ? "Done choosing? Send this room to your shop — they'll see your colours and the exact shades."
+                    : "Pick a photo first"
+              }
+            >
+              {sentToShop ? "Sent to shop ✓" : sendingToShop ? "Sending…" : "Send to my shop"}
             </Button>
           )}
           <Button
@@ -1244,6 +1399,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             recentShades={recentShades}
             outdoor={classification === "OUTDOOR"}
             clashNote={clashNote}
+            onFetchAiPalettes={fetchAiPalettes}
           />
         </div>
       </div>

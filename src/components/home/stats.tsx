@@ -3,7 +3,7 @@ import BlurText from "@/components/ui/blur-text";
 
 const STATS = [
   { value: 20, suffix: "s", label: "Photo to realistic preview" },
-  { value: 2481, suffix: "", label: "Shades, real codes intact" },
+  { value: 10000, suffix: "+", label: "Shades, real codes intact" },
   { value: 14, suffix: " days", label: "Free trial, no card" },
 ];
 

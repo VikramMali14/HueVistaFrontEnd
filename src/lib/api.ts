@@ -184,6 +184,41 @@ export const billingApi = {
 };
 
 /**
+ * Customer entitlement for SERVER components (e.g. the studio's access gate for
+ * CUSTOMER accounts). Returns null when the customer has no entitlement yet.
+ * The browser equivalent is `api.getMyEntitlement()` via the BFF.
+ */
+export const entitlementApi = {
+  my: (accessToken: string) =>
+    serverFetch<CustomerEntitlement | null>("/api/me/entitlement", { accessToken }),
+};
+
+/** A shop owner's request for a retailer account (public lead form on /trial). */
+export interface ShopLeadPayload {
+  name: string;
+  email: string;
+  phone?: string;
+  shopName: string;
+  city?: string;
+  state?: string;
+  tier?: string;
+  notes?: string;
+}
+
+/**
+ * Public shop-account lead submission — server action only (no auth). The
+ * backend stores the lead for the admin queue and pings the admin inbox.
+ */
+export const leadApi = {
+  submitShopLead: (body: ShopLeadPayload, clientIp?: string) =>
+    serverFetch<{ id: string; status: string }>("/api/leads/shop", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
+};
+
+/**
  * Admin API — ROLE_ADMIN only, used from admin server actions. Goes directly to
  * the backend with the admin's cookie-resident access token.
  */
@@ -226,7 +261,32 @@ export const adminApi = {
       method: "DELETE",
       accessToken,
     }),
+  // Shop-account request queue (public /trial form feeds it).
+  listShopLeads: (accessToken: string) =>
+    serverFetch<ShopLeadRow[]>("/api/admin/leads", { accessToken }),
+  updateShopLeadStatus: (accessToken: string, leadId: string, status: ShopLeadStatus) =>
+    serverFetch<ShopLeadRow>(`/api/admin/leads/${encodeURIComponent(leadId)}/status`, {
+      method: "PATCH",
+      accessToken,
+      body: JSON.stringify({ status }),
+    }),
 };
+
+/** A shop-account request as the admin queue sees it. */
+export type ShopLeadStatus = "NEW" | "CONTACTED" | "CONVERTED" | "DISMISSED";
+export interface ShopLeadRow {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  shopName: string;
+  city?: string | null;
+  state?: string | null;
+  tier?: string | null;
+  notes?: string | null;
+  status: ShopLeadStatus;
+  createdAt?: string;
+}
 
 /** A company as shown in the shade-upload dropdown. */
 export interface UploadBrand {
@@ -316,6 +376,19 @@ export const api = {
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/status`),
   getProject: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}`),
+  // Partial update — send only the fields being edited (e.g. a rename).
+  updateProject: (projectId: string, body: { name?: string; roomType?: string; notes?: string }) =>
+    browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  // Claude palette suggestions for the project photo. Costs 1 AI preview from
+  // the retailer's monthly quota — 402 when out of credits or unsubscribed.
+  getAiRecommendations: (projectId: string) =>
+    browserFetch<import("./types").AiRecommendationResponse>(
+      `api/projects/${encodeURIComponent(projectId)}/recommendations`,
+      { method: "POST" },
+    ),
   generateShareLink: (projectId: string, days = 7) =>
     browserFetch<import("./types").ShareLink>(
       `api/projects/${encodeURIComponent(projectId)}/share?days=${days}`,
@@ -418,6 +491,13 @@ export const api = {
     browserFetch<OrgResponse>("api/organizations", { method: "POST", body: JSON.stringify(body) }),
   listAccessCodes: (orgId: string) =>
     browserFetch<AccessCode[]>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`),
+  // The shop's view of what a guest picked with this code — FULL project with the
+  // real shade codes (the guest sees the masked projection). Empty body (=> undefined)
+  // when the guest hasn't created a project yet.
+  getGuestProjectForCode: (codeId: string) =>
+    browserFetch<ProjectDetail | undefined>(
+      `api/access-codes/${encodeURIComponent(codeId)}/guest-project`,
+    ),
   createAccessCode: (orgId: string, body: { validDays: number; allowedBrands?: string[] }) =>
     browserFetch<AccessCode>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`, {
       method: "POST",
@@ -508,6 +588,12 @@ export const guestApi = {
       `api/guest/projects/${encodeURIComponent(projectId)}/regions/${regionId}`,
       { method: "DELETE" },
     ),
+  // "I'm done — this is the one": idempotent; the shop owner gets an email
+  // heads-up and the portal shows a "sent by customer" badge.
+  sendToShop: (projectId: string) =>
+    browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/send-to-shop`, {
+      method: "POST",
+    }),
 };
 
 export { HttpError };

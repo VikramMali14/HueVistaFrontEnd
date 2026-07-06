@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
-import type { DeleteAllShadesResult, ShadeUploadResult, UploadBrand } from "./api";
+import type { DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
 import { config } from "./config";
 import type { AuthResponse, AuthUser } from "./types";
 
@@ -311,6 +311,35 @@ export async function logoutAction() {
   redirect("/");
 }
 
+/** ADMIN: the shop-account request queue (newest first). Empty on any failure so
+ *  the admin page still renders. */
+export async function getShopLeads(): Promise<ShopLeadRow[]> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return [];
+  try {
+    return await adminApi.listShopLeads(token);
+  } catch {
+    return [];
+  }
+}
+
+/** ADMIN: work a lead — mark it contacted / converted / dismissed. */
+export async function updateShopLeadStatusAction(
+  leadId: string,
+  status: ShopLeadStatus,
+): Promise<{ lead?: ShopLeadRow; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { lead: await adminApi.updateShopLeadStatus(token, leadId, status) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not update the lead. Please try again." };
+  }
+}
+
 /** ADMIN: companies for the shade-upload dropdown. Empty list on any failure so the
  *  page still renders (an admin can always add a new company). */
 export async function getUploadBrands(): Promise<UploadBrand[]> {
@@ -383,9 +412,9 @@ export async function deleteAccountAction() {
 
 /**
  * Subscription guard for subscriber-only pages (e.g. the colour finder). Any
- * ACTIVE subscription — free trial OR paid — passes. Anything else (no
- * subscription, a lapsed one, or a customer who only has an access-code
- * entitlement) is sent to pricing. Use inside server components.
+ * ACTIVE subscription — free trial OR paid — passes. A CUSTOMER (who can never
+ * hold a shop subscription) is sent to redeem an access code instead of being
+ * sold retailer plans; everyone else lands on pricing.
  */
 export async function requireActiveSubscription(): Promise<void> {
   const token = await getAccessToken();
@@ -396,6 +425,8 @@ export async function requireActiveSubscription(): Promise<void> {
   } catch {
     /* 404 = no subscription → fall through to the redirect below */
   }
+  const user = await getCurrentUser();
+  if (user?.role === "CUSTOMER") redirect("/redeem");
   redirect("/pricing?need=subscription");
 }
 

@@ -5,14 +5,14 @@ const SERVICES = [
   {
     kicker: "Pricing",
     title: "One plan, priced for shops",
-    desc: "Start free for 14 days — no card to begin. Everything included, built for the counter.",
+    desc: "14-day trial — no card, we set you up. Everything included, built for the counter.",
     tone: "terracotta",
     href: "/pricing",
   },
   {
     kicker: "Catalogue match",
     title: "Match a colour, exactly",
-    desc: "Search 2,481 shades by code, name or hex — with harmonies and look-alikes across brands.",
+    desc: "Search 10,000+ shades by code, name or hex — with harmonies and look-alikes across brands.",
     tone: "slate",
     href: "/catalogue",
   },

@@ -44,7 +44,7 @@ export function Toolkit() {
             <span className="hv-tk-typed">your-shop.huevista.com</span>
           </div>
           <h3 className="hv-tk-card-title">Your name on the door</h3>
-          <p className="hv-tk-card-desc">A white-label subdomain for your counter.</p>
+          <p className="hv-tk-card-desc">A white-label subdomain for your counter — rolling out soon.</p>
         </article>
 
         {/* Find similar — close swatches spread apart */}

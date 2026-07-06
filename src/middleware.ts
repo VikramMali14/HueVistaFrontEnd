@@ -7,11 +7,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/products", "/color-finder", "/account", "/admin"];
 // Pages that only make sense for a signed-OUT visitor. A signed-in user landing
-// here (e.g. following an old "Begin a trial" link) is bounced home — they can't
-// register or sign in again without signing out first. The Google OAuth callback
-// at /sign-in/google is deliberately NOT listed: it runs mid-login, before the
-// session cookies exist, and must be allowed through.
-const GUEST_ONLY_PATHS = ["/sign-in", "/sign-in/forgot", "/trial", "/join"];
+// here is bounced home — they can't register or sign in again without signing
+// out first. The Google OAuth callback at /sign-in/google is deliberately NOT
+// listed: it runs mid-login, before the session cookies exist, and must be
+// allowed through. /trial is NOT listed either — it's the public shop lead form
+// (no account is created there), so signed-in visitors may use it too.
+const GUEST_ONLY_PATHS = ["/sign-in", "/sign-in/forgot", "/join"];
 const ACCESS_COOKIE = "hv_access";
 const SESSION_COOKIE = "hv_refresh";
 const GUEST_COOKIE = "hv_guest";
@@ -147,7 +148,6 @@ export const config = {
     // Guest-only auth pages (exact — keep /sign-in/google out of the bounce).
     "/sign-in",
     "/sign-in/forgot",
-    "/trial",
     "/join",
   ],
 };

@@ -28,6 +28,8 @@ export function AppNav({ user }: AppNavProps) {
   const visibleTabs = TABS.filter((t) => {
     if (t.href === "/portal" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     if (t.href === "/products" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
+    // Subscriber-only retailer tool — a customer clicking it would only be bounced.
+    if (t.href === "/color-finder" && user && user.role === "CUSTOMER") return false;
     if (t.href === "/inbox" && (!user || user.role !== "ADMIN")) return false;
     if (t.href === "/admin" && (!user || user.role !== "ADMIN")) return false;
     return true;

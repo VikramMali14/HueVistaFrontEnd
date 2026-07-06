@@ -81,7 +81,7 @@ export default function GalleryPage() {
                 <div className="r-cols-xs-1" style={{ marginTop: 48, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24 }}>
                   {[
                     ["20 s", "photo to first preview"],
-                    ["2,481", "shades, real codes intact"],
+                    ["10,000+", "shades, real codes intact"],
                     ["1 tap", "preview to WhatsApp"],
                   ].map(([num, lbl]) => (
                     <div key={lbl} style={{ borderTop: "1px solid var(--band-rule)", paddingTop: 18 }}>
