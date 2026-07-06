@@ -376,6 +376,13 @@ export const api = {
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/status`),
   getProject: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}`),
+  // Claude palette suggestions for the project photo. Costs 1 AI preview from
+  // the retailer's monthly quota — 402 when out of credits or unsubscribed.
+  getAiRecommendations: (projectId: string) =>
+    browserFetch<import("./types").AiRecommendationResponse>(
+      `api/projects/${encodeURIComponent(projectId)}/recommendations`,
+      { method: "POST" },
+    ),
   generateShareLink: (projectId: string, days = 7) =>
     browserFetch<import("./types").ShareLink>(
       `api/projects/${encodeURIComponent(projectId)}/share?days=${days}`,

@@ -182,6 +182,37 @@ export interface ShareLink {
   expiresAt?: string | null;
 }
 
+/** A catalogue shade matched to an AI-suggested colour (backend MatchedShade). */
+export interface AiMatchedShade {
+  id: number;
+  shadeCode: string;
+  name: string;
+  hexCode: string;
+  brand?: string | null;
+  shadeFamily?: string | null;
+  aiDescription?: string | null;
+  deltaE?: number;
+}
+
+/** One AI palette: primary + accent + trim, each matched to a real shade (backend ColorCombo). */
+export interface AiColorCombo {
+  name: string;
+  rationale?: string | null;
+  primaryHex: string;
+  primaryShade?: AiMatchedShade | null;
+  accentHex?: string | null;
+  accentShade?: AiMatchedShade | null;
+  trimHex?: string | null;
+  trimShade?: AiMatchedShade | null;
+}
+
+/** Claude colour recommendations for a project (backend RecommendationResponse). */
+export interface AiRecommendationResponse {
+  projectId: string;
+  imageType?: string | null;
+  combinations: AiColorCombo[];
+}
+
 /** A customer's project entitlement (allowance + day-validity), managed by their retailer. */
 export interface CustomerEntitlement {
   customerId: string;

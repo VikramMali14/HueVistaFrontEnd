@@ -889,6 +889,14 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [regions],
   );
 
+  // Claude photo palettes: signed-in users with a saved project only. Guests
+  // never get the section (their AI budget is the shop's segmentation quota),
+  // and before the project exists there's no photo on the backend to analyse.
+  const fetchAiPalettes = useMemo(
+    () => (!guest && projectId ? () => api.getAiRecommendations(projectId) : undefined),
+    [guest, projectId],
+  );
+
   const overlayLabel = uploading && !segmenting
     ? "Uploading photo"
     : segmenting
@@ -1244,6 +1252,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             recentShades={recentShades}
             outdoor={classification === "OUTDOOR"}
             clashNote={clashNote}
+            onFetchAiPalettes={fetchAiPalettes}
           />
         </div>
       </div>
