@@ -159,6 +159,13 @@ export const authApi = {
       // by the actual visitor, not the single frontend-server IP.
       headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
     }),
+  // Second step of an admin login: same credentials + the emailed 6-digit code.
+  loginOtp: (body: { email: string; password: string; code: string }, clientIp?: string) =>
+    serverFetch<AuthResponse>("/api/auth/login/otp", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
   refresh: (refreshToken: string) =>
     serverFetch<AuthResponse>("/api/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   // Trade the one-time code from the Google callback for the real token pair.

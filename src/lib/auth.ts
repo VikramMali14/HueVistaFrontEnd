@@ -118,12 +118,42 @@ export async function loginAction(formData: FormData) {
     hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("x-real-ip")?.trim() || undefined;
   try {
     const auth = await authApi.login({ email, password }, clientIp);
+    // Admin 2FA: the password was right but a code was emailed — no tokens yet.
+    // The form re-submits everything plus the code via loginWithOtpAction.
+    if (auth.twoFactorRequired) return { otpRequired: true };
     await persistSession(auth);
     await maybeClaimGuestProjects(auth.accessToken);
   } catch (err) {
     if (err instanceof HttpError) {
       if (err.status === 401) return { error: "Incorrect email or password." };
       return { error: err.message };
+    }
+    return { error: "Could not sign in. Please try again." };
+  }
+  redirect(next);
+}
+
+/** Second step of an admin login: same credentials + the emailed 6-digit code. */
+export async function loginWithOtpAction(formData: FormData) {
+  "use server";
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const code = String(formData.get("code") ?? "").trim();
+  const next = safeNext(formData.get("next"));
+
+  if (!email || !password || !code) {
+    return { error: "Please enter the code from your email." };
+  }
+  const hdrs = await headers();
+  const clientIp =
+    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("x-real-ip")?.trim() || undefined;
+  try {
+    const auth = await authApi.loginOtp({ email, password, code }, clientIp);
+    await persistSession(auth);
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 401) return { error: "Incorrect email or password." };
+      return { error: err.message }; // wrong/expired code — backend message says what to do
     }
     return { error: "Could not sign in. Please try again." };
   }
