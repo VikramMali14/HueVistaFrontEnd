@@ -6,13 +6,13 @@ const FAQ: ReadonlyArray<{ q: string; a: string }> = [
   { q: "Do I need any special hardware to use HueVista?", a: "No. HueVista runs in any modern browser — your existing counter tablet, the customer's phone, a laptop in the back room. The recolour shader runs on the device's GPU; nothing to install, nothing to provision." },
   { q: "How is “AI preview” counted?", a: "A preview is one photograph turned into a recolour-ready scene. Trying any number of shades on that same photo afterwards does not count as another preview — a customer testing forty colours on one room is still a single preview." },
   { q: "What happens if I use all my AI previews mid-month?", a: "The studio keeps working — every saved scene stays open and recolourable, since trying shades costs nothing. New photo previews resume on the 1st, or upgrade mid-cycle and pay only the difference." },
-  { q: "What about brands beyond Asian Paints?", a: "Berger and Nerolac catalogues are in ingestion now, with Dulux to follow. Enterprise customers can have any catalogue ingested in three to five working days, with code, name, and finish preserved." },
-  { q: "Does the customer see my branding or HueVista's?", a: "On Starter and Professional, the share carries a small HueVista byline. On Business and Enterprise, you receive a white-label subdomain ({your-shop}.huevista.com) with your wordmark, your palette, and no mention of HueVista to the customer." },
-  { q: "What happens after the fourteen-day trial?", a: "Nothing automatic. We do not ask for a card to begin. On the fifteenth day, your saved scenes remain accessible for thirty days; you choose if and when to subscribe." },
+  { q: "What about brands beyond Asian Paints?", a: "Berger, Nerolac, Dulux and Nippon catalogues are already loaded — 10,000+ shades with their real codes. Enterprise customers can have any additional catalogue ingested in three to five working days, with code, name, and finish preserved." },
+  { q: "Does the customer see my branding or HueVista's?", a: "Today every share carries a small HueVista byline. A white-label subdomain ({your-shop}.huevista.com) with your wordmark and palette is rolling out to Business and Enterprise shops — ask us for early access." },
+  { q: "What happens after the fourteen-day trial?", a: "Nothing automatic. We do not ask for a card to begin. Your saved scenes stay accessible; you choose if and when to subscribe." },
   { q: "Can I change plans later?", a: "Upgrade any time and the difference is prorated; downgrades apply from the next cycle. No calls, no forms — it's a button in your dashboard." },
-  { q: "Do you provide a GST invoice?", a: "Yes — every invoice carries our GSTIN and your shop's details, so you can claim input credit. Annual plans receive a single consolidated invoice." },
-  { q: "How do I pay?", a: "UPI, cards and netbanking. Business and Enterprise can also pay annually by invoice. We never store card details ourselves." },
-  { q: "Are customer photographs stored?", a: "By default, scenes are stored privately to your shop account so you can re-open them with the customer later. You can configure ephemeral mode (auto-deletion after the session) for any device — typical for high-traffic counters." },
+  { q: "Do you provide a GST invoice?", a: "Yes — every invoice carries our GSTIN and your shop's details, so you can claim input credit." },
+  { q: "How do I pay?", a: "UPI, cards and netbanking, billed monthly. We never store card details ourselves — payments run through Razorpay." },
+  { q: "Are customer photographs stored?", a: "Scenes are stored privately to your shop account so you can re-open them with the customer later, and you can delete any project — photo, walls and colours — whenever you wish." },
 ];
 
 export function PricingFaq() {

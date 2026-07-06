@@ -7,6 +7,7 @@ import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { RevealMount } from "@/components/ui/reveal-mount";
 import { PricingTiers } from "@/components/pricing/pricing-tiers";
 import { PricingFaq } from "@/components/pricing/pricing-faq";
+import { getCurrentUser } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
 type Row = readonly [string, string, string, string, string];
 type Section = { title: string; rows: ReadonlyArray<Row> };
 
+// Every cell states what ships today; unbuilt items say "Soon" (never "●").
 const MATRIX: ReadonlyArray<Section> = [
   {
     title: "The preview",
@@ -24,31 +26,30 @@ const MATRIX: ReadonlyArray<Section> = [
       ["Recolour speed", "60 fps", "60 fps", "60 fps", "60 fps"],
       ["Per-region recolour", "—", "●", "●", "●"],
       ["Manual wall selection", "—", "●", "●", "●"],
-      ["AI photo clean-up", "—", "Add-on", "Add-on", "Included"],
+      ["AI photo clean-up", "—", "●", "●", "●"],
     ],
   },
   {
     title: "The catalogue",
     rows: [
       ["Asian Paints — full", "●", "●", "●", "●"],
-      ["Berger · Nerolac · Dulux", "Soon", "Soon", "Soon", "Day one"],
+      ["Berger · Nerolac · Dulux · Nippon", "●", "●", "●", "●"],
       ["CIELAB find-similar across brands", "—", "●", "●", "●"],
-      ["Paint quantity estimator", "—", "●", "●", "●"],
     ],
   },
   {
     title: "The counter",
     rows: [
-      ["Counter devices", "1", "3", "10", "Unlimited"],
-      ["WhatsApp & link share", "●", "●", "●", "●"],
-      ["White-label subdomain", "—", "—", "●", "●"],
-      ["Custom palette & wordmark", "—", "—", "●", "●"],
+      ["Link & WhatsApp share", "●", "●", "●", "●"],
+      ["Customer access codes", "●", "●", "●", "●"],
+      ["White-label subdomain", "—", "—", "Soon", "Soon"],
+      ["Painter portal", "—", "—", "Soon", "Soon"],
     ],
   },
   {
     title: "Engineering",
     rows: [
-      ["API & SDK", "—", "—", "—", "●"],
+      ["API & SDK", "—", "—", "—", "On request"],
       ["SLA", "Best-effort", "Business hrs", "99.5%", "99.9%"],
       ["Support", "Email", "Priority", "Account lead", "Named tech lead"],
     ],
@@ -73,10 +74,14 @@ function MatrixCell({ v, featured }: { v: string; featured?: boolean }) {
   return <td style={style}>{v}</td>;
 }
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  // Signed-in customers see guidance instead of shop-plan buy buttons — the
+  // backend refuses those charges anyway (plans unlock nothing for a customer).
+  const user = await getCurrentUser();
+  const isCustomer = user?.role === "CUSTOMER";
   return (
     <>
-      <Marquee items={["Pricing · For retailers, not consumers", "Fourteen days · no card · cancel quietly", "White-label available from ₹1,999"]} />
+      <Marquee items={["Pricing · For retailers, not consumers", "14-day trial · no card · we set you up", "10,000+ shades across five brands"]} />
       <SiteHeader />
       <main>
         <RevealMount />
@@ -86,8 +91,8 @@ export default function PricingPage() {
             <Mono>Built for retailers · not consumers</Mono>
           </div>
           <h1 className="display">For retailers,<br /><i>not consumers.</i></h1>
-          <Lead className="page-lead">Four tiers, each tuned to a different counter. Begin with fourteen unbilled days. No card. Cancel quietly when you wish.</Lead>
-          <PricingTiers />
+          <Lead className="page-lead">Four tiers, each tuned to a different counter. Every new shop starts with fourteen unbilled days — request an account and we set you up. Cancel quietly when you wish.</Lead>
+          <PricingTiers isCustomer={isCustomer} />
         </header>
 
         <div className="reveal" style={{ borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", padding: "22px 0", marginTop: 64, display: "flex", flexWrap: "wrap", gap: "12px 36px", justifyContent: "center", font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
@@ -148,10 +153,10 @@ export default function PricingPage() {
                       fixed ivory/brass values rather than tokens. */}
                   <tr key="cta">
                     <td style={ctaCellStyle} />
-                    <td style={ctaCellStyle}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Contact us</a></td>
-                    <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-sm" style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#0a0a0f" }}>Contact us</a></td>
-                    <td style={ctaCellStyle}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Contact us</a></td>
-                    <td style={ctaCellStyle}><a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-ghost btn-sm" style={{ color: "var(--ivory)", borderColor: "rgba(247,247,245,.35)" }}>Talk to us</a></td>
+                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Request account</Link></td>
+                    <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#0a0a0f" }}>Request account</Link></td>
+                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Request account</Link></td>
+                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-ghost btn-sm" style={{ color: "var(--ivory)", borderColor: "rgba(247,247,245,.35)" }}>Talk to us</Link></td>
                   </tr>
                 </tbody>
                 </table>
@@ -183,7 +188,7 @@ export default function PricingPage() {
               Fourteen days.<br /><i>No card.</i>
             </h2>
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-              <a href="mailto:hello@huevista.com?subject=Shop%20account" className="btn btn-brass">Get in touch <span className="arr">→</span></a>
+              <Link href="/trial" className="btn btn-brass">Request a shop account <span className="arr">→</span></Link>
               <Link href="/redeem" className="btn btn-ghost">Have a shop code? <span className="arr">→</span></Link>
             </div>
             <div style={{ marginTop: 24, font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
