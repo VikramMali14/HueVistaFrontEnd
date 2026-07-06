@@ -68,10 +68,10 @@ describe("AccessCodes — accessible table semantics", () => {
     expect(rows).toHaveLength(1 + CODES.length);
 
     const headers = within(rows[0]!).getAllByRole("columnheader");
-    expect(headers.map((h) => h.textContent)).toEqual(["Code", "Validity", "Expires", "Status"]);
+    expect(headers.map((h) => h.textContent)).toEqual(["Code", "Validity", "Expires", "Status", "Room"]);
 
     for (const row of rows.slice(1)) {
-      expect(within(row).getAllByRole("cell")).toHaveLength(4);
+      expect(within(row).getAllByRole("cell")).toHaveLength(5);
     }
   });
 

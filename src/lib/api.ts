@@ -485,6 +485,13 @@ export const api = {
     browserFetch<OrgResponse>("api/organizations", { method: "POST", body: JSON.stringify(body) }),
   listAccessCodes: (orgId: string) =>
     browserFetch<AccessCode[]>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`),
+  // The shop's view of what a guest picked with this code — FULL project with the
+  // real shade codes (the guest sees the masked projection). Empty body (=> undefined)
+  // when the guest hasn't created a project yet.
+  getGuestProjectForCode: (codeId: string) =>
+    browserFetch<ProjectDetail | undefined>(
+      `api/access-codes/${encodeURIComponent(codeId)}/guest-project`,
+    ),
   createAccessCode: (orgId: string, body: { validDays: number; allowedBrands?: string[] }) =>
     browserFetch<AccessCode>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`, {
       method: "POST",
@@ -575,6 +582,12 @@ export const guestApi = {
       `api/guest/projects/${encodeURIComponent(projectId)}/regions/${regionId}`,
       { method: "DELETE" },
     ),
+  // "I'm done — this is the one": idempotent; the shop owner gets an email
+  // heads-up and the portal shows a "sent by customer" badge.
+  sendToShop: (projectId: string) =>
+    browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/send-to-shop`, {
+      method: "POST",
+    }),
 };
 
 export { HttpError };

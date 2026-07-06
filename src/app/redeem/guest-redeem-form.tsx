@@ -68,6 +68,7 @@ export function GuestRedeemForm() {
         <p style={{ font: "400 14px/1.6 var(--serif)", color: "var(--fg-mute)", marginTop: 16, maxWidth: "52ch", marginInline: "auto" }}>
           As a guest, your room is saved with the shop — you&apos;ll see a single pickup code, and the shop reads
           the exact shades from it. Create a free account and your work stays with you for good.
+          Lose the tab or switch phones? Enter this same code again while it&apos;s valid and your room comes back.
         </p>
       </div>
     );

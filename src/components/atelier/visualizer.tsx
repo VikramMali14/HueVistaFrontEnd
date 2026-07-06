@@ -197,6 +197,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  // Guest "I'm done" hand-off to the issuing shop (guest mode only).
+  const [sentToShop, setSentToShop] = useState(false);
+  const [sendingToShop, setSendingToShop] = useState(false);
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(null);
   // Step 0 — project details captured before anything is created on the backend.
   const [details, setDetails] = useState<ProjectDetails | null>(
@@ -381,6 +384,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       }
       if (detail.name) setProjectName(detail.name);
       if (detail.roomType) setProjectRoom(detail.roomType);
+      if (detail.sentToShopAt) setSentToShop(true);
       const mapped = detail.regions
         .slice()
         .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
@@ -885,6 +889,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
   }, [projectId]);
 
+  // Guest "I'm done — this is the one": hands the project to the issuing shop
+  // (idempotent server-side; the shop owner also gets an email heads-up).
+  const handleSendToShop = useCallback(async () => {
+    if (!projectId) return;
+    setSendingToShop(true);
+    setError(null);
+    try {
+      await guestApi.sendToShop(projectId);
+      setSentToShop(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send this to the shop.");
+    } finally {
+      setSendingToShop(false);
+    }
+  }, [projectId]);
+
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
   // Undertone check across every painted wall: the first warm-vs-cool (or
@@ -1030,6 +1050,23 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               title={projectId ? "Create a public link (colours shown, codes hidden)" : "Save the project first"}
             >
               {sharing ? "Sharing…" : "Share"}
+            </Button>
+          )}
+          {guest && (
+            <Button
+              size="sm"
+              variant="brass"
+              disabled={!projectId || sendingToShop || sentToShop}
+              onClick={() => void handleSendToShop()}
+              title={
+                sentToShop
+                  ? "The shop has your room and colours."
+                  : projectId
+                    ? "Done choosing? Send this room to your shop — they'll see your colours and the exact shades."
+                    : "Pick a photo first"
+              }
+            >
+              {sentToShop ? "Sent to shop ✓" : sendingToShop ? "Sending…" : "Send to my shop"}
             </Button>
           )}
           <Button

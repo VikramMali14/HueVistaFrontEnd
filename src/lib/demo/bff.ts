@@ -157,6 +157,11 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
       project.updatedAt = nowIso();
       return json(liveResponse(project));
     }
+    if (tail === "send-to-shop" && method === "POST") {
+      // Guest "I'm done" — idempotent stamp, like the backend.
+      if (!project.sentToShopAt) project.sentToShopAt = nowIso();
+      return json(liveResponse(project));
+    }
     if (tail === "recommendations" && method === "POST") {
       // Canned Claude palettes so the AI panel is demoable offline.
       const shade = (id: number, code: string, name: string, hex: string) =>
@@ -390,6 +395,12 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
     if (!match) return json({ message: "That code wasn't found." }, 404);
     if (match.used) return json({ message: "That code has already been used." }, 409);
     return json({ ...match, used: true, usedAt: nowIso() });
+  }
+  // The shop's view of a guest's room (portal "View room"). Single demo tenant:
+  // any code resolves to the first seeded project.
+  if (seg[0] === "api" && seg[1] === "access-codes" && seg[3] === "guest-project" && method === "GET") {
+    const project = store.projects[0];
+    return json(project ? liveResponse(project) : undefined);
   }
 
   // ---------- Support ----------

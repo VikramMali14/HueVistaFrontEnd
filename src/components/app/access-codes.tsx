@@ -5,7 +5,7 @@ import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
-import { PAINT_BRANDS, type AccessCode, type OrgResponse } from "@/lib/types";
+import { PAINT_BRANDS, type AccessCode, type OrgResponse, type ProjectDetail } from "@/lib/types";
 
 const VALIDITY = [3, 7, 14] as const;
 
@@ -44,6 +44,23 @@ export function AccessCodes() {
   const [justIssued, setJustIssued] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [copiedMsg, setCopiedMsg] = useState(false);
+
+  // The guest's room per code, fetched on demand ("View room"). The full view —
+  // real shade codes included — which is the whole point of the code loop.
+  const [openRoom, setOpenRoom] = useState<string | null>(null);
+  const [rooms, setRooms] = useState<Record<string, ProjectDetail | null | "loading" | "error">>({});
+
+  const viewRoom = useCallback((codeId: string) => {
+    setOpenRoom((cur) => (cur === codeId ? null : codeId));
+    setRooms((prev) => {
+      if (prev[codeId] !== undefined && prev[codeId] !== "error") return prev;
+      api
+        .getGuestProjectForCode(codeId)
+        .then((d) => setRooms((p) => ({ ...p, [codeId]: d ?? null })))
+        .catch(() => setRooms((p) => ({ ...p, [codeId]: "error" })));
+      return { ...prev, [codeId]: "loading" };
+    });
+  }, []);
 
   const loadCodes = useCallback(async (orgId: string) => {
     try {
@@ -260,25 +277,87 @@ export function AccessCodes() {
         </p>
       ) : (
         <div role="table" aria-label="Access codes" style={{ border: "1px solid var(--rule)" }}>
-          <div role="row" className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
-            {["Code", "Validity", "Expires", "Status"].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
+          <div role="row" className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr 1fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
+            {["Code", "Validity", "Expires", "Status", "Room"].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
           </div>
           {codes.map((c, i) => {
             const status = c.used ? "redeemed" : c.expired ? "expired" : "active";
             const statusColor = status === "active" ? "var(--accent)" : "var(--fg-mute-deep)";
+            const last = i === codes.length - 1;
+            const room = rooms[c.id];
+            const expanded = openRoom === c.id;
             return (
-              <div key={c.id} role="row" className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr", padding: "18px 20px", borderBottom: i === codes.length - 1 ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
-                <span role="cell" data-label="Code" style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{c.code}</span>
-                  {status === "active" && (
-                    <button type="button" onClick={() => copy(c.code)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>
-                      {copied === c.code ? "copied" : "copy"}
-                    </button>
-                  )}
-                </span>
-                <span role="cell" className="mono" data-label="Validity">{c.validDays} days</span>
-                <span role="cell" className="mono" data-label="Expires">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</span>
-                <span role="cell" data-label="Status" style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
+              <div key={c.id}>
+                <div role="row" className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr 1fr", padding: "18px 20px", borderBottom: last && !expanded ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
+                  <span role="cell" data-label="Code" style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{c.code}</span>
+                    {status === "active" && (
+                      <button type="button" onClick={() => copy(c.code)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>
+                        {copied === c.code ? "copied" : "copy"}
+                      </button>
+                    )}
+                  </span>
+                  <span role="cell" className="mono" data-label="Validity">{c.validDays} days</span>
+                  <span role="cell" className="mono" data-label="Expires">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</span>
+                  <span role="cell" data-label="Status" style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
+                  <span role="cell" data-label="Room">
+                    {c.used ? (
+                      <button
+                        type="button"
+                        onClick={() => viewRoom(c.id)}
+                        aria-expanded={expanded}
+                        style={{ background: "transparent", border: "1px solid var(--rule-strong)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--fg-soft)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+                      >
+                        {expanded ? "Hide" : "View room"}
+                      </button>
+                    ) : (
+                      <span className="mono" style={{ color: "var(--fg-mute-deep)" }}>—</span>
+                    )}
+                  </span>
+                </div>
+                {expanded && (
+                  <div style={{ padding: "16px 20px 20px", background: "var(--surface-soft)", borderBottom: last ? "none" : "1px solid var(--rule)" }}>
+                    {room === "loading" && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 10, font: "300 15px/1 var(--serif)", color: "var(--fg-mute)" }}>
+                        <Spinner size={14} /> Loading the customer&apos;s room…
+                      </span>
+                    )}
+                    {room === "error" && (
+                      <p className="field-error" role="alert" style={{ margin: 0 }}>Could not load the customer&apos;s room. Try again.</p>
+                    )}
+                    {room === null && (
+                      <p style={{ margin: 0, font: "300 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
+                        No room yet — the customer hasn&apos;t started a project with this code.
+                      </p>
+                    )}
+                    {room && room !== "loading" && room !== "error" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
+                          <span style={{ font: "500 17px/1.2 var(--serif)", color: "var(--fg)" }}>{room.name}</span>
+                          {room.sentToShopAt && (
+                            <span style={{ font: "500 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 999, padding: "5px 10px" }}>
+                              ✓ Sent by customer
+                            </span>
+                          )}
+                        </div>
+                        {room.regions.filter((r) => r.appliedHexCode).length === 0 ? (
+                          <p style={{ margin: 0, font: "300 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>No colours applied yet.</p>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {room.regions.filter((r) => r.appliedHexCode).map((r) => (
+                              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <span aria-hidden style={{ width: 26, height: 26, background: r.appliedHexCode!, border: "1px solid var(--rule-strong)", borderRadius: 4, flexShrink: 0 }} />
+                                <span style={{ font: "400 15px/1.2 var(--serif)", color: "var(--fg)", minWidth: 110 }}>{r.label || "Wall"}</span>
+                                {/* The shop view — the REAL shade code the guest never saw. */}
+                                <Mono>{r.appliedShadeCode || r.appliedHexCode}</Mono>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

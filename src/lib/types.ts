@@ -153,6 +153,8 @@ export interface ProjectDetail {
   regions: RegionDetail[];
   hasShareLink?: boolean;
   shareExpiresAt?: string | null;
+  /** When the customer sent the project to the issuing shop; null until then. */
+  sentToShopAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
