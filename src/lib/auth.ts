@@ -226,6 +226,23 @@ export async function registerAction(formData: FormData) {
  * show "Sign-in failed" even though the cookies were already set. So instead we
  * RETURN the destination and let the client navigate. That was the login bug.
  */
+/**
+ * Preferred Google-callback path: the backend now redirects with a short-lived
+ * single-use code (never the tokens), which we trade server-side for the real
+ * pair before setting the session cookies. Throwing on a bad/expired code is
+ * fine — the callback page shows its "sign-in failed" state.
+ */
+export async function completeGoogleSignInWithCode(code: string): Promise<{ next: string }> {
+  "use server";
+  if (!code) throw new Error("Google sign-in did not return a valid code.");
+  const auth = await authApi.exchangeOAuthCode(code);
+  return completeGoogleSignIn({
+    accessToken: auth.accessToken,
+    refreshToken: auth.refreshToken,
+    expiresIn: auth.expiresIn,
+  });
+}
+
 export async function completeGoogleSignIn(input: {
   accessToken: string;
   refreshToken: string;

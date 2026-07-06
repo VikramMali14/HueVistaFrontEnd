@@ -161,6 +161,10 @@ export const authApi = {
     }),
   refresh: (refreshToken: string) =>
     serverFetch<AuthResponse>("/api/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
+  // Trade the one-time code from the Google callback for the real token pair.
+  // 401 when the code is expired, already used, or fabricated.
+  exchangeOAuthCode: (code: string) =>
+    serverFetch<AuthResponse>("/api/auth/oauth2/exchange", { method: "POST", body: JSON.stringify({ code }) }),
   logout: (accessToken: string) =>
     serverFetch<{ message: string }>("/api/auth/logout", { method: "POST", accessToken }),
   deleteAccount: (accessToken: string) =>
