@@ -376,6 +376,12 @@ export const api = {
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/status`),
   getProject: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}`),
+  // Partial update — send only the fields being edited (e.g. a rename).
+  updateProject: (projectId: string, body: { name?: string; roomType?: string; notes?: string }) =>
+    browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   // Claude palette suggestions for the project photo. Costs 1 AI preview from
   // the retailer's monthly quota — 402 when out of credits or unsubscribed.
   getAiRecommendations: (projectId: string) =>

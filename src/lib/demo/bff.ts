@@ -152,6 +152,15 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
     if (!project) return json({ message: "No project." }, 404);
     const tail = seg.slice(3).join("/");
 
+    if (!tail && method === "PATCH") {
+      // Partial update (rename etc.) — only provided fields change.
+      const body = await readJson(req);
+      if (typeof body.name === "string" && body.name.trim()) project.name = body.name.trim();
+      if (typeof body.roomType === "string") project.roomType = body.roomType.trim() || null;
+      if (typeof body.notes === "string") project.notes = body.notes.trim() || null;
+      project.updatedAt = nowIso();
+      return json(liveResponse(project));
+    }
     if (tail === "segment" && method === "POST") {
       project.status = "SEGMENTED";
       project.updatedAt = nowIso();

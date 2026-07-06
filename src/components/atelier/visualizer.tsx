@@ -200,6 +200,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // Guest "I'm done" hand-off to the issuing shop (guest mode only).
   const [sentToShop, setSentToShop] = useState(false);
   const [sendingToShop, setSendingToShop] = useState(false);
+  // Inline rename in the topbar (signed-in users with a saved project).
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  // Set when Escape cancels the edit so the input's blur doesn't commit it.
+  const skipRenameCommitRef = useRef(false);
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(null);
   // Step 0 — project details captured before anything is created on the backend.
   const [details, setDetails] = useState<ProjectDetails | null>(
@@ -889,6 +894,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
   }, [projectId]);
 
+  // Commit the inline rename: optimistic (the topbar updates immediately), with
+  // a revert + error message if the backend rejects it. No-ops on blank/unchanged.
+  const commitRename = useCallback(async () => {
+    const name = nameDraft.trim();
+    setRenaming(false);
+    if (!projectId || !name || name === (projectName ?? "")) return;
+    const prev = projectName;
+    setProjectName(name);
+    try {
+      await api.updateProject(projectId, { name });
+    } catch (err) {
+      setProjectName(prev);
+      setError(err instanceof Error ? err.message : "Could not rename the project.");
+    }
+  }, [nameDraft, projectId, projectName]);
+
   // Guest "I'm done — this is the one": hands the project to the issuing shop
   // (idempotent server-side; the shop owner also gets an email heads-up).
   const handleSendToShop = useCallback(async () => {
@@ -984,7 +1005,50 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       <div className="hv-studio-topbar">
         <div className="hv-studio-project">
           <Mono>Project</Mono>
-          <span>{projectName || "Untitled project"}</span>
+          {renaming ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={() => {
+                if (!skipRenameCommitRef.current) void commitRename();
+                skipRenameCommitRef.current = false;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") {
+                  skipRenameCommitRef.current = true;
+                  setRenaming(false);
+                }
+              }}
+              aria-label="Project name"
+              maxLength={200}
+              style={{
+                font: "inherit",
+                color: "inherit",
+                background: "var(--surface)",
+                border: "1px solid var(--rule-strong)",
+                borderRadius: 4,
+                padding: "2px 8px",
+                minWidth: 140,
+              }}
+            />
+          ) : !guest && projectId ? (
+            <button
+              type="button"
+              onClick={() => {
+                setNameDraft(projectName ?? "");
+                setRenaming(true);
+              }}
+              title="Rename this project"
+              style={{ font: "inherit", color: "inherit", background: "transparent", border: "none", cursor: "text", padding: 0, display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <span>{projectName || "Untitled project"}</span>
+              <span aria-hidden style={{ color: "var(--fg-mute)", fontSize: 12 }}>✎</span>
+            </button>
+          ) : (
+            <span>{projectName || "Untitled project"}</span>
+          )}
           {projectRoom && <Mono>· {projectRoom}</Mono>}
         </div>
 
