@@ -124,9 +124,9 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           <div>
             <Mono brass style={{ display: "block", marginBottom: 12 }}>For your counter</Mono>
             <p style={{ font: "400 19px/1.45 var(--serif)", color: "var(--fg)", margin: "0 0 18px", maxWidth: "36ch" }}>
-              Run a paint shop? Put previews like this on your counter. Fourteen days free, no card.
+              Run a paint shop? Put previews like this on your counter — 14-day trial, no card, we set you up.
             </p>
-            <Link className="btn btn-brass" href="/trial">Start a trial <span className="arr">→</span></Link>
+            <Link className="btn btn-brass" href="/trial">Request a shop account <span className="arr">→</span></Link>
           </div>
         </div>
       </main>

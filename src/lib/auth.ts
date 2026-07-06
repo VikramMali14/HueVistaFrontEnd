@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
-import type { DeleteAllShadesResult, ShadeUploadResult, UploadBrand } from "./api";
+import type { DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
 import { config } from "./config";
 import type { AuthResponse, AuthUser } from "./types";
 
@@ -309,6 +309,35 @@ export async function logoutAction() {
   }
   await clearSession();
   redirect("/");
+}
+
+/** ADMIN: the shop-account request queue (newest first). Empty on any failure so
+ *  the admin page still renders. */
+export async function getShopLeads(): Promise<ShopLeadRow[]> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return [];
+  try {
+    return await adminApi.listShopLeads(token);
+  } catch {
+    return [];
+  }
+}
+
+/** ADMIN: work a lead — mark it contacted / converted / dismissed. */
+export async function updateShopLeadStatusAction(
+  leadId: string,
+  status: ShopLeadStatus,
+): Promise<{ lead?: ShopLeadRow; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { lead: await adminApi.updateShopLeadStatus(token, leadId, status) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not update the lead. Please try again." };
+  }
 }
 
 /** ADMIN: companies for the shade-upload dropdown. Empty list on any failure so the

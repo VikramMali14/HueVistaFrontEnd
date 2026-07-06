@@ -65,7 +65,8 @@ export function PaintRoom() {
             <Mono>{shade.code}</Mono>
           </div>
 
-          <LinkButton href="/trial" variant="ghost">Now try your own photo <span className="arr">→</span></LinkButton>
+          {/* Trying your own photo is the shop-code flow, not the retailer funnel. */}
+          <LinkButton href="/redeem" variant="ghost">Now try your own photo <span className="arr">→</span></LinkButton>
         </div>
 
         <div className="hv-room-stage reveal d1" aria-hidden>

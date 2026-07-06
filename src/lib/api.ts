@@ -193,6 +193,31 @@ export const entitlementApi = {
     serverFetch<CustomerEntitlement | null>("/api/me/entitlement", { accessToken }),
 };
 
+/** A shop owner's request for a retailer account (public lead form on /trial). */
+export interface ShopLeadPayload {
+  name: string;
+  email: string;
+  phone?: string;
+  shopName: string;
+  city?: string;
+  state?: string;
+  tier?: string;
+  notes?: string;
+}
+
+/**
+ * Public shop-account lead submission — server action only (no auth). The
+ * backend stores the lead for the admin queue and pings the admin inbox.
+ */
+export const leadApi = {
+  submitShopLead: (body: ShopLeadPayload, clientIp?: string) =>
+    serverFetch<{ id: string; status: string }>("/api/leads/shop", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
+};
+
 /**
  * Admin API — ROLE_ADMIN only, used from admin server actions. Goes directly to
  * the backend with the admin's cookie-resident access token.
@@ -236,7 +261,32 @@ export const adminApi = {
       method: "DELETE",
       accessToken,
     }),
+  // Shop-account request queue (public /trial form feeds it).
+  listShopLeads: (accessToken: string) =>
+    serverFetch<ShopLeadRow[]>("/api/admin/leads", { accessToken }),
+  updateShopLeadStatus: (accessToken: string, leadId: string, status: ShopLeadStatus) =>
+    serverFetch<ShopLeadRow>(`/api/admin/leads/${encodeURIComponent(leadId)}/status`, {
+      method: "PATCH",
+      accessToken,
+      body: JSON.stringify({ status }),
+    }),
 };
+
+/** A shop-account request as the admin queue sees it. */
+export type ShopLeadStatus = "NEW" | "CONTACTED" | "CONVERTED" | "DISMISSED";
+export interface ShopLeadRow {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  shopName: string;
+  city?: string | null;
+  state?: string | null;
+  tier?: string | null;
+  notes?: string | null;
+  status: ShopLeadStatus;
+  createdAt?: string;
+}
 
 /** A company as shown in the shade-upload dropdown. */
 export interface UploadBrand {

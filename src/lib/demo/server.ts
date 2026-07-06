@@ -124,6 +124,11 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
     return { linked: 1 } as T;
   }
 
+  // --- Public shop-account lead form (/trial) ---
+  if (p === "/api/leads/shop" && method === "POST") {
+    return { id: `lead_${Date.now()}`, status: "NEW" } as T;
+  }
+
   // Anything else the demo doesn't model: behave like a 404 the callers tolerate.
   throw new HttpError(404, `Demo: no fixture for ${method} ${p}`);
 }

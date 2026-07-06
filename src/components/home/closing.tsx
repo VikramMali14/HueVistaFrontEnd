@@ -9,10 +9,10 @@ export function Closing() {
         <Mono brass>Begin</Mono>
         <h2 className="display" style={{ fontSize: "clamp(44px, 11vw, 180px)", lineHeight: 0.9, margin: 0, textAlign: "center" }}>Sell the colour<br /><i>before the can opens.</i></h2>
         <div style={{ marginTop: 24, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-          <LinkButton href="/trial" variant="brass" size="lg">Try it free <span className="arr">→</span></LinkButton>
+          <LinkButton href="/trial" variant="brass" size="lg">Bring it to your counter <span className="arr">→</span></LinkButton>
           <LinkButton href="/method" variant="ghost" size="lg">See how it works <span className="arr">→</span></LinkButton>
         </div>
-        <Mono>fourteen days · no card · cancel quietly</Mono>
+        <Mono>14-day trial · no card · we set you up</Mono>
       </div>
     </section>
   );

@@ -52,9 +52,9 @@ export default async function JoinPage({ searchParams }: PageProps) {
         </p>
         <p style={{ marginTop: 16, font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
           Run a paint shop?{" "}
-          <a href="mailto:hello@huevista.com?subject=Shop%20account" style={{ color: "var(--accent-soft)" }}>
-            Get in touch
-          </a>{" "}
+          <Link href="/trial" style={{ color: "var(--accent-soft)" }}>
+            Request a shop account
+          </Link>{" "}
           and we&apos;ll set you up.
         </p>
       </main>

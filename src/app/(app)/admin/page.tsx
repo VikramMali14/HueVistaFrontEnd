@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { getShopLeads, requireRole, updateShopLeadStatusAction } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { CreateRetailerForm } from "@/components/admin/create-retailer-form";
+import { ShopLeads } from "@/components/admin/shop-leads";
 
 export const metadata: Metadata = {
   title: "Admin · Create shop",
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
  */
 export default async function AdminPage() {
   await requireRole(["ADMIN"]);
+  const leads = await getShopLeads();
   return (
     <div style={{ maxWidth: 760 }}>
       <Eyebrow>Admin · shop accounts</Eyebrow>
@@ -31,6 +33,17 @@ export default async function AdminPage() {
         </Link>
       </p>
       <CreateRetailerForm />
+
+      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+        <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
+          Shop requests
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch", marginBottom: 24 }}>
+          Requests from the public &ldquo;bring it to your counter&rdquo; form. Create the account above,
+          then mark the lead converted.
+        </p>
+        <ShopLeads initial={leads} updateAction={updateShopLeadStatusAction} />
+      </section>
     </div>
   );
 }
