@@ -212,7 +212,7 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
         }
         project.updatedAt = nowIso();
       }
-      return json(project);
+      return json(undefined); // 204 — matches the real backend's featherweight autosave
     }
     if (tail === "regions/custom-mask" && method === "POST") {
       const body = await readJson(req);

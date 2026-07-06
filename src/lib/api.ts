@@ -433,8 +433,10 @@ export const api = {
       `api/projects/${encodeURIComponent(projectId)}/share?days=${days}`,
       { method: "POST" },
     ),
+  // Autosave — fires on every swatch click; the backend answers 204 (returning
+  // the full project would re-send every region's base64 mask each time).
   updateRegionColors: (projectId: string, updates: RegionColorUpdate[]) =>
-    browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/regions`, {
+    browserFetch<void>(`api/projects/${encodeURIComponent(projectId)}/regions`, {
       method: "PUT",
       body: JSON.stringify(updates),
     }),
@@ -609,8 +611,9 @@ export const guestApi = {
     browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/segment`, {
       method: "POST",
     }),
+  // Autosave — 204, same featherweight contract as the signed-in path.
   updateRegionColors: (projectId: string, updates: RegionColorUpdate[]) =>
-    browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/regions`, {
+    browserFetch<void>(`api/guest/projects/${encodeURIComponent(projectId)}/regions`, {
       method: "PUT",
       body: JSON.stringify(updates),
     }),
