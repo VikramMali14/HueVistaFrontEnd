@@ -383,9 +383,9 @@ export async function deleteAccountAction() {
 
 /**
  * Subscription guard for subscriber-only pages (e.g. the colour finder). Any
- * ACTIVE subscription — free trial OR paid — passes. Anything else (no
- * subscription, a lapsed one, or a customer who only has an access-code
- * entitlement) is sent to pricing. Use inside server components.
+ * ACTIVE subscription — free trial OR paid — passes. A CUSTOMER (who can never
+ * hold a shop subscription) is sent to redeem an access code instead of being
+ * sold retailer plans; everyone else lands on pricing.
  */
 export async function requireActiveSubscription(): Promise<void> {
   const token = await getAccessToken();
@@ -396,6 +396,8 @@ export async function requireActiveSubscription(): Promise<void> {
   } catch {
     /* 404 = no subscription → fall through to the redirect below */
   }
+  const user = await getCurrentUser();
+  if (user?.role === "CUSTOMER") redirect("/redeem");
   redirect("/pricing?need=subscription");
 }
 

@@ -184,6 +184,16 @@ export const billingApi = {
 };
 
 /**
+ * Customer entitlement for SERVER components (e.g. the studio's access gate for
+ * CUSTOMER accounts). Returns null when the customer has no entitlement yet.
+ * The browser equivalent is `api.getMyEntitlement()` via the BFF.
+ */
+export const entitlementApi = {
+  my: (accessToken: string) =>
+    serverFetch<CustomerEntitlement | null>("/api/me/entitlement", { accessToken }),
+};
+
+/**
  * Admin API — ROLE_ADMIN only, used from admin server actions. Goes directly to
  * the backend with the admin's cookie-resident access token.
  */

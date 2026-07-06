@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { LinkButton } from "@/components/ui/button";
 import { AccountVerification } from "@/components/app/account-verification";
+import { CustomerAccessBanner } from "@/components/app/customer-access-banner";
 import { DashboardProjects } from "@/components/app/dashboard-projects";
 import { PlanBanner } from "@/components/app/plan-banner";
 
@@ -68,6 +69,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         )}
       </header>
       <PlanBanner />
+      {user?.role === "CUSTOMER" && <CustomerAccessBanner />}
       <AccountVerification user={user} />
       <DashboardProjects />
     </>

@@ -87,6 +87,14 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
     return getStore().subscription as T;
   }
 
+  // --- Customer entitlement (server-side studio access gate) ---
+  if (p === "/api/me/entitlement") {
+    const user = demoUserFromToken(token);
+    // Non-customers have no entitlement; the demo customer has the seeded one so
+    // the studio gate lets her straight in.
+    return (user.role === "CUSTOMER" ? getStore().entitlement : null) as T;
+  }
+
   // --- Admin: provision a shop (echo a created retailer) ---
   if (p === "/api/admin/retailers" && method === "POST") {
     const { name = "Shop owner", email = "owner@example.in" } = parseBody<{ name?: string; email?: string }>(init);

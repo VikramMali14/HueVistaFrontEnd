@@ -23,7 +23,9 @@ interface PageProps {
  */
 export default async function JoinPage({ searchParams }: PageProps) {
   const { next } = await searchParams;
-  const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/studio";
+  // Default to the dashboard: a fresh account has no guest cookie, so the guest
+  // studio (/studio) would bounce it straight back to /redeem.
+  const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
   return (
     <>
       <SiteHeader showSignIn />
