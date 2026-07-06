@@ -6,6 +6,7 @@ import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { config } from "@/lib/config";
 import type { ProjectDetail } from "@/lib/types";
+import { PaintedPreview, type PaintedRegion } from "./painted-preview";
 
 // Public, read-only view of a shared project — colours are shown, shade codes hidden
 // (the backend's /api/share endpoint serves the code-hidden projection).
@@ -69,6 +70,13 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
 
   const img = absUrl(project.cleanedImageUrl) ?? absUrl(project.imageUrl);
   const applied = project.regions.filter((r) => r.appliedHexCode);
+  // The painted composite is rendered client-side from the saved masks — the
+  // recipient sees the room WITH the colours, not just the bare photo.
+  const paintedRegions: PaintedRegion[] = applied.map((r) => ({
+    maskUrl: absUrl(r.maskUrl),
+    hex: r.appliedHexCode!,
+    label: r.label,
+  }));
 
   return (
     <>
@@ -83,8 +91,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         <div className="r-cols-md-1" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 32, alignItems: "start" }}>
           <div style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)", aspectRatio: "4 / 3", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
             {img ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={img} alt={project.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+              <PaintedPreview imageUrl={img} alt={project.name} regions={paintedRegions} />
             ) : (
               <Mono>Preview unavailable</Mono>
             )}
