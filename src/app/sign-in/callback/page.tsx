@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { completeGoogleSignIn } from "@/lib/auth";
+import { completeGoogleSignIn, completeGoogleSignInWithCode } from "@/lib/auth";
 
 /**
  * Google OAuth landing page.
  *
- * The backend success handler redirects here with the tokens. They normally come
- * in the URL fragment (`#accessToken=...&refreshToken=...&expiresIn=...`) — which
- * never reaches the server — but some success handlers use the query string, so we
- * read both. We hand them to the `completeGoogleSignIn` server action, which sets
- * the HttpOnly session cookies and returns where to go; then we navigate there.
+ * The backend success handler redirects here with a SHORT-LIVED, SINGLE-USE
+ * exchange code in the URL fragment (`#code=...`) — never the tokens, which
+ * browser extensions and synced history could read. We trade the code for the
+ * session via the `completeGoogleSignInWithCode` server action, which sets the
+ * HttpOnly cookies and returns where to go; then we navigate there. The legacy
+ * `#accessToken=...&refreshToken=...` shape is still accepted as a fallback so
+ * a half-rolled deploy (old backend, new frontend) keeps signing people in.
  */
 export default function GoogleCallbackPage() {
   const [failed, setFailed] = useState(false);
@@ -27,20 +29,25 @@ export default function GoogleCallbackPage() {
     const queryParams = new URLSearchParams(window.location.search);
     const pick = (key: string) => hashParams.get(key) ?? queryParams.get(key);
 
+    const code = pick("code");
     const accessToken = pick("accessToken");
     const refreshToken = pick("refreshToken");
     const expiresIn = Number(pick("expiresIn") ?? "0");
     const oauthError = pick("error");
 
-    // Strip the tokens out of the address bar immediately (defense in depth).
+    // Strip the code/tokens out of the address bar immediately (defense in depth).
     window.history.replaceState(null, "", window.location.pathname);
 
-    if (oauthError || !accessToken || !refreshToken) {
+    if (oauthError || (!code && (!accessToken || !refreshToken))) {
       setFailed(true);
       return;
     }
 
-    completeGoogleSignIn({ accessToken, refreshToken, expiresIn })
+    const complete = code
+      ? completeGoogleSignInWithCode(code)
+      : completeGoogleSignIn({ accessToken: accessToken!, refreshToken: refreshToken!, expiresIn });
+
+    complete
       .then(({ next }) => {
         // Full navigation (not router.push): guarantees the freshly set session
         // cookies are sent and middleware re-runs for the destination, which may

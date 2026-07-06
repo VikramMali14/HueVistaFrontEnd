@@ -159,8 +159,19 @@ export const authApi = {
       // by the actual visitor, not the single frontend-server IP.
       headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
     }),
+  // Second step of an admin login: same credentials + the emailed 6-digit code.
+  loginOtp: (body: { email: string; password: string; code: string }, clientIp?: string) =>
+    serverFetch<AuthResponse>("/api/auth/login/otp", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
   refresh: (refreshToken: string) =>
     serverFetch<AuthResponse>("/api/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
+  // Trade the one-time code from the Google callback for the real token pair.
+  // 401 when the code is expired, already used, or fabricated.
+  exchangeOAuthCode: (code: string) =>
+    serverFetch<AuthResponse>("/api/auth/oauth2/exchange", { method: "POST", body: JSON.stringify({ code }) }),
   logout: (accessToken: string) =>
     serverFetch<{ message: string }>("/api/auth/logout", { method: "POST", accessToken }),
   deleteAccount: (accessToken: string) =>
@@ -261,6 +272,17 @@ export const adminApi = {
       method: "DELETE",
       accessToken,
     }),
+  // User lookup for the admin console (case-insensitive name/email substring).
+  searchUsers: (accessToken: string, q: string) =>
+    serverFetch<AdminUserRow[]>(`/api/admin/users?q=${encodeURIComponent(q)}&size=20`, {
+      accessToken,
+    }),
+  // Audit trail — every sensitive action, newest first. Optional exact action filter.
+  listAuditLog: (accessToken: string, action?: string) =>
+    serverFetch<AuditLogRow[]>(
+      `/api/admin/audit?size=50${action ? `&action=${encodeURIComponent(action)}` : ""}`,
+      { accessToken },
+    ),
   // Shop-account request queue (public /trial form feeds it).
   listShopLeads: (accessToken: string) =>
     serverFetch<ShopLeadRow[]>("/api/admin/leads", { accessToken }),
@@ -271,6 +293,30 @@ export const adminApi = {
       body: JSON.stringify({ status }),
     }),
 };
+
+/** A user as the admin console sees them (backend AdminUserResponse). */
+export interface AdminUserRow {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  provider: string;
+  emailVerified: boolean;
+  createdAt?: string | null;
+}
+
+/** One sensitive-action record from the backend audit trail. */
+export interface AuditLogRow {
+  id: number;
+  actorUserId?: string | null;
+  /** Resolved best-effort server-side; null for deleted users. */
+  actorEmail?: string | null;
+  action: string;
+  targetType?: string | null;
+  targetId?: string | null;
+  detail?: string | null;
+  createdAt?: string | null;
+}
 
 /** A shop-account request as the admin queue sees it. */
 export type ShopLeadStatus = "NEW" | "CONTACTED" | "CONVERTED" | "DISMISSED";
@@ -394,8 +440,10 @@ export const api = {
       `api/projects/${encodeURIComponent(projectId)}/share?days=${days}`,
       { method: "POST" },
     ),
+  // Autosave — fires on every swatch click; the backend answers 204 (returning
+  // the full project would re-send every region's base64 mask each time).
   updateRegionColors: (projectId: string, updates: RegionColorUpdate[]) =>
-    browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/regions`, {
+    browserFetch<void>(`api/projects/${encodeURIComponent(projectId)}/regions`, {
       method: "PUT",
       body: JSON.stringify(updates),
     }),
@@ -570,8 +618,9 @@ export const guestApi = {
     browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/segment`, {
       method: "POST",
     }),
+  // Autosave — 204, same featherweight contract as the signed-in path.
   updateRegionColors: (projectId: string, updates: RegionColorUpdate[]) =>
-    browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/regions`, {
+    browserFetch<void>(`api/guest/projects/${encodeURIComponent(projectId)}/regions`, {
       method: "PUT",
       body: JSON.stringify(updates),
     }),

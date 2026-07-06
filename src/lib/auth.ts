@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
-import type { DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
+import type { AdminUserRow, AuditLogRow, DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
 import { config } from "./config";
 import type { AuthResponse, AuthUser } from "./types";
 
@@ -118,12 +118,42 @@ export async function loginAction(formData: FormData) {
     hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("x-real-ip")?.trim() || undefined;
   try {
     const auth = await authApi.login({ email, password }, clientIp);
+    // Admin 2FA: the password was right but a code was emailed — no tokens yet.
+    // The form re-submits everything plus the code via loginWithOtpAction.
+    if (auth.twoFactorRequired) return { otpRequired: true };
     await persistSession(auth);
     await maybeClaimGuestProjects(auth.accessToken);
   } catch (err) {
     if (err instanceof HttpError) {
       if (err.status === 401) return { error: "Incorrect email or password." };
       return { error: err.message };
+    }
+    return { error: "Could not sign in. Please try again." };
+  }
+  redirect(next);
+}
+
+/** Second step of an admin login: same credentials + the emailed 6-digit code. */
+export async function loginWithOtpAction(formData: FormData) {
+  "use server";
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const code = String(formData.get("code") ?? "").trim();
+  const next = safeNext(formData.get("next"));
+
+  if (!email || !password || !code) {
+    return { error: "Please enter the code from your email." };
+  }
+  const hdrs = await headers();
+  const clientIp =
+    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("x-real-ip")?.trim() || undefined;
+  try {
+    const auth = await authApi.loginOtp({ email, password, code }, clientIp);
+    await persistSession(auth);
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 401) return { error: "Incorrect email or password." };
+      return { error: err.message }; // wrong/expired code — backend message says what to do
     }
     return { error: "Could not sign in. Please try again." };
   }
@@ -226,6 +256,23 @@ export async function registerAction(formData: FormData) {
  * show "Sign-in failed" even though the cookies were already set. So instead we
  * RETURN the destination and let the client navigate. That was the login bug.
  */
+/**
+ * Preferred Google-callback path: the backend now redirects with a short-lived
+ * single-use code (never the tokens), which we trade server-side for the real
+ * pair before setting the session cookies. Throwing on a bad/expired code is
+ * fine — the callback page shows its "sign-in failed" state.
+ */
+export async function completeGoogleSignInWithCode(code: string): Promise<{ next: string }> {
+  "use server";
+  if (!code) throw new Error("Google sign-in did not return a valid code.");
+  const auth = await authApi.exchangeOAuthCode(code);
+  return completeGoogleSignIn({
+    accessToken: auth.accessToken,
+    refreshToken: auth.refreshToken,
+    expiresIn: auth.expiresIn,
+  });
+}
+
 export async function completeGoogleSignIn(input: {
   accessToken: string;
   refreshToken: string;
@@ -337,6 +384,36 @@ export async function updateShopLeadStatusAction(
   } catch (err) {
     if (err instanceof HttpError) return { error: err.message };
     return { error: "Could not update the lead. Please try again." };
+  }
+}
+
+/** ADMIN: find users by name or email (top 20 matches, newest first). */
+export async function searchUsersAction(
+  q: string,
+): Promise<{ users?: AdminUserRow[]; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  const query = q.trim();
+  if (!query) return { users: [] };
+  try {
+    return { users: await adminApi.searchUsers(token, query) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Search failed. Please try again." };
+  }
+}
+
+/** ADMIN: the audit trail (latest 50, optional exact-action filter). Empty on any
+ *  failure so the admin page still renders. */
+export async function getAuditLog(action?: string): Promise<AuditLogRow[]> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return [];
+  try {
+    return await adminApi.listAuditLog(token, action?.trim() || undefined);
+  } catch {
+    return [];
   }
 }
 

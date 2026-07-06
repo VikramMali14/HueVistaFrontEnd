@@ -29,6 +29,10 @@ export interface AuthResponse {
   tokenType: "Bearer";
   expiresIn: number;
   user: AuthUser;
+  /** True when the password was right but an emailed code is still required
+   *  (ADMIN accounts with mail configured). Tokens are absent until the code
+   *  is submitted via authApi.loginOtp. */
+  twoFactorRequired?: boolean | null;
 }
 
 export interface UserProfile extends AuthUser {

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { loginAction, registerAction } from "@/lib/auth";
+import { loginAction, loginWithOtpAction, registerAction } from "@/lib/auth";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Logo } from "@/components/ui/logo";
@@ -47,6 +47,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
           {DEMO_MODE && !register && <DemoCredentials />}
           <SignInForm
             action={register ? registerAction : loginAction}
+            otpAction={register ? undefined : loginWithOtpAction}
             mode={register ? "register" : "signin"}
             next={next ?? "/dashboard"}
             initialError={error === "google" ? "Google sign-in didn’t complete. Please try again, or use your email below." : undefined}
