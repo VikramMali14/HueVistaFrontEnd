@@ -49,6 +49,15 @@ vi.mock("@/lib/api", () => {
       generateShareLink: vi.fn(),
       updateRegionColors: vi.fn(),
       createCustomMask: vi.fn(),
+      // Topbar quota pill reads this on mount and after AI spends.
+      getCurrentSubscription: vi.fn(async () => ({
+        status: "ACTIVE",
+        trial: true,
+        planDisplayName: "Professional",
+        aiGenerationsUsed: 3,
+        aiGenerationsLimit: 60,
+      })),
+      getAiRecommendations: vi.fn(),
     },
     guestApi: {
       uploadImage: vi.fn(),

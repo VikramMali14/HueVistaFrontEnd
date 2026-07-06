@@ -10,7 +10,7 @@ const FAQ: ReadonlyArray<{ q: string; a: string }> = [
   { q: "Does the customer see my branding or HueVista's?", a: "Today every share carries a small HueVista byline. A white-label subdomain ({your-shop}.huevista.com) with your wordmark and palette is rolling out to Business and Enterprise shops — ask us for early access." },
   { q: "What happens after the fourteen-day trial?", a: "Nothing automatic. We do not ask for a card to begin. Your saved scenes stay accessible; you choose if and when to subscribe." },
   { q: "Can I change plans later?", a: "Upgrade any time and the difference is prorated; downgrades apply from the next cycle. No calls, no forms — it's a button in your dashboard." },
-  { q: "Do you provide a GST invoice?", a: "Yes — every invoice carries our GSTIN and your shop's details, so you can claim input credit." },
+  { q: "Do you provide a GST invoice?", a: "On request while automated invoicing rolls out — write to us with your GSTIN and shop details and we'll send a GST-compliant invoice for your subscription so you can claim input credit." },
   { q: "How do I pay?", a: "UPI, cards and netbanking, billed monthly. We never store card details ourselves — payments run through Razorpay." },
   { q: "Are customer photographs stored?", a: "Scenes are stored privately to your shop account so you can re-open them with the customer later, and you can delete any project — photo, walls and colours — whenever you wish." },
 ];

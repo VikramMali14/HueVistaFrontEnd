@@ -189,6 +189,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // a local preview with a Continue/Choose-different prompt; no upload, no
   // classification and no (billable) segmentation runs until the user confirms.
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  // AI-preview quota, shown in the topbar so the cost is visible at the moment
+  // it's spent (wall detection and Claude palettes each use one; recolouring is
+  // free). Null hides the pill: guests (the shop's budget, not theirs),
+  // customers (no subscription → 404) and fetch failures.
+  const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -334,6 +339,27 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       if (pollAbortRef.current) pollAbortRef.current.cancelled = true;
     };
   }, []);
+
+  // Load the AI-preview count on entry and re-read it after anything that can
+  // spend (or refund) a credit. Best-effort: any failure just hides the pill —
+  // the backend remains the authority on every charge.
+  const refreshQuota = useCallback(() => {
+    if (guest) return;
+    api
+      .getCurrentSubscription()
+      .then((s) => {
+        if (s?.status === "ACTIVE") {
+          setQuota({ used: s.aiGenerationsUsed, limit: s.aiGenerationsLimit });
+        } else {
+          setQuota(null);
+        }
+      })
+      .catch(() => setQuota(null));
+  }, [guest]);
+
+  useEffect(() => {
+    refreshQuota();
+  }, [refreshQuota]);
 
   const applyProjectDetail = useCallback(
     async (detail: ProjectDetail) => {
@@ -496,9 +522,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         }
       } finally {
         setSegmenting(false);
+        refreshQuota(); // segmentation charges on success / refunds on failure
       }
     },
-    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall],
+    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota],
   );
 
   // Pick / receive a photo (file picker, drag-drop, or phone hand-off) and show it
@@ -625,8 +652,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setSegmenting(false);
+      refreshQuota(); // retry charges on success / refunds on failure
     }
-  }, [projectId, guest, pollUntilSegmented, applyProjectDetail]);
+  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota]);
 
   const handleBuyAndRetry = useCallback(async () => {
     setError(null);
@@ -892,9 +920,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // Claude photo palettes: signed-in users with a saved project only. Guests
   // never get the section (their AI budget is the shop's segmentation quota),
   // and before the project exists there's no photo on the backend to analyse.
+  // Every ask re-reads the quota pill — charged on success, refunded on failure.
   const fetchAiPalettes = useMemo(
-    () => (!guest && projectId ? () => api.getAiRecommendations(projectId) : undefined),
-    [guest, projectId],
+    () =>
+      !guest && projectId
+        ? async () => {
+            try {
+              return await api.getAiRecommendations(projectId);
+            } finally {
+              refreshQuota();
+            }
+          }
+        : undefined,
+    [guest, projectId, refreshQuota],
   );
 
   const overlayLabel = uploading && !segmenting
@@ -931,6 +969,14 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         </div>
 
         <div className="hv-studio-status">
+          {quota && (
+            <span
+              className={`hv-status-pill ${quota.used >= quota.limit ? "is-error" : ""}`}
+              title="AI previews used this month. Wall detection and Claude palettes each use one; trying shades and recolouring are free."
+            >
+              {quota.used}/{quota.limit >= 2147483647 ? "∞" : quota.limit} AI previews
+            </span>
+          )}
           {basicPreview && (
             <span className="hv-status-pill" title="WebGL2 unavailable — using the simplified renderer">
               ⚠ Basic preview

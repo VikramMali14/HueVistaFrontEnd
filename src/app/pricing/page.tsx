@@ -96,7 +96,7 @@ export default async function PricingPage() {
         </header>
 
         <div className="reveal" style={{ borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", padding: "22px 0", marginTop: 64, display: "flex", flexWrap: "wrap", gap: "12px 36px", justifyContent: "center", font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
-          <span>GST invoice on every plan</span>
+          <span>GST invoice on request</span>
           <span aria-hidden>·</span>
           <span>UPI · cards · netbanking</span>
           <span aria-hidden>·</span>
@@ -192,7 +192,7 @@ export default async function PricingPage() {
               <Link href="/redeem" className="btn btn-ghost">Have a shop code? <span className="arr">→</span></Link>
             </div>
             <div style={{ marginTop: 24, font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
-              GST invoice · UPI accepted · cancel anytime
+              GST invoice on request · UPI accepted · cancel anytime
             </div>
           </div>
         </section>
