@@ -5,9 +5,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { RevealMount } from "@/components/ui/reveal-mount";
-import { SHADES } from "@/lib/shades";
-import { fetchCatalogue } from "@/lib/catalogue";
-import type { PaintShade } from "@/lib/types";
+import { getCatalogueOrSample } from "@/lib/catalogue";
 import { CatalogueToolbar } from "@/components/catalogue/catalogue-toolbar";
 import { ColorMatch } from "@/components/catalogue/color-match";
 import { CompetitorTranslator } from "@/components/catalogue/competitor-translator";
@@ -20,14 +18,8 @@ export const metadata: Metadata = {
 };
 
 export default async function CataloguePage() {
-  // Live catalogue from the backend; fall back to the bundled sample if it's unreachable.
-  let shades: PaintShade[];
-  try {
-    const live = await fetchCatalogue();
-    shades = live.length > 0 ? live : [...SHADES];
-  } catch {
-    shades = [...SHADES];
-  }
+  // Live catalogue from the backend; falls back to the bundled sample if it's unreachable.
+  const shades = await getCatalogueOrSample();
   const brands = Array.from(new Set(shades.map((s) => s.brand))).sort((a, b) => a.localeCompare(b));
   const brandLine = brands.length === 1 ? brands[0]! : `${brands.length} companies`;
   return (
@@ -46,7 +38,7 @@ export default async function CataloguePage() {
         </header>
 
         <section style={{ paddingTop: 80 }}>
-          <ColorMatch />
+          <ColorMatch shades={shades} />
           <CompetitorTranslator shades={shades} />
           <CatalogueToolbar shades={shades} />
         </section>

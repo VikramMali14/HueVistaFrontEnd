@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { useCopied } from "@/hooks/use-copied";
 import { api, HttpError } from "@/lib/api";
 import { PAINT_BRANDS, type AccessCode, type OrgResponse, type ProjectDetail } from "@/lib/types";
 
@@ -42,8 +43,7 @@ export function AccessCodes() {
   const [companies, setCompanies] = useState<string[]>([]);
   const [issuing, setIssuing] = useState(false);
   const [justIssued, setJustIssued] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
-  const [copiedMsg, setCopiedMsg] = useState(false);
+  const { copied, copy: copyText } = useCopied();
 
   // The guest's room per code, fetched on demand ("View room"). The full view —
   // real shade codes included — which is the whole point of the code loop.
@@ -142,22 +142,14 @@ export function AccessCodes() {
     setCompanies((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]));
   }, []);
 
-  const copy = useCallback((code: string) => {
-    navigator.clipboard?.writeText(code).then(() => {
-      setCopied(code);
-      setTimeout(() => setCopied((c) => (c === code ? null : c)), 1200);
-    }).catch(() => {});
-  }, []);
+  const copy = useCallback((code: string) => copyText(code), [copyText]);
 
   // WhatsApp-ready message so the retailer never types the URL and instructions by hand.
   const copyMessage = useCallback((code: string) => {
     const days = codes.find((c) => c.code === code)?.validDays ?? validDays;
     const message = `Your HueVista code: ${code}. Open ${window.location.origin}/redeem and enter it to start visualising your room. Valid ${days} days.`;
-    navigator.clipboard?.writeText(message).then(() => {
-      setCopiedMsg(true);
-      setTimeout(() => setCopiedMsg(false), 1200);
-    }).catch(() => {});
-  }, [codes, validDays]);
+    copyText("whatsapp-message", message);
+  }, [codes, validDays, copyText]);
 
   if (loading) {
     return (
@@ -263,7 +255,7 @@ export function AccessCodes() {
             {copied === justIssued ? "Copied" : "Copy"}
           </button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyMessage(justIssued)}>
-            {copiedMsg ? "Message copied" : "Copy message"}
+            {copied === "whatsapp-message" ? "Message copied" : "Copy message"}
           </button>
           <Mono>Share with your customer — they enter it at huevista.com/redeem</Mono>
         </div>

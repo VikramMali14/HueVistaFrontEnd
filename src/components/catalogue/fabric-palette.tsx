@@ -1,15 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { deltaE, hexToLab, nearestShades } from "@/lib/color";
 import { extractPalette } from "@/lib/palette";
 import { chroma, pairCeilingAndTrim } from "@/lib/color-science";
+import { IMAGE_ACCEPT, drawScaledCanvas, imageFileError, loadImageFromFile } from "@/lib/image-upload";
+import { useCopied } from "@/hooks/use-copied";
 import { UndertoneTag } from "./undertone-tag";
 import type { PaintShade } from "@/lib/types";
 
 const MAX_DIM = 900;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 interface Scheme {
   sourceColors: string[];
@@ -32,40 +33,42 @@ export function FabricPalette({ shades }: { shades: ReadonlyArray<PaintShade> })
   const [preview, setPreview] = useState<string | null>(null);
   const [scheme, setScheme] = useState<Scheme | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopied(1600);
+
+  // The preview keeps its own object URL alive while displayed; release the
+  // old one when a new photo replaces it, and the last one on unmount.
+  const previewRef = useRef<string | null>(null);
+  previewRef.current = preview;
+  useEffect(
+    () => () => {
+      if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    },
+    [],
+  );
 
   const onFile = (file: File | undefined) => {
     setError(null);
     if (!file) return;
-    if (!ALLOWED.has(file.type)) {
-      setError("Use a JPG, PNG or WebP photo.");
+    const problem = imageFileError(file);
+    if (problem) {
+      setError(problem);
       return;
     }
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight));
-      const w = Math.max(1, Math.round(img.naturalWidth * scale));
-      const h = Math.max(1, Math.round(img.naturalHeight * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) {
-        setError("This browser can't read the photo. Try another one.");
-        URL.revokeObjectURL(url);
-        return;
-      }
-      ctx.drawImage(img, 0, 0, w, h);
-      const colors = extractPalette(ctx.getImageData(0, 0, w, h).data, 5);
-      setPreview(url);
-      setScheme(buildScheme(colors, shades));
-    };
-    img.onerror = () => {
-      setError("Could not open that photo. Try another one.");
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
+    loadImageFromFile(file)
+      .then((img) => {
+        const drawn = drawScaledCanvas(img, MAX_DIM);
+        if (!drawn) {
+          setError("This browser can't read the photo. Try another one.");
+          return;
+        }
+        const colors = extractPalette(drawn.ctx.getImageData(0, 0, drawn.width, drawn.height).data, 5);
+        setPreview((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(file);
+        });
+        setScheme(buildScheme(colors, shades));
+      })
+      .catch(() => setError("Could not open that photo. Try another one."));
   };
 
   const copyScheme = () => {
@@ -76,10 +79,7 @@ export function FabricPalette({ shades }: { shades: ReadonlyArray<PaintShade> })
       scheme.ceiling && `Ceiling: ${scheme.ceiling.name} (${scheme.ceiling.code})`,
       scheme.trim && `Trim: ${scheme.trim.name} (${scheme.trim.code})`,
     ].filter(Boolean);
-    navigator.clipboard?.writeText(lines.join("\n")).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    }).catch(() => {});
+    copy("scheme", lines.join("\n"));
   };
 
   return (
@@ -93,7 +93,7 @@ export function FabricPalette({ shades }: { shades: ReadonlyArray<PaintShade> })
       <input
         ref={fileRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={IMAGE_ACCEPT}
         style={{ display: "none" }}
         onChange={(e) => onFile(e.target.files?.[0])}
       />
@@ -138,7 +138,7 @@ export function FabricPalette({ shades }: { shades: ReadonlyArray<PaintShade> })
             )}
             <div>
               <button type="button" className="btn btn-ghost btn-sm" onClick={copyScheme}>
-                {copied ? "Copied ✓" : "Copy shade codes"}
+                {copied === "scheme" ? "Copied ✓" : "Copy shade codes"}
               </button>
             </div>
           </div>

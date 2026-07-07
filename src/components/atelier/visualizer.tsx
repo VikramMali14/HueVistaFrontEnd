@@ -19,6 +19,7 @@ import {
   pollUntilSegmented as pollSegmentationStatus,
 } from "@/lib/segmentation-polling";
 import { api, guestApi, HttpError } from "@/lib/api";
+import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
 import { undertoneClash } from "@/lib/color-science";
 import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraProject } from "@/lib/payments";
@@ -64,7 +65,6 @@ interface RegionState {
 }
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_CUSTOM_MASKS = 3;
 
 const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
@@ -452,15 +452,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     });
   }, [guest]);
 
-  const validateFile = useCallback((file: File): string | null => {
-    if (!ALLOWED_MIME.has(file.type)) {
-      return "Only JPEG, PNG or WebP photos are accepted.";
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      return "Photo is larger than 10 MB. Use a smaller copy.";
-    }
-    return null;
-  }, []);
+  const validateFile = useCallback(
+    (file: File): string | null => imageFileError(file, { maxBytes: MAX_UPLOAD_BYTES }),
+    [],
+  );
 
   // Create the project + run segmentation for an already-uploaded image. Extracted so it
   // can be retried after the customer buys an extra project. Surfaces the new
@@ -1174,7 +1169,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             <input
               ref={fileRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={IMAGE_ACCEPT}
               style={{ display: "none" }}
               onChange={(e) => {
                 const f = e.target.files?.[0];

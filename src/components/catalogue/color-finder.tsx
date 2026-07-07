@@ -2,20 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
-import { deltaE, hexToLab, nearestShades, rgbToHex } from "@/lib/color";
+import { rgbToHex } from "@/lib/color";
 import { extractPalette } from "@/lib/palette";
-import { mapToPaintShade } from "@/lib/catalogue";
+import { IMAGE_ACCEPT, imageFileError, loadImageFromFile, scaleToFit } from "@/lib/image-upload";
+import { useShadeMatch } from "@/hooks/use-shade-match";
+import { MatchList } from "@/components/catalogue/match-list";
 import { SHADES } from "@/lib/shades";
 import type { PaintShade } from "@/lib/types";
-
-interface ShadeMatch {
-  shade: PaintShade;
-  deltaE: number;
-}
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
 
 const MAX_DIM = 1400; // cap the canvas backing store so getImageData stays fast
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) {
   const catalogue = useMemo(() => (shades && shades.length > 0 ? shades : SHADES), [shades]);
@@ -28,51 +24,10 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
   const [hover, setHover] = useState<{ hex: string; x: number; y: number } | null>(null);
   const [palette, setPalette] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
 
-  const [matches, setMatches] = useState<ShadeMatch[]>([]);
-  // Where the matches came from: the backend matches against the FULL seeded
-  // catalogue; "offline" is the bundled client-side fallback if the backend is
-  // unreachable so the page still works with no server.
-  const [matchSource, setMatchSource] = useState<"backend" | "offline" | null>(null);
-
-  // Match the sampled colour against the backend's full catalogue (ΔE in CIELAB),
-  // falling back to the bundled client-side matcher if the backend is unreachable.
-  useEffect(() => {
-    if (!picked) {
-      setMatches([]);
-      setMatchSource(null);
-      return;
-    }
-    let cancelled = false;
-    const fallbackOffline = () => {
-      if (cancelled) return;
-      setMatches(nearestShades(picked, catalogue, 6));
-      setMatchSource("offline");
-    };
-    (async () => {
-      try {
-        const res = await fetch(`/api/shade-match?hex=${encodeURIComponent(picked)}&limit=6`, { cache: "no-store" });
-        if (!res.ok) return fallbackOffline();
-        const data = (await res.json()) as Array<Parameters<typeof mapToPaintShade>[0]>;
-        if (cancelled) return;
-        if (!Array.isArray(data) || data.length === 0) return fallbackOffline();
-        const pickedLab = hexToLab(picked);
-        setMatches(
-          data.map((b) => {
-            const shade = mapToPaintShade(b);
-            return { shade, deltaE: deltaE(pickedLab, hexToLab(shade.hex)) };
-          }),
-        );
-        setMatchSource("backend");
-      } catch {
-        fallbackOffline();
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [picked, catalogue]);
+  // The shared matching path: backend full-catalogue matcher with the bundled
+  // client-side matcher as the offline fallback.
+  const { matches, source: matchSource } = useShadeMatch(picked, catalogue, 6);
 
   // Draw + analyse runs in an effect *after* the canvas has mounted. The canvas only
   // renders once `hasImage` is true, so drawing straight from the image-load callback
@@ -82,9 +37,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
     const img = loadedImg;
     const canvas = canvasRef.current;
     if (!img || !canvas) return;
-    const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight));
-    const w = Math.max(1, Math.round(img.naturalWidth * scale));
-    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+    const { width: w, height: h } = scaleToFit(img, MAX_DIM);
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -99,45 +52,23 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
     }
   }, [loadedImg]);
 
-  const onFile = useCallback(
-    (file: File) => {
-      setError(null);
-      if (!ALLOWED.has(file.type)) {
-        const isHeic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
-        setError(
-          isHeic
-            ? "iPhone HEIC photos aren't supported yet — set Camera to “Most Compatible”, or use a JPEG/PNG."
-            : "Use a JPEG, PNG, or WebP image.",
-        );
-        return;
-      }
-      const url = URL.createObjectURL(file);
-      let revoked = false;
-      const revoke = () => {
-        if (!revoked) {
-          revoked = true;
-          URL.revokeObjectURL(url);
-        }
-      };
-      const img = new Image();
-      img.onload = () => {
+  const onFile = useCallback((file: File) => {
+    setError(null);
+    const problem = imageFileError(file);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    loadImageFromFile(file)
+      .then((img) => {
         // Mount the canvas (hasImage) and hand the decoded image to the draw effect.
         setHasImage(true);
         setPicked(null);
         setHover(null);
         setLoadedImg(img);
-        revoke();
-      };
-      img.onerror = () => {
-        setError("Could not read that image. Try another photo.");
-        revoke();
-      };
-      img.src = url;
-      // Fallback so the object URL can't leak if the image element never settles.
-      setTimeout(revoke, 15000);
-    },
-    [],
-  );
+      })
+      .catch((e: Error) => setError(e.message));
+  }, []);
 
   const sampleAt = useCallback((clientX: number, clientY: number): string | null => {
     const canvas = canvasRef.current;
@@ -153,16 +84,6 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
     return rgbToHex({ r: d[0]!, g: d[1]!, b: d[2]! });
   }, []);
 
-  const copyCode = useCallback((code: string) => {
-    navigator.clipboard
-      ?.writeText(code)
-      .then(() => {
-        setCopied(code);
-        setTimeout(() => setCopied((c) => (c === code ? null : c)), 1200);
-      })
-      .catch(() => {});
-  }, []);
-
   return (
     <div className="hv-finder" style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px" }}>
       <Mono brass>Find a colour in a photo</Mono>
@@ -174,7 +95,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
       <input
         ref={fileRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={IMAGE_ACCEPT}
         style={{ display: "none" }}
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -347,44 +268,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
                     <div className="finder-hex" style={{ font: "400 22px/1 var(--serif)", color: "var(--fg)", marginTop: 4 }}>{picked}</div>
                   </div>
                 </div>
-                <Mono style={{ display: "block", marginBottom: 10 }}>
-                  Nearest catalogue shades{matchSource === "offline" ? " · offline" : ""}
-                </Mono>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {matches.map(({ shade, deltaE: dE }, i) => {
-                    // Translate the ΔE scale into a reading a counter user can act on.
-                    const grade = dE < 2 ? "exact" : dE < 5 ? "very close" : dE < 10 ? "close" : "nearest available";
-                    return (
-                    <button
-                      key={shade.code}
-                      type="button"
-                      onClick={() => copyCode(shade.code)}
-                      title={`Copy code ${shade.code}`}
-                      aria-label={`${shade.name}, code ${shade.code}, ${grade} match. Click to copy the code.`}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: 8,
-                        border: "1px solid " + (i === 0 ? "var(--accent)" : "var(--rule)"),
-                        background: "transparent",
-                        cursor: "pointer",
-                        textAlign: "left",
-                        width: "100%",
-                      }}
-                    >
-                      <span style={{ width: 36, height: 36, background: shade.hex, border: "1px solid var(--rule-strong)", flexShrink: 0 }} />
-                      <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
-                        <span className="finder-shade-name" style={{ font: "400 16px/1.1 var(--serif)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {shade.name}
-                        </span>
-                        <Mono>{shade.code} · {shade.hex} · ΔE {dE.toFixed(1)} · {grade}</Mono>
-                      </span>
-                      <Mono brass>{copied === shade.code ? "copied" : i === 0 ? "closest" : "copy"}</Mono>
-                    </button>
-                    );
-                  })}
-                </div>
+                <MatchList matches={matches} offline={matchSource === "offline"} />
               </>
             ) : (
               <div style={{ border: "1px solid var(--rule)", padding: 22, background: "var(--surface-soft)" }}>

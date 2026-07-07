@@ -5,6 +5,9 @@ import { NextRequest, NextResponse } from "next/server";
 // where cookies are writable — Server Components must not mutate cookies, so the
 // refresh that used to happen during render (and crashed) now happens up here.
 
+// KEEP IN SYNC with `config.matcher` at the bottom of this file — Next.js
+// requires the matcher to be a static literal, so the same route list exists
+// twice. Adding a protected route means updating BOTH lists.
 const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/products", "/color-finder", "/account", "/admin"];
 // Pages that only make sense for a signed-OUT visitor. A signed-in user landing
 // here is bounced home — they can't register or sign in again without signing
@@ -135,6 +138,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
+  // KEEP IN SYNC with PROTECTED_PREFIXES / GUEST_ONLY_PATHS at the top — the
+  // matcher must be a static literal, so it can't be built from those consts.
   matcher: [
     "/atelier/:path*",
     "/dashboard/:path*",

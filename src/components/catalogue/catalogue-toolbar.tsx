@@ -2,6 +2,7 @@
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
+import { useCopied } from "@/hooks/use-copied";
 import { hexToHsv } from "@/lib/color";
 import { PAINT_BRANDS, type PaintShade } from "@/lib/types";
 import { UndertoneTag } from "./undertone-tag";
@@ -100,7 +101,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   const [sortBy, setSortBy] = useState<SortBy>("hue");
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
+  const { copied, copy: copyCode } = useCopied();
   // Counter tools: comparison queue, fan-deck strip, hold-to-wall, boards.
   const [compareCodes, setCompareCodes] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -194,16 +195,6 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
 
   const clearAll = () => {
     setQuery(""); setFamily(ALL_FAMILIES); setBrand(ALL_BRANDS); setFinish("All"); setLrv("0 — 100"); setVisible(PAGE_SIZE);
-  };
-
-  const copyCode = (code: string) => {
-    navigator.clipboard
-      ?.writeText(code)
-      .then(() => {
-        setCopied(code);
-        setTimeout(() => setCopied((c) => (c === code ? null : c)), 1200);
-      })
-      .catch(() => {});
   };
 
   const shown = sorted.slice(0, visible);

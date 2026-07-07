@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { UndertoneTag } from "@/components/catalogue/undertone-tag";
-import { hexToHsv, hsvToHex, nearestShades, type HSV } from "@/lib/color";
+import { hexToHsv, hsvToHex, hsvToRgb, nearestShades, type HSV } from "@/lib/color";
 import { closenessRating, lrvFromHex } from "@/lib/color-science";
 import type { PaintShade } from "@/lib/types";
 
@@ -65,7 +65,8 @@ function ColorWheel({
         }
         const hue = (Math.atan2(dy, dx) * 180) / Math.PI;
         const sat = Math.min(1, dist / radius);
-        const { r, g, b } = hsvToRgbLocal((hue + 360) % 360, sat, hsv.v);
+        // Uint8ClampedArray rounds/clamps the float channels from hsvToRgb.
+        const { r, g, b } = hsvToRgb({ h: (hue + 360) % 360, s: sat, v: hsv.v });
         data[i] = r;
         data[i + 1] = g;
         data[i + 2] = b;
@@ -173,22 +174,6 @@ function ColorWheel({
       </label>
     </div>
   );
-}
-
-// Local HSV→RGB so the wheel has no import cycle worries; mirrors lib/color hsvToRgb.
-function hsvToRgbLocal(h: number, s: number, v: number) {
-  const c = v * s;
-  const hp = (((h % 360) + 360) % 360) / 60;
-  const x = c * (1 - Math.abs((hp % 2) - 1));
-  let r = 0, g = 0, b = 0;
-  if (hp < 1) [r, g, b] = [c, x, 0];
-  else if (hp < 2) [r, g, b] = [x, c, 0];
-  else if (hp < 3) [r, g, b] = [0, c, x];
-  else if (hp < 4) [r, g, b] = [0, x, c];
-  else if (hp < 5) [r, g, b] = [x, 0, c];
-  else [r, g, b] = [c, 0, x];
-  const m = v - c;
-  return { r: Math.round((r + m) * 255), g: Math.round((g + m) * 255), b: Math.round((b + m) * 255) };
 }
 
 const HEX_RE = /^#?[0-9a-fA-F]{6}$/;
@@ -357,7 +342,7 @@ export function CustomMatchPanel({
                 key={shade.code}
                 type="button"
                 onClick={() => onSelect(shade)}
-                title={hideCodes ? `${shade.name} · ${shade.brand}` : `${shade.name} · ${shade.code} · ΔE ${deltaE.toFixed(1)}`}
+                title={hideCodes ? `${shade.name} · ${shade.brand}` : `${shade.name} · ${shade.code} · ${closenessRating(deltaE)}`}
                 aria-label={hideCodes ? `Apply ${shade.name}` : `Apply ${shade.name}, code ${shade.code}`}
                 style={{
                   display: "flex",
@@ -396,7 +381,7 @@ export function CustomMatchPanel({
                     {shade.name}
                   </span>
                   <Mono>
-                    {hideCodes ? shade.brand : `${shade.brand} · ${shade.code} · ${shade.hex}`}
+                    {hideCodes ? shade.brand : `${shade.brand} · ${shade.code}`}
                   </Mono>
                 </span>
                 <Mono brass={i === 0}>{closenessRating(deltaE)}</Mono>

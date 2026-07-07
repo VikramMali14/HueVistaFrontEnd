@@ -3,9 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { ProductManager } from "@/components/app/product-manager";
 import { ColorFinder } from "@/components/catalogue/color-finder";
-import { SHADES } from "@/lib/shades";
-import { fetchCatalogue } from "@/lib/catalogue";
-import type { PaintShade } from "@/lib/types";
+import { getCatalogueOrSample } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "Products",
@@ -15,14 +13,8 @@ export const metadata: Metadata = {
 export default async function ProductsPage() {
   // Retailer/admin only.
   await requireRole(["RETAILER", "ADMIN"]);
-  // Shades feed the embedded colour finder; fall back to the bundled sample.
-  let shades: PaintShade[];
-  try {
-    const live = await fetchCatalogue();
-    shades = live.length > 0 ? live : [...SHADES];
-  } catch {
-    shades = [...SHADES];
-  }
+  // Shades feed the embedded colour finder; falls back to the bundled sample.
+  const shades = await getCatalogueOrSample();
   return (
     <div>
       <header style={{ marginBottom: 32 }}>

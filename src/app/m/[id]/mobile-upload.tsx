@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
 
 type Status = "idle" | "sending" | "sent" | "error";
-
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export function MobileUpload({ sessionId }: { sessionId: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -16,12 +15,9 @@ export function MobileUpload({ sessionId }: { sessionId: string }) {
 
   const choose = useCallback(async (f: File) => {
     setError(null);
-    if (!ALLOWED.has(f.type)) {
-      setError(
-        /hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name)
-          ? "iPhone HEIC photos aren't supported yet — in Camera settings choose “Most Compatible”, or pick a JPEG."
-          : "Use a JPEG, PNG, or WebP photo.",
-      );
+    const problem = imageFileError(f);
+    if (problem) {
+      setError(problem);
       return;
     }
     // Downscale big camera photos before upload: a modern 48MP JPEG is routinely
@@ -143,7 +139,7 @@ export function MobileUpload({ sessionId }: { sessionId: string }) {
           <input
             ref={fileRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={IMAGE_ACCEPT}
             style={{ display: "none" }}
             onChange={(e) => {
               const f = e.target.files?.[0];
