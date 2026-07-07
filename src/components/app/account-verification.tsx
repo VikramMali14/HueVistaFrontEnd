@@ -10,16 +10,19 @@ import type { AuthUser } from "@/lib/types";
 type Phase = "idle" | "sending" | "code" | "confirming";
 
 /**
- * Non-blocking "secure your account" card: verify email and mobile with a
- * 6-digit OTP. Self-hides once both are verified. Reads initial status from the
- * server-rendered user, then talks to /api/auth/verify/* via the BFF.
+ * Non-blocking "secure your account" card: verify email with a 6-digit OTP.
+ * Self-hides once verified. Reads initial status from the server-rendered
+ * user, then talks to /api/auth/verify/* via the BFF.
+ *
+ * Mobile/SMS verification is hidden for now — no SMS sender is registered yet
+ * (needs the company registration to complete). The backend endpoints and
+ * api.sendPhoneCode/confirmPhoneCode still exist; restore the phone row from
+ * git history once SMS is live.
  */
 export function AccountVerification({ user }: { user: AuthUser | null }) {
   const [emailVerified, setEmailVerified] = useState(Boolean(user?.emailVerified));
-  const [phoneVerified, setPhoneVerified] = useState(Boolean(user?.phoneVerified));
-  const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber ?? "");
 
-  if (!user || (emailVerified && phoneVerified)) return null;
+  if (!user || emailVerified) return null;
 
   return (
     <section
@@ -33,21 +36,15 @@ export function AccountVerification({ user }: { user: AuthUser | null }) {
     >
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <span style={{ font: "600 22px/1 var(--serif)", color: "var(--fg)" }}>Secure your account</span>
-        <Mono brass>{`${(emailVerified ? 1 : 0) + (phoneVerified ? 1 : 0)} of 2 verified`}</Mono>
+        <Mono brass>Email unverified</Mono>
       </div>
       <p style={{ font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", margin: "8px 0 20px", maxWidth: "60ch" }}>
-        Verify your email and mobile number before you create your first project — it&apos;s how we reach
+        Verify your email before you create your first project — it&apos;s how we reach
         you about your work and keep your account safe.
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <EmailRow email={user.email} verified={emailVerified} onVerified={() => setEmailVerified(true)} />
-        <PhoneRow
-          phoneNumber={phoneNumber}
-          setPhoneNumber={setPhoneNumber}
-          verified={phoneVerified}
-          onVerified={() => setPhoneVerified(true)}
-        />
       </div>
     </section>
   );
@@ -96,79 +93,6 @@ function EmailRow({ email, verified, onVerified }: { email: string; verified: bo
       error={error}
       onSend={() => void send()}
       onConfirm={() => void confirm()}
-    />
-  );
-}
-
-function PhoneRow({
-  phoneNumber,
-  setPhoneNumber,
-  verified,
-  onVerified,
-}: {
-  phoneNumber: string;
-  setPhoneNumber: (v: string) => void;
-  verified: boolean;
-  onVerified: () => void;
-}) {
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [code, setCode] = useState("");
-  const [dest, setDest] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const send = async () => {
-    if (!phoneNumber.trim()) {
-      setError("Enter your mobile number first.");
-      return;
-    }
-    setError(null);
-    setPhase("sending");
-    try {
-      const res = await api.sendPhoneCode(phoneNumber.trim());
-      setDest(res.destination);
-      setPhase("code");
-    } catch (e) {
-      setError(msg(e));
-      setPhase("idle");
-    }
-  };
-  const confirm = async () => {
-    if (code.trim().length < 4) return;
-    setError(null);
-    setPhase("confirming");
-    try {
-      await api.confirmPhoneCode(code.trim());
-      onVerified();
-    } catch (e) {
-      setError(msg(e));
-      setPhase("code");
-    }
-  };
-
-  return (
-    <Row
-      label="Mobile"
-      verified={verified}
-      value={verified ? phoneNumber : undefined}
-      phase={phase}
-      code={code}
-      setCode={setCode}
-      dest={dest}
-      error={error}
-      onSend={() => void send()}
-      onConfirm={() => void confirm()}
-      input={
-        !verified && phase === "idle" ? (
-          <input
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            placeholder="+91 98 8654 7321"
-            aria-label="Mobile number"
-            inputMode="tel"
-            style={fieldStyle}
-          />
-        ) : undefined
-      }
     />
   );
 }
