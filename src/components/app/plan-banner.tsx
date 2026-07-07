@@ -35,6 +35,8 @@ const subscribeLink = (
  */
 export function PlanBanner() {
   const [sub, setSub] = useState<SubscriptionSummary | null | undefined>(undefined);
+  // Mount-time clock for the days-left maths — render stays pure.
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +70,7 @@ export function PlanBanner() {
 
   const limit = sub.aiGenerationsLimit >= UNLIMITED ? "∞" : sub.aiGenerationsLimit;
   const daysLeft = sub.currentPeriodEnd
-    ? Math.max(0, Math.ceil((new Date(sub.currentPeriodEnd).getTime() - Date.now()) / 86_400_000))
+    ? Math.max(0, Math.ceil((new Date(sub.currentPeriodEnd).getTime() - now) / 86_400_000))
     : null;
 
   return (

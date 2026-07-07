@@ -15,7 +15,6 @@ import {
   authenticateDemo,
   decodeDemoToken,
   demoUserFromToken,
-  DEMO_EXPIRES_IN,
   type DemoRole,
 } from "./accounts";
 import { getStore } from "./store";

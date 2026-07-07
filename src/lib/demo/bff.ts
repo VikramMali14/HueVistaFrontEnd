@@ -7,7 +7,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type {
   AccessCode,
-  CustomerEntitlement,
   PaintBrand,
   PaintLine,
   ProductCategory,
