@@ -4,9 +4,7 @@ import { getCurrentUser, requireAccessToken } from "@/lib/auth";
 import { entitlementApi } from "@/lib/api";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Visualizer } from "@/components/atelier/visualizer";
-import { fetchCatalogue } from "@/lib/catalogue";
-import { SHADES } from "@/lib/shades";
-import type { PaintShade } from "@/lib/types";
+import { getCatalogueOrSample } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "Studio",
@@ -75,14 +73,8 @@ export default async function AtelierPage({
     return <AccessGate kind={gate} />;
   }
   const { project, name } = await searchParams;
-  // Live catalogue from the backend; fall back to the bundled sample if it's unreachable.
-  let shades: PaintShade[];
-  try {
-    const live = await fetchCatalogue();
-    shades = live.length > 0 ? live : [...SHADES];
-  } catch {
-    shades = [...SHADES];
-  }
+  // Live catalogue from the backend; falls back to the bundled sample if it's unreachable.
+  const shades = await getCatalogueOrSample();
   return (
     <div className="hv-atelier-page">
       <Visualizer projectId={project} shades={shades} initialName={name} />

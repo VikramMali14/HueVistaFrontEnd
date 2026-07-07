@@ -19,6 +19,7 @@ import {
   pollUntilSegmented as pollSegmentationStatus,
 } from "@/lib/segmentation-polling";
 import { api, guestApi, HttpError } from "@/lib/api";
+import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
 import { undertoneClash } from "@/lib/color-science";
 import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraProject } from "@/lib/payments";
@@ -64,7 +65,6 @@ interface RegionState {
 }
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_CUSTOM_MASKS = 3;
 
 const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
@@ -156,7 +156,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // so "Retry" re-fires exactly what was lost — not just the latest payload.
   const failedSavesRef = useRef<Array<() => Promise<void>>>([]);
   const [stage, setStage] = useState<PipelineStage>("upload");
-  const [done, setDone] = useState<Partial<Record<PipelineStage, boolean>>>({});
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [classification, setClassification] = useState<"INDOOR" | "OUTDOOR" | "UNKNOWN" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -165,8 +164,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [...DEFAULT_REGIONS],
   );
   const [activeRegion, setActiveRegion] = useState<string>(regions[0]!.id);
-  // Image clean-up is always on; the visible toggle was retired.
-  const cleanOn = true;
   const [compare, setCompare] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string | null>(initialName ?? null);
@@ -418,7 +415,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         await applyProjectDetail(detail);
         if (cancelled) return;
         setStage("recolor");
-        setDone({ upload: true, clean: true, mask: true, recolor: true });
         setMasksReady(true);
       } catch (err) {
         if (cancelled) return;
@@ -452,15 +448,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     });
   }, [guest]);
 
-  const validateFile = useCallback((file: File): string | null => {
-    if (!ALLOWED_MIME.has(file.type)) {
-      return "Only JPEG, PNG or WebP photos are accepted.";
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      return "Photo is larger than 10 MB. Use a smaller copy.";
-    }
-    return null;
-  }, []);
+  const validateFile = useCallback(
+    (file: File): string | null => imageFileError(file, { maxBytes: MAX_UPLOAD_BYTES }),
+    [],
+  );
 
   // Create the project + run segmentation for an already-uploaded image. Extracted so it
   // can be retried after the customer buys an extra project. Surfaces the new
@@ -496,13 +487,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             setGuestAiUnavailable(true);
           }
           setMasksReady(true);
-          setDone((d) => ({ ...d, mask: true }));
         } else {
           await api.requestSegmentation(project.id);
           const segmented = await pollUntilSegmented(project.id);
           await applyProjectDetail(segmented);
           setMasksReady(true);
-          setDone((d) => ({ ...d, mask: true }));
         }
       } catch (err) {
         if (err instanceof PollCancelledError) {
@@ -563,7 +552,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         setPendingFile(file);
         // Still on the upload step — nothing created on the backend yet.
         setStage("upload");
-        setDone((d) => ({ ...d, upload: false, clean: false, mask: false }));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not open the image.");
       }
@@ -585,7 +573,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     baseLumaRef.current.clear();
     try {
       setStage("clean");
-      setDone((d) => ({ ...d, upload: true }));
       try {
         const uploaded = await uploadImageCall(file);
         if (!uploaded?.imageId) {
@@ -594,7 +581,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         setClassification(uploaded.imageType);
         setPendingImageId(uploaded.imageId);
         setStage("mask");
-        setDone((d) => ({ ...d, upload: true, clean: cleanOn }));
 
         await createAndSegment(uploaded.imageId);
       } catch (err) {
@@ -613,7 +599,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setUploading(false);
       setPendingFile(null);
     }
-  }, [pendingFile, cleanOn, createAndSegment, uploadImageCall]);
+  }, [pendingFile, createAndSegment, uploadImageCall]);
 
   // Discard the previewed photo without sending anything to the backend, and
   // return to the upload drop-zone so the user can pick or re-scan another.
@@ -623,7 +609,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     srcImgRef.current = null;
     setImageDims(null);
     setStage("upload");
-    setDone((d) => ({ ...d, upload: false, clean: false, mask: false }));
     setImageUrl((prev) => {
       if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
       return null;
@@ -655,7 +640,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         await applyProjectDetail(segmented);
       }
       setMasksReady(true);
-      setDone((d) => ({ ...d, mask: true }));
     } catch (err) {
       if (err instanceof PollCancelledError) return;
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -719,7 +703,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       });
       setRecentShades((prev) => [shade, ...prev.filter((s) => s.code !== shade.code)].slice(0, 10));
       setStage("recolor");
-      setDone((d) => ({ ...d, mask: true, recolor: true }));
 
       if (projectId && updatedBackendId !== undefined) {
         const payload: RegionColorUpdate[] = [
@@ -752,7 +735,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       // Applying a colour must always show the result — never the original peek.
       setCompare(false);
       setStage("recolor");
-      setDone((d) => ({ ...d, mask: true, recolor: true }));
 
       if (projectId && updatedBackendId !== undefined) {
         const payload: RegionColorUpdate[] = [
@@ -802,7 +784,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setRegions((prev) => [...prev, newRegion]);
       setActiveRegion(id);
       setStage("recolor");
-      setDone((d) => ({ ...d, refine: true }));
 
       if (!projectId) {
         setMaskStudioOpen(false);
@@ -1174,7 +1155,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             <input
               ref={fileRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={IMAGE_ACCEPT}
               style={{ display: "none" }}
               onChange={(e) => {
                 const f = e.target.files?.[0];

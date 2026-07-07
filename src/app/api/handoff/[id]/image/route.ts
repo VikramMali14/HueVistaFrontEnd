@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { putImage, sessionExists, takeImage } from "@/lib/handoff-store";
+import { ALLOWED_IMAGE_MIME } from "@/lib/image-upload";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_BYTES = 10 * 1024 * 1024;
 
 /** Confirm the bytes really are a JPEG/PNG/WebP — the client-declared MIME is not trusted. */
@@ -40,7 +40,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!(file instanceof File)) {
     return NextResponse.json({ message: "No image was provided." }, { status: 400 });
   }
-  if (!ALLOWED.has(file.type)) {
+  if (!ALLOWED_IMAGE_MIME.has(file.type)) {
     return NextResponse.json({ message: "Use a JPEG, PNG, or WebP photo." }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {

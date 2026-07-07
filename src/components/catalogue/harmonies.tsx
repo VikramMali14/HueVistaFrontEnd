@@ -1,34 +1,48 @@
 "use client";
 
-import { useState } from "react";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
+import { useCopied } from "@/hooks/use-copied";
+import { hexToHsv, hsvToHex } from "@/lib/color";
+import { findShadeByCode } from "@/lib/shades";
+import type { PaintShade } from "@/lib/types";
 
 interface Harmony {
   num: string;
   name: React.ReactNode;
-  codes: string;
-  stack: ReadonlyArray<[string, string]>;
+  /** Real catalogue shades, main → accent → trim. */
+  trio: [PaintShade, PaintShade, PaintShade];
 }
 
-const HARMONIES: ReadonlyArray<Harmony> = [
-  { num: "Composition I", name: <>Veranda <em style={{ color: "var(--brass-soft)" }}>Afternoon</em></>, codes: "AP-1418 · AP-1521 · AP-2001", stack: [["#c87a55", "#9d5236"], ["#d4b88a", "#a47148"], ["var(--ivory)", "#9b8d70"]] },
-  { num: "Composition II", name: <>Library <em style={{ color: "var(--brass-soft)" }}>at Dusk</em></>, codes: "AP-1109 · AP-1820 · AP-0102", stack: [["#7a3a2f", "#3a1612"], ["#d4b88a", "#7a5d3a"], ["var(--charcoal-warm)", "var(--charcoal-deep)"]] },
-  { num: "Composition III", name: <>Pondicherry <em style={{ color: "var(--brass-soft)" }}>Sage</em></>, codes: "AP-1611 · AP-1923 · AP-1718", stack: [["#5b6c5b", "#2e3a2e"], ["#c9bda4", "#8a7c5e"], ["#7a5a3f", "#4a2e1e"]] },
-  { num: "Composition IV", name: <>Midnight <em style={{ color: "var(--brass-soft)" }}>Linen</em></>, codes: "AP-1212 · AP-2001 · AP-1947", stack: [["#3a4870", "#0c1226"], ["var(--ivory)", "#c9bda4"], ["#a89472", "#5a4030"]] },
+/** A slightly darker step of the same colour, for the gradient band. */
+function deepen(hex: string): string {
+  const { h, s, v } = hexToHsv(hex);
+  return hsvToHex({ h, s: Math.min(1, s * 1.08), v: v * 0.62 });
+}
+
+/**
+ * Curated three-shade compositions built from REAL shades in the bundled
+ * catalogue (lib/shades.ts) — the same codes the studio and colour finder
+ * fall back to — so every code shown here can actually be looked up.
+ */
+function trio(codes: [string, string, string]): [PaintShade, PaintShade, PaintShade] | null {
+  const shades = codes.map(findShadeByCode);
+  return shades.every(Boolean) ? (shades as [PaintShade, PaintShade, PaintShade]) : null;
+}
+
+const COMPOSITIONS: ReadonlyArray<{ num: string; name: React.ReactNode; codes: [string, string, string] }> = [
+  { num: "Composition I", name: <>Veranda <em style={{ color: "var(--brass-soft)" }}>Afternoon</em></>, codes: ["AP-1428", "AP-2104", "AP-N101"] },
+  { num: "Composition II", name: <>Library <em style={{ color: "var(--brass-soft)" }}>at Dusk</em></>, codes: ["AP-3318", "AP-2208", "AP-9921"] },
+  { num: "Composition III", name: <>Pondicherry <em style={{ color: "var(--brass-soft)" }}>Sage</em></>, codes: ["AP-7720", "AP-9940", "AP-3304"] },
+  { num: "Composition IV", name: <>Midnight <em style={{ color: "var(--brass-soft)" }}>Linen</em></>, codes: ["AP-9912", "AP-N110", "AP-2230"] },
 ];
 
-export function Harmonies() {
-  const [copied, setCopied] = useState<string | null>(null);
+const HARMONIES: ReadonlyArray<Harmony> = COMPOSITIONS.flatMap(({ num, name, codes }) => {
+  const t = trio(codes);
+  return t ? [{ num, name, trio: t }] : [];
+});
 
-  const copyCodes = (num: string, codes: string) => {
-    navigator.clipboard
-      ?.writeText(codes)
-      .then(() => {
-        setCopied(num);
-        setTimeout(() => setCopied((c) => (c === num ? null : c)), 1200);
-      })
-      .catch(() => {});
-  };
+export function Harmonies() {
+  const { copied, copy } = useCopied();
 
   return (
     <section style={{ background: "var(--band)", borderTop: "1px solid var(--band-rule)", borderBottom: "1px solid var(--band-rule)", padding: "160px 0", marginTop: 120 }} className="full-bleed">
@@ -46,27 +60,30 @@ export function Harmonies() {
         </div>
 
         <div className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24 }}>
-          {HARMONIES.map((h, i) => (
-            <article key={h.num} className={`reveal d${i + 1}`} style={{ border: "1px solid var(--rule)", padding: 0 }}>
-              <div className="hv-harmony-stack" style={{ display: "flex", height: 300 }}>
-                {h.stack.map(([from, to], j) => (
-                  <div key={j} style={{ flex: j === 0 ? 2 : 1, background: `linear-gradient(160deg, ${from}, ${to})` }} />
-                ))}
-              </div>
-              <div style={{ padding: 24 }}>
-                <Mono style={{ marginBottom: 10, display: "block" }}>{h.num}</Mono>
-                <div className="hv-harmony-name" style={{ fontFamily: "var(--serif)", fontSize: 28, color: "var(--ivory)" }}>{h.name}</div>
-                <button
-                  type="button"
-                  onClick={() => copyCodes(h.num, h.codes)}
-                  aria-label={`Copy shade codes ${h.codes}`}
-                  style={{ marginTop: 8, padding: 0, background: "transparent", border: "none", textAlign: "left", cursor: "pointer", font: "400 15px/1.4 var(--serif)", color: "var(--ivory-soft)" }}
-                >
-                  {copied === h.num ? `${h.codes} · copied` : `${h.codes} · copy`}
-                </button>
-              </div>
-            </article>
-          ))}
+          {HARMONIES.map((h, i) => {
+            const codes = h.trio.map((s) => s.code).join(" · ");
+            return (
+              <article key={h.num} className={`reveal d${i + 1}`} style={{ border: "1px solid var(--rule)", padding: 0 }}>
+                <div className="hv-harmony-stack" style={{ display: "flex", height: 300 }}>
+                  {h.trio.map((s, j) => (
+                    <div key={s.code} title={`${s.name} · ${s.code}`} style={{ flex: j === 0 ? 2 : 1, background: `linear-gradient(160deg, ${s.hex}, ${deepen(s.hex)})` }} />
+                  ))}
+                </div>
+                <div style={{ padding: 24 }}>
+                  <Mono style={{ marginBottom: 10, display: "block" }}>{h.num}</Mono>
+                  <div className="hv-harmony-name" style={{ fontFamily: "var(--serif)", fontSize: 28, color: "var(--ivory)" }}>{h.name}</div>
+                  <button
+                    type="button"
+                    onClick={() => copy(h.num, codes)}
+                    aria-label={`Copy shade codes ${codes}`}
+                    style={{ marginTop: 8, padding: 0, background: "transparent", border: "none", textAlign: "left", cursor: "pointer", font: "400 15px/1.4 var(--serif)", color: "var(--ivory-soft)" }}
+                  >
+                    {copied === h.num ? `${codes} · copied` : `${codes} · copy`}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>

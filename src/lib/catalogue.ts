@@ -116,3 +116,16 @@ export async function fetchCatalogue(): Promise<PaintShade[]> {
   const data = (await res.json()) as BackendShade[];
   return data.map(mapToPaintShade);
 }
+
+/**
+ * The live catalogue, falling back to the bundled sample when the backend is
+ * unreachable or empty — the standard way every page loads its shades.
+ */
+export async function getCatalogueOrSample(): Promise<PaintShade[]> {
+  try {
+    const live = await fetchCatalogue();
+    return live.length > 0 ? live : [...SHADES];
+  } catch {
+    return [...SHADES];
+  }
+}

@@ -1,58 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
-import { nearestShades } from "@/lib/color";
+import { useShadeMatch } from "@/hooks/use-shade-match";
+import { MatchList } from "@/components/catalogue/match-list";
 import { SHADES } from "@/lib/shades";
-
-interface MatchResult {
-  shadeCode: string;
-  name: string;
-  hexCode: string;
-  brandName?: string;
-}
+import type { PaintShade } from "@/lib/types";
 
 /**
- * Pick or paste any colour → the backend returns the nearest real catalogue shades
- * by CIELAB ΔE (GET /api/shades/match, public, same-origin via the Next rewrite).
- * If the backend is unreachable, we match against the bundled catalogue instead.
+ * Pick or paste any colour → the nearest real catalogue shades, through the
+ * same shared matching path as the photo finder (backend ΔE matcher with the
+ * bundled offline fallback).
  */
-export function ColorMatch() {
+export function ColorMatch({ shades }: { shades?: ReadonlyArray<PaintShade> }) {
+  const catalogue = useMemo(() => (shades && shades.length > 0 ? shades : SHADES), [shades]);
   const [hex, setHex] = useState("#a47148");
-  const [results, setResults] = useState<MatchResult[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [offline, setOffline] = useState(false);
+  const [submitted, setSubmitted] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function findNearest() {
+  const { matches, source, loading } = useShadeMatch(submitted, catalogue, 5);
+
+  function findNearest() {
     setError(null);
     const clean = hex.trim().replace(/^#/, "");
     if (!/^[0-9a-fA-F]{6}$/.test(clean)) {
       setError("Use a 6-digit hex like #A47148.");
-      setResults(null);
+      setSubmitted(null);
       return;
     }
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/shades/match?hex=${encodeURIComponent(clean)}&limit=5`, {
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) throw new Error("unreachable");
-      setResults((await res.json()) as MatchResult[]);
-      setOffline(false);
-    } catch {
-      // Same task, same answer: fall back to the bundled client-side matcher.
-      setResults(
-        nearestShades(`#${clean}`, SHADES, 5).map(({ shade }) => ({
-          shadeCode: shade.code,
-          name: shade.name,
-          hexCode: shade.hex,
-        })),
-      );
-      setOffline(true);
-    } finally {
-      setLoading(false);
-    }
+    setSubmitted(`#${clean}`);
   }
 
   return (
@@ -61,7 +37,7 @@ export function ColorMatch() {
       <p className="finder-lead" style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
         Pick or paste any colour and we&apos;ll find the catalogue shades that look closest to the eye — codes intact.
       </p>
-      <form onSubmit={(e) => { e.preventDefault(); void findNearest(); }} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <form onSubmit={(e) => { e.preventDefault(); findNearest(); }} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <input
           type="color"
           value={/^#[0-9a-fA-F]{6}$/.test(hex) ? hex : "#a47148"}
@@ -86,29 +62,12 @@ export function ColorMatch() {
           {error}
         </div>
       )}
-      {results && results.length > 0 && (
-        <Mono style={{ display: "block", marginTop: 24 }}>
-          Nearest catalogue shades{offline ? " · offline" : ""}
-        </Mono>
-      )}
-      {results && results.length > 0 && (
-        <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" }}>
-          {results.map((r) => (
-            <div key={r.shadeCode} style={{ width: 120 }}>
-              <div
-                style={{
-                  aspectRatio: "1 / 1",
-                  background: r.hexCode?.startsWith("#") ? r.hexCode : `#${r.hexCode}`,
-                  border: "1px solid var(--rule-strong)",
-                }}
-              />
-              <div style={{ marginTop: 8, font: "400 15px/1.2 var(--serif)" }}>{r.name}</div>
-              <Mono>{r.shadeCode}</Mono>
-            </div>
-          ))}
+      {submitted && !loading && (
+        <div style={{ marginTop: 24, maxWidth: 560 }}>
+          <MatchList matches={matches} offline={source === "offline"} />
         </div>
       )}
-      {results && results.length === 0 && (
+      {submitted && !loading && matches.length === 0 && (
         <p style={{ marginTop: 16, color: "var(--fg-mute)" }}>
           <Mono>No shades in the catalogue yet — seed the backend first.</Mono>
         </p>

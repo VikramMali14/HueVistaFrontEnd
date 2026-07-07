@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
-import { SHADES } from "@/lib/shades";
-import { fetchCatalogue } from "@/lib/catalogue";
-import type { PaintShade } from "@/lib/types";
+import { getCatalogueOrSample } from "@/lib/catalogue";
 import { ColorFinder } from "@/components/catalogue/color-finder";
 import { FabricPalette } from "@/components/catalogue/fabric-palette";
 import { requireActiveSubscription } from "@/lib/auth";
@@ -17,14 +15,8 @@ export default async function ColorFinderPage() {
   // Subscriber-only tool: any ACTIVE subscription (trial or paid) may enter;
   // everyone else is redirected to pricing (or sign-in if unauthenticated).
   await requireActiveSubscription();
-  // Live catalogue from the backend; fall back to the bundled sample if unreachable.
-  let shades: PaintShade[];
-  try {
-    const live = await fetchCatalogue();
-    shades = live.length > 0 ? live : [...SHADES];
-  } catch {
-    shades = [...SHADES];
-  }
+  // Live catalogue from the backend; falls back to the bundled sample if unreachable.
+  const shades = await getCatalogueOrSample();
   return (
     <div>
       <header style={{ marginBottom: 32 }}>

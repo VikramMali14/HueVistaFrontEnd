@@ -36,6 +36,8 @@ const redeemLink = (
 export function CustomerAccessBanner() {
   // undefined = loading, null = no entitlement, "error" = fetch failed (render nothing)
   const [ent, setEnt] = useState<CustomerEntitlement | null | "error" | undefined>(undefined);
+  // Mount-time clock for the days-left maths — render stays pure.
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -79,7 +81,7 @@ export function CustomerAccessBanner() {
   }
 
   const daysLeft = ent.accessExpiresAt
-    ? Math.max(0, Math.ceil((new Date(ent.accessExpiresAt).getTime() - Date.now()) / 86_400_000))
+    ? Math.max(0, Math.ceil((new Date(ent.accessExpiresAt).getTime() - now) / 86_400_000))
     : null;
 
   return (

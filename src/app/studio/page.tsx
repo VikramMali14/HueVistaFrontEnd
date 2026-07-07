@@ -4,9 +4,7 @@ import { redirect } from "next/navigation";
 import { config } from "@/lib/config";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Visualizer } from "@/components/atelier/visualizer";
-import { fetchCatalogue } from "@/lib/catalogue";
-import { SHADES } from "@/lib/shades";
-import type { PaintShade } from "@/lib/types";
+import { getCatalogueOrSample } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "Guest studio",
@@ -34,13 +32,7 @@ export default async function StudioPage() {
   const jar = await cookies();
   if (!jar.get(config.guestCookie)?.value) redirect("/redeem");
 
-  let shades: PaintShade[];
-  try {
-    const live = await fetchCatalogue();
-    shades = live.length > 0 ? live : [...SHADES];
-  } catch {
-    shades = [...SHADES];
-  }
+  let shades = await getCatalogueOrSample();
 
   // The shop can restrict which paint companies this guest may browse (chosen at
   // code-issue time, stored in a sibling cookie). Limit the studio's shades to

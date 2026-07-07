@@ -50,13 +50,13 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
     try {
       const paid = await subscribeToPlan(plan);
       if (paid) {
-        window.location.href = "/dashboard?subscribed=1";
+        window.location.assign("/dashboard?subscribed=1");
         return; // keep the button busy through navigation
       }
       setBusyPlan(null); // buyer dismissed the checkout
     } catch (e) {
       if (e instanceof HttpError && e.status === 401) {
-        window.location.href = `/sign-in?next=${encodeURIComponent("/pricing")}`;
+        window.location.assign(`/sign-in?next=${encodeURIComponent("/pricing")}`);
         return;
       }
       setPayError({ plan, message: e instanceof Error ? e.message : "Could not start checkout." });
