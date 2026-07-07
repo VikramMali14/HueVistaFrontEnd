@@ -33,6 +33,8 @@ const ALLOWED_PREFIXES = [
   "api/billing/plans",
   "api/organizations",
   "api/access-codes",
+  // Retailer kiosk-link updates (create/list live under api/organizations).
+  "api/store-links",
   "api/support",
   "api/paint",
 ] as const;

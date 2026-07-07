@@ -1,5 +1,5 @@
 import { api } from "./api";
-import type { PurchasablePlan } from "./types";
+import type { PurchasablePlan, StoreOrder } from "./types";
 
 declare global {
   interface Window {
@@ -99,6 +99,51 @@ interface CheckoutSuccess {
   razorpay_order_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
+}
+
+/**
+ * In-store kiosk payment: opens Razorpay Checkout (card / UPI / QR) for a
+ * pre-created public store order and hands the success payload to `onSuccess`,
+ * which must verify it server-side (that's where the code is issued).
+ * Resolves `true` after a verified payment, `false` if the customer closes
+ * Checkout without paying; throws when verification fails.
+ */
+export async function openStoreCheckout(
+  order: StoreOrder,
+  onSuccess: (resp: {
+    orderId: string;
+    paymentId: string;
+    signature: string;
+  }) => Promise<void>,
+): Promise<boolean> {
+  await loadCheckout();
+  if (!window.Razorpay) throw new Error("Payment library unavailable.");
+
+  return new Promise<boolean>((resolve, reject) => {
+    const rzp = new window.Razorpay!({
+      key: order.razorpayKeyId,
+      amount: order.amount,
+      currency: order.currency,
+      order_id: order.orderId,
+      name: order.shopName || "HueVista",
+      description: "One room visualisation",
+      theme: { color: "#7c5cff" },
+      handler: async (resp: CheckoutSuccess) => {
+        try {
+          await onSuccess({
+            orderId: resp.razorpay_order_id,
+            paymentId: resp.razorpay_payment_id,
+            signature: resp.razorpay_signature,
+          });
+          resolve(true);
+        } catch (e) {
+          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+        }
+      },
+      modal: { ondismiss: () => resolve(false) },
+    });
+    rzp.open();
+  });
 }
 
 /**

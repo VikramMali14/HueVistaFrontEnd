@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getAuditLog, getShopLeads, requireRole, searchUsersAction, updateShopLeadStatusAction } from "@/lib/auth";
+import { decideWalletRedemptionAction, getAuditLog, getShopLeads, getWalletRedemptions, requireRole, searchUsersAction, updateShopLeadStatusAction } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { CreateRetailerForm } from "@/components/admin/create-retailer-form";
 import { ShopLeads } from "@/components/admin/shop-leads";
 import { UserSearch } from "@/components/admin/user-search";
 import { AuditLog } from "@/components/admin/audit-log";
+import { WalletRedemptions } from "@/components/admin/wallet-redemptions";
 
 export const metadata: Metadata = {
   title: "Admin · Create shop",
@@ -18,7 +19,11 @@ export const metadata: Metadata = {
  */
 export default async function AdminPage() {
   await requireRole(["ADMIN"]);
-  const [leads, audit] = await Promise.all([getShopLeads(), getAuditLog()]);
+  const [leads, audit, redemptions] = await Promise.all([
+    getShopLeads(),
+    getAuditLog(),
+    getWalletRedemptions(),
+  ]);
   return (
     <div style={{ maxWidth: 760 }}>
       <Eyebrow>Admin · shop accounts</Eyebrow>
@@ -45,6 +50,17 @@ export default async function AdminPage() {
           then mark the lead converted.
         </p>
         <ShopLeads initial={leads} updateAction={updateShopLeadStatusAction} />
+      </section>
+
+      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+        <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
+          Wallet payouts
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch", marginBottom: 24 }}>
+          Retailers&rsquo; kiosk-earnings redemption requests. Send the money to the UPI id first,
+          then mark it approved; rejecting returns the amount to the shop&rsquo;s wallet.
+        </p>
+        <WalletRedemptions initial={redemptions} decideAction={decideWalletRedemptionAction} />
       </section>
 
       <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>

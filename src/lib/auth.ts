@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
 import type { AdminUserRow, AuditLogRow, DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
 import { config } from "./config";
-import type { AuthResponse, AuthUser } from "./types";
+import type { AuthResponse, AuthUser, WalletRedemption } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -384,6 +384,36 @@ export async function updateShopLeadStatusAction(
   } catch (err) {
     if (err instanceof HttpError) return { error: err.message };
     return { error: "Could not update the lead. Please try again." };
+  }
+}
+
+/** ADMIN: the wallet payout queue (all requests, newest first). Empty on any
+ *  failure so the admin page still renders. */
+export async function getWalletRedemptions(): Promise<WalletRedemption[]> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return [];
+  try {
+    return await adminApi.listWalletRedemptions(token);
+  } catch {
+    return [];
+  }
+}
+
+/** ADMIN: settle a payout request — approve (after paying the UPI id) or reject. */
+export async function decideWalletRedemptionAction(
+  redemptionId: string,
+  approve: boolean,
+  note?: string,
+): Promise<{ redemption?: WalletRedemption; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { redemption: await adminApi.decideWalletRedemption(token, redemptionId, approve, note) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not update the redemption. Please try again." };
   }
 }
 

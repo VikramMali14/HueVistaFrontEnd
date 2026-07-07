@@ -330,6 +330,83 @@ export interface AccessCode {
   allowedBrands?: string[];
 }
 
+// --- In-store kiosk (public store links + retailer wallet) ---
+
+/** A retailer's public kiosk link (backend StoreLinkResponse). */
+export interface StoreLink {
+  id: string;
+  slug: string;
+  organizationId: string;
+  organizationName?: string;
+  pricePaise: number;
+  currency: string;
+  validDays: number;
+  active: boolean;
+  createdAt?: string | null;
+}
+
+/** What an anonymous kiosk visitor sees for a store link (backend StorePublicInfoResponse). */
+export interface StorePublicInfo {
+  slug: string;
+  shopName: string;
+  pricePaise: number;
+  currency: string;
+  validDays: number;
+  active: boolean;
+  paymentsConfigured: boolean;
+}
+
+/** A Razorpay order for one kiosk image upload (backend StoreOrderResponse). */
+export interface StoreOrder {
+  orderId: string;
+  amount: number;
+  currency: string;
+  razorpayKeyId: string;
+  shopName: string;
+}
+
+/** Result of a verified kiosk payment: pickup code + live guest session. */
+export interface StoreCheckoutResult {
+  guestToken: string;
+  code: string;
+  shopName: string;
+  validDays: number;
+  expiresAt: string;
+  amountPaise: number;
+}
+
+/** A wallet payout request (backend WalletRedemptionResponse). */
+export interface WalletRedemption {
+  id: string;
+  organizationId: string;
+  organizationName?: string;
+  amountPaise: number;
+  upiId: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  adminNote?: string | null;
+  createdAt?: string | null;
+  decidedAt?: string | null;
+}
+
+/** The retailer's kiosk wallet (backend WalletSummaryResponse). */
+export interface WalletSummary {
+  organizationId: string;
+  currency: string;
+  balancePaise: number;
+  lifetimeEarnedPaise: number;
+  pendingRedemptionPaise: number;
+  redeemedPaise: number;
+  platformFeePaise: number;
+  recentPayments: Array<{
+    id: string;
+    amountPaise: number;
+    retailerSharePaise: number;
+    code?: string | null;
+    createdAt?: string | null;
+  }>;
+  redemptions: WalletRedemption[];
+}
+
 /** Current subscription summary (backend SubscriptionResponse). */
 export interface SubscriptionSummary {
   id: string;

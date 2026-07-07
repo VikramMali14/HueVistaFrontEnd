@@ -292,6 +292,17 @@ export const adminApi = {
       accessToken,
       body: JSON.stringify({ status }),
     }),
+  // Wallet payout queue: the manual "redeem to UPI" requests retailers file.
+  listWalletRedemptions: (accessToken: string, status?: string) =>
+    serverFetch<import("./types").WalletRedemption[]>(
+      `/api/admin/wallet/redemptions${status ? `?status=${encodeURIComponent(status)}` : ""}`,
+      { accessToken },
+    ),
+  decideWalletRedemption: (accessToken: string, redemptionId: string, approve: boolean, note?: string) =>
+    serverFetch<import("./types").WalletRedemption>(
+      `/api/admin/wallet/redemptions/${encodeURIComponent(redemptionId)}/decision`,
+      { method: "POST", accessToken, body: JSON.stringify({ approve, note }) },
+    ),
 };
 
 /** A user as the admin console sees them (backend AdminUserResponse). */
@@ -373,6 +384,26 @@ export const guestServerApi = {
       method: "POST",
       accessToken,
       body: JSON.stringify({ guestToken }),
+    }),
+};
+
+/**
+ * Public store-kiosk endpoints — server actions only, no auth (the slug is the
+ * capability; the Razorpay signature is the proof of payment at verify time).
+ */
+export const storeServerApi = {
+  info: (slug: string) =>
+    serverFetch<import("./types").StorePublicInfo>(`/api/store/${encodeURIComponent(slug)}`),
+  createOrder: (slug: string, clientIp?: string) =>
+    serverFetch<import("./types").StoreOrder>(`/api/store/${encodeURIComponent(slug)}/order`, {
+      method: "POST",
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
+  verify: (slug: string, body: { orderId: string; paymentId: string; signature: string }, clientIp?: string) =>
+    serverFetch<import("./types").StoreCheckoutResult>(`/api/store/${encodeURIComponent(slug)}/verify`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
     }),
 };
 
@@ -551,6 +582,30 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // --- Retailer: public store kiosk links + earnings wallet ---
+  listStoreLinks: (orgId: string) =>
+    browserFetch<import("./types").StoreLink[]>(
+      `api/organizations/${encodeURIComponent(orgId)}/store-links`,
+    ),
+  createStoreLink: (orgId: string, body: { pricePaise: number; validDays?: number }) =>
+    browserFetch<import("./types").StoreLink>(
+      `api/organizations/${encodeURIComponent(orgId)}/store-links`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  updateStoreLink: (linkId: string, body: { pricePaise?: number; validDays?: number; active?: boolean }) =>
+    browserFetch<import("./types").StoreLink>(
+      `api/store-links/${encodeURIComponent(linkId)}`,
+      { method: "PATCH", body: JSON.stringify(body) },
+    ),
+  getWallet: (orgId: string) =>
+    browserFetch<import("./types").WalletSummary>(
+      `api/organizations/${encodeURIComponent(orgId)}/wallet`,
+    ),
+  requestWalletRedemption: (orgId: string, body: { amountPaise: number; upiId: string }) =>
+    browserFetch<import("./types").WalletRedemption>(
+      `api/organizations/${encodeURIComponent(orgId)}/wallet/redemptions`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
   // --- Customer: redeem a retailer's code (flips this account to CUSTOMER) ---
   redeemAccessCode: (body: { code: string }) =>
     browserFetch<AccessCode>("api/access-codes/redeem", { method: "POST", body: JSON.stringify(body) }),

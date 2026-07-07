@@ -4,6 +4,7 @@ import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { RetailerCustomers } from "@/components/app/retailer-customers";
 import { AccessCodes } from "@/components/app/access-codes";
 import { PortalSubdomain } from "@/components/app/portal-subdomain";
+import { StoreKioskPanel } from "@/components/app/store-kiosk-panel";
 
 export const metadata: Metadata = {
   title: "Customer portal",
@@ -30,6 +31,17 @@ export default async function PortalPage() {
           visualising — with one project and a validity window you control.
         </p>
         <AccessCodes />
+      </section>
+      <section style={{ marginBottom: 56 }}>
+        <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
+          Store kiosk &amp; wallet
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+          Publish a public link where walk-in customers order like at a kiosk: they pay your price
+          (min ₹50), upload one room photo and pick colours. Everything above the ₹50 base lands in
+          your wallet — redeem it to your UPI whenever you like.
+        </p>
+        <StoreKioskPanel />
       </section>
       <section style={{ marginBottom: 56 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
