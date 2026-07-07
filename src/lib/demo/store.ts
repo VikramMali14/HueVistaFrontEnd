@@ -14,9 +14,11 @@ import type {
   PaintLine,
   ProjectDetail,
   ShopProduct,
+  StoreLink,
   SubscriptionSummary,
   SupportConversation,
   SupportConversationSummary,
+  WalletSummary,
 } from "../types";
 import {
   DEMO_ACCESS_CODES,
@@ -29,8 +31,10 @@ import {
   DEMO_PROJECT_DETAILS,
   DEMO_PROJECT_ORDER,
   DEMO_SHOP_PRODUCTS,
+  DEMO_STORE_LINKS,
   DEMO_SUBSCRIPTION,
   DEMO_SUPPORT_CONVERSATIONS,
+  DEMO_WALLET,
 } from "./data";
 
 export interface DemoStore {
@@ -45,6 +49,8 @@ export interface DemoStore {
   inbox: SupportConversationSummary[];
   subscription: SubscriptionSummary;
   entitlement: CustomerEntitlement;
+  storeLinks: StoreLink[];
+  wallet: WalletSummary;
   /** Monotonic counter for generated numeric ids (regions, etc.). */
   seq: number;
 }
@@ -68,6 +74,8 @@ function seed(): DemoStore {
     inbox: clone(DEMO_INBOX),
     subscription: clone(DEMO_SUBSCRIPTION),
     entitlement: clone(DEMO_ENTITLEMENT),
+    storeLinks: clone(DEMO_STORE_LINKS),
+    wallet: clone(DEMO_WALLET),
     seq: 1000,
   };
 }

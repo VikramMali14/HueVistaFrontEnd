@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { clientIpFromHeaders } from "@/lib/client-ip";
 import { config } from "@/lib/config";
 import { getAccessToken } from "@/lib/auth";
 import { isDemoMode } from "@/lib/demo/flag";
@@ -37,6 +38,9 @@ const ALLOWED_PREFIXES = [
   "api/store-links",
   "api/support",
   "api/paint",
+  // Public read-only brand/shade catalogue — the portal's "restrict code to
+  // brands" picker loads the live brand list through here.
+  "api/shades",
 ] as const;
 
 async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
@@ -76,6 +80,10 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   if (contentType) headers.set("Content-Type", contentType);
   headers.set("Accept", req.headers.get("accept") ?? "application/json");
   headers.set("Authorization", `Bearer ${token}`);
+  // The backend's per-IP limiters (OTP send/confirm, code redeem, uploads)
+  // should bucket by the real visitor, not this server's single IP.
+  const clientIp = clientIpFromHeaders(req.headers);
+  if (clientIp) headers.set("X-Forwarded-For", clientIp);
 
   const init: RequestInit & { duplex?: "half" } = {
     method: req.method,
