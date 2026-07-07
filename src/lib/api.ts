@@ -261,6 +261,14 @@ export const adminApi = {
       method: "DELETE",
       accessToken,
     }),
+  // User lookup for the admin console (case-insensitive name/email substring).
+  searchUsers: (accessToken: string, q: string) =>
+    serverFetch<AdminUserRow[]>(`/api/admin/users?q=${encodeURIComponent(q)}&size=20`, {
+      accessToken,
+    }),
+  // Audit trail — every sensitive action, newest first (last 50 for display).
+  listAuditLog: (accessToken: string) =>
+    serverFetch<AuditLogRow[]>("/api/admin/audit?size=50", { accessToken }),
   // Shop-account request queue (public /trial form feeds it).
   listShopLeads: (accessToken: string) =>
     serverFetch<ShopLeadRow[]>("/api/admin/leads", { accessToken }),
@@ -271,6 +279,30 @@ export const adminApi = {
       body: JSON.stringify({ status }),
     }),
 };
+
+/** A user as the admin console sees it (backend AdminUserResponse). */
+export interface AdminUserRow {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  provider?: string;
+  emailVerified?: boolean;
+  createdAt?: string;
+}
+
+/** One audit-trail entry (backend /api/admin/audit row). */
+export interface AuditLogRow {
+  id: number;
+  actorUserId?: string | null;
+  /** Resolved best-effort; null for deleted/unknown actors. */
+  actorEmail?: string | null;
+  action: string;
+  targetType?: string | null;
+  targetId?: string | null;
+  detail?: string | null;
+  createdAt?: string | null;
+}
 
 /** A shop-account request as the admin queue sees it. */
 export type ShopLeadStatus = "NEW" | "CONTACTED" | "CONVERTED" | "DISMISSED";

@@ -3,7 +3,15 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
-import type { DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
+import type {
+  AdminUserRow,
+  AuditLogRow,
+  DeleteAllShadesResult,
+  ShadeUploadResult,
+  ShopLeadRow,
+  ShopLeadStatus,
+  UploadBrand,
+} from "./api";
 import { config } from "./config";
 import type { AuthResponse, AuthUser } from "./types";
 
@@ -309,6 +317,35 @@ export async function logoutAction() {
   }
   await clearSession();
   redirect("/");
+}
+
+/** ADMIN: search users by name/email substring (top 20 newest matches). */
+export async function searchUsersAction(
+  q: string,
+): Promise<{ users?: AdminUserRow[]; error?: string }> {
+  "use server";
+  const query = q.trim();
+  if (!query) return { users: [] };
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { users: await adminApi.searchUsers(token, query) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Search failed. Please try again." };
+  }
+}
+
+/** ADMIN: the latest audit-trail entries (empty on failure so the page renders). */
+export async function getAuditLog(): Promise<AuditLogRow[]> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return [];
+  try {
+    return await adminApi.listAuditLog(token);
+  } catch {
+    return [];
+  }
 }
 
 /** ADMIN: the shop-account request queue (newest first). Empty on any failure so

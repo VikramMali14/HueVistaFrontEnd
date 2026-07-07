@@ -101,6 +101,26 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
     return { id: `usr_${Date.now()}`, name, email, role: "RETAILER" } as T;
   }
 
+  // --- Admin console: user search + audit trail (canned) ---
+  if (p.startsWith("/api/admin/users") && method === "GET") {
+    const q = decodeURIComponent(/[?&]q=([^&]*)/.exec(p)?.[1] ?? "").toLowerCase();
+    const users = [
+      { id: "usr_rajesh", name: "Rajesh Mehta", email: "rajesh@mehtapaints.in", role: "RETAILER", emailVerified: true, createdAt: "2026-03-02T10:00:00+05:30" },
+      { id: "usr_anjali", name: "Anjali Nair", email: "anjali@example.in", role: "CUSTOMER", emailVerified: true, createdAt: "2026-06-11T15:30:00+05:30" },
+      { id: "usr_admin", name: "HueVista Admin", email: "admin@huevista.in", role: "ADMIN", emailVerified: true, createdAt: "2026-01-15T09:00:00+05:30" },
+    ];
+    return users.filter(
+      (u) => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
+    ) as T;
+  }
+  if (p.startsWith("/api/admin/audit") && method === "GET") {
+    return [
+      { id: 3, actorUserId: "usr_rajesh", actorEmail: "rajesh@mehtapaints.in", action: "PROJECT_DELETE", targetType: "PROJECT", targetId: "prj_demo_04", detail: "name=Old hallway", createdAt: "2026-06-28T12:40:00+05:30" },
+      { id: 2, actorUserId: "usr_admin", actorEmail: "admin@huevista.in", action: "SUBSCRIPTION_ACTIVATE", targetType: "SUBSCRIPTION", targetId: "sub_demo_01", detail: "plan=PROFESSIONAL", createdAt: "2026-06-27T18:05:00+05:30" },
+      { id: 1, actorUserId: "usr_anjali", actorEmail: "anjali@example.in", action: "LOGOUT", targetType: "USER", targetId: "usr_anjali", detail: "all refresh tokens revoked", createdAt: "2026-06-27T17:22:00+05:30" },
+    ] as T;
+  }
+
   // --- Anonymous guest redemption of a shop access code ---
   if (p === "/api/access-codes/redeem-guest" && method === "POST") {
     const { code = "" } = parseBody<{ code?: string }>(init);
