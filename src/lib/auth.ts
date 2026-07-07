@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
 import type { AdminUserRow, AuditLogRow, DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
+import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import type { AuthResponse, AuthUser, WalletRedemption } from "./types";
 
@@ -114,8 +115,7 @@ export async function loginAction(formData: FormData) {
   // by the actual client, not the single frontend-server IP (which would make the
   // limiter one global bucket and lock everyone out). Mirrors registerAction.
   const hdrs = await headers();
-  const clientIp =
-    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("x-real-ip")?.trim() || undefined;
+  const clientIp = clientIpFromHeaders(hdrs);
   try {
     const auth = await authApi.login({ email, password }, clientIp);
     // Admin 2FA: the password was right but a code was emailed — no tokens yet.
@@ -145,8 +145,7 @@ export async function loginWithOtpAction(formData: FormData) {
     return { error: "Please enter the code from your email." };
   }
   const hdrs = await headers();
-  const clientIp =
-    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("x-real-ip")?.trim() || undefined;
+  const clientIp = clientIpFromHeaders(hdrs);
   try {
     const auth = await authApi.loginOtp({ email, password, code }, clientIp);
     await persistSession(auth);
@@ -172,8 +171,7 @@ export async function redeemGuestAction(
   const value = code.trim();
   if (!value) return { error: "Enter the code from your shop." };
   const hdrs = await headers();
-  const clientIp =
-    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("x-real-ip")?.trim() || undefined;
+  const clientIp = clientIpFromHeaders(hdrs);
   try {
     const res = await guestServerApi.redeem(value, clientIp);
     const jar = await cookies();
@@ -224,10 +222,7 @@ export async function registerAction(formData: FormData) {
   // Real visitor IP (set by the hosting proxy), forwarded so the backend's
   // per-IP signup rate limiter doesn't see every request as the frontend server.
   const hdrs = await headers();
-  const clientIp =
-    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    hdrs.get("x-real-ip")?.trim() ||
-    undefined;
+  const clientIp = clientIpFromHeaders(hdrs);
 
   try {
     const auth = await authApi.register({ name, email, password, shopName, city, state, phone, tier, accountType }, clientIp);

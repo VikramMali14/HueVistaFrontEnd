@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { HttpError, leadApi } from "./api";
+import { clientIpFromHeaders } from "./client-ip";
 
 /**
  * Submits the public "request a shop account" form. No account or session is
@@ -24,10 +25,7 @@ export async function requestShopAccountAction(
   // Real visitor IP so the backend's per-IP lead limiter buckets by the actual
   // client, not the frontend server (mirrors login/register).
   const hdrs = await headers();
-  const clientIp =
-    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    hdrs.get("x-real-ip")?.trim() ||
-    undefined;
+  const clientIp = clientIpFromHeaders(hdrs);
 
   try {
     await leadApi.submitShopLead(

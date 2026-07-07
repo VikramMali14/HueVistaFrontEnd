@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientIpFromHeaders } from "@/lib/client-ip";
 import { createSession } from "@/lib/handoff-store";
 
 export const runtime = "nodejs";
@@ -30,7 +31,7 @@ function allow(ip: string): boolean {
 
 // Desktop opens a hand-off session and gets back an id to encode in the QR code.
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ip = clientIpFromHeaders(req.headers) || "unknown";
   if (!allow(ip)) {
     return NextResponse.json(
       { error: "Too many hand-off sessions. Please wait a minute and try again." },

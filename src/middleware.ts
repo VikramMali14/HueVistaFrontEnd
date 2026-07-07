@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientIpFromHeaders } from "@/lib/client-ip";
 
 // NOTE: lives in src/ (not the project root) so Next actually runs it for a
 // src/-based app. It gates protected routes AND refreshes the access token here,
@@ -44,6 +45,21 @@ function cookieOpts(maxAge: number) {
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+
+  // Public auth endpoints are REWRITTEN to the backend (next.config.ts), and
+  // Next's rewrite proxy forwards X-Forwarded-For exactly as the client sent
+  // it. Overwrite it with the trusted derivation before the rewrite runs, or a
+  // forged header rotating fake IPs sidesteps the backend's per-IP limiters
+  // (login, reset-code brute force…).
+  if (pathname.startsWith("/api/auth/")) {
+    const fwdHeaders = new Headers(req.headers);
+    const ip = clientIpFromHeaders(req.headers);
+    if (ip) fwdHeaders.set("x-forwarded-for", ip);
+    else fwdHeaders.delete("x-forwarded-for");
+    fwdHeaders.delete("x-real-ip"); // already folded into the derivation above
+    return NextResponse.next({ request: { headers: fwdHeaders } });
+  }
+
   const isBff = pathname.startsWith("/bff/");
   const isProtected = PROTECTED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
@@ -105,9 +121,7 @@ export async function middleware(req: NextRequest) {
   try {
     // Forward the real client IP so the backend's per-IP refresh limiter buckets
     // per user, not under the single frontend-server IP.
-    const fwd =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip")?.trim();
+    const fwd = clientIpFromHeaders(req.headers);
     const upstream = await fetch(`${INTERNAL_ORIGIN}/api/auth/refresh`, {
       method: "POST",
       headers: {
@@ -150,6 +164,8 @@ export const config = {
     "/account/:path*",
     "/admin/:path*",
     "/bff/:path*",
+    // Rewritten-to-backend auth endpoints — X-Forwarded-For normalisation only.
+    "/api/auth/:path*",
     // Guest-only auth pages (exact — keep /sign-in/google out of the bounce).
     "/sign-in",
     "/sign-in/forgot",
