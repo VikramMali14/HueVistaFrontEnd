@@ -13,12 +13,14 @@ FROM node:26-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-COPY --from=build /app/package.json /app/package-lock.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
-COPY --from=build /app/next.config.ts ./next.config.ts
-COPY --from=build /app/cache-handler.js ./cache-handler.js
+COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+# chown so the runtime user can write .next/cache (image optimizer, ISR).
+COPY --from=build --chown=node:node /app/.next ./.next
+COPY --from=build --chown=node:node /app/public ./public
+COPY --from=build --chown=node:node /app/next.config.ts ./next.config.ts
+COPY --from=build --chown=node:node /app/cache-handler.js ./cache-handler.js
+USER node
 EXPOSE 3000
 # Node ships fetch; no extra packages needed for the probe.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
