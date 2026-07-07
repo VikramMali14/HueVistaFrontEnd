@@ -35,6 +35,11 @@ export function AppNav({ user }: AppNavProps) {
     return true;
   });
 
+  // ADMIN carries 7 tabs — the row overflows the floating bar well above the
+  // 900px drawer breakpoint, so wide tab sets get tighter spacing and an
+  // earlier drawer via the .nav-wide rules below.
+  const wideNav = visibleTabs.length > 5;
+
   // Auto-close the drawer on route change.
   useEffect(() => {
     setOpen(false);
@@ -59,7 +64,7 @@ export function AppNav({ user }: AppNavProps) {
           <span className="dot" />
         </span>
       </div>
-      <div className="app-nav-inner">
+      <div className={`app-nav-inner${wideNav ? " nav-wide" : ""}`}>
         <Link href="/dashboard" className="brand-logo" aria-label="HueVista — dashboard">
           <Logo size="sm" inverted ariaLabel={null} />
         </Link>
@@ -151,14 +156,45 @@ export function AppNav({ user }: AppNavProps) {
         .app-nav-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .app-tabs.is-mobile { display: none; }
         .app-drawer-meta { display: none; }
+        /* Wide tab sets (ADMIN): tighten the row so 7 tabs + the user block fit
+           on one line down to ~1200px… */
+        @media (max-width: 1600px) {
+          .app-nav-inner.nav-wide { gap: 16px; }
+          .app-nav-inner.nav-wide .app-tabs.is-desktop { gap: 2px; }
+          .app-nav-inner.nav-wide .app-tabs.is-desktop .app-tab { padding: 12px 10px; letter-spacing: .18em; }
+        }
+        /* …and below that, hand over to the drawer earlier than the 900px
+           breakpoint the narrower retailer/customer sets need. Mirrors the
+           globals.css mobile drawer rules. */
+        @media (min-width: 901px) and (max-width: 1200px) {
+          .app-nav-inner.nav-wide .app-tabs.is-desktop { display: none; }
+          .app-nav-inner.nav-wide .app-nav-meta { display: none; }
+          .app-nav-inner.nav-wide .mobile-menu-toggle { display: inline-flex; }
+          .app-nav-inner.nav-wide .app-tabs.is-mobile:not(.is-closed) {
+            display: flex;
+            position: fixed; top: 120px; left: 0; right: 0;
+            flex-direction: column; gap: 0;
+            background: var(--nav-bg-strong);
+            border-bottom: 1px solid var(--rule);
+            padding: 8px 0;
+            z-index: 60;
+            box-shadow: 0 16px 32px -16px rgba(0,0,0,.3);
+          }
+          .app-nav-inner.nav-wide .app-tabs.is-mobile .app-tab { padding: 14px var(--gutter); border: none; border-top: 1px solid var(--rule); }
+          .app-nav-inner.nav-wide .app-tabs.is-mobile .app-tab:first-child { border-top: none; }
+          .app-nav-inner.nav-wide .app-drawer-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px var(--gutter) 6px; border-top: 1px solid var(--rule); margin-top: 4px; }
+        }
         @media (max-width: 900px) {
           .app-nav-inner { padding: 12px 16px; margin: 12px 16px; top: 12px; }
           .app-tabs.is-desktop { display: none; }
           /* Only show the drawer when it's actually open. The :not(.is-closed)
              selector is needed so this rule outranks globals.css
              '.app-tabs.is-closed { display:none }' — they have equal specificity,
-             and this inline <style> would otherwise win on source order and keep
-             the menu permanently expanded over the page on mobile. */
+             and this inline style block would otherwise win on source order and
+             keep the menu permanently expanded over the page on mobile. (Never
+             write a literal style tag in this comment: the server escapes it
+             inside the style element, the browser doesn't, and React throws a
+             hydration mismatch on every signed-in page.) */
           .app-tabs.is-mobile:not(.is-closed) { display: flex; }
           .app-nav-meta { display: none; }
           .app-drawer-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px var(--gutter) 6px; border-top: 1px solid var(--rule); margin-top: 4px; }
