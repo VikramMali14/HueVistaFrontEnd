@@ -2,6 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { HttpError, storeServerApi } from "./api";
+import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import type { StoreCheckoutResult, StoreOrder } from "./types";
 
@@ -13,10 +14,7 @@ const cookieDefaults = {
 };
 
 async function clientIp(): Promise<string | undefined> {
-  const hdrs = await headers();
-  return (
-    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("x-real-ip")?.trim() || undefined
-  );
+  return clientIpFromHeaders(await headers());
 }
 
 /**

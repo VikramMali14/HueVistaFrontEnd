@@ -6,8 +6,12 @@
  */
 import { HttpError } from "../http-error";
 import type {
+  AccessCode,
   AuthResponse,
   GuestRedeemResult,
+  StoreCheckoutResult,
+  StoreOrder,
+  StorePublicInfo,
   UserProfile,
 } from "../types";
 import {
@@ -17,7 +21,7 @@ import {
   demoUserFromToken,
   type DemoRole,
 } from "./accounts";
-import { getStore } from "./store";
+import { getStore, nextId, nextSeq } from "./store";
 
 type Init = RequestInit & { accessToken?: string };
 
@@ -33,7 +37,8 @@ function parseBody<T = Record<string, unknown>>(init: Init): T {
 }
 
 function normalize(path: string): string {
-  return ("/" + path.replace(/^\/+/, "")).replace(/\/+$/, "") || "/";
+  const bare = path.split("?")[0] ?? path;
+  return ("/" + bare.replace(/^\/+/, "")).replace(/\/+$/, "") || "/";
 }
 
 export async function demoServerFetch<T>(path: string, init: Init = {}): Promise<T> {
@@ -126,6 +131,90 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
   // --- Public shop-account lead form (/trial) ---
   if (p === "/api/leads/shop" && method === "POST") {
     return { id: `lead_${Date.now()}`, status: "NEW" } as T;
+  }
+
+  // --- Public in-store kiosk (/store/<slug>) ---
+  const storeMatch = p.match(/^\/api\/store\/([^/]+)(?:\/(order|verify))?$/);
+  if (storeMatch) {
+    const link = getStore().storeLinks.find((l) => l.slug === storeMatch[1]);
+    if (!link) throw new HttpError(404, "Store link not found.");
+    if (!storeMatch[2] && method === "GET") {
+      const info: StorePublicInfo = {
+        slug: link.slug,
+        shopName: link.organizationName ?? "Mehta Paints",
+        pricePaise: link.pricePaise,
+        currency: link.currency,
+        validDays: link.validDays,
+        active: link.active,
+        paymentsConfigured: true,
+      };
+      return info as T;
+    }
+    if (storeMatch[2] === "order" && method === "POST") {
+      const order: StoreOrder = {
+        orderId: nextId("order"),
+        amount: link.pricePaise,
+        currency: link.currency,
+        razorpayKeyId: "rzp_test_demo",
+        shopName: link.organizationName ?? "Mehta Paints",
+      };
+      return order as T;
+    }
+    if (storeMatch[2] === "verify" && method === "POST") {
+      // Simulate a verified kiosk payment: issue a pickup code, credit the wallet.
+      const store = getStore();
+      const code: AccessCode = {
+        id: nextId("ac"),
+        code: `MEHTA${9000 + (nextSeq() % 1000)}`,
+        organizationId: link.organizationId,
+        organizationName: link.organizationName ?? "Mehta Paints",
+        validDays: link.validDays,
+        expiresAt: new Date(Date.now() + link.validDays * 86_400_000).toISOString(),
+        used: false,
+        expired: false,
+        createdAt: new Date().toISOString(),
+      };
+      store.accessCodes.unshift(code);
+      const share = Math.max(0, link.pricePaise - store.wallet.platformFeePaise);
+      store.wallet.lifetimeEarnedPaise += share;
+      store.wallet.balancePaise += share;
+      store.wallet.recentPayments.unshift({
+        id: nextId("sp"), amountPaise: link.pricePaise, retailerSharePaise: share,
+        code: code.code, createdAt: new Date().toISOString(),
+      });
+      const result: StoreCheckoutResult = {
+        guestToken: `hvdemo-guest.${code.id}`,
+        code: code.code,
+        shopName: link.organizationName ?? "Mehta Paints",
+        validDays: link.validDays,
+        expiresAt: code.expiresAt!,
+        amountPaise: link.pricePaise,
+      };
+      return result as T;
+    }
+  }
+
+  // --- Admin: the wallet payout queue ---
+  if (p === "/api/admin/wallet/redemptions" && method === "GET") {
+    return getStore().wallet.redemptions as T;
+  }
+  const decisionMatch = p.match(/^\/api\/admin\/wallet\/redemptions\/([^/]+)\/decision$/);
+  if (decisionMatch && method === "POST") {
+    const wallet = getStore().wallet;
+    const redemption = wallet.redemptions.find((r) => r.id === decisionMatch[1]);
+    if (!redemption) throw new HttpError(404, "Redemption not found.");
+    if (redemption.status !== "PENDING") {
+      throw new HttpError(409, `This redemption was already ${redemption.status.toLowerCase()}.`);
+    }
+    const { approve = true, note } = parseBody<{ approve?: boolean; note?: string }>(init);
+    redemption.status = approve ? "APPROVED" : "REJECTED";
+    redemption.decidedAt = new Date().toISOString();
+    if (note) redemption.adminNote = note;
+    // Mirror the backend derivation: approval spends the held funds; rejection returns them.
+    wallet.pendingRedemptionPaise -= redemption.amountPaise;
+    if (approve) wallet.redeemedPaise += redemption.amountPaise;
+    else wallet.balancePaise += redemption.amountPaise;
+    return redemption as T;
   }
 
   // Anything else the demo doesn't model: behave like a 404 the callers tolerate.

@@ -23,7 +23,7 @@ export default function ForgotPage() {
           A new <i>password.</i>
         </h1>
         <Lead style={{ marginTop: 24 }}>
-          Reset by email or your verified mobile — we&apos;ll send a 6-digit code if an account matches.
+          Reset by email — we&apos;ll send a 6-digit code if an account matches.
         </Lead>
         <ForgotForm />
         <p style={{ marginTop: 40, font: "400 17px/1.5 var(--serif)", color: "var(--fg-mute)" }}>

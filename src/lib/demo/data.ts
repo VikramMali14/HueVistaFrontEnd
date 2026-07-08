@@ -16,9 +16,11 @@ import type {
   ProjectDetail,
   ProjectSummary,
   ShopProduct,
+  StoreLink,
   SubscriptionSummary,
   SupportConversation,
   SupportConversationSummary,
+  WalletSummary,
 } from "../types";
 
 export const DEMO_ORG: OrgResponse = {
@@ -120,6 +122,36 @@ export const DEMO_ACCESS_CODES: AccessCode[] = [
   { id: "ac_02", code: "MEHTA14", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 14, expiresAt: "2026-07-08T00:00:00+05:30", used: true, expired: false, usedAt: "2026-06-20T13:00:00+05:30", createdAt: "2026-06-06T10:00:00+05:30" },
   { id: "ac_03", code: "MEHTA3", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 3, expiresAt: "2026-05-01T00:00:00+05:30", used: false, expired: true, createdAt: "2026-04-28T08:00:00+05:30" },
 ];
+
+// --- In-store kiosk: the shop's public store link + its earnings wallet ---
+// The slug matches DEMO_ORG so the URL the portal advertises (/store/<slug>)
+// actually renders in demo mode.
+export const DEMO_STORE_LINKS: StoreLink[] = [
+  { id: "sl_01", slug: "mehta-paints-7a3b", organizationId: "org_demo", organizationName: "Mehta Paints", pricePaise: 19_900, currency: "INR", validDays: 7, active: true, createdAt: "2026-06-10T10:00:00+05:30" },
+];
+
+/** Numbers are coherent with the backend's derivation: balance = earned − pending − redeemed.
+ *  Each ₹199 kiosk payment carries the flat ₹50 platform fee → ₹149 retailer share. */
+export const DEMO_WALLET: WalletSummary = {
+  organizationId: "org_demo",
+  currency: "INR",
+  balancePaise: 24_500,
+  lifetimeEarnedPaise: 74_500,
+  pendingRedemptionPaise: 20_000,
+  redeemedPaise: 30_000,
+  platformFeePaise: 5_000,
+  recentPayments: [
+    { id: "sp_05", amountPaise: 19_900, retailerSharePaise: 14_900, code: "MEHTA9105", createdAt: "2026-06-23T17:40:00+05:30" },
+    { id: "sp_04", amountPaise: 19_900, retailerSharePaise: 14_900, code: "MEHTA9104", createdAt: "2026-06-22T12:15:00+05:30" },
+    { id: "sp_03", amountPaise: 19_900, retailerSharePaise: 14_900, code: "MEHTA9103", createdAt: "2026-06-20T16:05:00+05:30" },
+    { id: "sp_02", amountPaise: 19_900, retailerSharePaise: 14_900, code: "MEHTA9102", createdAt: "2026-06-17T11:30:00+05:30" },
+    { id: "sp_01", amountPaise: 19_900, retailerSharePaise: 14_900, code: "MEHTA9101", createdAt: "2026-06-14T13:00:00+05:30" },
+  ],
+  redemptions: [
+    { id: "wr_02", organizationId: "org_demo", organizationName: "Mehta Paints", amountPaise: 20_000, upiId: "mehtapaints@upi", status: "PENDING", createdAt: "2026-06-22T18:00:00+05:30" },
+    { id: "wr_01", organizationId: "org_demo", organizationName: "Mehta Paints", amountPaise: 30_000, upiId: "mehtapaints@upi", status: "APPROVED", adminNote: "Paid via UPI on 16 Jun.", createdAt: "2026-06-15T10:00:00+05:30", decidedAt: "2026-06-16T09:30:00+05:30" },
+  ],
+};
 
 // --- Support: the customer's own thread + the staff inbox (ADMIN) ---
 export const DEMO_SUPPORT_CONVERSATIONS: SupportConversation[] = [

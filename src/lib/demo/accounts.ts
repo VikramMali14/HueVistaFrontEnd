@@ -51,15 +51,16 @@ export const DEMO_USERS: Record<DemoRole, DemoAccount> = {
     updatedAt: "2026-06-21T08:00:00+05:30",
   },
   CUSTOMER: {
-    // A walk-in customer who redeemed a shop code. Phone left unverified so the
+    // A walk-in customer who redeemed a shop code. Email left unverified so the
     // dashboard's "Secure your account" OTP card is demoable on this account.
+    // (The card is email-only while SMS verification is hidden.)
     id: "usr_anjali",
     name: "Anjali Nair",
     email: "anjali@example.in",
     picture: null,
     provider: "LOCAL",
     role: "CUSTOMER",
-    emailVerified: true,
+    emailVerified: false,
     phoneNumber: "+91 98470 55667",
     phoneVerified: false,
     createdAt: "2026-06-01T07:30:00+05:30",

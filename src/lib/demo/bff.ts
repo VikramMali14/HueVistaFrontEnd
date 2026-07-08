@@ -17,12 +17,15 @@ import type {
   RegionDetail,
   ShareLink,
   ShopProduct,
+  StoreLink,
   SubscriptionSummary,
   SupportConversation,
   SupportMessage,
   UploadedImage,
   VerificationStatus,
+  WalletRedemption,
 } from "../types";
+import { SHADES } from "../shades";
 import { demoUserFromToken } from "./accounts";
 import { DEMO_UPLOAD_IMAGE_URL, demoLinesFor, toSummary } from "./data";
 import { getStore, nextId, nextSeq, retailerOrg } from "./store";
@@ -393,6 +396,66 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
       if (c) { c.projectAllowance += 1; c.projectsRemaining += 1; c.updatedAt = nowIso(); }
       return json(c ?? store.customers[0]);
     }
+    // --- Public store kiosk links + earnings wallet ---
+    if (tail === "store-links" && method === "GET") return json(store.storeLinks);
+    if (tail === "store-links" && method === "POST") {
+      const body = await readJson(req);
+      const org = retailerOrg();
+      const link: StoreLink = {
+        id: nextId("sl"),
+        slug: `${org?.slug ?? "shop"}-${nextSeq()}`,
+        organizationId: seg[2] ?? "org_demo",
+        organizationName: org?.name ?? "Mehta Paints",
+        pricePaise: Number(body.pricePaise ?? 19_900),
+        currency: "INR",
+        validDays: Number(body.validDays ?? 7),
+        active: true,
+        createdAt: nowIso(),
+      };
+      store.storeLinks.unshift(link);
+      return json(link);
+    }
+    if (tail === "wallet" && method === "GET") return json(store.wallet);
+    if (tail === "wallet/redemptions" && method === "POST") {
+      const body = await readJson(req);
+      const amount = Number(body.amountPaise ?? 0);
+      if (amount > store.wallet.balancePaise) {
+        return json({ message: `Your available balance is ₹${(store.wallet.balancePaise / 100).toFixed(2)} — you can't redeem more than that.` }, 400);
+      }
+      const redemption: WalletRedemption = {
+        id: nextId("wr"),
+        organizationId: seg[2] ?? "org_demo",
+        organizationName: retailerOrg()?.name ?? "Mehta Paints",
+        amountPaise: amount,
+        upiId: String(body.upiId ?? ""),
+        status: "PENDING",
+        createdAt: nowIso(),
+      };
+      // Mirror the backend derivation: a PENDING request holds the funds.
+      store.wallet.redemptions.unshift(redemption);
+      store.wallet.pendingRedemptionPaise += amount;
+      store.wallet.balancePaise -= amount;
+      return json(redemption);
+    }
+  }
+
+  // Retailer pauses/reprices an existing kiosk link.
+  if (seg[0] === "api" && seg[1] === "store-links" && seg.length === 3 && method === "PATCH") {
+    const link = store.storeLinks.find((l) => l.id === seg[2]);
+    if (!link) return json({ message: "Store link not found." }, 404);
+    const body = await readJson(req);
+    if (body.pricePaise != null) link.pricePaise = Number(body.pricePaise);
+    if (body.validDays != null) link.validDays = Number(body.validDays);
+    if (typeof body.active === "boolean") link.active = body.active;
+    return json(link);
+  }
+
+  // ---------- Shade catalogue brands (portal "restrict to brands" picker) ----------
+  if (path === "api/shades/brands" && method === "GET") {
+    const counts = new Map<string, number>();
+    for (const s of SHADES) counts.set(s.brand, (counts.get(s.brand) ?? 0) + 1);
+    const brands = [...counts.entries()].map(([name, shadeCount]) => ({ name, slug: slugify(name), shadeCount }));
+    return json(brands);
   }
 
   // ---------- Access codes (customer self-redeem) ----------

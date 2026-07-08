@@ -688,7 +688,10 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   background: rgba(0,0,0,.45);
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
-  z-index: 85;
+  /* Must stay BELOW .app-nav-inner (z-index 60): the drawer lives inside that
+     stacking context, and a scrim above it swallows every tap on the menu —
+     links stop navigating and only close the drawer. */
+  z-index: 55;
   border: none;
   cursor: pointer;
 }
@@ -1979,9 +1982,9 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   margin: 0 auto;
   padding: 16px var(--gutter) 48px;
 }
-.hv-atelier-page {
-  margin-top: -20px;
-}
+/* Desktop pulls the workspace up under the nav (see the 901px block below);
+   on mobile the page keeps the app <main>'s full top padding so the studio
+   header sits off the nav with the same rhythm as every other page. */
 /* Lock the studio workspace to the viewport (desktop) AND let it span the
    full screen width — breaking out of the app's centred max-width column —
    so every pixel is used. The page never scrolls, the image panel stays
@@ -2091,6 +2094,15 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+}
+/* Small screens: the single topbar row can't hold name + pills + buttons.
+   Give the project name its own line and let pills/actions share the next. */
+@media (max-width: 640px) {
+  .hv-studio-topbar { padding: 14px var(--gutter) 12px; row-gap: 10px; }
+  .hv-studio-project { flex-basis: 100%; flex-wrap: wrap; }
+  /* The "Project" eyebrow is implied on a phone — the name needs the room. */
+  .hv-studio-project > .mono:first-child { display: none; }
+  .hv-studio-status { justify-content: flex-start; }
 }
 
 /* Status pills */

@@ -23,7 +23,7 @@ Shared password for all of them: **`huevista`**
 |--------------------------|----------|------------------|
 | `rajesh@mehtapaints.in`  | RETAILER | Dashboard, Studio, Colour finder, Customer portal, Products. **Start here** — it's the richest account. |
 | `admin@huevista.in`      | ADMIN    | Everything above **plus** Inbox (support) and Admin (provision shops). |
-| `anjali@example.in`      | CUSTOMER | Dashboard, Studio, redeem a code. Phone left unverified so the "Secure your account" OTP card is demoable. |
+| `anjali@example.in`      | CUSTOMER | Dashboard, Studio, redeem a code. Email left unverified so the "Secure your account" OTP card is demoable. |
 
 A guest access code you can redeem at **/redeem** (no account): **`MEHTA7`**.
 
@@ -35,7 +35,10 @@ A guest access code you can redeem at **/redeem** (no account): **`MEHTA7`**.
   photo **recoloured live** (real, aligned masks). Or upload your own photo and
   draw walls with the Mask Studio — recolouring runs entirely in your browser.
 - **Customer portal** — issue access codes (3 seeded), customers list with project
-  usage + "grant project".
+  usage + "grant project", the shop's kiosk link + earnings wallet (seeded payments,
+  one pending payout).
+- **In-store kiosk** — the public page at **/store/mehta-paints-7a3b** renders with
+  the shop's price; the admin console shows the payout queue.
 - **Products** — paint brands → lines → shop products (4 seeded); add your own.
 - **Colour finder / Catalogue** — full bundled shade catalogue, photo→shade match.
 - **Account** — profile + email/mobile OTP verification (accepts any 6-digit code).
