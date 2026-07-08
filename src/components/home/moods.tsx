@@ -106,10 +106,11 @@ export function Moods() {
   const [mood, setMood] = useState<Mood>(MOODS[1]!);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   // Default to the static strip; upgrade to the WebGL gallery only once we
-  // know we're on the client AND motion is allowed. This gives SSR / no-JS /
-  // reduced-motion visitors a real, legible fallback.
+  // know we're on the client, motion is allowed AND WebGL actually works. This
+  // gives SSR / no-JS / reduced-motion / no-GPU visitors a real, legible fallback.
   const [mounted, setMounted] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [webglOk, setWebglOk] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -118,6 +119,16 @@ export function Moods() {
     setTheme(read());
     const observer = new MutationObserver(() => setTheme(read()));
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    // WebGL can be missing even with JS + motion — blocklisted GPU drivers,
+    // remote desktops, battery-saver and privacy browsers. Without this probe
+    // the gallery constructor throws and the section renders BLANK.
+    try {
+      const canvas = document.createElement("canvas");
+      setWebglOk(Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl")));
+    } catch {
+      setWebglOk(false);
+    }
 
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReduceMotion(mq.matches);
@@ -130,7 +141,7 @@ export function Moods() {
     };
   }, []);
 
-  const showGallery = mounted && !reduceMotion;
+  const showGallery = mounted && !reduceMotion && webglOk;
 
   const textColor = theme === "light" ? "#2b2823" : "#eae8e3";
 

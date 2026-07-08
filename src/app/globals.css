@@ -2994,6 +2994,37 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: var(--fg-mute);
 }
 
+/* ----- Studio on phones: no clipped or truncated words ----- */
+@media (max-width: 900px) {
+  /* The wall strip scrolls sideways but phones hide the scrollbar, so an
+     overflowing "+ Wall" chip looked cut off dead. A right-edge fade says
+     "there's more"; the extra padding lets the last chip scroll clear of it. */
+  .hv-studio-region-strip { position: relative; }
+  .hv-studio-region-strip::after {
+    content: "";
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 28px;
+    background: linear-gradient(90deg, transparent, var(--bg));
+    pointer-events: none;
+  }
+  .hv-studio-region-strip-scroll { padding-right: 28px; }
+}
+@media (max-width: 600px) {
+  /* The dock's four buttons squeeze the label column until "No colour selected"
+     reads "No co…" — wrap to a second line instead of ellipsising. */
+  .hv-studio-dock-name,
+  .hv-studio-dock-meta { white-space: normal; }
+  /* The 56px chat bubble covers studio controls on phones — shrink it and tuck
+     it into the corner (the base geometry is inline on the button ⇒ !important). */
+  .hv-chat-fab {
+    width: 44px !important;
+    height: 44px !important;
+    bottom: 14px !important;
+    right: 12px !important;
+  }
+}
+
 /* AI Suggest tab */
 .hv-ai-panel {
   display: flex;

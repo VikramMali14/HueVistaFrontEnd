@@ -72,6 +72,10 @@ export function PlanBanner() {
   const daysLeft = sub.currentPeriodEnd
     ? Math.max(0, Math.ceil((new Date(sub.currentPeriodEnd).getTime() - now) / 86_400_000))
     : null;
+  // "0 days left" reads like a bug at the exact moment we most want a subscribe;
+  // say what it means instead.
+  const trialCountdown =
+    daysLeft === null ? "" : daysLeft === 0 ? "ends today" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`;
 
   return (
     <div style={bannerStyle(sub.trial)}>
@@ -79,7 +83,7 @@ export function PlanBanner() {
         <Mono brass>{sub.trial ? "Free trial" : `${sub.planDisplayName} plan`}</Mono>
         <span style={{ font: "400 15px/1 var(--sans)", color: "var(--fg-soft)" }}>
           {sub.trial && daysLeft !== null
-            ? `${sub.planDisplayName} · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`
+            ? `${sub.planDisplayName} · ${trialCountdown}`
             : "active"}
         </span>
         <Mono>
