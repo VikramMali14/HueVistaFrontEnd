@@ -7,6 +7,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type {
   AccessCode,
+  ComboScope,
+  ComboShade,
   PaintBrand,
   PaintLine,
   ProductCategory,
@@ -288,6 +290,12 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   if (path === "api/me/entitlement" && method === "GET") {
     return user.role === "CUSTOMER" ? json(store.entitlement) : json(undefined);
   }
+  // The shop's suggested combinations for whoever is visualising. Single demo
+  // tenant: every role (and guests, via the api/guest rewrite above) sees the
+  // Mehta Paints combos — mirroring the backend's principal resolution.
+  if (path === "api/me/retailer-combos" && method === "GET") {
+    return json(store.combos);
+  }
   if (path === "api/billing/project-credit/order" && method === "POST") {
     const order: ProjectCreditOrder = { orderId: nextId("order"), amount: 9900, currency: "INR", razorpayKeyId: "rzp_test_demo" };
     return json(order);
@@ -369,6 +377,28 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
     }
     if (seg[3] === "products" && seg.length === 5 && method === "DELETE") {
       store.products = store.products.filter((p) => p.id !== seg[4]);
+      return json(undefined);
+    }
+    // --- Suggested three-shade combinations ("shop picks") ---
+    if (tail === "combos" && method === "GET") return json(store.combos);
+    if (tail === "combos" && method === "POST") {
+      const body = await readJson(req);
+      const shades = (Array.isArray(body.shades) ? body.shades : []) as ComboShade[];
+      if (shades.length !== 3) return json({ message: "A combination is exactly three shades." }, 400);
+      const combo = {
+        id: nextId("combo"),
+        organizationId: seg[2] ?? "org_demo",
+        organizationName: retailerOrg()?.name ?? "Mehta Paints",
+        name: String(body.name ?? "Untitled combo").trim(),
+        scope: (body.scope === "EXTERIOR" ? "EXTERIOR" : "INTERIOR") as ComboScope,
+        shades: shades.map((s) => ({ code: String(s.code), name: String(s.name), hex: String(s.hex).toLowerCase() })),
+        createdAt: nowIso(),
+      };
+      store.combos.unshift(combo);
+      return json(combo, 201);
+    }
+    if (seg[3] === "combos" && seg.length === 5 && method === "DELETE") {
+      store.combos = store.combos.filter((c) => c.id !== seg[4]);
       return json(undefined);
     }
     if (tail === "access-codes" && method === "GET") return json(store.accessCodes);

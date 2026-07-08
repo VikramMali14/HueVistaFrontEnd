@@ -29,6 +29,8 @@ const ALLOWED_PREFIXES = [
   // also expose login/register/refresh/logout through the BFF.
   "api/auth/verify",
   "api/me/entitlement",
+  // The shop's suggested combinations for whoever is visualising (studio AI tab).
+  "api/me/retailer-combos",
   "api/billing/project-credit",
   "api/billing/subscriptions",
   "api/billing/plans",

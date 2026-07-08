@@ -25,7 +25,10 @@ export default async function AdminPage() {
     getWalletRedemptions(),
   ]);
   return (
-    <div style={{ maxWidth: 760 }}>
+    // Wide enough that the working sections (payout queue, user search, audit
+    // trail) actually use a desktop screen; prose stays readable via its own
+    // 56ch caps. 760px left half the viewport empty and cramped every table.
+    <div style={{ maxWidth: 1080 }}>
       <Eyebrow>Admin · shop accounts</Eyebrow>
       <h1 className="display" style={{ fontSize: "clamp(34px, 5vw, 56px)", margin: "12px 0 14px" }}>
         Create a <i>shop account.</i>

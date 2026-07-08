@@ -30,6 +30,7 @@ import type {
   RegionColorUpdate,
   RegionDetail,
   RegionKind,
+  RetailerCombo,
 } from "@/lib/types";
 
 interface VisualizerProps {
@@ -218,6 +219,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [triedByRegion, setTriedByRegion] = useState<Record<string, PaintShade[]>>({});
   // Project-wide history (newest first, max 10) — "that pink from before".
   const [recentShades, setRecentShades] = useState<PaintShade[]>([]);
+  // The shop's suggested combinations ("shop picks") for the AI Suggest tab —
+  // resolved server-side for whoever is visualising (retailer staff, entitled
+  // customer, or guest). Empty (section hidden) when there's no shop to show.
+  const [shopCombos, setShopCombos] = useState<RetailerCombo[]>([]);
 
   // Transient topbar notices — "Walls detected" / "Saved" auto-hide after a beat.
   const [wallsNoticeVisible, setWallsNoticeVisible] = useState(false);
@@ -239,6 +244,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     const t = setTimeout(() => setWallsNoticeVisible(false), 4000);
     return () => clearTimeout(t);
   }, [masksReady]);
+
+  // Shop picks load once — best-effort, the section simply hides on failure.
+  useEffect(() => {
+    let cancelled = false;
+    api.getRetailerCombos()
+      .then((combos) => {
+        if (!cancelled && Array.isArray(combos)) setShopCombos(combos);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (saveStatus !== "saved") {
@@ -1381,6 +1399,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             outdoor={classification === "OUTDOOR"}
             clashNote={clashNote}
             onFetchAiPalettes={fetchAiPalettes}
+            // Shop picks appear once the room photo is up — before that there's
+            // nothing to apply them to.
+            shopCombos={imageUrl ? shopCombos : undefined}
           />
         </div>
       </div>
