@@ -106,13 +106,27 @@ export function Moods() {
   const [mood, setMood] = useState<Mood>(MOODS[1]!);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   // Default to the static strip; upgrade to the WebGL gallery only once we
-  // know we're on the client AND motion is allowed. This gives SSR / no-JS /
-  // reduced-motion visitors a real, legible fallback.
+  // know we're on the client AND motion is allowed AND a WebGL context is
+  // actually obtainable. This gives SSR / no-JS / reduced-motion visitors a
+  // real, legible fallback — and, crucially, visitors whose browser refuses a
+  // WebGL context (blocklisted GPU drivers, remote desktops, battery-saver or
+  // locked-down browsers): without the probe the gallery mounts an empty
+  // canvas and the whole section renders blank.
   const [mounted, setMounted] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [webglOk, setWebglOk] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    try {
+      const probe = document.createElement("canvas");
+      const gl = probe.getContext("webgl2") ?? probe.getContext("webgl");
+      setWebglOk(Boolean(gl));
+      // Free the probe context right away — browsers cap live WebGL contexts.
+      (gl as WebGLRenderingContext | null)?.getExtension("WEBGL_lose_context")?.loseContext();
+    } catch {
+      setWebglOk(false);
+    }
     const read = (): "dark" | "light" =>
       document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
     setTheme(read());
@@ -130,7 +144,7 @@ export function Moods() {
     };
   }, []);
 
-  const showGallery = mounted && !reduceMotion;
+  const showGallery = mounted && !reduceMotion && webglOk;
 
   const textColor = theme === "light" ? "#2b2823" : "#eae8e3";
 

@@ -25,6 +25,7 @@ import type {
   AiRecommendationResponse,
   PaintShade,
   RegionKind,
+  RetailerCombo,
 } from "@/lib/types";
 
 const TABS = ["Catalogue", "AI Suggest", "Custom"] as const;
@@ -82,6 +83,8 @@ interface ShadeGridProps {
   /** Ask Claude for palettes tuned to THIS photo (costs 1 AI preview). Absent
    *  for guests and until the project exists — the section hides itself. */
   onFetchAiPalettes?: () => Promise<AiRecommendationResponse>;
+  /** The shop's predefined combinations (AI Suggest tab). Absent/empty = hidden. */
+  shopCombos?: ReadonlyArray<RetailerCombo>;
 }
 
 /**
@@ -115,6 +118,7 @@ export function ShadeGrid({
   outdoor = false,
   clashNote,
   onFetchAiPalettes,
+  shopCombos,
 }: ShadeGridProps) {
   const [family, setFamily] = useState<string>("All");
   const [tone, setTone] = useState<Tone>("All");
@@ -399,6 +403,8 @@ export function ShadeGrid({
             baseHex={baseHex}
             hideCodes={hideCodes}
             onFetchAiPalettes={onFetchAiPalettes}
+            shopCombos={shopCombos}
+            outdoor={outdoor}
           />
         )}
 
@@ -775,6 +781,8 @@ function AISuggestPanel({
   baseHex,
   hideCodes = false,
   onFetchAiPalettes,
+  shopCombos,
+  outdoor = false,
 }: {
   onSelect: (shade: PaintShade) => void;
   catalogue: ReadonlyArray<PaintShade>;
@@ -786,6 +794,10 @@ function AISuggestPanel({
   hideCodes?: boolean;
   /** Claude palettes for THIS photo (1 AI preview per ask); hidden when absent. */
   onFetchAiPalettes?: () => Promise<AiRecommendationResponse>;
+  /** The shop's predefined combinations; absent/empty hides the section. */
+  shopCombos?: ReadonlyArray<RetailerCombo>;
+  /** Outdoor photo → the shop's EXTERIOR combos lead, interior ones otherwise. */
+  outdoor?: boolean;
 }) {
   // Suggestions are anchored to a snapshot taken when the tab opens. Applying a
   // colour changes the wall — but must NOT rebuild the cards under the user's
@@ -835,6 +847,17 @@ function AISuggestPanel({
 
   return (
     <div className="hv-ai-panel">
+      {shopCombos && shopCombos.length > 0 && (
+        <ShopPicksSection
+          combos={shopCombos}
+          outdoor={outdoor}
+          catalogue={catalogue}
+          onSelect={onSelect}
+          onApplyCombo={applyCombo}
+          hideCodes={hideCodes}
+        />
+      )}
+
       {onFetchAiPalettes && (
         <ClaudePicksSection
           fetchPalettes={onFetchAiPalettes}
@@ -1097,6 +1120,106 @@ function ClaudePicksSection({
   );
 }
 
+/**
+ * "From your shop" — combinations the retailer predefined in their portal
+ * (three shades in main/accent/trim order, tagged Interior or Exterior). The
+ * combos matching the photo's setting lead; the rest follow with their tag so
+ * a shopper browsing an interior can still peek at the exterior sets. Applying
+ * works exactly like the other suggestion cards: tap a swatch for the active
+ * wall, or "Apply all" to dress the whole room.
+ */
+function ShopPicksSection({
+  combos,
+  outdoor = false,
+  catalogue,
+  onSelect,
+  onApplyCombo,
+  hideCodes = false,
+}: {
+  combos: ReadonlyArray<RetailerCombo>;
+  outdoor?: boolean;
+  catalogue: ReadonlyArray<PaintShade>;
+  onSelect: (shade: PaintShade) => void;
+  onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
+  hideCodes?: boolean;
+}) {
+  // Prefer the real catalogue entry for a code (correct LRV/finishes drive the
+  // dock tips); fall back to a shade built from the combo so it still applies
+  // even if the catalogue was re-imported since the retailer saved it.
+  const byCode = useMemo(() => {
+    const m = new Map<string, PaintShade>();
+    for (const s of catalogue) m.set(s.code, s);
+    return m;
+  }, [catalogue]);
+
+  const toShade = useCallback(
+    (s: { code: string; name: string; hex: string }): PaintShade =>
+      byCode.get(s.code) ??
+      mapToPaintShade({ shadeCode: s.code, name: s.name, hexCode: s.hex }),
+    [byCode],
+  );
+
+  const wanted = outdoor ? "EXTERIOR" : "INTERIOR";
+  const sorted = useMemo(
+    () => [...combos].sort((a, b) => Number(b.scope === wanted) - Number(a.scope === wanted)),
+    [combos, wanted],
+  );
+  const shopName = combos[0]?.organizationName;
+
+  return (
+    <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: "1px solid var(--rule)" }}>
+      <div className="hv-ai-head">
+        <Mono brass>{shopName ? `${shopName} recommends` : "Your shop recommends"}</Mono>
+      </div>
+      <p className="hv-ai-intro">
+        Combinations your paint shop put together — tap a shade for the active wall, or apply
+        all three across the room.
+      </p>
+      <div className="hv-ai-cards">
+        {sorted.map((combo) => {
+          const trio = combo.shades.slice(0, 3).map(toShade);
+          return (
+            <div key={combo.id} className="hv-ai-card">
+              <div className="hv-ai-card-name">
+                {combo.name}
+                <span className="mono" style={{ marginLeft: 8, fontSize: 10, letterSpacing: ".14em", color: "var(--fg-mute)", textTransform: "uppercase" }}>
+                  {combo.scope === "EXTERIOR" ? "Exterior" : "Interior"}
+                </span>
+              </div>
+              <div className="hv-ai-trio">
+                {trio.map((s, i) => (
+                  <button
+                    key={`${combo.id}-${s.code}-${i}`}
+                    type="button"
+                    onClick={() => onSelect(s)}
+                    title={hideCodes ? `${s.name} → active wall` : `${s.name} · ${s.code} → active wall`}
+                    aria-label={`Apply ${s.name} to the active wall`}
+                    className="hv-ai-swatch"
+                  >
+                    <span aria-hidden className="hv-ai-swatch-color" style={{ background: s.hex }} />
+                    <span className="hv-ai-swatch-role">{PALETTE_ROLES[i]}</span>
+                    <span className="hv-ai-swatch-name">{s.name}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="hv-ai-card-actions">
+                <button
+                  type="button"
+                  onClick={() => onApplyCombo(trio)}
+                  className="btn btn-sm"
+                  title="Apply the whole combination — main, accent and trim — across the room"
+                >
+                  Apply all
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function RegionStrip({
   regions,
   activeRegionId,
@@ -1113,11 +1236,36 @@ function RegionStrip({
   masksRemaining?: number;
 }) {
   const list = regions ?? [];
+  // On narrow screens the chips overflow into a horizontal scroll with no
+  // scrollbar — fade the clipped edge so a half-visible "+ Wall" reads as
+  // "scroll for more", not as a broken layout. The data attribute drives the
+  // CSS mask and updates as the user scrolls or the panel resizes.
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [overflowRight, setOverflowRight] = useState(false);
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const update = () =>
+      setOverflowRight(el.scrollWidth - el.clientWidth - el.scrollLeft > 4);
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, [list.length]);
+
   if (list.length === 0) return null;
   const addDisabled = masksRemaining !== undefined && masksRemaining <= 0;
   return (
     <div className="hv-studio-region-strip">
-      <div className="hv-studio-region-strip-scroll">
+      <div
+        className="hv-studio-region-strip-scroll"
+        ref={scrollerRef}
+        data-overflow-right={overflowRight || undefined}
+      >
         {list.map((r) => {
           const isActive = r.id === activeRegionId;
           // Only hand-drawn walls can be removed — AI-detected ones have no ✕.

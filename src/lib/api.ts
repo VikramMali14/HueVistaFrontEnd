@@ -582,6 +582,28 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // --- Retailer: suggested three-shade combinations ("shop picks") ---
+  listCombos: (orgId: string) =>
+    browserFetch<import("./types").RetailerCombo[]>(
+      `api/organizations/${encodeURIComponent(orgId)}/combos`,
+    ),
+  createCombo: (
+    orgId: string,
+    body: { name: string; scope: import("./types").ComboScope; shades: import("./types").ComboShade[] },
+  ) =>
+    browserFetch<import("./types").RetailerCombo>(
+      `api/organizations/${encodeURIComponent(orgId)}/combos`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  deleteCombo: (orgId: string, comboId: string) =>
+    browserFetch<void>(
+      `api/organizations/${encodeURIComponent(orgId)}/combos/${encodeURIComponent(comboId)}`,
+      { method: "DELETE" },
+    ),
+  // The combos the studio should offer the CALLER (resolved server-side: own shop
+  // for retailer staff, the entitling shop for customers, the code's shop for guests).
+  getRetailerCombos: () =>
+    browserFetch<import("./types").RetailerCombo[]>("api/me/retailer-combos"),
   // --- Retailer: public store kiosk links + earnings wallet ---
   listStoreLinks: (orgId: string) =>
     browserFetch<import("./types").StoreLink[]>(

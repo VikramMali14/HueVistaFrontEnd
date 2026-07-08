@@ -79,7 +79,12 @@ export function PlanBanner() {
         <Mono brass>{sub.trial ? "Free trial" : `${sub.planDisplayName} plan`}</Mono>
         <span style={{ font: "400 15px/1 var(--sans)", color: "var(--fg-soft)" }}>
           {sub.trial && daysLeft !== null
-            ? `${sub.planDisplayName} · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`
+            ? `${sub.planDisplayName} · ${
+                // daysLeft is 0 only when the period end has already passed while the
+                // status is still ACTIVE — "0 days left" reads broken at the exact
+                // moment the subscribe nudge matters most.
+                daysLeft === 0 ? "ends today" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`
+              }`
             : "active"}
         </span>
         <Mono>

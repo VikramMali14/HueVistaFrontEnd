@@ -13,6 +13,7 @@ import type {
   PaintBrand,
   PaintLine,
   ProjectDetail,
+  RetailerCombo,
   ShopProduct,
   StoreLink,
   SubscriptionSummary,
@@ -23,6 +24,7 @@ import type {
 import {
   DEMO_ACCESS_CODES,
   DEMO_BRANDS,
+  DEMO_COMBOS,
   DEMO_CUSTOMERS,
   DEMO_ENTITLEMENT,
   DEMO_INBOX,
@@ -44,6 +46,7 @@ export interface DemoStore {
   products: ShopProduct[];
   orgs: OrgResponse[];
   accessCodes: AccessCode[];
+  combos: RetailerCombo[];
   customers: CustomerEntitlement[];
   conversations: SupportConversation[];
   inbox: SupportConversationSummary[];
@@ -69,6 +72,7 @@ function seed(): DemoStore {
     products: clone(DEMO_SHOP_PRODUCTS),
     orgs: [clone(DEMO_ORG)],
     accessCodes: clone(DEMO_ACCESS_CODES),
+    combos: clone(DEMO_COMBOS),
     customers: clone(DEMO_CUSTOMERS),
     conversations: clone(DEMO_SUPPORT_CONVERSATIONS),
     inbox: clone(DEMO_INBOX),

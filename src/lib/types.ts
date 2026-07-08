@@ -330,6 +330,29 @@ export interface AccessCode {
   allowedBrands?: string[];
 }
 
+// --- Retailer-curated shade combinations ("shop picks") ---
+
+export type ComboScope = "INTERIOR" | "EXTERIOR";
+
+/** One slot of a combo — denormalised so it renders even if the catalogue changes. */
+export interface ComboShade {
+  code: string;
+  name: string;
+  hex: string;
+}
+
+/** A shop's suggested three-shade combination (backend RetailerComboResponse).
+ *  Shades are in the studio's palette role order: main wall, accent wall, trim. */
+export interface RetailerCombo {
+  id: string;
+  organizationId: string;
+  organizationName?: string;
+  name: string;
+  scope: ComboScope;
+  shades: ComboShade[];
+  createdAt?: string | null;
+}
+
 // --- In-store kiosk (public store links + retailer wallet) ---
 
 /** A retailer's public kiosk link (backend StoreLinkResponse). */

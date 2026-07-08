@@ -5,6 +5,8 @@ import { RetailerCustomers } from "@/components/app/retailer-customers";
 import { AccessCodes } from "@/components/app/access-codes";
 import { PortalSubdomain } from "@/components/app/portal-subdomain";
 import { StoreKioskPanel } from "@/components/app/store-kiosk-panel";
+import { ShopCombos } from "@/components/app/shop-combos";
+import { getCatalogueOrSample } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "Customer portal",
@@ -14,6 +16,8 @@ export const metadata: Metadata = {
 export default async function PortalPage() {
   // The portal is a retailer/admin-only feature; deny shoppers and distributors.
   await requireRole(["RETAILER", "ADMIN"]);
+  // Live catalogue for the combo builder's shade search (bundled sample on failure).
+  const shades = await getCatalogueOrSample();
   return (
     <>
       <header style={{ marginBottom: 48 }}>
@@ -31,6 +35,17 @@ export default async function PortalPage() {
           visualising — with one project and a validity window you control.
         </p>
         <AccessCodes />
+      </section>
+      <section style={{ marginBottom: 56 }}>
+        <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
+          Suggested combinations
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+          Predefine three-shade combinations — main wall, accent, trim — for interiors and
+          exteriors. Everyone visualising under your shop sees them in the studio&apos;s AI Suggest
+          tab as soon as their photo is up, labelled with your shop&apos;s name.
+        </p>
+        <ShopCombos shades={shades} />
       </section>
       <section style={{ marginBottom: 56 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>

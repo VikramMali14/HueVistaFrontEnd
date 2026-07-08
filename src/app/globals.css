@@ -1714,6 +1714,17 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-chat-fab { transition: transform .2s var(--ease), box-shadow .2s var(--ease); }
 .hv-chat-fab:hover { transform: translateY(-2px); }
 .hv-chat-fab:active { transform: scale(.94); }
+/* The studio's stacked mobile layout is dense: the fixed chat bubble lands on
+   top of the colour panel's filter chips and Apply bar. Tuck it away there —
+   every other page keeps it, and studio help lives in the dock's Tips. */
+@media (max-width: 900px) {
+  body:has(.hv-atelier-page) .hv-chat-fab,
+  body:has(.hv-atelier-page) .hv-chat-pop,
+  body:has(.hv-studio-page) .hv-chat-fab,
+  body:has(.hv-studio-page) .hv-chat-pop {
+    display: none;
+  }
+}
 .hv-chat-fab:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
 
 /* Home catalogue-preview: per-tile ripple keyed to --i off the reveal parent */
@@ -2634,6 +2645,12 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   overflow-x: auto;
   padding: 8px 10px;
 }
+/* More chips off-screen to the right (set by RegionStrip): fade the clipped
+   edge so a half-cut "+ Wall" reads as "scroll for more", not broken layout. */
+.hv-studio-region-strip-scroll[data-overflow-right] {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
+}
 /* The chip is a container (pill) holding a select button and, for hand-drawn
    walls, a ✕ delete button — kept as siblings so we never nest <button>s. */
 .hv-studio-region-chip {
@@ -2934,6 +2951,16 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* Narrow screens: the dock's buttons squeeze the info column until
+   "No colour selected" ellipsizes into "No co…" — wrap instead of clipping. */
+@media (max-width: 640px) {
+  .hv-studio-dock-name,
+  .hv-studio-dock-meta {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
 }
 .hv-studio-dock-btns {
   display: flex;
