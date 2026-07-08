@@ -58,6 +58,8 @@ vi.mock("@/lib/api", () => {
         aiGenerationsLimit: 60,
       })),
       getAiRecommendations: vi.fn(),
+      // "Your shop suggests" — fetched once on mount; empty hides the section.
+      getMyRetailerCombos: vi.fn(async () => []),
     },
     guestApi: {
       uploadImage: vi.fn(),

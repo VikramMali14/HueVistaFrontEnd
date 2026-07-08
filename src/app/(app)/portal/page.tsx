@@ -4,7 +4,9 @@ import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { RetailerCustomers } from "@/components/app/retailer-customers";
 import { AccessCodes } from "@/components/app/access-codes";
 import { PortalSubdomain } from "@/components/app/portal-subdomain";
+import { ShopCombos } from "@/components/app/shop-combos";
 import { StoreKioskPanel } from "@/components/app/store-kiosk-panel";
+import { getCatalogueOrSample } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "Customer portal",
@@ -14,6 +16,8 @@ export const metadata: Metadata = {
 export default async function PortalPage() {
   // The portal is a retailer/admin-only feature; deny shoppers and distributors.
   await requireRole(["RETAILER", "ADMIN"]);
+  // Shades feed the combination builder's search; falls back to the bundled sample.
+  const shades = await getCatalogueOrSample();
   return (
     <>
       <header style={{ marginBottom: 48 }}>
@@ -42,6 +46,17 @@ export default async function PortalPage() {
           your wallet — redeem it to your UPI whenever you like.
         </p>
         <StoreKioskPanel />
+      </section>
+      <section style={{ marginBottom: 56 }}>
+        <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
+          Suggested combinations
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+          Curate three-shade pairings — main wall, accent wall, trim — for interiors and exteriors.
+          They appear under &ldquo;Your shop suggests&rdquo; in the studio&rsquo;s AI Suggest tab the moment a
+          customer uploads a photo, applied to the whole room in one tap.
+        </p>
+        <ShopCombos shades={shades} />
       </section>
       <section style={{ marginBottom: 56 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>

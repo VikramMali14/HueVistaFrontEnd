@@ -13,6 +13,7 @@ import type {
   PaintBrand,
   PaintLine,
   ProjectDetail,
+  RetailerCombo,
   ShopProduct,
   StoreLink,
   SubscriptionSummary,
@@ -23,6 +24,7 @@ import type {
 import {
   DEMO_ACCESS_CODES,
   DEMO_BRANDS,
+  DEMO_COMBOS,
   DEMO_CUSTOMERS,
   DEMO_ENTITLEMENT,
   DEMO_INBOX,
@@ -51,6 +53,7 @@ export interface DemoStore {
   entitlement: CustomerEntitlement;
   storeLinks: StoreLink[];
   wallet: WalletSummary;
+  combos: RetailerCombo[];
   /** Monotonic counter for generated numeric ids (regions, etc.). */
   seq: number;
 }
@@ -76,6 +79,7 @@ function seed(): DemoStore {
     entitlement: clone(DEMO_ENTITLEMENT),
     storeLinks: clone(DEMO_STORE_LINKS),
     wallet: clone(DEMO_WALLET),
+    combos: clone(DEMO_COMBOS),
     seq: 1000,
   };
 }

@@ -219,6 +219,31 @@ export interface AiRecommendationResponse {
   combinations: AiColorCombo[];
 }
 
+/** Where a retailer-curated combination is meant to be used. */
+export type ComboScope = "INTERIOR" | "EXTERIOR";
+
+/** One slot of a retailer combo — enough to draw and apply a swatch. */
+export interface RetailerComboShade {
+  code: string;
+  name: string;
+  hex: string;
+}
+
+/**
+ * A retailer's own three-shade combination ("shop pick"), curated in the portal
+ * and shown in the studio's AI Suggest tab. Shades are in studio role order:
+ * main wall, accent wall, trim (backend RetailerComboResponse).
+ */
+export interface RetailerCombo {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  name: string;
+  scope: ComboScope;
+  shades: RetailerComboShade[];
+  createdAt: string;
+}
+
 /** A customer's project entitlement (allowance + day-validity), managed by their retailer. */
 export interface CustomerEntitlement {
   customerId: string;

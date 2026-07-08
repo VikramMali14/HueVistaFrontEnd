@@ -15,6 +15,7 @@ import type {
   ProductCategory,
   ProjectDetail,
   ProjectSummary,
+  RetailerCombo,
   ShopProduct,
   StoreLink,
   SubscriptionSummary,
@@ -128,6 +129,49 @@ export const DEMO_ACCESS_CODES: AccessCode[] = [
 // actually renders in demo mode.
 export const DEMO_STORE_LINKS: StoreLink[] = [
   { id: "sl_01", slug: "mehta-paints-7a3b", organizationId: "org_demo", organizationName: "Mehta Paints", pricePaise: 19_900, currency: "INR", validDays: 7, active: true, createdAt: "2026-06-10T10:00:00+05:30" },
+];
+
+/** The shop's curated three-shade combinations (main wall / accent wall / trim). */
+export const DEMO_COMBOS: RetailerCombo[] = [
+  {
+    id: "combo_01",
+    organizationId: "org_demo",
+    organizationName: "Mehta Paints",
+    name: "Warm evening hall",
+    scope: "INTERIOR",
+    shades: [
+      { code: "2215", name: "Champagne", hex: "#dac1a3" },
+      { code: "2118", name: "Terracotta", hex: "#b96b48" },
+      { code: "L150", name: "Pearl White", hex: "#f3eee4" },
+    ],
+    createdAt: "2026-06-18T10:00:00+05:30",
+  },
+  {
+    id: "combo_02",
+    organizationId: "org_demo",
+    organizationName: "Mehta Paints",
+    name: "Coastal bedroom",
+    scope: "INTERIOR",
+    shades: [
+      { code: "4091", name: "Sea Mist", hex: "#c9d2d0" },
+      { code: "10BB", name: "Indigo Night", hex: "#3b4a6b" },
+      { code: "7184", name: "Ivory Silk", hex: "#e8dcc8" },
+    ],
+    createdAt: "2026-06-15T10:00:00+05:30",
+  },
+  {
+    id: "combo_03",
+    organizationId: "org_demo",
+    organizationName: "Mehta Paints",
+    name: "Laterite facade",
+    scope: "EXTERIOR",
+    shades: [
+      { code: "7432", name: "Adobe", hex: "#a4683f" },
+      { code: "2727", name: "Fern", hex: "#5b6c5b" },
+      { code: "L150", name: "Pearl White", hex: "#f3eee4" },
+    ],
+    createdAt: "2026-06-12T10:00:00+05:30",
+  },
 ];
 
 /** Numbers are coherent with the backend's derivation: balance = earned − pending − redeemed.

@@ -647,6 +647,32 @@ export const api = {
       `api/organizations/${encodeURIComponent(orgId)}/customers/${encodeURIComponent(customerId)}/grant-project`,
       { method: "POST" },
     ),
+  // --- Retailer: curated three-shade combinations ("shop picks") ---
+  listCombos: (orgId: string) =>
+    browserFetch<import("./types").RetailerCombo[]>(
+      `api/organizations/${encodeURIComponent(orgId)}/combos`,
+    ),
+  createCombo: (
+    orgId: string,
+    body: {
+      name: string;
+      scope: import("./types").ComboScope;
+      shades: import("./types").RetailerComboShade[];
+    },
+  ) =>
+    browserFetch<import("./types").RetailerCombo>(
+      `api/organizations/${encodeURIComponent(orgId)}/combos`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  deleteCombo: (orgId: string, comboId: string) =>
+    browserFetch<void>(
+      `api/organizations/${encodeURIComponent(orgId)}/combos/${encodeURIComponent(comboId)}`,
+      { method: "DELETE" },
+    ),
+  // The combos the studio should offer the CALLER — their shop's own (retailer),
+  // their retailer's (entitled customer), or the code-issuing shop's (guest).
+  getMyRetailerCombos: () =>
+    browserFetch<import("./types").RetailerCombo[]>("api/me/retailer-combos"),
 };
 
 /**

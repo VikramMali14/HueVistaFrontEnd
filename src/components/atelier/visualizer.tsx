@@ -30,6 +30,7 @@ import type {
   RegionColorUpdate,
   RegionDetail,
   RegionKind,
+  RetailerCombo,
 } from "@/lib/types";
 
 interface VisualizerProps {
@@ -939,6 +940,21 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [regions],
   );
 
+  // The shop's curated combinations ("Your shop suggests" in AI Suggest).
+  // One fetch per studio session; an empty list simply hides the section, and a
+  // failure is treated the same — the suggestions are a bonus, never a blocker.
+  const [retailerCombos, setRetailerCombos] = useState<RetailerCombo[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getMyRetailerCombos()
+      .then((combos) => !cancelled && setRetailerCombos(combos ?? []))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Claude photo palettes: signed-in users with a saved project only. Guests
   // never get the section (their AI budget is the shop's segmentation quota),
   // and before the project exists there's no photo on the backend to analyse.
@@ -1381,6 +1397,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             outdoor={classification === "OUTDOOR"}
             clashNote={clashNote}
             onFetchAiPalettes={fetchAiPalettes}
+            retailerCombos={retailerCombos}
+            activeCustomHex={active.applied && !active.shade ? active.hex : undefined}
           />
         </div>
       </div>

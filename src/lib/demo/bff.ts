@@ -15,6 +15,8 @@ import type {
   QualityTier,
   RegionColorUpdate,
   RegionDetail,
+  RetailerCombo,
+  RetailerComboShade,
   ShareLink,
   ShopProduct,
   StoreLink,
@@ -396,6 +398,28 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
       if (c) { c.projectAllowance += 1; c.projectsRemaining += 1; c.updatedAt = nowIso(); }
       return json(c ?? store.customers[0]);
     }
+    // --- Curated three-shade combinations ("shop picks") ---
+    if (tail === "combos" && method === "GET") return json(store.combos);
+    if (tail === "combos" && method === "POST") {
+      const body = await readJson(req);
+      const shades = Array.isArray(body.shades) ? (body.shades as RetailerComboShade[]) : [];
+      if (shades.length !== 3) return json({ message: "A combination is exactly three shades." }, 400);
+      const combo: RetailerCombo = {
+        id: nextId("combo"),
+        organizationId: seg[2] ?? "org_demo",
+        organizationName: retailerOrg()?.name ?? "Mehta Paints",
+        name: String(body.name ?? "Untitled combination"),
+        scope: body.scope === "EXTERIOR" ? "EXTERIOR" : "INTERIOR",
+        shades: shades.map((s) => ({ code: String(s.code), name: String(s.name), hex: String(s.hex).toLowerCase() })),
+        createdAt: nowIso(),
+      };
+      store.combos.unshift(combo);
+      return json(combo, 201);
+    }
+    if (seg[3] === "combos" && seg.length === 5 && method === "DELETE") {
+      store.combos = store.combos.filter((c) => c.id !== seg[4]);
+      return json(undefined);
+    }
     // --- Public store kiosk links + earnings wallet ---
     if (tail === "store-links" && method === "GET") return json(store.storeLinks);
     if (tail === "store-links" && method === "POST") {
@@ -449,6 +473,10 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
     if (typeof body.active === "boolean") link.active = body.active;
     return json(link);
   }
+
+  // ---------- The caller's shop picks (studio AI Suggest tab) ----------
+  // Single demo tenant: every role (retailer, customer, guest) sees the same shop.
+  if (path === "api/me/retailer-combos" && method === "GET") return json(store.combos);
 
   // ---------- Shade catalogue brands (portal "restrict to brands" picker) ----------
   if (path === "api/shades/brands" && method === "GET") {

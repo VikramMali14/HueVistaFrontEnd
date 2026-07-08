@@ -9,6 +9,7 @@ import {
   lighterSteps,
   lightShift,
   LIGHT_SHIFT_BADGE,
+  lrvFromHex,
   pairCeilingAndTrim,
   stepInFanDeck,
   sunFadeRisk,
@@ -25,6 +26,7 @@ import type {
   AiRecommendationResponse,
   PaintShade,
   RegionKind,
+  RetailerCombo,
 } from "@/lib/types";
 
 const TABS = ["Catalogue", "AI Suggest", "Custom"] as const;
@@ -82,6 +84,11 @@ interface ShadeGridProps {
   /** Ask Claude for palettes tuned to THIS photo (costs 1 AI preview). Absent
    *  for guests and until the project exists — the section hides itself. */
   onFetchAiPalettes?: () => Promise<AiRecommendationResponse>;
+  /** The shop's curated combinations — "Your shop suggests" in AI Suggest. */
+  retailerCombos?: ReadonlyArray<RetailerCombo>;
+  /** Exact custom colour on the active region (applied without a catalogue
+   *  shade) — lets the dock still show WHAT is on the wall. */
+  activeCustomHex?: string;
 }
 
 /**
@@ -115,6 +122,8 @@ export function ShadeGrid({
   outdoor = false,
   clashNote,
   onFetchAiPalettes,
+  retailerCombos,
+  activeCustomHex,
 }: ShadeGridProps) {
   const [family, setFamily] = useState<string>("All");
   const [tone, setTone] = useState<Tone>("All");
@@ -399,6 +408,8 @@ export function ShadeGrid({
             baseHex={baseHex}
             hideCodes={hideCodes}
             onFetchAiPalettes={onFetchAiPalettes}
+            retailerCombos={retailerCombos}
+            outdoor={outdoor}
           />
         )}
 
@@ -416,6 +427,7 @@ export function ShadeGrid({
 
       <SelectionDock
         shade={activeShade}
+        customHex={activeCustomHex}
         catalogue={catalogue}
         outdoor={outdoor}
         onSelectShade={onSelect}
@@ -525,6 +537,7 @@ const CompanySection = memo(function CompanySection({
  */
 function SelectionDock({
   shade,
+  customHex,
   catalogue,
   outdoor = false,
   onSelectShade,
@@ -537,6 +550,9 @@ function SelectionDock({
   selectedCode,
 }: {
   shade?: PaintShade;
+  /** Exact custom colour on the active wall (no catalogue shade) — shown so the
+   *  user can still read off what's applied. */
+  customHex?: string;
   catalogue: ReadonlyArray<PaintShade>;
   outdoor?: boolean;
   /** Applies any shade (steppers, warning alternatives and the recent strip use this). */
@@ -683,17 +699,21 @@ function SelectionDock({
       <div className="hv-studio-dock-row">
         <span
           aria-hidden
-          className={`hv-studio-dock-swatch ${shade ? "" : "is-empty"}`}
-          style={shade ? { background: shade.hex } : undefined}
+          className={`hv-studio-dock-swatch ${shade || customHex ? "" : "is-empty"}`}
+          style={shade ? { background: shade.hex } : customHex ? { background: customHex } : undefined}
         />
         <div className="hv-studio-dock-info" aria-live="polite">
-          <span className="hv-studio-dock-name">{shade ? shade.name : "No colour selected"}</span>
+          <span className="hv-studio-dock-name">
+            {shade ? shade.name : customHex ? "Custom colour" : "No colour selected"}
+          </span>
           <span className="hv-studio-dock-meta">
             {shade
               ? hideCodes
                 ? `${shade.hex} · LRV ${shade.lrv}`
                 : `${shade.code} · ${shade.hex} · LRV ${shade.lrv}`
-              : "Tap any swatch — it paints the active wall"}
+              : customHex
+                ? `${customHex.toUpperCase()} · LRV ${lrvFromHex(customHex)} · not a catalogue shade`
+                : "Tap any swatch — it paints the active wall"}
           </span>
         </div>
         <div className="hv-studio-dock-btns">
@@ -775,6 +795,8 @@ function AISuggestPanel({
   baseHex,
   hideCodes = false,
   onFetchAiPalettes,
+  retailerCombos,
+  outdoor = false,
 }: {
   onSelect: (shade: PaintShade) => void;
   catalogue: ReadonlyArray<PaintShade>;
@@ -786,6 +808,10 @@ function AISuggestPanel({
   hideCodes?: boolean;
   /** Claude palettes for THIS photo (1 AI preview per ask); hidden when absent. */
   onFetchAiPalettes?: () => Promise<AiRecommendationResponse>;
+  /** The shop's curated combinations; section hides itself when empty. */
+  retailerCombos?: ReadonlyArray<RetailerCombo>;
+  /** Outdoor photo: exterior combos are listed before interior ones. */
+  outdoor?: boolean;
 }) {
   // Suggestions are anchored to a snapshot taken when the tab opens. Applying a
   // colour changes the wall — but must NOT rebuild the cards under the user's
@@ -835,6 +861,17 @@ function AISuggestPanel({
 
   return (
     <div className="hv-ai-panel">
+      {retailerCombos && retailerCombos.length > 0 && (
+        <ShopPicksSection
+          combos={retailerCombos}
+          catalogue={catalogue}
+          onSelect={onSelect}
+          onApplyCombo={applyCombo}
+          hideCodes={hideCodes}
+          outdoor={outdoor}
+        />
+      )}
+
       {onFetchAiPalettes && (
         <ClaudePicksSection
           fetchPalettes={onFetchAiPalettes}
@@ -938,6 +975,105 @@ function AISuggestPanel({
           onApplyToRegion={onApplyToRegion!}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * "Your shop suggests" — the retailer's own curated three-shade combinations,
+ * managed in the portal. Free and instant (no AI quota), shown to everyone
+ * visualising under the shop: staff, entitled customers, and guests on a shop
+ * access code. Sits above the AI sections — the shop's word comes first.
+ */
+function ShopPicksSection({
+  combos,
+  catalogue,
+  onSelect,
+  onApplyCombo,
+  hideCodes = false,
+  outdoor = false,
+}: {
+  combos: ReadonlyArray<RetailerCombo>;
+  catalogue: ReadonlyArray<PaintShade>;
+  onSelect: (shade: PaintShade) => void;
+  onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
+  hideCodes?: boolean;
+  /** Outdoor photo: exterior combos are listed before interior ones. */
+  outdoor?: boolean;
+}) {
+  const byCode = useMemo(() => {
+    const m = new Map<string, PaintShade>();
+    for (const s of catalogue) m.set(s.code, s);
+    return m;
+  }, [catalogue]);
+
+  // Prefer the live catalogue entry for each code (correct LRV/finishes); fall
+  // back to a shade built from the combo's stored name+hex so the swatch still
+  // renders and applies even if the catalogue changed since it was saved.
+  const toShade = useCallback(
+    (s: RetailerCombo["shades"][number]): PaintShade =>
+      byCode.get(s.code) ?? mapToPaintShade({ shadeCode: s.code, name: s.name, hexCode: s.hex }),
+    [byCode],
+  );
+
+  // Combos matching the photo come first; the rest stay visible below them.
+  const ordered = useMemo(() => {
+    const preferred = outdoor ? "EXTERIOR" : "INTERIOR";
+    return [...combos].sort(
+      (a, b) => Number(b.scope === preferred) - Number(a.scope === preferred),
+    );
+  }, [combos, outdoor]);
+
+  const shopName = combos[0]?.organizationName;
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div className="hv-ai-head">
+        <Mono brass>Your shop suggests</Mono>
+      </div>
+      <p className="hv-ai-intro">
+        Combinations hand-picked by {shopName || "your shop"} — main wall, accent and trim,
+        applied across the room in one tap.
+      </p>
+      <div className="hv-ai-cards">
+        {ordered.map((c) => {
+          const trio = c.shades.map(toShade);
+          return (
+            <div key={c.id} className="hv-ai-card">
+              <div className="hv-ai-card-name">{c.name}</div>
+              <p className="hv-ai-card-rationale">
+                {c.scope === "EXTERIOR" ? "For exterior walls" : "For interiors"}
+              </p>
+              <div className="hv-ai-trio">
+                {trio.map((s, i) => (
+                  <button
+                    key={`${c.id}-${i}`}
+                    type="button"
+                    onClick={() => onSelect(s)}
+                    title={hideCodes ? `${s.name} → active wall` : `${s.name} · ${s.code} → active wall`}
+                    aria-label={`Apply ${s.name} to the active wall`}
+                    className="hv-ai-swatch"
+                  >
+                    <span aria-hidden className="hv-ai-swatch-color" style={{ background: s.hex }} />
+                    <span className="hv-ai-swatch-role">{PALETTE_ROLES[i]}</span>
+                    <span className="hv-ai-swatch-name">{s.name}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="hv-ai-card-actions">
+                <button
+                  type="button"
+                  onClick={() => onApplyCombo(trio)}
+                  className="btn btn-sm"
+                  title="Apply the whole combination — main, accent and trim — across the room"
+                >
+                  Apply all
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
