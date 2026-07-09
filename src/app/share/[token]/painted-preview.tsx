@@ -21,7 +21,7 @@ interface PaintedPreviewProps {
 
 // Mirrors the studio's always-on shadow preservation so the shared preview
 // looks exactly like what the retailer saw when they applied the colours.
-const SHADOW_STRENGTH = 0.65;
+const SHADOW_STRENGTH = 0.85;
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {

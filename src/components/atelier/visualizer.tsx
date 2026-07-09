@@ -69,9 +69,9 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_CUSTOM_MASKS = 3;
 
 const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
-  { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#baad9c" },
-  { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#a77e60" },
-  { id: "trim", kind: "TRIM", label: "Border", hex: "#432211" },
+  { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#ffffff" },
+  { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#ffffff" },
+  { id: "trim", kind: "TRIM", label: "Border", hex: "#ffffff" },
 ];
 
 const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
@@ -84,13 +84,15 @@ const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
 
 // Fallback swatches used only when the backend hasn't supplied an appliedHexCode
 // (e.g. the pre-upload placeholders and hand-drawn masks). Auto-detected regions
-// arrive already painted with the scene's reference colour from segmentation, so
-// these mirror the interior reference palette for consistency.
+// arrive already painted with the scene's reference colour from segmentation
+// (white), so main/accent/trim default to white here too — the image opens with
+// every wall, border and trim painted a clean white, matching the backend
+// reference palette (SegmentationService#defaultHexFor + ImageCleanerService).
 const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
-  MAIN_WALL: "#baad9c",
-  ACCENT_WALL: "#a77e60",
-  TRIM: "#432211",
-  MANUAL: "#b89968",
+  MAIN_WALL: "#ffffff",
+  ACCENT_WALL: "#ffffff",
+  TRIM: "#ffffff",
+  MANUAL: "#ffffff",
 };
 
 const KIND_LABEL: Record<RegionKind, string> = {
@@ -208,10 +210,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [details, setDetails] = useState<ProjectDetails | null>(
     initialName ? { name: initialName } : null,
   );
-  // Shadow / relief preservation — always on at 65%; the visible toggle
+  // Shadow / relief preservation — always on at 85%; the visible toggle
   // and intensity slider were retired.
   const shadowOn = true;
-  const shadowStrength = 0.65;
+  const shadowStrength = 0.85;
   // Manual mask studio.
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
   const [savingMask, setSavingMask] = useState(false);

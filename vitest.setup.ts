@@ -13,4 +13,14 @@ import { afterEach } from "vitest";
 if (typeof document !== "undefined") {
   const { cleanup } = await import("@testing-library/react");
   afterEach(cleanup);
+
+  // jsdom ships no ResizeObserver, but components (e.g. shade-grid) construct one
+  // on mount. Provide an inert stub so mounting them in tests doesn't throw.
+  if (typeof globalThis.ResizeObserver === "undefined") {
+    globalThis.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  }
 }

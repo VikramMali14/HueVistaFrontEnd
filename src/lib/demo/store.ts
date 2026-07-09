@@ -105,10 +105,6 @@ export function nextId(prefix: string): string {
   return `${prefix}_${nextSeq()}`;
 }
 
-export function findProject(id: string): ProjectDetail | undefined {
-  return getStore().projects.find((p) => p.id === id);
-}
-
 export function retailerOrg(): OrgResponse | undefined {
   const s = getStore();
   return s.orgs.find((o) => o.type === "RETAILER") ?? s.orgs[0];

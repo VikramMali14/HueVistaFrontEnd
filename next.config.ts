@@ -160,7 +160,6 @@ const nextConfig: NextConfig = {
   experimental: {
     // BFF route streams multipart uploads; allow generous body size.
     serverActions: { bodySizeLimit: "12mb" },
-    optimizePackageImports: ["zod"],
   },
 };
 
