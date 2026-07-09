@@ -58,6 +58,8 @@ vi.mock("@/lib/api", () => {
         aiGenerationsLimit: 60,
       })),
       getAiRecommendations: vi.fn(),
+      // Shop picks load best-effort on mount; default to none so the effect is a no-op.
+      getRetailerCombos: vi.fn(async () => []),
     },
     guestApi: {
       uploadImage: vi.fn(),
