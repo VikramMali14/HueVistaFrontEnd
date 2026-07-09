@@ -96,8 +96,12 @@ void main() {
     }
     // DETAIL: add the photo's real high-frequency texture on top. (L - B) is
     // ~zero-mean, so it adds surface texture and micro-shadows WITHOUT shifting
-    // the paint colour. This is the step that makes any colour read as painted.
-    paint += (L - B) * u_preserve;
+    // the paint colour. Clamp it to a small band: genuine surface texture is
+    // low-amplitude and passes through, but the big luminance STEP at an edge —
+    // building/sky silhouette, window and railing borders — is clipped, so it
+    // no longer blooms into a bright unsharp-mask halo (the glowing edges).
+    float detail = clamp(L - B, -0.05, 0.05);
+    paint += detail * u_preserve;
   }
   if (u_grain > 0.0001) {
     // Signed, ~zero-mean noise. Scaled up a little on brighter paint so it reads
@@ -331,7 +335,7 @@ function blurredCopy(source: CanvasImageSource, w: number, h: number): HTMLCanva
   c.height = h;
   const ctx = c.getContext("2d");
   if (!ctx) return null;
-  const radius = Math.min(60, Math.max(8, Math.round(Math.max(w, h) * 0.02)));
+  const radius = Math.min(28, Math.max(6, Math.round(Math.max(w, h) * 0.01)));
   ctx.filter = `blur(${radius}px)`;
   try {
     ctx.drawImage(source, 0, 0, w, h);
