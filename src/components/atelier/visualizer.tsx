@@ -208,10 +208,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [details, setDetails] = useState<ProjectDetails | null>(
     initialName ? { name: initialName } : null,
   );
-  // Shadow / relief preservation — always on at 65%; the visible toggle
+  // Shadow / relief preservation — always on at 85%; the visible toggle
   // and intensity slider were retired.
   const shadowOn = true;
-  const shadowStrength = 0.65;
+  const shadowStrength = 0.85;
   // Manual mask studio.
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
   const [savingMask, setSavingMask] = useState(false);
