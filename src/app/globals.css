@@ -2247,6 +2247,125 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: #fff;
 }
 
+/* ----- "Add to PDF" colour board (glass tray, overlaid bottom-centre) ----- */
+.hv-pdf-tray {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 28px);
+  padding: 9px 11px;
+  background: rgba(10,9,15,.72);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px -22px rgba(0,0,0,.6);
+}
+.hv-pdf-tray-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hv-pdf-add,
+.hv-pdf-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  font: 600 12.5px/1 var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s var(--ease), border-color .15s var(--ease), opacity .15s var(--ease);
+}
+.hv-pdf-add {
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.18);
+  color: rgba(247,247,245,.94);
+}
+.hv-pdf-add:hover:not(:disabled) { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.30); }
+.hv-pdf-add:disabled { opacity: .5; cursor: not-allowed; }
+.hv-pdf-download {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+}
+.hv-pdf-download:hover { filter: brightness(1.06); }
+.hv-pdf-count {
+  font: 600 12px/1 var(--sans);
+  color: rgba(247,247,245,.72);
+  letter-spacing: .01em;
+}
+.hv-pdf-thumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(560px, 78vw);
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.hv-pdf-thumb {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.hv-pdf-thumb img {
+  width: 58px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.22);
+  display: block;
+}
+.hv-pdf-thumb-dots {
+  display: flex;
+  gap: 2px;
+}
+.hv-pdf-thumb-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.35);
+}
+.hv-pdf-thumb-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(10,9,15,.9);
+  border: 1px solid rgba(255,255,255,.28);
+  color: #fff;
+  font: 500 13px/1 var(--sans);
+  cursor: pointer;
+}
+.hv-pdf-thumb-remove:hover { background: var(--terracotta, #c2402a); border-color: var(--terracotta, #c2402a); }
+.hv-pdf-notice {
+  margin: 0;
+  font: 500 11.5px/1.3 var(--sans);
+  color: rgba(247,247,245,.82);
+  text-align: center;
+  max-width: 280px;
+}
+@media (max-width: 640px) {
+  .hv-pdf-tray { left: 12px; right: 12px; transform: none; max-width: none; }
+  .hv-pdf-thumbs { max-width: none; }
+}
+
 /* ----- Bottom progress breadcrumb (glass, overlaid on canvas) ----- */
 .hv-studio-progress {
   position: absolute;

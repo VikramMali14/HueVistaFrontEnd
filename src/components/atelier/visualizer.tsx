@@ -19,6 +19,12 @@ import {
   pollUntilSegmented as pollSegmentationStatus,
 } from "@/lib/segmentation-polling";
 import { api, guestApi, HttpError } from "@/lib/api";
+import {
+  buildColourBoardPdf,
+  canvasToJpegDataUrl,
+  downloadBlob,
+  type PdfImageEntry,
+} from "@/lib/pdf-export";
 import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
 import { undertoneClash } from "@/lib/color-science";
 import { resolveMediaUrl } from "@/lib/media";
@@ -67,6 +73,8 @@ interface RegionState {
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_CUSTOM_MASKS = 3;
+/** Most coloured snapshots the user can collect into one downloadable PDF. */
+const MAX_PDF_PAGES = 8;
 
 const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
   { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#ffffff" },
@@ -225,6 +233,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // resolved server-side for whoever is visualising (retailer staff, entitled
   // customer, or guest). Empty (section hidden) when there's no shop to show.
   const [shopCombos, setShopCombos] = useState<RetailerCombo[]>([]);
+
+  // "Add to PDF" colour board: up to MAX_PDF_PAGES snapshots of the recoloured
+  // canvas, each with the shades applied on it, downloadable as one PDF.
+  const [pdfPages, setPdfPages] = useState<PdfImageEntry[]>([]);
+  // Transient hint under the Add button ("apply a colour first", "board full").
+  const [pdfNotice, setPdfNotice] = useState<string | null>(null);
 
   // Transient topbar notices — "Walls detected" / "Saved" auto-hide after a beat.
   const [wallsNoticeVisible, setWallsNoticeVisible] = useState(false);
@@ -927,6 +941,61 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
   }, [projectId]);
 
+  // Download the current recoloured canvas as a bounded JPEG (not a full-res
+  // PNG): the studio canvas renders at up to 4K × devicePixelRatio, so the raw
+  // PNG export was many megabytes. A capped JPEG is a fraction of the size.
+  const downloadCurrentImage = useCallback(() => {
+    const engine = recolorRef.current;
+    if (!engine) return;
+    const jpeg = canvasToJpegDataUrl(engine.canvas, 2200, 0.9);
+    if (!jpeg) return;
+    const a = document.createElement("a");
+    a.href = jpeg;
+    a.download = `huevista-${Date.now()}.jpg`;
+    a.click();
+  }, []);
+
+  // Snapshot the current painted canvas + the shades on it into the PDF board.
+  const addToPdf = useCallback(() => {
+    const engine = recolorRef.current;
+    if (!engine || !imageUrl) return;
+    if (pdfPages.length >= MAX_PDF_PAGES) {
+      setPdfNotice(`That's the most (${MAX_PDF_PAGES}) — download or remove one to add more.`);
+      return;
+    }
+    const painted = regions.filter((r) => r.applied);
+    if (painted.length === 0) {
+      setPdfNotice("Apply a colour first, then add it to the PDF.");
+      return;
+    }
+    const jpeg = canvasToJpegDataUrl(engine.canvas, 1500, 0.85);
+    if (!jpeg) {
+      setPdfNotice("Could not capture this image — please try again.");
+      return;
+    }
+    const shades = painted.map((r) => ({
+      label: r.label,
+      name: r.shade?.name ?? "Custom colour",
+      // Guests never see real shade codes (the shop reads them); custom colours
+      // have no code, so fall back to the hex shown on the row.
+      code: guest ? undefined : r.shade?.code,
+      hex: r.hex,
+    }));
+    setPdfPages((prev) => [...prev, { jpegDataUrl: jpeg, shades }]);
+    setPdfNotice(null);
+  }, [imageUrl, regions, pdfPages.length, guest]);
+
+  const removePdfPage = useCallback((index: number) => {
+    setPdfPages((prev) => prev.filter((_, i) => i !== index));
+    setPdfNotice(null);
+  }, []);
+
+  const downloadPdf = useCallback(() => {
+    if (pdfPages.length === 0) return;
+    const blob = buildColourBoardPdf(pdfPages, projectName || "HueVista colour board");
+    downloadBlob(blob, `huevista-colours-${Date.now()}.pdf`);
+  }, [pdfPages, projectName]);
+
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
   // Undertone check across every painted wall: the first warm-vs-cool (or
@@ -1138,7 +1207,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             size="sm"
             variant="ghost"
             disabled={!imageUrl}
-            onClick={() => recolorRef.current && downloadPng(recolorRef.current.exportPng())}
+            onClick={downloadCurrentImage}
           >
             Download
           </Button>
@@ -1209,6 +1278,61 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   {compare ? "Original" : "Hold to compare"}
                 </button>
               </>
+            )}
+            {imageUrl && !pendingFile && !uploading && !segmenting && (
+              <div className="hv-pdf-tray" role="group" aria-label="Colour board PDF">
+                <div className="hv-pdf-tray-main">
+                  <button
+                    type="button"
+                    className="hv-pdf-add"
+                    onClick={addToPdf}
+                    disabled={pdfPages.length >= MAX_PDF_PAGES}
+                    title={
+                      pdfPages.length >= MAX_PDF_PAGES
+                        ? `The PDF is full (${MAX_PDF_PAGES} images)`
+                        : "Add this coloured image to the PDF"
+                    }
+                  >
+                    <PlusIcon />
+                    Add to PDF
+                  </button>
+                  {pdfPages.length > 0 && (
+                    <>
+                      <span className="hv-pdf-count">
+                        {pdfPages.length}/{MAX_PDF_PAGES}
+                      </span>
+                      <button type="button" className="hv-pdf-download" onClick={downloadPdf}>
+                        Download PDF
+                      </button>
+                    </>
+                  )}
+                </div>
+                {pdfPages.length > 0 && (
+                  <div className="hv-pdf-thumbs">
+                    {pdfPages.map((page, i) => (
+                      <div key={i} className="hv-pdf-thumb">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={page.jpegDataUrl} alt={`Colour option ${i + 1}`} />
+                        <span className="hv-pdf-thumb-dots" aria-hidden>
+                          {page.shades.slice(0, 5).map((s, j) => (
+                            <span key={j} style={{ background: s.hex }} />
+                          ))}
+                        </span>
+                        <button
+                          type="button"
+                          className="hv-pdf-thumb-remove"
+                          onClick={() => removePdfPage(i)}
+                          aria-label={`Remove colour option ${i + 1}`}
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {pdfNotice && <p className="hv-pdf-notice">{pdfNotice}</p>}
+              </div>
             )}
             {pendingFile && !uploading && !segmenting && (
               <div
@@ -1435,6 +1559,14 @@ function CompareIcon() {
   );
 }
 
+function PlusIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
 function DropZone({
   uploading,
   error,
@@ -1540,9 +1672,3 @@ function DropZone({
   );
 }
 
-function downloadPng(dataUrl: string) {
-  const a = document.createElement("a");
-  a.href = dataUrl;
-  a.download = `huevista-${Date.now()}.png`;
-  a.click();
-}
