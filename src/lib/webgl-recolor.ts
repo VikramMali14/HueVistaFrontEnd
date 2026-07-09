@@ -38,6 +38,12 @@ in vec2 v_uv;
 out vec4 outColor;
 uniform sampler2D u_image;
 uniform sampler2D u_mask;
+// Low-pass (blurred) copy of the photo. Splitting the photo into this smooth
+// "form" layer and a high-frequency "detail" layer (image - blur) lets us tint
+// the swatch by the large-scale light while carrying the surface's REAL texture
+// — plaster stipple, dirt, seams, micro-shadows — onto whatever colour the user
+// picks. That real texture is what a flat fill (or synthetic grain) can't fake.
+uniform sampler2D u_blur;
 uniform vec3 u_target;
 uniform float u_strength;
 uniform int u_useMask;
@@ -45,8 +51,8 @@ uniform int u_useMask;
 // 1 = fully follow the photo's light. u_baseL is the region's mean luminance.
 uniform float u_preserve;
 uniform float u_baseL;
-// Surface grain: a hair of per-pixel noise so a flat swatch reads as a real
-// painted surface instead of a dead CGI fill. 0 disables it.
+// Surface grain: a hair of per-pixel noise, a floor of texture for perfectly
+// smooth walls where the photo itself carries almost no detail. 0 disables it.
 uniform float u_grain;
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
@@ -70,25 +76,28 @@ void main() {
   float m = texture(u_mask, v_uv).r;
   vec3 paint = u_target;
   if (u_preserve > 0.001 && u_baseL > 0.001) {
-    // Relative shading: where the wall is darker than its average it darkens the
-    // paint, where it's brighter it lifts it — so shadows and curvature read.
     float L = luma(src.rgb);
-    float ratio = clamp(L / u_baseL, 0.30, 2.4);
-    ratio = mix(1.0, ratio, u_preserve);
-    if (ratio <= 1.0) {
-      // Darken by multiply, with a mild gamma that deepens genuine shadows
-      // (eaves, window reveals, balcony undersides) so the paint sits INTO the
-      // surface instead of floating flat on top of it.
-      float shade = pow(ratio, 1.0 + 0.25 * u_preserve);
-      paint = u_target * shade;
+    float B = luma(texture(u_blur, v_uv).rgb); // large-scale (form) luminance
+    // FORM: tint the swatch by the SMOOTH large-scale light relative to the
+    // region mean. Form shadows (eaves, reveals, the facade's own gradient)
+    // survive, while the wall still averages to the true swatch colour.
+    float form = clamp(B / u_baseL, 0.30, 2.4);
+    form = mix(1.0, form, u_preserve);
+    if (form <= 1.0) {
+      // Multiply with a mild gamma so genuine shadows deepen and the paint sits
+      // INTO the surface instead of floating flat on top of it.
+      paint = u_target * pow(form, 1.0 + 0.25 * u_preserve);
     } else {
-      // Lift toward white for highlights, but roll the lift off so a bright wall
-      // never clips to pure white — that hard clip is what made sunlit walls read
-      // as flat blown-out patches.
-      float lift = ratio - 1.0;
+      // Lift toward white for highlights, rolled off so a bright wall never clips
+      // to pure white — that hard clip made sunlit walls read as blown-out patches.
+      float lift = form - 1.0;
       lift = (lift / (lift + 0.7)) * 0.7;
       paint = mix(u_target, vec3(1.0), lift);
     }
+    // DETAIL: add the photo's real high-frequency texture on top. (L - B) is
+    // ~zero-mean, so it adds surface texture and micro-shadows WITHOUT shifting
+    // the paint colour. This is the step that makes any colour read as painted.
+    paint += (L - B) * u_preserve;
   }
   if (u_grain > 0.0001) {
     // Signed, ~zero-mean noise. Scaled up a little on brighter paint so it reads
@@ -112,6 +121,9 @@ export class Recolor implements RecolorEngine {
   private vbo: WebGLBuffer;
   private vao: WebGLVertexArrayObject;
   private imgTex: WebGLTexture | null = null;
+  // Blurred copy of the photo (the "form" layer for the form/detail texture
+  // split). Rebuilt once per setImage, sampled every frame as u_blur on unit 2.
+  private blurTex: WebGLTexture | null = null;
   // GPU mask textures cached by source identity — a mask's pixels never change
   // for a given source object, so we upload each one ONCE and just rebind it on
   // subsequent renders (no per-frame texImage2D when only colour/shadow change).
@@ -150,6 +162,7 @@ export class Recolor implements RecolorEngine {
     gl.useProgram(program);
     gl.uniform1i(gl.getUniformLocation(program, "u_image"), 0);
     gl.uniform1i(gl.getUniformLocation(program, "u_mask"), 1);
+    gl.uniform1i(gl.getUniformLocation(program, "u_blur"), 2);
     this.locTarget = gl.getUniformLocation(program, "u_target");
     this.locStrength = gl.getUniformLocation(program, "u_strength");
     this.locUseMask = gl.getUniformLocation(program, "u_useMask");
@@ -170,6 +183,21 @@ export class Recolor implements RecolorEngine {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     this.width = source.width ?? this.canvas.width;
     this.height = source.height ?? this.canvas.height;
+
+    // Blurred copy for the form/detail split. If the blur can't be built (no DOM
+    // / 2D context / tainted source), fall back to the sharp photo: then B == L,
+    // the detail term is zero, and the form ratio degrades to a per-pixel
+    // luminance multiply — still correct, just without the texture transfer.
+    if (!this.blurTex) this.blurTex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this.blurTex);
+    const blurred = blurredCopy(source as CanvasImageSource, this.width, this.height);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, blurred ?? source);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
     const dpr = Math.min(2, typeof window === "undefined" ? 1 : window.devicePixelRatio);
     this.canvas.width = Math.round(this.width * dpr);
     this.canvas.height = Math.round(this.height * dpr);
@@ -231,6 +259,12 @@ export class Recolor implements RecolorEngine {
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
+    // Bind the blurred form layer once (unit 2); it's shared by every region pass.
+    if (this.blurTex) {
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, this.blurTex);
+    }
+
     // Base pass: the untouched photograph.
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.imgTex);
@@ -273,11 +307,38 @@ export class Recolor implements RecolorEngine {
   dispose() {
     const gl = this.gl;
     if (this.imgTex) gl.deleteTexture(this.imgTex);
+    if (this.blurTex) gl.deleteTexture(this.blurTex);
     this.clearMaskCache();
     gl.deleteBuffer(this.vbo);
     gl.deleteVertexArray(this.vao);
     gl.deleteProgram(this.program);
   }
+}
+
+/**
+ * A large-radius blurred copy of the photo, used as the low-pass "form" layer:
+ * the recolor tints the swatch by this smooth luminance (big form shadows) and
+ * carries `photo - blur` on top as real surface texture. The radius (~2% of the
+ * longest side) is the split point between "form" (kept as shading) and "detail"
+ * (kept as texture): stipple, dirt and seams fall below it; eaves and facade
+ * gradients above it. Returns null (caller falls back to the sharp photo) where
+ * the DOM, a 2D context, or a readable source isn't available.
+ */
+function blurredCopy(source: CanvasImageSource, w: number, h: number): HTMLCanvasElement | null {
+  if (typeof document === "undefined" || w <= 0 || h <= 0) return null;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d");
+  if (!ctx) return null;
+  const radius = Math.min(60, Math.max(8, Math.round(Math.max(w, h) * 0.02)));
+  ctx.filter = `blur(${radius}px)`;
+  try {
+    ctx.drawImage(source, 0, 0, w, h);
+  } catch {
+    return null;
+  }
+  return c;
 }
 
 function compile(gl: WebGL2RenderingContext, kind: number, src: string): WebGLShader {
