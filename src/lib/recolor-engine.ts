@@ -35,7 +35,10 @@ export interface RegionPaint {
  * into a natural soft transition without bleeding a visible halo onto the sky.
  */
 export function featherRadius(width: number, height: number): number {
-  return Math.min(4, Math.max(1, Math.round(Math.max(width, height) * 0.0025)));
+  // Just enough to anti-alias the mask's staircased binary edge. Kept ~1px: a
+  // larger feather visibly bleeds wall paint out past the silhouette onto the
+  // sky, which reads as a glowing rim around the building.
+  return Math.min(1.5, Math.max(0.75, Math.max(width, height) * 0.0008));
 }
 
 export interface RecolorEngine {

@@ -103,6 +103,11 @@ export function MaskStudio({
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const gestureRef = useRef<{ dist: number; cx: number; cy: number; v: View } | null>(null);
   const strokeRef = useRef<{ x: number; y: number } | null>(null); // last point, mask px
+  // Last committed brush point (mask px), kept AFTER the stroke ends so a
+  // Shift-click paints a straight run from it to the next click — the fast way
+  // to trace long straight trim (parapet copings, string bands, sunshade edges).
+  const lastBrushRef = useRef<{ x: number; y: number } | null>(null);
+  const shiftRef = useRef(false); // Shift held, for the straight-line preview
   const downRef = useRef<{ x: number; y: number; moved: boolean; pan: boolean; px: number; py: number } | null>(null);
   const cursorRef = useRef<{ x: number; y: number } | null>(null); // client coords
   const spaceRef = useRef(false);
@@ -357,20 +362,37 @@ export function MaskStudio({
       }
     }
 
-    // Brush ring cursor.
+    // Brush ring cursor (+ straight-line preview while Shift is held).
     if (tool === "brush") {
       const cur = cursorRef.current;
       const wrap = wrapRef.current;
       if (cur && wrap) {
         const rect = wrap.getBoundingClientRect();
+        const cx = cur.x - rect.left;
+        const cy = cur.y - rect.top;
+        const stroke = mode === "add" ? SELECT_BLUE : REMOVE_RED;
+        // Dashed rubber band from the last brush point: shows where a Shift-click
+        // would lay a straight run before committing it.
+        const last = lastBrushRef.current;
+        const m = maskRef.current;
+        if (shiftRef.current && last && m) {
+          ctx.beginPath();
+          ctx.moveTo(x0 + (last.x / m.width) * dw, y0 + (last.y / m.height) * dh);
+          ctx.lineTo(cx, cy);
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
         ctx.beginPath();
-        ctx.arc(cur.x - rect.left, cur.y - rect.top, brushSize / 2, 0, Math.PI * 2);
-        ctx.strokeStyle = mode === "add" ? SELECT_BLUE : REMOVE_RED;
+        ctx.arc(cx, cy, brushSize / 2, 0, Math.PI * 2);
+        ctx.strokeStyle = stroke;
         ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(cur.x - rect.left, cur.y - rect.top, 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = mode === "add" ? SELECT_BLUE : REMOVE_RED;
+        ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = stroke;
         ctx.fill();
       }
     }
@@ -379,6 +401,12 @@ export function MaskStudio({
   useEffect(() => {
     drawOverlay();
   }, [drawOverlay]);
+
+  // Switching tools drops the straight-line anchor so a later Shift-click can't
+  // connect to a point left over from an unrelated edit.
+  useEffect(() => {
+    lastBrushRef.current = null;
+  }, [tool]);
 
   // ---- wand (flood fill) ---------------------------------------------------
 
@@ -584,6 +612,7 @@ export function MaskStudio({
     const mask = ensureMask();
     pushHistory();
     wandSeedRef.current = null;
+    lastBrushRef.current = null;
     mask.getContext("2d", { willReadFrequently: true })!.clearRect(0, 0, mask.width, mask.height);
     setPolygon([]);
     setHasInk(false);
@@ -598,6 +627,7 @@ export function MaskStudio({
       const mask = ensureMask();
       pushHistory();
       wandSeedRef.current = null;
+      lastBrushRef.current = null;
       const ctx = mask.getContext("2d", { willReadFrequently: true })!;
       ctx.clearRect(0, 0, mask.width, mask.height);
       setPolygon([]);
@@ -754,8 +784,15 @@ export function MaskStudio({
         const mask = ensureMask();
         const mx = n.x * mask.width;
         const my = n.y * mask.height;
+        // Shift-click continues a straight line from the last brush point — the
+        // quick way to trace a straight trim run without a steady freehand hand.
+        if (e.shiftKey && lastBrushRef.current) {
+          paintSegment(lastBrushRef.current.x, lastBrushRef.current.y, mx, my);
+        } else {
+          paintSegment(mx, my, mx, my);
+        }
         strokeRef.current = { x: mx, y: my };
-        paintSegment(mx, my, mx, my);
+        lastBrushRef.current = { x: mx, y: my };
         drawOverlay();
       }
     },
@@ -765,6 +802,7 @@ export function MaskStudio({
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       cursorRef.current = { x: e.clientX, y: e.clientY };
+      shiftRef.current = e.shiftKey;
 
       if (pointersRef.current.has(e.pointerId)) {
         pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -815,6 +853,7 @@ export function MaskStudio({
           const my = clamp(n.y, 0, 1) * mask.height;
           paintSegment(strokeRef.current.x, strokeRef.current.y, mx, my);
           strokeRef.current = { x: mx, y: my };
+          lastBrushRef.current = { x: mx, y: my };
         }
       }
       drawOverlay();
@@ -1030,7 +1069,7 @@ export function MaskStudio({
           : "Tap a selected area to remove it."
       : tool === "brush"
         ? mode === "add"
-          ? "Paint over the wall. Two fingers (or scroll) to zoom in."
+          ? "Paint over the wall. Shift-click to lay a straight line — handy for trim like copings, bands and window shades."
           : "Paint over anything selected by mistake."
         : polygon.length === 0
           ? "Tap corner points around the wall."
