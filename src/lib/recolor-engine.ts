@@ -21,6 +21,21 @@ export interface RegionPaint {
   baseL?: number;
   /** Overall opacity 0..1 — used to fade a region out (e.g. compare view). */
   strength?: number;
+  /** Surface grain amplitude, ~0..0.05: a touch of per-pixel noise so a flat
+   *  swatch reads as painted plaster instead of a CGI fill. Undefined = engine
+   *  default (see DEFAULT_GRAIN in each engine). */
+  grain?: number;
+}
+
+/**
+ * Feather radius (px) for softening a hard binary mask edge, scaled to the
+ * mask's longest side. The auto-segmenter emits razor-sharp 0/255 masks;
+ * compositing a flat colour through that razor edge reads as a sticker cut out
+ * and pasted onto the photo. A small resolution-relative blur turns the edge
+ * into a natural soft transition without bleeding a visible halo onto the sky.
+ */
+export function featherRadius(width: number, height: number): number {
+  return Math.min(4, Math.max(1, Math.round(Math.max(width, height) * 0.0025)));
 }
 
 export interface RecolorEngine {

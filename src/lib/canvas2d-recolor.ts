@@ -22,11 +22,37 @@
  */
 
 import type { RecolorEngine, RecolorSource, RegionPaint } from "./recolor-engine";
+import { featherRadius } from "./recolor-engine";
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
-/** The shader clamps its relief ratio to [0.35, 2.2]; cap our gain the same way. */
-const MAX_GAIN = 2.2;
+/** The shader clamps its relief ratio to [0.30, 2.4]; cap our gain the same way. */
+const MAX_GAIN = 2.4;
+
+/** Subtle surface grain tile so a flat fill reads as painted plaster, mirroring
+ *  the GL shader's u_grain. Built once and tiled over each region layer. */
+function buildGrainTile(): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
+  const size = 512;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext("2d");
+  if (!ctx) return null;
+  const img = ctx.createImageData(size, size);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    // Centred on mid-grey (128): under 'overlay' this leaves the paint colour
+    // alone and only jitters lightness a few percent up or down.
+    const v = 128 + ((Math.random() * 24) | 0) - 12;
+    d[i] = v;
+    d[i + 1] = v;
+    d[i + 2] = v;
+    d[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
+}
 
 function sourceSize(s: RecolorSource): { w: number; h: number } {
   const any = s as { naturalWidth?: number; naturalHeight?: number; width?: number; height?: number };
@@ -49,6 +75,8 @@ export class Canvas2DRecolor implements RecolorEngine {
   private layerCtx: CanvasRenderingContext2D;
   private shadeLayer: HTMLCanvasElement;
   private shadeCtx: CanvasRenderingContext2D;
+  /** Static grain tile, built once, tiled over each region layer for surface texture. */
+  private grainTile: HTMLCanvasElement | null;
 
   constructor(public readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -61,6 +89,7 @@ export class Canvas2DRecolor implements RecolorEngine {
     if (!layerCtx || !shadeCtx) throw new Error("Canvas 2D rendering is not supported in this browser.");
     this.layerCtx = layerCtx;
     this.shadeCtx = shadeCtx;
+    this.grainTile = buildGrainTile();
   }
 
   setImage(source: RecolorSource) {
@@ -110,6 +139,10 @@ export class Canvas2DRecolor implements RecolorEngine {
     // Free the scratch bitmaps.
     this.layer.width = this.layer.height = 0;
     this.shadeLayer.width = this.shadeLayer.height = 0;
+    if (this.grainTile) {
+      this.grainTile.width = this.grainTile.height = 0;
+      this.grainTile = null;
+    }
   }
 
   /** Build the full-canvas colour layer for one region, shaped by its alpha mask. */
@@ -165,6 +198,21 @@ export class Canvas2DRecolor implements RecolorEngine {
       lctx.globalAlpha = 1;
     }
 
+    // Surface grain (mirrors the GL shader's u_grain): 'overlay' keeps the paint
+    // colour and only jitters lightness a touch, so the flat fill reads as a real
+    // painted surface. Applied before masking so it's clipped to the region.
+    if (this.grainTile) {
+      lctx.globalCompositeOperation = "overlay";
+      lctx.globalAlpha = 0.5;
+      for (let gy = 0; gy < h; gy += this.grainTile.height) {
+        for (let gx = 0; gx < w; gx += this.grainTile.width) {
+          lctx.drawImage(this.grainTile, gx, gy);
+        }
+      }
+      lctx.globalAlpha = 1;
+      lctx.globalCompositeOperation = "source-over";
+    }
+
     // Shape the filled layer with the region's coverage.
     lctx.globalCompositeOperation = "destination-in";
     lctx.drawImage(alphaMask, 0, 0, w, h);
@@ -190,7 +238,12 @@ export class Canvas2DRecolor implements RecolorEngine {
       c.height = h;
       const cctx = c.getContext("2d", { willReadFrequently: true });
       if (cctx) {
+        // Feather the hard binary edge so the region blends into the photo instead
+        // of reading as a cut-out sticker. The blur softens the red (coverage)
+        // channel, which the alpha computation below turns into a soft edge.
+        cctx.filter = `blur(${featherRadius(w, h)}px)`;
         cctx.drawImage(mask, 0, 0, w, h);
+        cctx.filter = "none";
         try {
           const data = cctx.getImageData(0, 0, w, h);
           const px = data.data;
