@@ -17,6 +17,7 @@
  */
 
 import type { RecolorEngine, RegionPaint } from "./recolor-engine";
+import { featherRadius } from "./recolor-engine";
 
 // Shared with the Canvas 2D fallback engine (canvas2d-recolor.ts); re-exported
 // so existing `import { type RegionPaint } from "@/lib/webgl-recolor"` keeps working.
@@ -44,8 +45,18 @@ uniform int u_useMask;
 // 1 = fully follow the photo's light. u_baseL is the region's mean luminance.
 uniform float u_preserve;
 uniform float u_baseL;
+// Surface grain: a hair of per-pixel noise so a flat swatch reads as a real
+// painted surface instead of a dead CGI fill. 0 disables it.
+uniform float u_grain;
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// Cheap hash -> pseudo-random 0..1 from a screen-space position, for grain.
+float hash(vec2 p) {
+  p = fract(p * vec2(123.34, 345.45));
+  p += dot(p, p + 34.345);
+  return fract(p.x * p.y);
+}
 
 void main() {
   vec4 src = texture(u_image, v_uv);
@@ -62,22 +73,38 @@ void main() {
     // Relative shading: where the wall is darker than its average it darkens the
     // paint, where it's brighter it lifts it — so shadows and curvature read.
     float L = luma(src.rgb);
-    float ratio = clamp(L / u_baseL, 0.35, 2.2);
+    float ratio = clamp(L / u_baseL, 0.30, 2.4);
     ratio = mix(1.0, ratio, u_preserve);
     if (ratio <= 1.0) {
-      // Darken by multiply — keeps the swatch hue, no clipping.
-      paint = u_target * ratio;
+      // Darken by multiply, with a mild gamma that deepens genuine shadows
+      // (eaves, window reveals, balcony undersides) so the paint sits INTO the
+      // surface instead of floating flat on top of it.
+      float shade = pow(ratio, 1.0 + 0.25 * u_preserve);
+      paint = u_target * shade;
     } else {
-      // Brighten by lifting uniformly toward white, so the hue holds (rather than
-      // letting channels clip to 1.0 at different rates and shifting colour).
-      paint = mix(u_target, vec3(1.0), clamp(ratio - 1.0, 0.0, 1.0));
+      // Lift toward white for highlights, but roll the lift off so a bright wall
+      // never clips to pure white — that hard clip is what made sunlit walls read
+      // as flat blown-out patches.
+      float lift = ratio - 1.0;
+      lift = (lift / (lift + 0.7)) * 0.7;
+      paint = mix(u_target, vec3(1.0), lift);
     }
-    paint = clamp(paint, 0.0, 1.0);
   }
+  if (u_grain > 0.0001) {
+    // Signed, ~zero-mean noise. Scaled up a little on brighter paint so it reads
+    // as surface texture without muddying shadow recesses.
+    float n = hash(gl_FragCoord.xy) - 0.5;
+    paint += n * u_grain * (0.5 + 0.5 * luma(paint));
+  }
+  paint = clamp(paint, 0.0, 1.0);
   outColor = vec4(paint, u_strength * m);
 }`;
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+
+// Default per-pixel grain amplitude when a region doesn't set its own. Subtle by
+// design — enough to break the CGI flatness, not enough to look noisy.
+const DEFAULT_GRAIN = 0.03;
 
 export class Recolor implements RecolorEngine {
   private gl: WebGL2RenderingContext;
@@ -94,6 +121,7 @@ export class Recolor implements RecolorEngine {
   private locUseMask: WebGLUniformLocation | null;
   private locPreserve: WebGLUniformLocation | null;
   private locBaseL: WebGLUniformLocation | null;
+  private locGrain: WebGLUniformLocation | null;
   private width = 0;
   private height = 0;
 
@@ -127,6 +155,7 @@ export class Recolor implements RecolorEngine {
     this.locUseMask = gl.getUniformLocation(program, "u_useMask");
     this.locPreserve = gl.getUniformLocation(program, "u_preserve");
     this.locBaseL = gl.getUniformLocation(program, "u_baseL");
+    this.locGrain = gl.getUniformLocation(program, "u_grain");
   }
 
   setImage(source: TexImageSource & { width?: number; height?: number }) {
@@ -148,6 +177,27 @@ export class Recolor implements RecolorEngine {
     this.clearMaskCache();
   }
 
+  /**
+   * Soften a hard binary mask's edge so the painted region blends into the
+   * photo instead of reading as a cut-out sticker. The blur is GPU-accelerated
+   * via the 2D canvas filter and runs ONCE per mask (the feathered result is
+   * cached as a GL texture below). Degrades to the original crisp mask wherever
+   * the canvas filter or a 2D context is unavailable — still correct, just sharp.
+   */
+  private feather(mask: TexImageSource): TexImageSource {
+    if (typeof document === "undefined") return mask;
+    const dims = texSize(mask);
+    if (!dims) return mask;
+    const c = document.createElement("canvas");
+    c.width = dims.w;
+    c.height = dims.h;
+    const ctx = c.getContext("2d");
+    if (!ctx) return mask;
+    ctx.filter = `blur(${featherRadius(dims.w, dims.h)}px)`;
+    ctx.drawImage(mask as CanvasImageSource, 0, 0, dims.w, dims.h);
+    return c;
+  }
+
   /** Get (or upload-once) the cached GL texture for a mask source. */
   private maskTexture(mask: TexImageSource): WebGLTexture {
     const gl = this.gl;
@@ -156,7 +206,7 @@ export class Recolor implements RecolorEngine {
     const tex = gl.createTexture()!;
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, mask);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.feather(mask));
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -188,6 +238,7 @@ export class Recolor implements RecolorEngine {
     gl.uniform1f(this.locStrength, 1);
     gl.uniform1f(this.locPreserve, 0);
     gl.uniform1f(this.locBaseL, 0);
+    gl.uniform1f(this.locGrain, 0);
     gl.uniform3fv(this.locTarget, [0, 0, 0]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -206,6 +257,7 @@ export class Recolor implements RecolorEngine {
       gl.uniform1f(this.locStrength, clamp01(r.strength ?? 1));
       gl.uniform1f(this.locPreserve, clamp01(r.preserve ?? 0));
       gl.uniform1f(this.locBaseL, Math.max(0, r.baseL ?? 0));
+      gl.uniform1f(this.locGrain, Math.max(0, r.grain ?? DEFAULT_GRAIN));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
     gl.disable(gl.BLEND);
@@ -297,6 +349,14 @@ export function regionMeanLuma(
 }
 
 function imageSize(s: CanvasImageSource): { w: number; h: number } | null {
+  const any = s as { naturalWidth?: number; naturalHeight?: number; width?: number; height?: number };
+  const w = any.naturalWidth || any.width || 0;
+  const h = any.naturalHeight || any.height || 0;
+  return w > 0 && h > 0 ? { w: Number(w), h: Number(h) } : null;
+}
+
+/** Pixel dimensions of any texture source (img/canvas/bitmap) for feathering. */
+function texSize(s: TexImageSource): { w: number; h: number } | null {
   const any = s as { naturalWidth?: number; naturalHeight?: number; width?: number; height?: number };
   const w = any.naturalWidth || any.width || 0;
   const h = any.naturalHeight || any.height || 0;
