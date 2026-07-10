@@ -210,22 +210,26 @@ export class Recolor implements RecolorEngine {
   }
 
   /**
-   * Soften a hard binary mask's edge so the painted region blends into the
-   * photo instead of reading as a cut-out sticker. The blur is GPU-accelerated
-   * via the 2D canvas filter and runs ONCE per mask (the feathered result is
-   * cached as a GL texture below). Degrades to the original crisp mask wherever
-   * the canvas filter or a 2D context is unavailable — still correct, just sharp.
+   * Optionally soften a hard binary mask's edge. Feathering is disabled by
+   * default ({@link featherRadius} returns 0) because the softened edge read as
+   * a visible "blur"/glow around recoloured walls and window borders. With a
+   * zero radius this returns the mask untouched so the painted region keeps a
+   * crisp edge exactly on the surface boundary. If a positive feather is ever
+   * reintroduced, the blur is applied once per mask (cached as a GL texture
+   * below) and degrades to the crisp mask where a 2D context is unavailable.
    */
   private feather(mask: TexImageSource): TexImageSource {
     if (typeof document === "undefined") return mask;
     const dims = texSize(mask);
     if (!dims) return mask;
+    const radius = featherRadius();
+    if (radius <= 0) return mask; // feathering off — keep the edge crisp (no blur)
     const c = document.createElement("canvas");
     c.width = dims.w;
     c.height = dims.h;
     const ctx = c.getContext("2d");
     if (!ctx) return mask;
-    ctx.filter = `blur(${featherRadius(dims.w, dims.h)}px)`;
+    ctx.filter = `blur(${radius}px)`;
     ctx.drawImage(mask as CanvasImageSource, 0, 0, dims.w, dims.h);
     return c;
   }

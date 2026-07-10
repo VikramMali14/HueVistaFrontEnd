@@ -238,10 +238,12 @@ export class Canvas2DRecolor implements RecolorEngine {
       c.height = h;
       const cctx = c.getContext("2d", { willReadFrequently: true });
       if (cctx) {
-        // Feather the hard binary edge so the region blends into the photo instead
-        // of reading as a cut-out sticker. The blur softens the red (coverage)
-        // channel, which the alpha computation below turns into a soft edge.
-        cctx.filter = `blur(${featherRadius(w, h)}px)`;
+        // Feathering is disabled ({@link featherRadius} returns 0) so the region
+        // keeps a crisp edge exactly on the surface boundary — the softened edge
+        // read as a visible "blur"/glow around recoloured walls and borders. Only
+        // apply the blur filter if a positive feather is ever reintroduced.
+        const radius = featherRadius();
+        if (radius > 0) cctx.filter = `blur(${radius}px)`;
         cctx.drawImage(mask, 0, 0, w, h);
         cctx.filter = "none";
         try {

@@ -28,17 +28,19 @@ export interface RegionPaint {
 }
 
 /**
- * Feather radius (px) for softening a hard binary mask edge, scaled to the
- * mask's longest side. The auto-segmenter emits razor-sharp 0/255 masks;
- * compositing a flat colour through that razor edge reads as a sticker cut out
- * and pasted onto the photo. A small resolution-relative blur turns the edge
- * into a natural soft transition without bleeding a visible halo onto the sky.
+ * Feather radius (px) for softening a hard binary mask edge. Feathering is now
+ * DISABLED (returns 0): users reported the softened edge as a visible "blur"
+ * effect — a glowing halo around the recoloured walls, the accent wall and the
+ * window borders. Painting through the crisp 0/255 mask keeps every region edge
+ * sharp and precisely aligned to the surface; the bilinear filtering the
+ * engines already apply when scaling the mask still removes the raw staircase
+ * without introducing any halo.
+ *
+ * Kept as a function (rather than deleting the call sites) so a small feather
+ * can be reintroduced later by returning a positive value here.
  */
-export function featherRadius(width: number, height: number): number {
-  // Just enough to anti-alias the mask's staircased binary edge. Kept ~1px: a
-  // larger feather visibly bleeds wall paint out past the silhouette onto the
-  // sky, which reads as a glowing rim around the building.
-  return Math.min(1.5, Math.max(0.75, Math.max(width, height) * 0.0008));
+export function featherRadius(): number {
+  return 0;
 }
 
 export interface RecolorEngine {
