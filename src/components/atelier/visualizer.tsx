@@ -78,9 +78,9 @@ const MAX_CUSTOM_MASKS = 3;
 const MAX_PDF_PAGES = 8;
 
 const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
-  { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#ffffff" },
-  { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#ffffff" },
-  { id: "trim", kind: "TRIM", label: "Border", hex: "#ffffff" },
+  { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#e8d5b0" },
+  { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#b0603e" },
+  { id: "trim", kind: "TRIM", label: "Border", hex: "#4a362a" },
 ];
 
 const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
@@ -93,14 +93,15 @@ const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
 
 // Fallback swatches used only when the backend hasn't supplied an appliedHexCode
 // (e.g. the pre-upload placeholders and hand-drawn masks). Auto-detected regions
-// arrive already painted with the scene's reference colour from segmentation
-// (white), so main/accent/trim default to white here too — the image opens with
-// every wall, border and trim painted a clean white, matching the backend
-// reference palette (SegmentationService#defaultHexFor + ImageCleanerService).
+// arrive already painted with the scene's reference colour from segmentation, so
+// main/accent/trim mirror the backend's exterior reference palette here
+// (SegmentationService#defaultHexFor MUST stay in sync): the project opens with
+// a Cashmere Beige body, a Burnt Sienna feature wall and Dark Clove trim rather
+// than a flat all-white house.
 const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
-  MAIN_WALL: "#ffffff",
-  ACCENT_WALL: "#ffffff",
-  TRIM: "#ffffff",
+  MAIN_WALL: "#e8d5b0",   // Cashmere Beige (0342)
+  ACCENT_WALL: "#b0603e", // Burnt Sienna (6118)
+  TRIM: "#4a362a",        // Dark Clove (8511)
   MANUAL: "#ffffff",
 };
 
@@ -169,6 +170,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const failedSavesRef = useRef<Array<() => Promise<void>>>([]);
   const [stage, setStage] = useState<PipelineStage>("upload");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  // True when the canvas is the backend's CLEANED image (paintable surfaces
+  // repainted fresh white). Enables scene-light anchored shading: the paint
+  // follows the photo's own light — an evening shot stays an evening shot —
+  // instead of brightening every wall up to the swatch's showroom colour.
+  const [canvasCleaned, setCanvasCleaned] = useState(false);
   const [classification, setClassification] = useState<"INDOOR" | "OUTDOOR" | "UNKNOWN" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -387,6 +393,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           target: hexToRgb01(r.hex),
           preserve: shadowOn ? shadowStrength : 0,
           baseL,
+          anchor: canvasCleaned,
         });
       }
       if (cancelled) return;
@@ -396,7 +403,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => {
       cancelled = true;
     };
-  }, [regions, imageUrl, compare, shadowOn, shadowStrength, loadMask]);
+  }, [regions, imageUrl, compare, shadowOn, shadowStrength, canvasCleaned, loadMask]);
 
   useEffect(() => {
     return () => {
@@ -436,6 +443,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           baseLumaRef.current.clear();
           rc.setImage(img);
           setImageUrl(canvasUrl);
+          setCanvasCleaned(Boolean(detail.cleanedImageUrl));
           setImageDims({ w: img.naturalWidth, h: img.naturalHeight });
         } catch (err) {
           if (process.env.NODE_ENV !== "production") {
@@ -603,6 +611,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         srcImgRef.current = img;
         recolorRef.current?.setImage(img);
         recolorRef.current?.renderBase();
+        setCanvasCleaned(false); // raw local photo — not the cleaned canvas
         setImageUrl((prev) => {
           if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
           return localUrl;
@@ -668,6 +677,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     srcImgRef.current = null;
     setImageDims(null);
     setStage("upload");
+    setCanvasCleaned(false);
     setImageUrl((prev) => {
       if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
       return null;

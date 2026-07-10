@@ -29,6 +29,13 @@ const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 /** The shader clamps its relief ratio to [0.30, 2.4]; cap our gain the same way. */
 const MAX_GAIN = 2.4;
 
+/** sRGB value of fresh white paint (LRV ~85) — mirrors the GL shader's
+ *  REF_WHITE. In anchored mode (cleaned canvas, surfaces known white) the
+ *  multiply pass is gained back by 1/REF_WHITE instead of 1/baseL, so the
+ *  paint keeps the photo's own light level rather than averaging to the
+ *  full-brightness swatch. */
+const REF_WHITE_L = 0.94;
+
 /** Subtle surface grain tile so a flat fill reads as painted plaster, mirroring
  *  the GL shader's u_grain. Built once and tiled over each region layer. */
 function buildGrainTile(): HTMLCanvasElement | null {
@@ -162,7 +169,8 @@ export class Canvas2DRecolor implements RecolorEngine {
 
     const preserve = clamp01(r.preserve ?? 0);
     const baseL = Math.max(0, r.baseL ?? 0);
-    if (preserve > 0.001 && baseL > 0.001 && this.source) {
+    const anchored = r.anchor === true;
+    if (preserve > 0.001 && (baseL > 0.001 || anchored) && this.source) {
       const shade = this.shadeLayer;
       if (shade.width !== w || shade.height !== h) {
         shade.width = w;
@@ -178,11 +186,15 @@ export class Canvas2DRecolor implements RecolorEngine {
       sctx.globalCompositeOperation = "multiply";
       sctx.fillStyle = cssColor(r.target);
       sctx.fillRect(0, 0, w, h);
-      // Multiplying dimmed the region by ~baseL relative to the shader (which
-      // normalises by the region's mean luminance). Gain it back additively:
-      // each 'lighter' self-draw at alpha a multiplies the layer by (1 + a).
+      // Multiplying dimmed the region relative to the shader's neutral point.
+      // Gain it back additively: each 'lighter' self-draw at alpha a multiplies
+      // the layer by (1 + a). Anchored (cleaned canvas, surfaces known white):
+      // the neutral is fresh-white albedo, so the paint keeps the photo's own
+      // light level. Legacy: the neutral is the region's mean luminance, so the
+      // region's AVERAGE still lands on the swatch.
       sctx.globalCompositeOperation = "lighter";
-      let remaining = Math.min(MAX_GAIN, 1 / Math.max(baseL, 1 / MAX_GAIN));
+      const neutral = anchored ? REF_WHITE_L : baseL;
+      let remaining = Math.min(MAX_GAIN, 1 / Math.max(neutral, 1 / MAX_GAIN));
       while (remaining > 1.01) {
         const a = Math.min(1, remaining - 1);
         sctx.globalAlpha = a;

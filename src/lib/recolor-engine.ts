@@ -19,6 +19,13 @@ export interface RegionPaint {
   preserve?: number;
   /** Region mean luminance in the source photo, 0..1 (needed when preserve>0). */
   baseL?: number;
+  /** Scene-light anchoring. Set ONLY when the canvas is the CLEANED image,
+   *  whose paintable surfaces were repainted fresh white: the photo is then an
+   *  illumination map, and the engine modulates the swatch by it — brightness
+   *  AND colour cast — instead of normalising the region's mean up to the
+   *  swatch. An evening photo keeps its evening light instead of snapping to
+   *  flat daylight. No effect when preserve is 0. */
+  anchor?: boolean;
   /** Overall opacity 0..1 — used to fade a region out (e.g. compare view). */
   strength?: number;
   /** Surface grain amplitude, ~0..0.05: a touch of per-pixel noise so a flat

@@ -17,6 +17,10 @@ interface PaintedPreviewProps {
   alt: string;
   /** Regions with an applied colour; masks may be unreachable (we fall back). */
   regions: ReadonlyArray<PaintedRegion>;
+  /** True when imageUrl is the CLEANED image (surfaces repainted fresh white):
+   *  enables scene-light anchored shading so the preview keeps the photo's own
+   *  light — matching what the studio rendered. */
+  anchored?: boolean;
 }
 
 // Mirrors the studio's always-on shadow preservation so the shared preview
@@ -44,7 +48,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
  * painted canvas replaces it and a compare toggle appears. Any failure —
  * no WebGL, tainted canvas, unreachable masks — quietly leaves the photo.
  */
-export function PaintedPreview({ imageUrl, alt, regions }: PaintedPreviewProps) {
+export function PaintedPreview({ imageUrl, alt, regions, anchored = false }: PaintedPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<RecolorEngine | null>(null);
   const [painted, setPainted] = useState(false);
@@ -81,6 +85,7 @@ export function PaintedPreview({ imageUrl, alt, regions }: PaintedPreviewProps) 
               target: hexToRgb01(r.hex),
               preserve: SHADOW_STRENGTH,
               baseL: regionMeanLuma(base, mask),
+              anchor: anchored,
             });
           } catch {
             /* this mask didn't load — paint the ones that did */
