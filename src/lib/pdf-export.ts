@@ -2,14 +2,16 @@
  * Tiny, dependency-free PDF builder for the "Add to PDF" colour board.
  *
  * The studio lets the user snapshot the recoloured canvas (up to 8 options) and
- * download them as a single multi-page PDF: one page per snapshot, the painted
- * photo at the top and, underneath it, the shades used on that option — each as
- * a colour-preview swatch alongside its shade name and shade code/number.
+ * download them as a single multi-page PDF. Each page is a branded A4 sheet:
+ * a palette strip of the option's colours across the top edge, a header with
+ * the project title / option counter / date, the painted photo hairline-framed
+ * in the middle, and a table of the shades used — paint chip, region, shade
+ * name, shade number and hex — anchored above a footer with page numbers.
  *
  * Why hand-rolled instead of a library: the whole board is a handful of images
  * plus text, so a full PDF dependency (jsPDF et al.) would dwarf the feature. A
  * JPEG can be embedded straight into a PDF as a DCTDecode image XObject with no
- * re-encoding, and text needs only the built-in Helvetica font — so the entire
+ * re-encoding, and text needs only the built-in Helvetica faces — so the entire
  * generator is a few hundred bytes of object plumbing. Everything runs in the
  * browser (uses atob), which is where the canvas snapshots live.
  */
@@ -36,7 +38,21 @@ export interface PdfImageEntry {
 /** A4 portrait, in PostScript points (1/72"). */
 const PAGE_W = 595.28;
 const PAGE_H = 841.89;
-const MARGIN = 36;
+const MARGIN = 48;
+
+/* Page furniture metrics (all in points, measured from the page bottom). */
+const STRIP_H = 10; // full-bleed palette strip along the top edge
+const ROW_H = 26; // one shade-table row
+const TABLE_BOTTOM = 64; // bottom of the shade table, above the footer
+const FOOT_RULE_Y = 46;
+const FOOT_BASE = 33;
+
+/* Brand palette (matches globals.css light theme), as PDF "r g b" strings. */
+const INK = "0.1 0.09 0.16"; // #1a1828
+const MUTE = "0.42 0.41 0.49"; // #6b687e
+const ACCENT = "0.49 0.36 1"; // #7c5cff
+const RULE_SOFT = "0.89 0.88 0.93";
+const RULE_STRONG = "0.81 0.8 0.86";
 
 /**
  * Render the recoloured `source` canvas to a JPEG data URL, downscaled so its
@@ -125,7 +141,11 @@ function latin1(s: string): Uint8Array {
   return out;
 }
 
-/** Escape a string for a PDF literal ( … ) and drop characters WinAnsi can't show. */
+/**
+ * Escape a string for a PDF literal ( … ). Typographic punctuation maps onto
+ * its real WinAnsi byte (octal escape); anything else WinAnsi can't show
+ * becomes "?".
+ */
 function pdfText(s: string): string {
   let out = "";
   for (const ch of s) {
@@ -135,9 +155,14 @@ function pdfText(s: string): string {
     else if (ch === ")") out += "\\)";
     else if (code >= 0x20 && code <= 0x7e) out += ch; // ASCII
     else if (code >= 0xa0 && code <= 0xff) out += ch; // Latin-1 upper (WinAnsi)
-    else if (code === 0x2018 || code === 0x2019) out += "'"; // curly single quotes
-    else if (code === 0x201c || code === 0x201d) out += '"'; // curly double quotes
-    else if (code === 0x2013 || code === 0x2014) out += "-"; // en/em dash
+    else if (code === 0x2018) out += "\\221"; // ' left single quote
+    else if (code === 0x2019) out += "\\222"; // ' right single quote
+    else if (code === 0x201c) out += "\\223"; // " left double quote
+    else if (code === 0x201d) out += "\\224"; // " right double quote
+    else if (code === 0x2013) out += "\\226"; // – en dash
+    else if (code === 0x2014) out += "\\227"; // — em dash
+    else if (code === 0x2022) out += "\\225"; // • bullet
+    else if (code === 0x2026) out += "\\205"; // … ellipsis
     else out += "?";
   }
   return out;
@@ -161,28 +186,169 @@ function hexToRgb(hex: string): [number, number, number] {
   ];
 }
 
-/** Vertical space (pt) reserved under the photo for the swatch list. */
-function swatchBlockHeight(shadeCount: number): number {
-  const HEADING = 22;
-  const ROW = 22;
-  return HEADING + Math.max(1, shadeCount) * ROW + 8;
+/**
+ * Helvetica / Helvetica-Bold advance widths for ASCII 0x20–0x7E, in 1/1000 em,
+ * straight from the Adobe AFM metrics for the built-in base-14 fonts. They let
+ * us right-align and ellipsis-truncate text without embedding a font.
+ */
+// prettier-ignore
+const W_HELV = [
+  278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278,
+  556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556,
+  1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778,
+  667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556,
+  333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556,
+  556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
+];
+// prettier-ignore
+const W_HELV_BOLD = [
+  278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278,
+  556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611,
+  975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778,
+  667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556,
+  333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611,
+  611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584,
+];
+
+/** Width of `s` set in Helvetica (`bold` for Helvetica-Bold) at `size` pt. */
+function textWidth(s: string, size: number, bold = false): number {
+  const table = bold ? W_HELV_BOLD : W_HELV;
+  let units = 0;
+  for (const ch of s) {
+    const c = ch.codePointAt(0)!;
+    if (c >= 0x20 && c <= 0x7e) units += table[c - 0x20]!;
+    else if (c === 0x2026) units += 1000; // ellipsis
+    else units += 556; // fair average for the Latin-1 upper range
+  }
+  return (units / 1000) * size;
 }
 
-/** Build the content-stream drawing ops for one page. */
-function pageContent(entry: PdfImageEntry, imgW: number, imgH: number, title: string, index: number, total: number): string {
+/** Truncate `s` with an ellipsis so it sets no wider than `maxWidth` pt. */
+function fitText(s: string, size: number, maxWidth: number, bold = false): string {
+  if (textWidth(s, size, bold) <= maxWidth) return s;
+  let out = s;
+  while (out.length > 0 && textWidth(out.trimEnd() + "…", size, bold) > maxWidth) {
+    out = out.slice(0, -1);
+  }
+  return out.trimEnd() + "…";
+}
+
+/** One text run: fill colour, face, size, position, string. `tracking` = letterspacing (Tc). */
+function textOp(
+  font: "F1" | "F2",
+  size: number,
+  x: number,
+  y: number,
+  s: string,
+  color: string,
+  tracking = 0,
+): string {
+  const tc = tracking ? ` ${num(tracking)} Tc` : "";
+  const reset = tracking ? " 0 Tc" : "";
+  return `${color} rg BT /${font} ${num(size)} Tf${tc} ${num(x)} ${num(y)} Td (${pdfText(s)}) Tj${reset} ET`;
+}
+
+/** A horizontal hairline from x1 to x2 at height y. */
+function hline(y: number, x1: number, x2: number, color: string, w = 0.6): string {
+  return `${color} RG ${num(w)} w ${num(x1)} ${num(y)} m ${num(x2)} ${num(y)} l S`;
+}
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function formatDateLine(d: Date): string {
+  return `Generated ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** Branded header (palette strip, eyebrow, date, title) + footer, shared by every page. */
+function pageChrome(
+  stripHexes: string[],
+  title: string,
+  dateLine: string,
+  pageNo: number,
+  pageCount: number,
+  counter?: string,
+): string[] {
   const ops: string[] = [];
+  const right = PAGE_W - MARGIN;
 
-  // Header line (project name · option n of N).
-  const header = `${title}  ·  Option ${index + 1} of ${total}`;
-  ops.push("0.28 0.26 0.24 rg");
-  ops.push(`BT /F1 12 Tf ${num(MARGIN)} ${num(PAGE_H - MARGIN - 4)} Td (${pdfText(header)}) Tj ET`);
+  // Full-bleed palette strip along the top edge — this option's colours.
+  const seg = PAGE_W / stripHexes.length;
+  stripHexes.forEach((hex, i) => {
+    const [r, g, b] = hexToRgb(hex);
+    ops.push(`${num(r)} ${num(g)} ${num(b)} rg`);
+    // +0.5 overlap hides hairline gaps between antialiased segment edges.
+    ops.push(`${num(i * seg)} ${num(PAGE_H - STRIP_H)} ${num(seg + 0.5)} ${num(STRIP_H)} re f`);
+  });
 
-  // Fit the photo between the header and the reserved swatch block.
-  const blockH = swatchBlockHeight(entry.shades.length);
-  const topY = PAGE_H - MARGIN - 26;
-  const bottomLimit = MARGIN + blockH;
-  const availW = PAGE_W - 2 * MARGIN;
-  const availH = topY - bottomLimit;
+  // Eyebrow + date line.
+  const eyebrowY = PAGE_H - 58;
+  ops.push(textOp("F2", 8, MARGIN, eyebrowY, "HUEVISTA · COLOUR BOARD", ACCENT, 1.5));
+  ops.push(textOp("F1", 8.5, right - textWidth(dateLine, 8.5), eyebrowY, dateLine, MUTE));
+
+  // Project title, with the option counter on the right.
+  const titleY = PAGE_H - 84;
+  const counterW = counter ? textWidth(counter, 10) : 0;
+  ops.push(
+    textOp("F2", 19, MARGIN, titleY, fitText(title, 19, right - MARGIN - counterW - 24, true), INK),
+  );
+  if (counter) ops.push(textOp("F1", 10, right - counterW, titleY, counter, MUTE));
+  ops.push(hline(PAGE_H - 100, MARGIN, right, RULE_STRONG, 1));
+
+  // Footer.
+  ops.push(hline(FOOT_RULE_Y, MARGIN, right, RULE_SOFT));
+  ops.push(textOp("F1", 8, MARGIN, FOOT_BASE, "Made with HueVista", MUTE));
+  const pg = `Page ${pageNo} of ${pageCount}`;
+  ops.push(textOp("F1", 8, right - textWidth(pg, 8), FOOT_BASE, pg, MUTE));
+
+  return ops;
+}
+
+/** Build the content-stream drawing ops for one option's page. */
+function pageContent(
+  entry: PdfImageEntry,
+  imgW: number,
+  imgH: number,
+  title: string,
+  index: number,
+  total: number,
+  dateLine: string,
+): string {
+  const right = PAGE_W - MARGIN;
+  const stripHexes = entry.shades.length ? entry.shades.map((s) => s.hex) : ["#7c5cff"];
+  const ops = pageChrome(stripHexes, title, dateLine, index + 1, total, `Option ${index + 1} of ${total}`);
+
+  // Shade table, anchored to the bottom so every page shares one layout.
+  const rows = Math.max(1, entry.shades.length);
+  const tableTop = TABLE_BOTTOM + rows * ROW_H;
+  ops.push(textOp("F2", 8, MARGIN, tableTop + 14, "COLOURS IN THIS OPTION", MUTE, 1.5));
+  ops.push(hline(tableTop + 6, MARGIN, right, RULE_STRONG, 1));
+
+  entry.shades.forEach((shade, j) => {
+    const rowTop = TABLE_BOTTOM + (rows - j) * ROW_H;
+    const base = rowTop - 16.5; // text baseline within the row
+    const [r, g, b] = hexToRgb(shade.hex);
+    // Paint chip, with a hairline border so pale colours read on white paper.
+    ops.push(`${num(r)} ${num(g)} ${num(b)} rg ${num(MARGIN)} ${num(rowTop - 21)} 34 16 re f`);
+    ops.push(`0.73 0.71 0.79 RG 0.6 w ${num(MARGIN)} ${num(rowTop - 21)} 34 16 re S`);
+    // Columns: region · shade name · shade number · hex (right-aligned).
+    ops.push(textOp("F2", 9.5, MARGIN + 46, base, fitText(shade.label, 9.5, 128, true), INK));
+    ops.push(textOp("F1", 10, MARGIN + 182, base, fitText(shade.name, 10, 148), INK));
+    if (shade.code) {
+      ops.push(textOp("F1", 9.5, MARGIN + 338, base, fitText(`Shade No. ${shade.code}`, 9.5, 118), MUTE));
+    }
+    const hex = shade.hex.toUpperCase();
+    ops.push(textOp("F1", 9, right - textWidth(hex, 9), base, hex, MUTE));
+    ops.push(hline(rowTop - ROW_H, MARGIN, right, RULE_SOFT));
+  });
+
+  // Photo: centred in the space between the header and the table, hairline-framed.
+  const areaTop = PAGE_H - 118;
+  const areaBottom = tableTop + 36;
+  const availW = right - MARGIN;
+  const availH = areaTop - areaBottom;
   let dispW = availW;
   let dispH = availH;
   if (imgW > 0 && imgH > 0) {
@@ -191,38 +357,18 @@ function pageContent(entry: PdfImageEntry, imgW: number, imgH: number, title: st
     dispH = imgH * scale;
   }
   const imgX = (PAGE_W - dispW) / 2;
-  const imgY = topY - dispH;
+  const imgY = areaBottom + (availH - dispH) / 2;
   ops.push(`q ${num(dispW)} 0 0 ${num(dispH)} ${num(imgX)} ${num(imgY)} cm /Im0 Do Q`);
-
-  // Swatch list, laid down inside the reserved block below the photo.
-  const sy = imgY - 22; // heading baseline
-  ops.push("0.28 0.26 0.24 rg");
-  ops.push(`BT /F1 11 Tf ${num(MARGIN)} ${num(sy)} Td (${pdfText("Colours in this option")}) Tj ET`);
-
-  entry.shades.forEach((shade, j) => {
-    const rowY = sy - 22 * (j + 1); // baseline of this row
-    const [r, g, b] = hexToRgb(shade.hex);
-    // Colour-preview swatch.
-    ops.push(`${num(r)} ${num(g)} ${num(b)} rg`);
-    ops.push(`${num(MARGIN)} ${num(rowY - 4)} 26 14 re f`);
-    // Thin border around the swatch so pale colours read on white paper.
-    ops.push("0.6 0.6 0.6 RG 0.6 w");
-    ops.push(`${num(MARGIN)} ${num(rowY - 4)} 26 14 re S`);
-    // Label · name · code · hex.
-    const parts = [shade.label + ":", shade.name];
-    if (shade.code) parts.push("Shade No. " + shade.code);
-    parts.push(shade.hex.toUpperCase());
-    ops.push("0.1 0.1 0.1 rg");
-    ops.push(`BT /F1 10 Tf ${num(MARGIN + 36)} ${num(rowY)} Td (${pdfText(parts.join("   ·   "))}) Tj ET`);
-  });
+  ops.push(`${RULE_STRONG} RG 1 w ${num(imgX)} ${num(imgY)} ${num(dispW)} ${num(dispH)} re S`);
 
   return ops.join("\n");
 }
 
 /**
  * Assemble the entries into a single PDF and return it as a Blob. Each entry is
- * one A4 page (painted photo on top, its shades listed underneath). Entries with
- * an unreadable JPEG are skipped; an empty list yields a one-line notice page.
+ * one branded A4 page (palette strip, header, framed photo, shade table, footer).
+ * Entries with an unreadable JPEG are skipped; an empty list yields a one-line
+ * notice page.
  */
 export function buildColourBoardPdf(entries: PdfImageEntry[], title = "HueVista"): Blob {
   const chunks: Uint8Array[] = [];
@@ -245,21 +391,26 @@ export function buildColourBoardPdf(entries: PdfImageEntry[], title = "HueVista"
   const fontId = addObject([
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
   ]);
+  const boldFontId = addObject([
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
+  ]);
+  const fontRes = `/Font << /F1 ${fontId} 0 R /F2 ${boldFontId} 0 R >>`;
 
+  const dateLine = formatDateLine(new Date());
   const usable = entries
     .map((e) => ({ entry: e, bytes: safeBytes(e.jpegDataUrl) }))
     .filter((e): e is { entry: PdfImageEntry; bytes: Uint8Array } => e.bytes !== null);
 
   const kids: number[] = [];
   if (usable.length === 0) {
-    // Degenerate case: a single page telling the user there was nothing to add.
-    const content = `BT /F1 14 Tf ${num(MARGIN)} ${num(PAGE_H - MARGIN - 20)} Td (${pdfText(
-      "No coloured images were added.",
-    )}) Tj ET`;
+    // Degenerate case: a branded page telling the user there was nothing to add.
+    const ops = pageChrome(["#7c5cff"], title, dateLine, 1, 1);
+    ops.push(textOp("F1", 12, MARGIN, PAGE_H - 160, "No coloured images were added.", MUTE));
+    const content = ops.join("\n");
     const contentId = addObject([`<< /Length ${latin1(content).length} >>\nstream\n`, content, "\nendstream"]);
     const pageId = addObject([
       `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(PAGE_W)} ${num(PAGE_H)}] ` +
-        `/Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`,
+        `/Resources << ${fontRes} >> /Contents ${contentId} 0 R >>`,
     ]);
     kids.push(pageId);
   } else {
@@ -271,7 +422,7 @@ export function buildColourBoardPdf(entries: PdfImageEntry[], title = "HueVista"
         bytes,
         "\nendstream",
       ]);
-      const content = pageContent(entry, w, h, title, i, usable.length);
+      const content = pageContent(entry, w, h, title, i, usable.length, dateLine);
       const contentBytes = latin1(content);
       const contentId = addObject([
         `<< /Length ${contentBytes.length} >>\nstream\n`,
@@ -280,7 +431,7 @@ export function buildColourBoardPdf(entries: PdfImageEntry[], title = "HueVista"
       ]);
       const pageId = addObject([
         `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(PAGE_W)} ${num(PAGE_H)}] ` +
-          `/Resources << /Font << /F1 ${fontId} 0 R >> /XObject << /Im0 ${imageId} 0 R >> >> ` +
+          `/Resources << ${fontRes} /XObject << /Im0 ${imageId} 0 R >> >> ` +
           `/Contents ${contentId} 0 R >>`,
       ]);
       kids.push(pageId);
