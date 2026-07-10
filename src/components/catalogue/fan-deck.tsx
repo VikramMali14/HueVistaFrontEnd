@@ -101,9 +101,11 @@ export function FanDeck({ shade, catalogue, onClose, onHoldToWall, hideCodes = f
                 }}
               >
                 <span style={{ font: `${isFocus ? 600 : 500} 14px/1.2 var(--sans)`, color: ink }}>{s.name}</span>
-                <span style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".14em", color: ink, opacity: 0.85, whiteSpace: "nowrap" }}>
-                  {hideCodes ? `LRV ${s.lrv}` : `${s.code} · LRV ${s.lrv}`}
-                </span>
+                {!hideCodes && (
+                  <span style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".14em", color: ink, opacity: 0.85, whiteSpace: "nowrap" }}>
+                    {s.code}
+                  </span>
+                )}
               </button>
             );
           })}

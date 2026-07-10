@@ -271,7 +271,7 @@ function SlotPicker({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, code or hex"
+            placeholder="Search name or code"
             aria-label={`Search a shade for ${label}`}
             style={{ width: "100%", padding: "9px 11px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "400 14px/1 var(--sans)" }}
           />

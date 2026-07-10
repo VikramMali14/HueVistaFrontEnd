@@ -296,6 +296,10 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   if (path === "api/me/retailer-combos" && method === "GET") {
     return json(store.combos);
   }
+  // The shop's shade-code scheme — same single-tenant resolution as the combos.
+  if (path === "api/me/shade-code-scheme" && method === "GET") {
+    return json(store.codeScheme);
+  }
   if (path === "api/billing/project-credit/order" && method === "POST") {
     const order: ProjectCreditOrder = { orderId: nextId("order"), amount: 9900, currency: "INR", razorpayKeyId: "rzp_test_demo" };
     return json(order);
@@ -400,6 +404,18 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
     if (seg[3] === "combos" && seg.length === 5 && method === "DELETE") {
       store.combos = store.combos.filter((c) => c.id !== seg[4]);
       return json(undefined);
+    }
+    // --- Shade-code scheme (one pattern for customer-facing codes) ---
+    if (tail === "shade-code-scheme" && method === "GET") return json(store.codeScheme);
+    if (tail === "shade-code-scheme" && method === "PUT") {
+      const body = await readJson(req);
+      const part = (v: unknown, max: number) => String(v ?? "").trim().toUpperCase().slice(0, max);
+      store.codeScheme = {
+        prefix: part(body.prefix, 4),
+        infix: part(body.infix, 2),
+        suffix: part(body.suffix, 4),
+      };
+      return json(store.codeScheme);
     }
     if (tail === "access-codes" && method === "GET") return json(store.accessCodes);
     if (tail === "access-codes" && method === "POST") {

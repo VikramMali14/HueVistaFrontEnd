@@ -333,14 +333,13 @@ function pageContent(
     // Paint chip, with a hairline border so pale colours read on white paper.
     ops.push(`${num(r)} ${num(g)} ${num(b)} rg ${num(MARGIN)} ${num(rowTop - 21)} 34 16 re f`);
     ops.push(`0.73 0.71 0.79 RG 0.6 w ${num(MARGIN)} ${num(rowTop - 21)} 34 16 re S`);
-    // Columns: region · shade name · shade number · hex (right-aligned).
+    // Columns: region · shade name · shade number (right side). No hex — the
+    // chip shows the colour; codes are what the counter works from.
     ops.push(textOp("F2", 9.5, MARGIN + 46, base, fitText(shade.label, 9.5, 128, true), INK));
     ops.push(textOp("F1", 10, MARGIN + 182, base, fitText(shade.name, 10, 148), INK));
     if (shade.code) {
-      ops.push(textOp("F1", 9.5, MARGIN + 338, base, fitText(`Shade No. ${shade.code}`, 9.5, 118), MUTE));
+      ops.push(textOp("F1", 9.5, MARGIN + 338, base, fitText(`Shade No. ${shade.code}`, 9.5, 170), MUTE));
     }
-    const hex = shade.hex.toUpperCase();
-    ops.push(textOp("F1", 9, right - textWidth(hex, 9), base, hex, MUTE));
     ops.push(hline(rowTop - ROW_H, MARGIN, right, RULE_SOFT));
   });
 

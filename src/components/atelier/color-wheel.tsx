@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { UndertoneTag } from "@/components/catalogue/undertone-tag";
 import { hexToHsv, hsvToHex, hsvToRgb, nearestShades, type HSV } from "@/lib/color";
-import { closenessRating, lrvFromHex } from "@/lib/color-science";
+import { closenessRating } from "@/lib/color-science";
 import type { PaintShade } from "@/lib/types";
 
 /** Chrome/Edge screen eyedropper — lets a user lift a colour off the room photo. */
@@ -190,6 +190,7 @@ export function CustomMatchPanel({
   activeRegionLabel,
   initialHex,
   hideCodes = false,
+  encodeCode,
 }: {
   onSelect: (shade: PaintShade) => void;
   /** Apply the picked colour exactly, without snapping to a catalogue shade. */
@@ -200,7 +201,10 @@ export function CustomMatchPanel({
   initialHex?: string;
   /** Guest mode: hide real shade codes (guests pick by colour; the shop reads codes). */
   hideCodes?: boolean;
+  /** With hideCodes: show this shop-scheme encoding of the code instead of nothing. */
+  encodeCode?: (code: string) => string;
 }) {
+  const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
   const seed = initialHex && HEX_RE.test(initialHex) ? initialHex : "#7C9CBF";
   const [hex, setHex] = useState(seed);
   const [text, setText] = useState(seed);
@@ -298,7 +302,6 @@ export function CustomMatchPanel({
       {HEX_RE.test(hex) && (
         <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <UndertoneTag hex={hex} prefix />
-          <Mono>≈ LRV {lrvFromHex(hex)}</Mono>
         </div>
       )}
 
@@ -342,8 +345,8 @@ export function CustomMatchPanel({
                 key={shade.code}
                 type="button"
                 onClick={() => onSelect(shade)}
-                title={hideCodes ? `${shade.name} · ${shade.brand}` : `${shade.name} · ${shade.code} · ${closenessRating(deltaE)}`}
-                aria-label={hideCodes ? `Apply ${shade.name}` : `Apply ${shade.name}, code ${shade.code}`}
+                title={codeLabel(shade.code) ? `${shade.name} · ${codeLabel(shade.code)} · ${closenessRating(deltaE)}` : `${shade.name} · ${shade.brand}`}
+                aria-label={codeLabel(shade.code) ? `Apply ${shade.name}, code ${codeLabel(shade.code)}` : `Apply ${shade.name}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -381,7 +384,7 @@ export function CustomMatchPanel({
                     {shade.name}
                   </span>
                   <Mono>
-                    {hideCodes ? shade.brand : `${shade.brand} · ${shade.code}`}
+                    {codeLabel(shade.code) ? `${shade.brand} · ${codeLabel(shade.code)}` : shade.brand}
                   </Mono>
                 </span>
                 <Mono brass={i === 0}>{closenessRating(deltaE)}</Mono>

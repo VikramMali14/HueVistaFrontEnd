@@ -221,7 +221,7 @@ async function renderBoardImage(
     ctx.fillText(s.name, PAD + 260, y + 56);
     ctx.fillStyle = "rgba(244,244,242,.55)";
     ctx.font = "400 26px 'IBM Plex Mono', monospace";
-    ctx.fillText(hideCodes ? `${s.hex.toUpperCase()} · LRV ${s.lrv}` : `${s.code} · ${s.hex.toUpperCase()} · LRV ${s.lrv}`, PAD + 260, y + 100);
+    ctx.fillText(hideCodes ? s.brand : `${s.code} · ${s.brand}`, PAD + 260, y + 100);
   });
 
   ctx.fillStyle = "rgba(244,244,242,.4)";
