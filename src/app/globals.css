@@ -2007,18 +2007,19 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
     width: 100vw;
     margin-left: calc(50% - 50vw);
     margin-right: calc(50% - 50vw);
-    margin-top: -20px;
+    margin-top: -40px;               /* cancel ALL of the app <main> top padding */
     margin-bottom: -96px;            /* cancel the app <main> bottom padding */
   }
   .hv-atelier-page .hv-visualizer {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 184px);     /* below the nav, down to the viewport floor */
+    /* The navbar is an auto-hide overlay on the studio (see AppNav), so the
+       workspace owns the entire viewport — image and colour panel fullscreen. */
+    height: 100vh;
     min-height: 420px;
     overflow: hidden;
     /* Edge-to-edge: drop the rounded frame so it reads as a full workspace. */
-    border-left: none;
-    border-right: none;
+    border: none;
     border-radius: 0;
     box-shadow: none;
   }

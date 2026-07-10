@@ -25,6 +25,12 @@ interface AppNavProps {
 export function AppNav({ user }: AppNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  // Studio mode: the workspace owns the whole viewport, so the navbar becomes
+  // an auto-hide overlay — hidden until the top edge is hovered (or the small
+  // handle is clicked), then it slides down over the canvas. Desktop only;
+  // below 900px the CSS keeps the nav in normal flow.
+  const studioMode = pathname.startsWith("/atelier");
+  const [revealed, setRevealed] = useState(false);
   const visibleTabs = TABS.filter((t) => {
     if (t.href === "/portal" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     if (t.href === "/products" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
@@ -40,10 +46,21 @@ export function AppNav({ user }: AppNavProps) {
   // earlier drawer via the .nav-wide rules below.
   const wideNav = visibleTabs.length > 5;
 
-  // Auto-close the drawer on route change.
+  // Auto-close the drawer (and the studio overlay) on route change.
   useEffect(() => {
     setOpen(false);
+    setRevealed(false);
   }, [pathname]);
+
+  // Studio overlay: Escape tucks the navbar away again.
+  useEffect(() => {
+    if (!studioMode || !revealed) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setRevealed(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [studioMode, revealed]);
 
   // Lock body scroll while the drawer is open.
   useEffect(() => {
@@ -56,7 +73,29 @@ export function AppNav({ user }: AppNavProps) {
   }, [open]);
 
   return (
-    <header>
+    <header
+      className={studioMode ? `app-header-studio${revealed || open ? " is-revealed" : ""}` : undefined}
+      onMouseLeave={studioMode && !open ? () => setRevealed(false) : undefined}
+      onFocusCapture={studioMode ? () => setRevealed(true) : undefined}
+    >
+      {studioMode && (
+        <>
+          {/* Invisible hot zone along the very top edge — hovering it slides the nav in. */}
+          <div className="studio-nav-hotzone" aria-hidden onMouseEnter={() => setRevealed(true)} />
+          <button
+            type="button"
+            className={`studio-nav-handle${revealed || open ? " is-hidden" : ""}`}
+            aria-label="Show navigation"
+            aria-expanded={revealed}
+            onMouseEnter={() => setRevealed(true)}
+            onClick={() => setRevealed((v) => !v)}
+          >
+            <MenuIcon size={13} />
+            <span>Menu</span>
+          </button>
+        </>
+      )}
+      <div className="app-header-slide">
       <div className="masthead-strip">
         <span>
           <span className="dot" />
@@ -143,6 +182,7 @@ export function AppNav({ user }: AppNavProps) {
           onClick={() => setOpen(false)}
         />
       )}
+      </div>
       <style>{`
         .masthead-strip { background: var(--bg-deep); color: var(--fg-soft); border-bottom: 1px solid var(--rule); padding: 10px var(--gutter); font: 400 10px/1 var(--mono); letter-spacing: .32em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; }
         .masthead-strip .dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
@@ -156,6 +196,36 @@ export function AppNav({ user }: AppNavProps) {
         .app-nav-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .app-tabs.is-mobile { display: none; }
         .app-drawer-meta { display: none; }
+        /* ── Studio (atelier): auto-hide navbar ─────────────────────────
+           The header becomes a fixed, click-through shell pinned to the top
+           of the viewport; the actual bar lives in .app-header-slide, which
+           is tucked away above the screen until the top edge is hovered,
+           the handle is clicked, or focus lands inside (keyboard users).
+           The workspace below owns the full viewport height. */
+        .app-header-studio { position: fixed; top: 0; left: 0; right: 0; z-index: 80; pointer-events: none; }
+        .app-header-studio .app-header-slide { transform: translateY(-112%); transition: transform .32s var(--ease); pointer-events: auto; }
+        .app-header-studio.is-revealed .app-header-slide { transform: none; }
+        .studio-nav-hotzone { position: absolute; top: 0; left: 0; right: 0; height: 12px; pointer-events: auto; }
+        .studio-nav-handle {
+          position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 6px 16px 8px;
+          background: var(--nav-bg); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
+          border: 1px solid var(--rule-strong); border-top: none; border-radius: 0 0 12px 12px;
+          color: var(--fg-mute); font: 400 10px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase;
+          cursor: pointer; pointer-events: auto;
+          transition: color .2s var(--ease), opacity .25s var(--ease);
+        }
+        .studio-nav-handle:hover { color: var(--fg); }
+        .studio-nav-handle:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+        .studio-nav-handle.is-hidden { opacity: 0; pointer-events: none; }
+        /* Below the desktop workspace breakpoint the studio stacks and scrolls
+           like any page — keep the navbar in normal flow there. */
+        @media (max-width: 900px) {
+          .app-header-studio { position: static; pointer-events: auto; }
+          .app-header-studio .app-header-slide { transform: none; }
+          .studio-nav-hotzone, .studio-nav-handle { display: none; }
+        }
         /* Wide tab sets (ADMIN): tighten the row so 7 tabs + the user block fit
            on one line down to ~1200px… */
         @media (max-width: 1600px) {
@@ -204,9 +274,9 @@ export function AppNav({ user }: AppNavProps) {
   );
 }
 
-function MenuIcon() {
+function MenuIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
       <path d="M4 7h16M4 12h16M4 17h16" />
     </svg>
   );
