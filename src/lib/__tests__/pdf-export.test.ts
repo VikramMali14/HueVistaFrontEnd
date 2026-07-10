@@ -56,6 +56,12 @@ describe("buildColourBoardPdf", () => {
     // Shade text rendered onto the page.
     expect(text).toContain("Shade No. 7112");
     expect(text).toContain("Off White");
+    // Branded chrome: both Helvetica faces, footer brand and page numbers.
+    expect(text).toContain("/BaseFont /Helvetica ");
+    expect(text).toContain("/BaseFont /Helvetica-Bold");
+    expect(text).toContain("Made with HueVista");
+    expect(text).toContain("Page 1 of 2");
+    expect(text).toContain("Page 2 of 2");
   });
 
   it("caps the caller's collection at what it is given (8 max enforced upstream)", async () => {
