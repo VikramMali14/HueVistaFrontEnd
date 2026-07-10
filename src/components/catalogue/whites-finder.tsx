@@ -79,7 +79,7 @@ export function WhitesFinder({ shades }: { shades: ReadonlyArray<PaintShade> }) 
               type="button"
               onClick={() => togglePick(s)}
               aria-pressed={sel}
-              aria-label={`${s.name}, ${TINT_LABELS[whiteTint(s.hex)]}, LRV ${s.lrv}. ${sel ? "Remove from" : "Add to"} A/B compare.`}
+              aria-label={`${s.name}, ${TINT_LABELS[whiteTint(s.hex)]}. ${sel ? "Remove from" : "Add to"} A/B compare.`}
               style={{ display: "block", padding: 0, background: "transparent", border: "none", textAlign: "left", cursor: "pointer" }}
             >
               <div
@@ -101,7 +101,7 @@ export function WhitesFinder({ shades }: { shades: ReadonlyArray<PaintShade> }) 
               </div>
               <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
                 <span style={{ font: "500 14px/1.2 var(--sans)", color: "var(--fg)" }}>{s.name}</span>
-                <Mono>{whiteTint(s.hex)} · LRV {s.lrv}</Mono>
+                <Mono>{whiteTint(s.hex)} · {s.code}</Mono>
               </div>
             </button>
           );

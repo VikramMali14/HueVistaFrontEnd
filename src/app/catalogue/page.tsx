@@ -14,7 +14,7 @@ import { Harmonies } from "@/components/catalogue/harmonies";
 
 export const metadata: Metadata = {
   title: "Catalogue",
-  description: "Thousands of paint shades with real codes across every company we carry. Search by name, code or hex; filter by colour family and finish.",
+  description: "Thousands of paint shades with real codes across every company we carry. Search by name or code; filter by colour family and finish.",
 };
 
 export default async function CataloguePage() {
@@ -34,7 +34,7 @@ export default async function CataloguePage() {
             <Mono>{shades.length.toLocaleString("en-IN")} shades · {brandLine} · more to follow</Mono>
           </div>
           <h1 className="display">Every shade.<br /><i>Codes intact.</i></h1>
-          <Lead className="page-lead">{brands.join(", ")} — with more companies to follow. Filter by colour family, finish, or light value (LRV). Search by code, name, or hex.</Lead>
+          <Lead className="page-lead">{brands.join(", ")} — with more companies to follow. Filter by colour family, finish, or depth. Search by shade code or name.</Lead>
         </header>
 
         <section style={{ paddingTop: 80 }}>

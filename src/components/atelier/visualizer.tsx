@@ -27,6 +27,7 @@ import {
 } from "@/lib/pdf-export";
 import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
 import { undertoneClash } from "@/lib/color-science";
+import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraProject } from "@/lib/payments";
 import type {
@@ -233,6 +234,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // resolved server-side for whoever is visualising (retailer staff, entitled
   // customer, or guest). Empty (section hidden) when there's no shop to show.
   const [shopCombos, setShopCombos] = useState<RetailerCombo[]>([]);
+  // The shop's shade-code scheme. Guests see codes ENCODED with it (instead of
+  // no codes at all), so the counter reads the shade straight off their screen.
+  const [codeScheme, setCodeScheme] = useState<ShadeCodeScheme | null>(null);
 
   // "Add to PDF" colour board: up to MAX_PDF_PAGES snapshots of the recoloured
   // canvas, each with the shades applied on it, downloadable as one PDF.
@@ -273,6 +277,27 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       cancelled = true;
     };
   }, []);
+
+  // The shade-code scheme only changes what GUESTS see, so only guests fetch it.
+  // Best-effort: on failure codes just stay hidden, exactly as without a scheme.
+  useEffect(() => {
+    if (!guest) return;
+    let cancelled = false;
+    api.getMyShadeCodeScheme()
+      .then((scheme) => {
+        if (!cancelled && hasScheme(scheme)) setCodeScheme(scheme);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [guest]);
+
+  // Guests with a scheme see encoded codes wherever a signed-in user sees real ones.
+  const encodeCode = useMemo(
+    () => (codeScheme ? (code: string) => encodeShadeCode(codeScheme, code) : undefined),
+    [codeScheme],
+  );
 
   useEffect(() => {
     if (saveStatus !== "saved") {
@@ -976,14 +1001,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     const shades = painted.map((r) => ({
       label: r.label,
       name: r.shade?.name ?? "Custom colour",
-      // Guests never see real shade codes (the shop reads them); custom colours
-      // have no code, so fall back to the hex shown on the row.
-      code: guest ? undefined : r.shade?.code,
+      // Guests never see real shade codes — with a shop scheme the PDF carries
+      // the encoded code (the counter decodes it); without one, no code at all.
+      code: guest
+        ? r.shade && encodeCode
+          ? encodeCode(r.shade.code)
+          : undefined
+        : r.shade?.code,
       hex: r.hex,
     }));
     setPdfPages((prev) => [...prev, { jpegDataUrl: jpeg, shades }]);
     setPdfNotice(null);
-  }, [imageUrl, regions, pdfPages.length, guest]);
+  }, [imageUrl, regions, pdfPages.length, guest, encodeCode]);
 
   const removePdfPage = useCallback((index: number) => {
     setPdfPages((prev) => prev.filter((_, i) => i !== index));
@@ -1516,6 +1545,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             regions={regionLites}
             onApplyToRegion={applyShadeTo}
             hideCodes={guest}
+            encodeCode={encodeCode}
             onSelectRegion={(id) => setActiveRegion(id)}
             onAddWall={() => setMaskStudioOpen(true)}
             onDeleteWall={handleDeleteWall}

@@ -61,9 +61,11 @@ export function FullscreenSwatch({ shades, onClose, hideCodes = false }: Fullscr
             }}
           >
             <span style={{ font: "600 16px/1.2 var(--sans)" }}>{s.name}</span>
-            <span style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", opacity: 0.8 }}>
-              {hideCodes ? `LRV ${s.lrv}` : `${s.code} · LRV ${s.lrv}`}
-            </span>
+            {!hideCodes && (
+              <span style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", opacity: 0.8 }}>
+                {s.code}
+              </span>
+            )}
           </div>
         </div>
       ))}

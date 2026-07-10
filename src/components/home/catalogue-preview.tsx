@@ -16,7 +16,7 @@ export function CataloguePreview() {
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <Eyebrow>The catalogue</Eyebrow>
           <h2 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Every shade. <i>Codes intact.</i></h2>
-          <Lead>Filter by colour family, finish, or light value (LRV). Search by code, name or hex. Find what looks closest across brands by colour science — not by approximation.</Lead>
+          <Lead>Filter by colour family, finish, or depth. Search by shade code or name. Find what looks closest across brands by colour science — not by approximation.</Lead>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
             <LinkButton href="/catalogue">Browse the catalogue <span className="arr">→</span></LinkButton>
             <LinkButton href="/gallery" variant="ghost">See it on real walls <span className="arr">→</span></LinkButton>

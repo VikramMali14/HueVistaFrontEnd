@@ -31,6 +31,8 @@ const ALLOWED_PREFIXES = [
   "api/me/entitlement",
   // The shop's suggested combinations for whoever is visualising (studio AI tab).
   "api/me/retailer-combos",
+  // The shop's shade-code scheme — the studio encodes displayed codes with it.
+  "api/me/shade-code-scheme",
   "api/billing/project-credit",
   "api/billing/subscriptions",
   "api/billing/plans",

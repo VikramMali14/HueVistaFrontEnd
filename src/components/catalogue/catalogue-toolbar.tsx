@@ -15,11 +15,12 @@ const PAGE_SIZE = 96;
 
 const ALL_BRANDS = "All brands";
 const ALL_FAMILIES = "All families";
+// Depth buckets over the light-reflectance data — shown as words, never numbers.
 const LRV_RANGES: ReadonlyArray<{ id: string; min: number; max: number }> = [
-  { id: "0 — 100", min: 0, max: 100 },
-  { id: "Under 25", min: 0, max: 25 },
-  { id: "25 — 60", min: 25, max: 60 },
-  { id: "Over 60", min: 60, max: 100 },
+  { id: "All", min: 0, max: 100 },
+  { id: "Light", min: 60, max: 100 },
+  { id: "Medium", min: 25, max: 60 },
+  { id: "Deep", min: 0, max: 25 },
 ];
 const SORTS = ["hue", "lightness", "family", "company", "code"] as const;
 type SortBy = (typeof SORTS)[number];
@@ -97,7 +98,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   const [family, setFamily] = useState(ALL_FAMILIES);
   const [brand, setBrand] = useState<string>(ALL_BRANDS);
   const [finish, setFinish] = useState<string>("All");
-  const [lrv, setLrv] = useState<(typeof LRV_RANGES)[number]["id"]>("0 — 100");
+  const [lrv, setLrv] = useState<(typeof LRV_RANGES)[number]["id"]>("All");
   const [sortBy, setSortBy] = useState<SortBy>("hue");
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -194,7 +195,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   }, [filtered, sortBy]);
 
   const clearAll = () => {
-    setQuery(""); setFamily(ALL_FAMILIES); setBrand(ALL_BRANDS); setFinish("All"); setLrv("0 — 100"); setVisible(PAGE_SIZE);
+    setQuery(""); setFamily(ALL_FAMILIES); setBrand(ALL_BRANDS); setFinish("All"); setLrv("All"); setVisible(PAGE_SIZE);
   };
 
   const shown = sorted.slice(0, visible);
@@ -202,7 +203,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
     family !== ALL_FAMILIES ? family
     : finish !== "All" ? finish
     : query.trim() ? `“${query.trim()}”`
-    : lrv !== "0 — 100" ? `LRV ${lrv}`
+    : lrv !== "All" ? `${lrv.toLowerCase()} shades`
     : "this filter combination";
 
   return (
@@ -213,14 +214,14 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
           <input
             value={query}
             onChange={(e) => { setQuery(e.target.value); setVisible(PAGE_SIZE); }}
-            placeholder="shade, code, or hex…"
-            aria-label="Search shades by name, code, or hex"
+            placeholder="shade name or code…"
+            aria-label="Search shades by name or code"
             style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--fg)", font: "400 16px/1 var(--serif)" }}
           />
         </div>
         <FilterDropdown id="brand" label="Brand" value={brand} options={brandOptions} soon={brandsSoon} onChange={(v) => { setBrand(v); setVisible(PAGE_SIZE); }} openId={openId} setOpenId={setOpenId} />
         <FilterDropdown id="finish" label="Finish" value={finish} options={finishOptions} onChange={(v) => { setFinish(v); setVisible(PAGE_SIZE); }} openId={openId} setOpenId={setOpenId} />
-        <FilterDropdown id="lrv" label="LRV" value={lrv} options={LRV_RANGES.map((r) => r.id)} onChange={(v) => { setLrv(v as never); setVisible(PAGE_SIZE); }} openId={openId} setOpenId={setOpenId} />
+        <FilterDropdown id="lrv" label="Depth" value={lrv} options={LRV_RANGES.map((r) => r.id)} onChange={(v) => { setLrv(v as never); setVisible(PAGE_SIZE); }} openId={openId} setOpenId={setOpenId} />
         <button type="button" onClick={clearAll} style={{ padding: "18px 20px", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase" }}>Clear</button>
       </div>
 
@@ -275,11 +276,11 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
                 >
                   <div className="hv-shade-swatch" style={{ aspectRatio: "1 / 1.1", position: "relative", background: s.hex, overflow: "hidden", boxShadow: "0 1px 0 rgba(255,255,255,.06) inset, 0 20px 40px -20px rgba(0,0,0,.6)" }}>
                     <span style={{ position: "absolute", top: 14, right: 14, font: "400 14px/1 var(--serif)", color: ink }}>{s.code.split("-")[1]}</span>
-                    <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 9px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: inkSoft }}>LRV {s.lrv}</span>
+                    <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 9px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: inkSoft }}>{s.brand}</span>
                   </div>
                   <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
                     <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{s.name}</span>
-                    <Mono>{copied === s.code ? `${s.code} · copied` : `${s.code} · ${s.hex}`}</Mono>
+                    <Mono>{copied === s.code ? `${s.code} · copied` : s.code}</Mono>
                   </div>
                 </button>
                 {/* Tool row: heart · compare · strip (the strip's footer holds

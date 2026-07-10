@@ -29,13 +29,20 @@ export function CoordinateSuggestions({
   regions,
   catalogue,
   onApplyToRegion,
+  hideCodes = false,
+  encodeCode,
 }: {
   baseHex: string;
   activeRegionId: string;
   regions: ReadonlyArray<RegionLite>;
   catalogue: ReadonlyArray<PaintShade>;
   onApplyToRegion: (regionId: string, shade: PaintShade) => void;
+  /** Guest mode: hide real shade codes (guests pick by colour; the shop reads codes). */
+  hideCodes?: boolean;
+  /** With hideCodes: show this shop-scheme encoding of the code instead of nothing. */
+  encodeCode?: (code: string) => string;
 }) {
+  const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
 
   const groups = useMemo(() => {
     // Start by excluding colours already placed on a wall, then grow the exclude
@@ -104,7 +111,7 @@ export function CoordinateSuggestions({
                   key={s.code}
                   type="button"
                   onClick={() => onApplyToRegion(region.id, s)}
-                  title={`${s.name} · ${s.code} → ${region.label}`}
+                  title={codeLabel(s.code) ? `${s.name} · ${codeLabel(s.code)} → ${region.label}` : `${s.name} → ${region.label}`}
                   aria-label={`Apply ${s.name} to ${region.label}`}
                   style={{
                     flex: 1,
@@ -137,7 +144,7 @@ export function CoordinateSuggestions({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {s.code}
+                    {codeLabel(s.code) ?? s.name}
                   </span>
                 </button>
               ))}

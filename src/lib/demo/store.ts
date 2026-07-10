@@ -21,6 +21,7 @@ import type {
   SupportConversationSummary,
   WalletSummary,
 } from "../types";
+import type { ShadeCodeScheme } from "../shade-codes";
 import {
   DEMO_ACCESS_CODES,
   DEMO_BRANDS,
@@ -54,6 +55,8 @@ export interface DemoStore {
   entitlement: CustomerEntitlement;
   storeLinks: StoreLink[];
   wallet: WalletSummary;
+  /** The shop's shade-code scheme (customer codes derive from this one pattern). */
+  codeScheme: ShadeCodeScheme;
   /** Monotonic counter for generated numeric ids (regions, etc.). */
   seq: number;
 }
@@ -80,6 +83,8 @@ function seed(): DemoStore {
     entitlement: clone(DEMO_ENTITLEMENT),
     storeLinks: clone(DEMO_STORE_LINKS),
     wallet: clone(DEMO_WALLET),
+    // Mehta Paints reads shade L124 as MPL1K24 at the counter.
+    codeScheme: { prefix: "MP", infix: "K", suffix: "" },
     seq: 1000,
   };
 }

@@ -13,6 +13,7 @@ const PUBLIC_LINKS = [
   { href: "/gallery", label: "Gallery" },
   { href: "/pricing", label: "Pricing" },
   { href: "/journal", label: "Journal" },
+  { href: "/redeem", label: "Redeem" },
 ] as const;
 
 interface NavProps {
@@ -74,7 +75,6 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
         { href: "/dashboard", label: "Dashboard" },
         { href: "/atelier", label: "Studio" },
         ...PUBLIC_LINKS,
-        { href: "/redeem", label: "Redeem code" },
       ]
     : [
         ...PUBLIC_LINKS,

@@ -129,7 +129,7 @@ export function FabricPalette({ shades }: { shades: ReadonlyArray<PaintShade> })
                     <Mono>{label}</Mono>
                     <span style={{ font: "600 15px/1.2 var(--sans)", color: "var(--fg)" }}>{s.name}</span>
                     <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                      <Mono>{s.code} · LRV {s.lrv}</Mono>
+                      <Mono>{s.code} · {s.brand}</Mono>
                       <UndertoneTag hex={s.hex} />
                     </span>
                   </div>

@@ -6,6 +6,7 @@ import { AccessCodes } from "@/components/app/access-codes";
 import { PortalSubdomain } from "@/components/app/portal-subdomain";
 import { StoreKioskPanel } from "@/components/app/store-kiosk-panel";
 import { ShopCombos } from "@/components/app/shop-combos";
+import { ShadeCodePanel } from "@/components/app/shade-code-panel";
 import { getCatalogueOrSample } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
@@ -46,6 +47,19 @@ export default async function PortalPage() {
           tab as soon as their photo is up, labelled with your shop&apos;s name.
         </p>
         <ShopCombos shades={shades} />
+      </section>
+      <section style={{ marginBottom: 56 }}>
+        <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
+          Shade codes your customers see
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+          One pattern instead of a custom code per shade. Add a prefix (up to 4 characters), a pair
+          inserted after the first two characters of the real code, and a suffix (up to 4) — shade
+          L124 with prefix AB, pair XY and suffix CD reads ABL1XY24CD. Customers see only the coded
+          number; you read the real shade straight off their screen, and the checker below decodes
+          any code without opening a project.
+        </p>
+        <ShadeCodePanel shades={shades} />
       </section>
       <section style={{ marginBottom: 56 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>

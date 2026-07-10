@@ -604,6 +604,20 @@ export const api = {
   // for retailer staff, the entitling shop for customers, the code's shop for guests).
   getRetailerCombos: () =>
     browserFetch<import("./types").RetailerCombo[]>("api/me/retailer-combos"),
+  // --- Retailer: shade-code scheme (customer-facing codes derive from ONE pattern) ---
+  getShadeCodeScheme: (orgId: string) =>
+    browserFetch<import("./shade-codes").ShadeCodeScheme>(
+      `api/organizations/${encodeURIComponent(orgId)}/shade-code-scheme`,
+    ),
+  updateShadeCodeScheme: (orgId: string, body: import("./shade-codes").ShadeCodeScheme) =>
+    browserFetch<import("./shade-codes").ShadeCodeScheme>(
+      `api/organizations/${encodeURIComponent(orgId)}/shade-code-scheme`,
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
+  // The scheme the studio should encode codes with for the CALLER (resolved the
+  // same way as retailer combos). All parts empty = no scheme.
+  getMyShadeCodeScheme: () =>
+    browserFetch<import("./shade-codes").ShadeCodeScheme>("api/me/shade-code-scheme"),
   // --- Retailer: public store kiosk links + earnings wallet ---
   listStoreLinks: (orgId: string) =>
     browserFetch<import("./types").StoreLink[]>(
