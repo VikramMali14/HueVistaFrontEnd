@@ -13,7 +13,7 @@ import type { RegionLite } from "./coordinate-suggestions";
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
-import type { RecolorEngine } from "@/lib/recolor-engine";
+import { SOFT_EDGE_FEATHER_PX, type RecolorEngine } from "@/lib/recolor-engine";
 import {
   PollCancelledError,
   pollUntilSegmented as pollSegmentationStatus,
@@ -78,9 +78,9 @@ const MAX_CUSTOM_MASKS = 3;
 const MAX_PDF_PAGES = 8;
 
 const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
-  { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#ffffff" },
-  { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#ffffff" },
-  { id: "trim", kind: "TRIM", label: "Border", hex: "#ffffff" },
+  { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#e8d5b0" },
+  { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#b0603e" },
+  { id: "trim", kind: "TRIM", label: "Border", hex: "#4a362a" },
 ];
 
 const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
@@ -93,14 +93,15 @@ const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
 
 // Fallback swatches used only when the backend hasn't supplied an appliedHexCode
 // (e.g. the pre-upload placeholders and hand-drawn masks). Auto-detected regions
-// arrive already painted with the scene's reference colour from segmentation
-// (white), so main/accent/trim default to white here too — the image opens with
-// every wall, border and trim painted a clean white, matching the backend
-// reference palette (SegmentationService#defaultHexFor + ImageCleanerService).
+// arrive already painted with the scene's reference colour from segmentation, so
+// main/accent/trim mirror the backend's exterior reference palette here
+// (SegmentationService#defaultHexFor MUST stay in sync): the project opens with
+// a Cashmere Beige body, a Burnt Sienna feature wall and Dark Clove trim rather
+// than a flat all-white house.
 const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
-  MAIN_WALL: "#ffffff",
-  ACCENT_WALL: "#ffffff",
-  TRIM: "#ffffff",
+  MAIN_WALL: "#e8d5b0",   // Cashmere Beige (0342)
+  ACCENT_WALL: "#b0603e", // Burnt Sienna (6118)
+  TRIM: "#4a362a",        // Dark Clove (8511)
   MANUAL: "#ffffff",
 };
 
@@ -169,6 +170,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const failedSavesRef = useRef<Array<() => Promise<void>>>([]);
   const [stage, setStage] = useState<PipelineStage>("upload");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  // True when the canvas is the backend's CLEANED image (paintable surfaces
+  // repainted fresh white). Enables scene-light anchored shading: the paint
+  // follows the photo's own light — an evening shot stays an evening shot —
+  // instead of brightening every wall up to the swatch's showroom colour.
+  const [canvasCleaned, setCanvasCleaned] = useState(false);
   const [classification, setClassification] = useState<"INDOOR" | "OUTDOOR" | "UNKNOWN" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -219,10 +225,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [details, setDetails] = useState<ProjectDetails | null>(
     initialName ? { name: initialName } : null,
   );
-  // Shadow / relief preservation — always on at 85%; the visible toggle
-  // and intensity slider were retired.
-  const shadowOn = true;
+  // Shadow / relief preservation — ON by default (85% strength), with a
+  // visible toggle in the canvas toolbar for users who want the flat exact
+  // swatch instead of the photo's own light on the paint.
+  const [shadowOn, setShadowOn] = useState(true);
   const shadowStrength = 0.85;
+  // "Soft edges" — feathers the mask boundary a couple of px. OFF by default
+  // (crisp edges align exactly with the surface); turning it ON hides the hard
+  // seam on photos where the AI mask sits a pixel or two off the real edge.
+  const [softEdge, setSoftEdge] = useState(false);
   // Manual mask studio.
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
   const [savingMask, setSavingMask] = useState(false);
@@ -353,6 +364,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     if (!rc || !imageUrl) return;
     let cancelled = false;
 
+    // Feather (or un-feather) the mask edges before painting — a no-op unless
+    // the "soft edges" toggle changed since the engine last rendered.
+    rc.setMaskFeather?.(softEdge ? SOFT_EDGE_FEATHER_PX : 0);
+
     (async () => {
       if (compare) {
         rc.renderBase();
@@ -387,6 +402,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           target: hexToRgb01(r.hex),
           preserve: shadowOn ? shadowStrength : 0,
           baseL,
+          anchor: canvasCleaned,
         });
       }
       if (cancelled) return;
@@ -396,7 +412,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => {
       cancelled = true;
     };
-  }, [regions, imageUrl, compare, shadowOn, shadowStrength, loadMask]);
+  }, [regions, imageUrl, compare, shadowOn, shadowStrength, softEdge, canvasCleaned, loadMask]);
 
   useEffect(() => {
     return () => {
@@ -436,6 +452,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           baseLumaRef.current.clear();
           rc.setImage(img);
           setImageUrl(canvasUrl);
+          setCanvasCleaned(Boolean(detail.cleanedImageUrl));
           setImageDims({ w: img.naturalWidth, h: img.naturalHeight });
         } catch (err) {
           if (process.env.NODE_ENV !== "production") {
@@ -603,6 +620,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         srcImgRef.current = img;
         recolorRef.current?.setImage(img);
         recolorRef.current?.renderBase();
+        setCanvasCleaned(false); // raw local photo — not the cleaned canvas
         setImageUrl((prev) => {
           if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
           return localUrl;
@@ -668,6 +686,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     srcImgRef.current = null;
     setImageDims(null);
     setStage("upload");
+    setCanvasCleaned(false);
     setImageUrl((prev) => {
       if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
       return null;
@@ -1281,6 +1300,50 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 e.target.value = "";
               }}
             />
+            {imageUrl && !pendingFile && !uploading && !segmenting && (
+              /* Floating preview options (glass, top-left): shadow preservation
+                 and soft mask edges — both re-render the canvas instantly. */
+              <div className="hv-studio-floatbar" role="group" aria-label="Preview options">
+                <div className="hv-studio-tool">
+                  <span className="hv-studio-tool-label">
+                    <span className="hv-studio-tool-icon"><ShadowIcon /></span>
+                    Shadows
+                  </span>
+                  <button
+                    type="button"
+                    className="hv-switch"
+                    role="switch"
+                    aria-checked={shadowOn}
+                    data-on={shadowOn}
+                    title={shadowOn
+                      ? "Shadows on — the paint follows the photo's own light"
+                      : "Shadows off — flat exact swatch colour"}
+                    onClick={() => setShadowOn((v) => !v)}
+                  >
+                    <span className="hv-switch-knob" />
+                  </button>
+                </div>
+                <div className="hv-studio-tool">
+                  <span className="hv-studio-tool-label">
+                    <span className="hv-studio-tool-icon"><SoftEdgeIcon /></span>
+                    Soft edges
+                  </span>
+                  <button
+                    type="button"
+                    className="hv-switch"
+                    role="switch"
+                    aria-checked={softEdge}
+                    data-on={softEdge}
+                    title={softEdge
+                      ? "Soft edges on — mask borders blend over a couple of pixels"
+                      : "Soft edges off — crisp mask borders"}
+                    onClick={() => setSoftEdge((v) => !v)}
+                  >
+                    <span className="hv-switch-knob" />
+                  </button>
+                </div>
+              </div>
+            )}
             {imageUrl && !pendingFile && (
               <>
                 {/* HOLD-TO-PEEK — press and hold to see the original photo */}
@@ -1576,6 +1639,25 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
 
     </div>
+  );
+}
+
+function ShadowIcon() {
+  // Half-filled circle — light and shade.
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function SoftEdgeIcon() {
+  // Droplet — the classic "blur" glyph.
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3.5c3.3 4 6.5 7.2 6.5 10.5a6.5 6.5 0 1 1-13 0C5.5 10.7 8.7 7.5 12 3.5z" />
+    </svg>
   );
 }
 

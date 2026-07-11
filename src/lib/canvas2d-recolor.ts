@@ -22,12 +22,18 @@
  */
 
 import type { RecolorEngine, RecolorSource, RegionPaint } from "./recolor-engine";
-import { featherRadius } from "./recolor-engine";
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
 /** The shader clamps its relief ratio to [0.30, 2.4]; cap our gain the same way. */
 const MAX_GAIN = 2.4;
+
+/** sRGB value of fresh white paint (LRV ~85) — mirrors the GL shader's
+ *  REF_WHITE. In anchored mode (cleaned canvas, surfaces known white) the
+ *  multiply pass is gained back by 1/REF_WHITE instead of 1/baseL, so the
+ *  paint keeps the photo's own light level rather than averaging to the
+ *  full-brightness swatch. */
+const REF_WHITE_L = 0.94;
 
 /** Subtle surface grain tile so a flat fill reads as painted plaster, mirroring
  *  the GL shader's u_grain. Built once and tiled over each region layer. */
@@ -77,6 +83,8 @@ export class Canvas2DRecolor implements RecolorEngine {
   private shadeCtx: CanvasRenderingContext2D;
   /** Static grain tile, built once, tiled over each region layer for surface texture. */
   private grainTile: HTMLCanvasElement | null;
+  /** Mask-edge feather radius in px; 0 (default) keeps edges crisp. */
+  private featherPx = 0;
 
   constructor(public readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -131,6 +139,18 @@ export class Canvas2DRecolor implements RecolorEngine {
     this.renderRegions([]);
   }
 
+  /**
+   * Sets the mask-edge feather radius (the studio's "soft edges" toggle).
+   * 0 = crisp edges, the default. Cached alpha masks were built with the OLD
+   * radius baked in, so a change drops them — they rebuild on the next render.
+   */
+  setMaskFeather(radius: number) {
+    const px = Math.max(0, radius);
+    if (px === this.featherPx) return;
+    this.featherPx = px;
+    this.alphaMaskCache.clear();
+  }
+
   exportPng(): string { return this.canvas.toDataURL("image/png"); }
 
   dispose() {
@@ -162,7 +182,8 @@ export class Canvas2DRecolor implements RecolorEngine {
 
     const preserve = clamp01(r.preserve ?? 0);
     const baseL = Math.max(0, r.baseL ?? 0);
-    if (preserve > 0.001 && baseL > 0.001 && this.source) {
+    const anchored = r.anchor === true;
+    if (preserve > 0.001 && (baseL > 0.001 || anchored) && this.source) {
       const shade = this.shadeLayer;
       if (shade.width !== w || shade.height !== h) {
         shade.width = w;
@@ -178,11 +199,15 @@ export class Canvas2DRecolor implements RecolorEngine {
       sctx.globalCompositeOperation = "multiply";
       sctx.fillStyle = cssColor(r.target);
       sctx.fillRect(0, 0, w, h);
-      // Multiplying dimmed the region by ~baseL relative to the shader (which
-      // normalises by the region's mean luminance). Gain it back additively:
-      // each 'lighter' self-draw at alpha a multiplies the layer by (1 + a).
+      // Multiplying dimmed the region relative to the shader's neutral point.
+      // Gain it back additively: each 'lighter' self-draw at alpha a multiplies
+      // the layer by (1 + a). Anchored (cleaned canvas, surfaces known white):
+      // the neutral is fresh-white albedo, so the paint keeps the photo's own
+      // light level. Legacy: the neutral is the region's mean luminance, so the
+      // region's AVERAGE still lands on the swatch.
       sctx.globalCompositeOperation = "lighter";
-      let remaining = Math.min(MAX_GAIN, 1 / Math.max(baseL, 1 / MAX_GAIN));
+      const neutral = anchored ? REF_WHITE_L : baseL;
+      let remaining = Math.min(MAX_GAIN, 1 / Math.max(neutral, 1 / MAX_GAIN));
       while (remaining > 1.01) {
         const a = Math.min(1, remaining - 1);
         sctx.globalAlpha = a;
@@ -238,11 +263,12 @@ export class Canvas2DRecolor implements RecolorEngine {
       c.height = h;
       const cctx = c.getContext("2d", { willReadFrequently: true });
       if (cctx) {
-        // Feathering is disabled ({@link featherRadius} returns 0) so the region
-        // keeps a crisp edge exactly on the surface boundary — the softened edge
-        // read as a visible "blur"/glow around recoloured walls and borders. Only
-        // apply the blur filter if a positive feather is ever reintroduced.
-        const radius = featherRadius();
+        // Feathering is off by default (featherPx = 0) so the region keeps a
+        // crisp edge exactly on the surface boundary — the softened edge read
+        // as a visible "blur"/glow around recoloured walls and borders. The
+        // studio's "soft edges" toggle opts in via setMaskFeather for photos
+        // where the mask sits a pixel or two off the real boundary.
+        const radius = this.featherPx;
         if (radius > 0) cctx.filter = `blur(${radius}px)`;
         cctx.drawImage(mask, 0, 0, w, h);
         cctx.filter = "none";

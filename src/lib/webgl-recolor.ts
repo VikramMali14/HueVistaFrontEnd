@@ -17,7 +17,6 @@
  */
 
 import type { RecolorEngine, RegionPaint } from "./recolor-engine";
-import { featherRadius } from "./recolor-engine";
 
 // Shared with the Canvas 2D fallback engine (canvas2d-recolor.ts); re-exported
 // so existing `import { type RegionPaint } from "@/lib/webgl-recolor"` keeps working.
@@ -51,11 +50,23 @@ uniform int u_useMask;
 // 1 = fully follow the photo's light. u_baseL is the region's mean luminance.
 uniform float u_preserve;
 uniform float u_baseL;
+// Scene-light anchoring (0 or 1). The CLEANED canvas repaints every paintable
+// surface a fresh near-white, so the photo of those surfaces IS an illumination
+// map — light level AND colour cast. When anchored, the swatch is modulated by
+// that illumination directly (per-channel, divided by fresh-white albedo)
+// instead of normalising the region mean UP to the swatch. An evening photo
+// keeps its dim warm evening light instead of snapping to flat noon daylight.
+uniform float u_anchor;
 // Surface grain: a hair of per-pixel noise, a floor of texture for perfectly
 // smooth walls where the photo itself carries almost no detail. 0 disables it.
 uniform float u_grain;
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// sRGB value of fresh white paint (LRV ~85): the albedo the cleaned canvas
+// paints its walls and trim with. Dividing an anchored region's photo by this
+// recovers the scene's illumination for that surface.
+const float REF_WHITE = 0.94;
 
 // Cheap hash -> pseudo-random 0..1 from a screen-space position, for grain.
 float hash(vec2 p) {
@@ -75,25 +86,38 @@ void main() {
   }
   float m = texture(u_mask, v_uv).r;
   vec3 paint = u_target;
-  if (u_preserve > 0.001 && u_baseL > 0.001) {
+  if (u_preserve > 0.001 && (u_baseL > 0.001 || u_anchor > 0.5)) {
     float L = luma(src.rgb);
-    float B = luma(texture(u_blur, v_uv).rgb); // large-scale (form) luminance
-    // FORM: tint the swatch by the SMOOTH large-scale light relative to the
-    // region mean. Form shadows (eaves, reveals, the facade's own gradient)
-    // survive, while the wall still averages to the true swatch colour.
-    float form = clamp(B / u_baseL, 0.30, 2.4);
-    form = mix(1.0, form, u_preserve);
-    if (form <= 1.0) {
-      // Multiply with a mild gamma so genuine shadows deepen and the paint sits
-      // INTO the surface instead of floating flat on top of it.
-      paint = u_target * pow(form, 1.0 + 0.25 * u_preserve);
+    vec3 Brgb = texture(u_blur, v_uv).rgb;   // large-scale (form) light
+    float B = luma(Brgb);
+    // FORM: tint the swatch by the SMOOTH large-scale light. Form shadows
+    // (eaves, reveals, the facade's own gradient) survive either way; the two
+    // modes differ in what "neutral" means:
+    vec3 form;
+    if (u_anchor > 0.5) {
+      // ANCHORED: the canvas is the cleaned image, whose paintable surfaces
+      // are known fresh white — so the smooth photo IS the illumination.
+      // Per-channel, so the scene's warm or cool cast tints the paint too:
+      // a dusk wall renders the swatch in dusk light, not showroom light.
+      form = Brgb / REF_WHITE;
     } else {
-      // Lift toward white for highlights, rolled off so a bright wall never clips
-      // to pure white — that hard clip made sunlit walls read as blown-out patches.
-      float lift = form - 1.0;
-      lift = (lift / (lift + 0.7)) * 0.7;
-      paint = mix(u_target, vec3(1.0), lift);
+      // LEGACY: normalise by the region's own mean luminance so the wall
+      // still averages to the true swatch colour (the can's colour).
+      form = vec3(B / u_baseL);
     }
+    form = clamp(form, 0.30, 2.4);
+    form = mix(vec3(1.0), form, u_preserve);
+    // Channels below 1: multiply with a mild gamma so genuine shadows deepen
+    // and the paint sits INTO the surface instead of floating flat on top.
+    // Channels above 1: lift toward white, rolled off so a bright wall never
+    // clips to pure white (a hard clip read as blown-out patches). Each half
+    // equals u_target where inactive, so summing them minus u_target composes
+    // the two per channel without a branch.
+    vec3 dark = u_target * pow(min(form, vec3(1.0)), vec3(1.0 + 0.25 * u_preserve));
+    vec3 lift = max(form - 1.0, 0.0);
+    lift = (lift / (lift + 0.7)) * 0.7;
+    vec3 bright = mix(u_target, vec3(1.0), lift);
+    paint = dark + bright - u_target;
     // DETAIL: add the photo's real high-frequency texture on top. (L - B) is
     // ~zero-mean, so it adds surface texture and micro-shadows WITHOUT shifting
     // the paint colour. Clamp it to a small band: genuine surface texture is
@@ -137,9 +161,12 @@ export class Recolor implements RecolorEngine {
   private locUseMask: WebGLUniformLocation | null;
   private locPreserve: WebGLUniformLocation | null;
   private locBaseL: WebGLUniformLocation | null;
+  private locAnchor: WebGLUniformLocation | null;
   private locGrain: WebGLUniformLocation | null;
   private width = 0;
   private height = 0;
+  /** Mask-edge feather radius in px; 0 (default) keeps edges crisp. */
+  private featherPx = 0;
 
   constructor(public readonly canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
@@ -172,6 +199,7 @@ export class Recolor implements RecolorEngine {
     this.locUseMask = gl.getUniformLocation(program, "u_useMask");
     this.locPreserve = gl.getUniformLocation(program, "u_preserve");
     this.locBaseL = gl.getUniformLocation(program, "u_baseL");
+    this.locAnchor = gl.getUniformLocation(program, "u_anchor");
     this.locGrain = gl.getUniformLocation(program, "u_grain");
   }
 
@@ -210,19 +238,34 @@ export class Recolor implements RecolorEngine {
   }
 
   /**
-   * Optionally soften a hard binary mask's edge. Feathering is disabled by
-   * default ({@link featherRadius} returns 0) because the softened edge read as
-   * a visible "blur"/glow around recoloured walls and window borders. With a
-   * zero radius this returns the mask untouched so the painted region keeps a
-   * crisp edge exactly on the surface boundary. If a positive feather is ever
-   * reintroduced, the blur is applied once per mask (cached as a GL texture
-   * below) and degrades to the crisp mask where a 2D context is unavailable.
+   * Sets the mask-edge feather radius (the studio's "soft edges" toggle).
+   * 0 = crisp edges, the default. Cached mask textures were uploaded with the
+   * OLD radius baked in, so a change drops them — they re-upload feathered
+   * (or crisp) on the next render.
+   */
+  setMaskFeather(radius: number) {
+    const px = Math.max(0, radius);
+    if (px === this.featherPx) return;
+    this.featherPx = px;
+    this.clearMaskCache();
+  }
+
+  /**
+   * Optionally soften a hard binary mask's edge. Feathering is off by default
+   * (featherPx = 0) because the softened edge read as a visible "blur"/glow
+   * around recoloured walls and window borders; the studio's "soft edges"
+   * toggle opts in via {@link setMaskFeather} for photos where the mask sits a
+   * pixel or two off the real boundary. With a zero radius this returns the
+   * mask untouched so the painted region keeps a crisp edge exactly on the
+   * surface boundary. The blur is applied once per mask (cached as a GL
+   * texture below) and degrades to the crisp mask where a 2D context is
+   * unavailable.
    */
   private feather(mask: TexImageSource): TexImageSource {
     if (typeof document === "undefined") return mask;
     const dims = texSize(mask);
     if (!dims) return mask;
-    const radius = featherRadius();
+    const radius = this.featherPx;
     if (radius <= 0) return mask; // feathering off — keep the edge crisp (no blur)
     const c = document.createElement("canvas");
     c.width = dims.w;
@@ -280,6 +323,7 @@ export class Recolor implements RecolorEngine {
     gl.uniform1f(this.locStrength, 1);
     gl.uniform1f(this.locPreserve, 0);
     gl.uniform1f(this.locBaseL, 0);
+    gl.uniform1f(this.locAnchor, 0);
     gl.uniform1f(this.locGrain, 0);
     gl.uniform3fv(this.locTarget, [0, 0, 0]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -299,6 +343,7 @@ export class Recolor implements RecolorEngine {
       gl.uniform1f(this.locStrength, clamp01(r.strength ?? 1));
       gl.uniform1f(this.locPreserve, clamp01(r.preserve ?? 0));
       gl.uniform1f(this.locBaseL, Math.max(0, r.baseL ?? 0));
+      gl.uniform1f(this.locAnchor, r.anchor ? 1 : 0);
       gl.uniform1f(this.locGrain, Math.max(0, r.grain ?? DEFAULT_GRAIN));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }

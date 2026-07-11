@@ -91,7 +91,12 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         <div className="r-cols-md-1" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 32, alignItems: "start" }}>
           <div style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)", aspectRatio: "4 / 3", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
             {img ? (
-              <PaintedPreview imageUrl={img} alt={project.name} regions={paintedRegions} />
+              <PaintedPreview
+                imageUrl={img}
+                alt={project.name}
+                regions={paintedRegions}
+                anchored={Boolean(project.cleanedImageUrl)}
+              />
             ) : (
               <Mono>Preview unavailable</Mono>
             )}
