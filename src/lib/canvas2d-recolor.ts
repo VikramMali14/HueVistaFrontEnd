@@ -22,7 +22,6 @@
  */
 
 import type { RecolorEngine, RecolorSource, RegionPaint } from "./recolor-engine";
-import { featherRadius } from "./recolor-engine";
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
@@ -84,6 +83,8 @@ export class Canvas2DRecolor implements RecolorEngine {
   private shadeCtx: CanvasRenderingContext2D;
   /** Static grain tile, built once, tiled over each region layer for surface texture. */
   private grainTile: HTMLCanvasElement | null;
+  /** Mask-edge feather radius in px; 0 (default) keeps edges crisp. */
+  private featherPx = 0;
 
   constructor(public readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -136,6 +137,18 @@ export class Canvas2DRecolor implements RecolorEngine {
   /** Draw just the untouched photo (e.g. the "before" compare view). */
   renderBase() {
     this.renderRegions([]);
+  }
+
+  /**
+   * Sets the mask-edge feather radius (the studio's "soft edges" toggle).
+   * 0 = crisp edges, the default. Cached alpha masks were built with the OLD
+   * radius baked in, so a change drops them — they rebuild on the next render.
+   */
+  setMaskFeather(radius: number) {
+    const px = Math.max(0, radius);
+    if (px === this.featherPx) return;
+    this.featherPx = px;
+    this.alphaMaskCache.clear();
   }
 
   exportPng(): string { return this.canvas.toDataURL("image/png"); }
@@ -250,11 +263,12 @@ export class Canvas2DRecolor implements RecolorEngine {
       c.height = h;
       const cctx = c.getContext("2d", { willReadFrequently: true });
       if (cctx) {
-        // Feathering is disabled ({@link featherRadius} returns 0) so the region
-        // keeps a crisp edge exactly on the surface boundary — the softened edge
-        // read as a visible "blur"/glow around recoloured walls and borders. Only
-        // apply the blur filter if a positive feather is ever reintroduced.
-        const radius = featherRadius();
+        // Feathering is off by default (featherPx = 0) so the region keeps a
+        // crisp edge exactly on the surface boundary — the softened edge read
+        // as a visible "blur"/glow around recoloured walls and borders. The
+        // studio's "soft edges" toggle opts in via setMaskFeather for photos
+        // where the mask sits a pixel or two off the real boundary.
+        const radius = this.featherPx;
         if (radius > 0) cctx.filter = `blur(${radius}px)`;
         cctx.drawImage(mask, 0, 0, w, h);
         cctx.filter = "none";

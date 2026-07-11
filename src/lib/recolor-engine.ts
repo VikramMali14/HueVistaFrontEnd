@@ -35,20 +35,17 @@ export interface RegionPaint {
 }
 
 /**
- * Feather radius (px) for softening a hard binary mask edge. Feathering is now
- * DISABLED (returns 0): users reported the softened edge as a visible "blur"
- * effect — a glowing halo around the recoloured walls, the accent wall and the
- * window borders. Painting through the crisp 0/255 mask keeps every region edge
- * sharp and precisely aligned to the surface; the bilinear filtering the
- * engines already apply when scaling the mask still removes the raw staircase
- * without introducing any halo.
- *
- * Kept as a function (rather than deleting the call sites) so a small feather
- * can be reintroduced later by returning a positive value here.
+ * Feather radius (px) applied to mask edges when the user turns the
+ * "soft edges" toggle ON. Feathering is OFF by default: users reported the
+ * softened edge as a visible "blur" effect — a glowing halo around the
+ * recoloured walls, the accent wall and the window borders — so crisp 0/255
+ * edges are the baseline (the engines' bilinear mask scaling already removes
+ * the raw staircase). But on photos where the AI mask sits a pixel or two off
+ * the real surface boundary, a small feather hides the misregistration, so
+ * it's now the user's call: engines expose {@link RecolorEngine.setMaskFeather}
+ * and the studio surfaces it as a toggle using this radius.
  */
-export function featherRadius(): number {
-  return 0;
-}
+export const SOFT_EDGE_FEATHER_PX = 2;
 
 export interface RecolorEngine {
   /** The on-screen canvas this engine draws into. */
@@ -57,6 +54,10 @@ export interface RecolorEngine {
   setImage(source: RecolorSource): void;
   /** Paint the photo through 0..N region masks, compositing them all in one frame. */
   renderRegions(regions: ReadonlyArray<RegionPaint>): void;
+  /** Set the mask-edge feather radius in px (0 = crisp edges, the default).
+   *  Changing the value invalidates any cached masks; callers re-render after.
+   *  Optional so lightweight test doubles don't have to implement it. */
+  setMaskFeather?(radius: number): void;
   /** Draw just the untouched photo (e.g. the "before" compare view). */
   renderBase(): void;
   /** PNG data URL of the current canvas contents. */

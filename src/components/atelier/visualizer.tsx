@@ -13,7 +13,7 @@ import type { RegionLite } from "./coordinate-suggestions";
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
-import type { RecolorEngine } from "@/lib/recolor-engine";
+import { SOFT_EDGE_FEATHER_PX, type RecolorEngine } from "@/lib/recolor-engine";
 import {
   PollCancelledError,
   pollUntilSegmented as pollSegmentationStatus,
@@ -225,10 +225,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [details, setDetails] = useState<ProjectDetails | null>(
     initialName ? { name: initialName } : null,
   );
-  // Shadow / relief preservation — always on at 85%; the visible toggle
-  // and intensity slider were retired.
-  const shadowOn = true;
+  // Shadow / relief preservation — ON by default (85% strength), with a
+  // visible toggle in the canvas toolbar for users who want the flat exact
+  // swatch instead of the photo's own light on the paint.
+  const [shadowOn, setShadowOn] = useState(true);
   const shadowStrength = 0.85;
+  // "Soft edges" — feathers the mask boundary a couple of px. OFF by default
+  // (crisp edges align exactly with the surface); turning it ON hides the hard
+  // seam on photos where the AI mask sits a pixel or two off the real edge.
+  const [softEdge, setSoftEdge] = useState(false);
   // Manual mask studio.
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
   const [savingMask, setSavingMask] = useState(false);
@@ -359,6 +364,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     if (!rc || !imageUrl) return;
     let cancelled = false;
 
+    // Feather (or un-feather) the mask edges before painting — a no-op unless
+    // the "soft edges" toggle changed since the engine last rendered.
+    rc.setMaskFeather?.(softEdge ? SOFT_EDGE_FEATHER_PX : 0);
+
     (async () => {
       if (compare) {
         rc.renderBase();
@@ -403,7 +412,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => {
       cancelled = true;
     };
-  }, [regions, imageUrl, compare, shadowOn, shadowStrength, canvasCleaned, loadMask]);
+  }, [regions, imageUrl, compare, shadowOn, shadowStrength, softEdge, canvasCleaned, loadMask]);
 
   useEffect(() => {
     return () => {
@@ -1291,6 +1300,50 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 e.target.value = "";
               }}
             />
+            {imageUrl && !pendingFile && !uploading && !segmenting && (
+              /* Floating preview options (glass, top-left): shadow preservation
+                 and soft mask edges — both re-render the canvas instantly. */
+              <div className="hv-studio-floatbar" role="group" aria-label="Preview options">
+                <div className="hv-studio-tool">
+                  <span className="hv-studio-tool-label">
+                    <span className="hv-studio-tool-icon"><ShadowIcon /></span>
+                    Shadows
+                  </span>
+                  <button
+                    type="button"
+                    className="hv-switch"
+                    role="switch"
+                    aria-checked={shadowOn}
+                    data-on={shadowOn}
+                    title={shadowOn
+                      ? "Shadows on — the paint follows the photo's own light"
+                      : "Shadows off — flat exact swatch colour"}
+                    onClick={() => setShadowOn((v) => !v)}
+                  >
+                    <span className="hv-switch-knob" />
+                  </button>
+                </div>
+                <div className="hv-studio-tool">
+                  <span className="hv-studio-tool-label">
+                    <span className="hv-studio-tool-icon"><SoftEdgeIcon /></span>
+                    Soft edges
+                  </span>
+                  <button
+                    type="button"
+                    className="hv-switch"
+                    role="switch"
+                    aria-checked={softEdge}
+                    data-on={softEdge}
+                    title={softEdge
+                      ? "Soft edges on — mask borders blend over a couple of pixels"
+                      : "Soft edges off — crisp mask borders"}
+                    onClick={() => setSoftEdge((v) => !v)}
+                  >
+                    <span className="hv-switch-knob" />
+                  </button>
+                </div>
+              </div>
+            )}
             {imageUrl && !pendingFile && (
               <>
                 {/* HOLD-TO-PEEK — press and hold to see the original photo */}
@@ -1586,6 +1639,25 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
 
     </div>
+  );
+}
+
+function ShadowIcon() {
+  // Half-filled circle — light and shade.
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function SoftEdgeIcon() {
+  // Droplet — the classic "blur" glyph.
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3.5c3.3 4 6.5 7.2 6.5 10.5a6.5 6.5 0 1 1-13 0C5.5 10.7 8.7 7.5 12 3.5z" />
+    </svg>
   );
 }
 

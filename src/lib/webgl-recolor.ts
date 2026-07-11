@@ -17,7 +17,6 @@
  */
 
 import type { RecolorEngine, RegionPaint } from "./recolor-engine";
-import { featherRadius } from "./recolor-engine";
 
 // Shared with the Canvas 2D fallback engine (canvas2d-recolor.ts); re-exported
 // so existing `import { type RegionPaint } from "@/lib/webgl-recolor"` keeps working.
@@ -166,6 +165,8 @@ export class Recolor implements RecolorEngine {
   private locGrain: WebGLUniformLocation | null;
   private width = 0;
   private height = 0;
+  /** Mask-edge feather radius in px; 0 (default) keeps edges crisp. */
+  private featherPx = 0;
 
   constructor(public readonly canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
@@ -237,19 +238,34 @@ export class Recolor implements RecolorEngine {
   }
 
   /**
-   * Optionally soften a hard binary mask's edge. Feathering is disabled by
-   * default ({@link featherRadius} returns 0) because the softened edge read as
-   * a visible "blur"/glow around recoloured walls and window borders. With a
-   * zero radius this returns the mask untouched so the painted region keeps a
-   * crisp edge exactly on the surface boundary. If a positive feather is ever
-   * reintroduced, the blur is applied once per mask (cached as a GL texture
-   * below) and degrades to the crisp mask where a 2D context is unavailable.
+   * Sets the mask-edge feather radius (the studio's "soft edges" toggle).
+   * 0 = crisp edges, the default. Cached mask textures were uploaded with the
+   * OLD radius baked in, so a change drops them — they re-upload feathered
+   * (or crisp) on the next render.
+   */
+  setMaskFeather(radius: number) {
+    const px = Math.max(0, radius);
+    if (px === this.featherPx) return;
+    this.featherPx = px;
+    this.clearMaskCache();
+  }
+
+  /**
+   * Optionally soften a hard binary mask's edge. Feathering is off by default
+   * (featherPx = 0) because the softened edge read as a visible "blur"/glow
+   * around recoloured walls and window borders; the studio's "soft edges"
+   * toggle opts in via {@link setMaskFeather} for photos where the mask sits a
+   * pixel or two off the real boundary. With a zero radius this returns the
+   * mask untouched so the painted region keeps a crisp edge exactly on the
+   * surface boundary. The blur is applied once per mask (cached as a GL
+   * texture below) and degrades to the crisp mask where a 2D context is
+   * unavailable.
    */
   private feather(mask: TexImageSource): TexImageSource {
     if (typeof document === "undefined") return mask;
     const dims = texSize(mask);
     if (!dims) return mask;
-    const radius = featherRadius();
+    const radius = this.featherPx;
     if (radius <= 0) return mask; // feathering off — keep the edge crisp (no blur)
     const c = document.createElement("canvas");
     c.width = dims.w;
