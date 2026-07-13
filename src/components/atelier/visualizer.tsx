@@ -31,7 +31,7 @@ import {
   type PdfImageEntry,
 } from "@/lib/pdf-export";
 import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
-import { undertoneClash } from "@/lib/color-science";
+import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraProject } from "@/lib/payments";
@@ -117,16 +117,30 @@ const KIND_LABEL: Record<RegionKind, string> = {
   MANUAL: "Wall",
 };
 
-function mapBackendRegion(region: RegionDetail): RegionState {
+function mapBackendRegion(
+  region: RegionDetail,
+  catalogue: ReadonlyArray<PaintShade>,
+): RegionState {
   const kind = CATEGORY_TO_KIND[region.category] ?? "MANUAL";
   const fallback = KIND_LABEL[kind];
   const hasColor = Boolean(region.appliedHexCode || region.appliedShadeCode);
+  const hex = region.appliedHexCode || DEFAULT_HEX_FOR_KIND[kind];
+  // Re-attach the catalogue shade: the saved row keeps only code + hex, but
+  // LRV-true painting needs the shade's measured LRV back. Match by the saved
+  // shade code first, then by exact hex (covers the auto-detected regions,
+  // whose reference colours are catalogue shades applied by hex alone).
+  const shade =
+    (region.appliedShadeCode
+      ? catalogue.find((s) => s.code === region.appliedShadeCode)
+      : undefined) ??
+    catalogue.find((s) => s.hex.toLowerCase() === hex.toLowerCase());
   return {
     id: `r-${region.id}`,
     backendId: region.id,
     kind,
     label: region.label || fallback,
-    hex: region.appliedHexCode || DEFAULT_HEX_FOR_KIND[kind],
+    hex,
+    shade,
     // Reopened projects render every saved colour at once, not just one wall.
     applied: hasColor,
     // "Manual" survives reload via the backend's explicit flag; fall back to the
@@ -413,7 +427,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         }
         paints.push({
           mask,
-          target: hexToRgb01(r.hex),
+          // Catalogue shades paint at their MEASURED brightness: the hex's hue
+          // with its luminance corrected to the shade's LRV, so a wall reads
+          // as light or dark as the real paint would. Colour-wheel picks have
+          // no shade (no LRV) and paint the raw hex, unchanged.
+          target: r.shade ? lrvCorrectedRgb01(r.hex, r.shade.lrv) : hexToRgb01(r.hex),
           preserve: shadowOn ? shadowStrength : 0,
           baseL,
           anchor: canvasCleaned,
@@ -480,13 +498,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       const mapped = detail.regions
         .slice()
         .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-        .map((r) => mapBackendRegion(r));
+        .map((r) => mapBackendRegion(r, shades ?? []));
       if (mapped.length > 0) {
         setRegions(mapped);
         setActiveRegion(mapped[0]!.id);
       }
     },
-    [],
+    [shades],
   );
 
   // Open an existing project: fetch it and render its SAVED cleaned image + masks from

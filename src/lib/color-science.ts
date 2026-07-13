@@ -36,6 +36,51 @@ export function lrvFromHex(hex: string): number {
   return Math.round(luminance(hexToRgb(hex)) * 100);
 }
 
+// sRGB transfer functions on 0..1 components (the 0..255 variants live in
+// lib/color.ts; these stay local to keep lrvCorrectedRgb01 self-contained).
+const srgbToLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+const linearToSrgb = (c: number) => (c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+
+/**
+ * The colour the renderer should PAINT for a catalogue shade: the hex's hue
+ * and saturation with its brightness corrected to the shade's measured LRV.
+ * Returned as 0..1 sRGB components, ready for the recolor engines' `target`.
+ *
+ * Catalogue hexes are screen approximations; the LRV (Light Reflectance
+ * Value, 0–100) is the brand's MEASURED fraction of light the real paint
+ * reflects — LRV 60 means CIE Y = 0.60. When the hex's implied luminance
+ * disagrees with the measured LRV, trust the measurement: scale the
+ * linear-RGB channels so the painted colour's luminance lands on LRV/100.
+ * Chromaticity (hue/saturation) stays put; only brightness moves.
+ *
+ * Guard rails, each falling back to the plain hex: no/invalid LRV, a
+ * near-black hex (nothing to scale), or a disagreement under 3% (screen
+ * noise, not data). The correction is clamped to [0.5, 2]× so one bad
+ * catalogue row can't blow a colour out, and channels that would exceed 1
+ * are clipped — an extreme lift slightly desaturates instead of wrapping.
+ */
+export function lrvCorrectedRgb01(hex: string, lrv?: number): [number, number, number] {
+  const { r, g, b } = hexToRgb(hex);
+  const plain: [number, number, number] = [r / 255, g / 255, b / 255];
+  if (lrv === undefined || !Number.isFinite(lrv) || lrv <= 0 || lrv > 100) return plain;
+
+  const lr = srgbToLinear(plain[0]);
+  const lg = srgbToLinear(plain[1]);
+  const lb = srgbToLinear(plain[2]);
+  const y = 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+  if (y < 0.005) return plain;
+
+  let ratio = lrv / 100 / y;
+  if (Math.abs(ratio - 1) < 0.03) return plain;
+  ratio = Math.max(0.5, Math.min(2, ratio));
+
+  return [
+    linearToSrgb(Math.min(1, lr * ratio)),
+    linearToSrgb(Math.min(1, lg * ratio)),
+    linearToSrgb(Math.min(1, lb * ratio)),
+  ];
+}
+
 // ── Undertones ─────────────────────────────────────────────────────────────
 
 export type Undertone =
