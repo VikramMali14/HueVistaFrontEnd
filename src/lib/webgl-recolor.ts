@@ -60,8 +60,19 @@ uniform float u_anchor;
 // Surface grain: a hair of per-pixel noise, a floor of texture for perfectly
 // smooth walls where the photo itself carries almost no detail. 0 disables it.
 uniform float u_grain;
+// Whole-image brighten (the studio's Brighten control): a gamma midtone lift,
+// output = input^(1/u_bright). 1 = untouched. Applied to the base photo AND
+// the painted regions alike, so the paint sits in the same brightened light
+// instead of floating dark on a lifted photo. A gamma lift keeps pure white
+// where it is — bright skies don't clip.
+uniform float u_bright;
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+vec3 brighten(vec3 c) {
+  if (u_bright <= 1.001) return c;
+  return pow(max(c, 0.0), vec3(1.0 / u_bright));
+}
 
 // sRGB value of fresh white paint (LRV ~85): the albedo the cleaned canvas
 // paints its walls and trim with. Dividing an anchored region's photo by this
@@ -81,7 +92,7 @@ void main() {
   // exported PNG never has see-through holes from a transparent source). Painted
   // regions are composited on top in their own blended passes.
   if (u_useMask == 0) {
-    outColor = vec4(src.rgb, 1.0);
+    outColor = vec4(brighten(src.rgb), 1.0);
     return;
   }
   float m = texture(u_mask, v_uv).r;
@@ -134,7 +145,7 @@ void main() {
     paint += n * u_grain * (0.5 + 0.5 * luma(paint));
   }
   paint = clamp(paint, 0.0, 1.0);
-  outColor = vec4(paint, u_strength * m);
+  outColor = vec4(brighten(paint), u_strength * m);
 }`;
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
@@ -163,10 +174,13 @@ export class Recolor implements RecolorEngine {
   private locBaseL: WebGLUniformLocation | null;
   private locAnchor: WebGLUniformLocation | null;
   private locGrain: WebGLUniformLocation | null;
+  private locBright: WebGLUniformLocation | null;
   private width = 0;
   private height = 0;
   /** Mask-edge feather radius in px; 0 (default) keeps edges crisp. */
   private featherPx = 0;
+  /** Whole-image brightness gamma; 1 (default) leaves the photo untouched. */
+  private brightGamma = 1;
 
   constructor(public readonly canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
@@ -201,6 +215,16 @@ export class Recolor implements RecolorEngine {
     this.locBaseL = gl.getUniformLocation(program, "u_baseL");
     this.locAnchor = gl.getUniformLocation(program, "u_anchor");
     this.locGrain = gl.getUniformLocation(program, "u_grain");
+    this.locBright = gl.getUniformLocation(program, "u_bright");
+  }
+
+  /**
+   * Sets the whole-image brightness lift (the studio's "Brighten" control) as
+   * a gamma, 1 = untouched. Takes effect on the next render — no caches to
+   * drop, it's a plain uniform.
+   */
+  setBrightness(gamma: number) {
+    this.brightGamma = Math.max(1, gamma);
   }
 
   setImage(source: TexImageSource & { width?: number; height?: number }) {
@@ -309,6 +333,10 @@ export class Recolor implements RecolorEngine {
     gl.disable(gl.BLEND);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // Brightness applies to every pass (base photo AND painted regions) so the
+    // whole scene lifts together; set once per frame.
+    gl.uniform1f(this.locBright, this.brightGamma);
 
     // Bind the blurred form layer once (unit 2); it's shared by every region pass.
     if (this.blurTex) {

@@ -8,6 +8,8 @@ import {
   isWhiteShade,
   lighterSteps,
   lightShift,
+  lrvCorrectedRgb01,
+  lrvFromHex,
   pairCeilingAndTrim,
   stepInFanDeck,
   sunFadeRisk,
@@ -30,6 +32,52 @@ describe("hueDistance", () => {
     expect(hueDistance(350, 10)).toBe(20);
     expect(hueDistance(0, 180)).toBe(180);
     expect(hueDistance(90, 90)).toBe(0);
+  });
+});
+
+describe("lrvCorrectedRgb01", () => {
+  // Linear luminance of 0..1 sRGB components — the quantity LRV measures.
+  const lumaOf = ([r, g, b]: [number, number, number]) => {
+    const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  };
+
+  it("returns the plain hex when no LRV is given or it is out of range", () => {
+    expect(lrvCorrectedRgb01("#8080ff")).toEqual([128 / 255, 128 / 255, 1]);
+    expect(lrvCorrectedRgb01("#8080ff", 0)).toEqual([128 / 255, 128 / 255, 1]);
+    expect(lrvCorrectedRgb01("#8080ff", 120)).toEqual([128 / 255, 128 / 255, 1]);
+    expect(lrvCorrectedRgb01("#8080ff", Number.NaN)).toEqual([128 / 255, 128 / 255, 1]);
+  });
+
+  it("leaves a hex alone when its luminance already matches the LRV", () => {
+    const hex = "#c98a96";
+    expect(lrvCorrectedRgb01(hex, lrvFromHex(hex))).toEqual([201 / 255, 138 / 255, 150 / 255]);
+  });
+
+  it("lands the corrected colour's luminance on the measured LRV", () => {
+    // Hex implies ~LRV 20; the brand measured 35 — the paint is lighter.
+    const out = lrvCorrectedRgb01("#a47148", 35);
+    expect(lumaOf(out)).toBeCloseTo(0.35, 2);
+    // And the darker direction too.
+    const dark = lrvCorrectedRgb01("#a47148", 12);
+    expect(lumaOf(dark)).toBeCloseTo(0.12, 2);
+  });
+
+  it("preserves the channel proportions (hue) while moving brightness", () => {
+    const [r, g, b] = lrvCorrectedRgb01("#a47148", 35);
+    // Still a warm terracotta ordering: red > green > blue.
+    expect(r).toBeGreaterThan(g);
+    expect(g).toBeGreaterThan(b);
+  });
+
+  it("guards near-black hexes and clamps runaway corrections", () => {
+    // Near-black: nothing sane to scale — plain conversion.
+    expect(lrvCorrectedRgb01("#010101", 50)).toEqual([1 / 255, 1 / 255, 1 / 255]);
+    // Mid-grey (~LRV 22) with an absurd catalogue LRV of 90: the 2x clamp
+    // keeps the result well below the unclamped target.
+    const clamped = lrvCorrectedRgb01("#808080", 90);
+    expect(lumaOf(clamped)).toBeLessThan(0.5);
+    clamped.forEach((c) => expect(c).toBeLessThanOrEqual(1));
   });
 });
 

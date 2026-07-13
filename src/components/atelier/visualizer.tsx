@@ -13,7 +13,12 @@ import type { RegionLite } from "./coordinate-suggestions";
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
-import { SOFT_EDGE_FEATHER_PX, type RecolorEngine } from "@/lib/recolor-engine";
+import {
+  BRIGHTEN_LEVELS,
+  SOFT_EDGE_FEATHER_PX,
+  type BrightenLevel,
+  type RecolorEngine,
+} from "@/lib/recolor-engine";
 import {
   PollCancelledError,
   pollUntilSegmented as pollSegmentationStatus,
@@ -26,7 +31,7 @@ import {
   type PdfImageEntry,
 } from "@/lib/pdf-export";
 import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
-import { undertoneClash } from "@/lib/color-science";
+import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraProject } from "@/lib/payments";
@@ -112,16 +117,30 @@ const KIND_LABEL: Record<RegionKind, string> = {
   MANUAL: "Wall",
 };
 
-function mapBackendRegion(region: RegionDetail): RegionState {
+function mapBackendRegion(
+  region: RegionDetail,
+  catalogue: ReadonlyArray<PaintShade>,
+): RegionState {
   const kind = CATEGORY_TO_KIND[region.category] ?? "MANUAL";
   const fallback = KIND_LABEL[kind];
   const hasColor = Boolean(region.appliedHexCode || region.appliedShadeCode);
+  const hex = region.appliedHexCode || DEFAULT_HEX_FOR_KIND[kind];
+  // Re-attach the catalogue shade: the saved row keeps only code + hex, but
+  // LRV-true painting needs the shade's measured LRV back. Match by the saved
+  // shade code first, then by exact hex (covers the auto-detected regions,
+  // whose reference colours are catalogue shades applied by hex alone).
+  const shade =
+    (region.appliedShadeCode
+      ? catalogue.find((s) => s.code === region.appliedShadeCode)
+      : undefined) ??
+    catalogue.find((s) => s.hex.toLowerCase() === hex.toLowerCase());
   return {
     id: `r-${region.id}`,
     backendId: region.id,
     kind,
     label: region.label || fallback,
-    hex: region.appliedHexCode || DEFAULT_HEX_FOR_KIND[kind],
+    hex,
+    shade,
     // Reopened projects render every saved colour at once, not just one wall.
     applied: hasColor,
     // "Manual" survives reload via the backend's explicit flag; fall back to the
@@ -234,6 +253,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // (crisp edges align exactly with the surface); turning it ON hides the hard
   // seam on photos where the AI mask sits a pixel or two off the real edge.
   const [softEdge, setSoftEdge] = useState(false);
+  // "Brighten" — whole-image light lift for photos shot in dim light, so
+  // colours can be judged as on a sunnier day. Three fixed levels (Original /
+  // Soft glow / Radiant, see BRIGHTEN_LEVELS); Original (untouched) default.
+  const [brighten, setBrighten] = useState<BrightenLevel["id"]>("original");
   // Manual mask studio.
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
   const [savingMask, setSavingMask] = useState(false);
@@ -368,6 +391,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     // the "soft edges" toggle changed since the engine last rendered.
     rc.setMaskFeather?.(softEdge ? SOFT_EDGE_FEATHER_PX : 0);
 
+    // Brighten lifts the whole scene (photo AND paint). Hold-to-compare shows
+    // the TRUE original — unbrightened — so the before/after is honest.
+    const brightenGamma = BRIGHTEN_LEVELS.find((l) => l.id === brighten)?.gamma ?? 1;
+    rc.setBrightness?.(compare ? 1 : brightenGamma);
+
     (async () => {
       if (compare) {
         rc.renderBase();
@@ -399,7 +427,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         }
         paints.push({
           mask,
-          target: hexToRgb01(r.hex),
+          // Catalogue shades paint at their MEASURED brightness: the hex's hue
+          // with its luminance corrected to the shade's LRV, so a wall reads
+          // as light or dark as the real paint would. Colour-wheel picks have
+          // no shade (no LRV) and paint the raw hex, unchanged.
+          target: r.shade ? lrvCorrectedRgb01(r.hex, r.shade.lrv) : hexToRgb01(r.hex),
           preserve: shadowOn ? shadowStrength : 0,
           baseL,
           anchor: canvasCleaned,
@@ -412,7 +444,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => {
       cancelled = true;
     };
-  }, [regions, imageUrl, compare, shadowOn, shadowStrength, softEdge, canvasCleaned, loadMask]);
+  }, [regions, imageUrl, compare, shadowOn, shadowStrength, softEdge, brighten, canvasCleaned, loadMask]);
 
   useEffect(() => {
     return () => {
@@ -466,13 +498,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       const mapped = detail.regions
         .slice()
         .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-        .map((r) => mapBackendRegion(r));
+        .map((r) => mapBackendRegion(r, shades ?? []));
       if (mapped.length > 0) {
         setRegions(mapped);
         setActiveRegion(mapped[0]!.id);
       }
     },
-    [],
+    [shades],
   );
 
   // Open an existing project: fetch it and render its SAVED cleaned image + masks from
@@ -1301,8 +1333,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               }}
             />
             {imageUrl && !pendingFile && !uploading && !segmenting && (
-              /* Floating preview options (glass, top-left): shadow preservation
-                 and soft mask edges — both re-render the canvas instantly. */
+              /* Floating preview options (glass, top-left): shadow preservation,
+                 soft mask edges and the Brighten level — all re-render the
+                 canvas instantly. */
               <div className="hv-studio-floatbar" role="group" aria-label="Preview options">
                 <div className="hv-studio-tool">
                   <span className="hv-studio-tool-label">
@@ -1341,6 +1374,34 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   >
                     <span className="hv-switch-knob" />
                   </button>
+                </div>
+                <div className="hv-studio-tool hv-studio-tool-col">
+                  <span className="hv-studio-tool-label">
+                    <span className="hv-studio-tool-icon"><SunIcon /></span>
+                    Brighten
+                  </span>
+                  <div className="hv-seg" role="radiogroup" aria-label="Brighten the photo">
+                    {BRIGHTEN_LEVELS.map((l) => (
+                      <button
+                        key={l.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={brighten === l.id}
+                        data-on={brighten === l.id}
+                        className="hv-seg-btn"
+                        title={
+                          l.id === "original"
+                            ? "Original — the photo exactly as shot"
+                            : l.id === "soft"
+                              ? "Soft glow — a gentle lift, like opening the curtains"
+                              : "Radiant — a strong lift for dark photos"
+                        }
+                        onClick={() => setBrighten(l.id)}
+                      >
+                        {l.id === "original" ? "Original" : l.id === "soft" ? "Soft" : "Radiant"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -1657,6 +1718,16 @@ function SoftEdgeIcon() {
   return (
     <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M12 3.5c3.3 4 6.5 7.2 6.5 10.5a6.5 6.5 0 1 1-13 0C5.5 10.7 8.7 7.5 12 3.5z" />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  // Sun — the whole-image Brighten control.
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
     </svg>
   );
 }
