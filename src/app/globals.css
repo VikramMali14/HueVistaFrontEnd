@@ -2310,6 +2310,39 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   flex-shrink: 0;
 }
 .hv-studio-tool input[type="range"] { flex: 1; min-width: 70px; }
+/* Stacked variant: label on its own line, control full-width below (Brighten). */
+.hv-studio-tool-col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+
+/* Segmented level picker (Studio variant) — the Brighten control */
+.hv-seg {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: var(--radius-pill);
+}
+.hv-seg-btn {
+  flex: 1;
+  padding: 5px 4px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: rgba(247,247,245,.62);
+  font: 500 11px/1 var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+.hv-seg-btn:hover { color: rgba(247,247,245,.9); }
+.hv-seg-btn[data-on="true"] {
+  background: var(--accent);
+  color: #fff;
+}
 
 /* Toggle switch (Studio variant) */
 .hv-switch {
@@ -3510,6 +3543,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .hv-switch, .hv-switch-knob,
+  .hv-seg-btn,
   .hv-studio-tool, .hv-studio-compare,
   .hv-studio-region, .hv-studio-pill,
   .hv-studio-swatch, .hv-studio-chip,

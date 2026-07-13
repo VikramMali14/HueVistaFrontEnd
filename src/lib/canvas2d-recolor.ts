@@ -85,6 +85,8 @@ export class Canvas2DRecolor implements RecolorEngine {
   private grainTile: HTMLCanvasElement | null;
   /** Mask-edge feather radius in px; 0 (default) keeps edges crisp. */
   private featherPx = 0;
+  /** Whole-image brightness gamma; 1 (default) leaves the photo untouched. */
+  private brightGamma = 1;
 
   constructor(public readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -132,6 +134,34 @@ export class Canvas2DRecolor implements RecolorEngine {
       ctx.drawImage(layer, 0, 0);
       ctx.globalAlpha = 1;
     }
+    this.applyBrightness(w, h);
+  }
+
+  /**
+   * Whole-image brighten (the studio's "Brighten" control), approximated with
+   * the CSS brightness() filter in a single self-draw over the composed frame.
+   * The GL engine's gamma lift is converted to the linear multiplier that
+   * matches it at mid-grey. Browsers without canvas filter support silently
+   * skip it (`ctx.filter` stays "none" as an unknown property does nothing) —
+   * this engine is already the approximate fallback.
+   */
+  private applyBrightness(w: number, h: number) {
+    if (this.brightGamma <= 1.001) return;
+    const { ctx, canvas } = this;
+    const mult = Math.pow(0.5, 1 / this.brightGamma - 1);
+    ctx.globalCompositeOperation = "copy";
+    ctx.filter = `brightness(${mult.toFixed(3)})`;
+    ctx.drawImage(canvas, 0, 0, w, h);
+    ctx.filter = "none";
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  /**
+   * Sets the whole-image brightness lift as a gamma, 1 = untouched. Takes
+   * effect on the next render; no caches depend on it.
+   */
+  setBrightness(gamma: number) {
+    this.brightGamma = Math.max(1, gamma);
   }
 
   /** Draw just the untouched photo (e.g. the "before" compare view). */

@@ -47,6 +47,35 @@ export interface RegionPaint {
  */
 export const SOFT_EDGE_FEATHER_PX = 2;
 
+/**
+ * The studio's "Brighten" control: a whole-image light lift for photos shot
+ * in dim or flat light, so users can judge colours the way the wall would
+ * read on a sunnier day. Three fixed levels (no free slider — a slider
+ * invites over-brightening that falsifies the shades):
+ *
+ *  - Original:  the photo untouched (default).
+ *  - Soft glow: a gentle midtone lift, like opening the curtains.
+ *  - Radiant:   a strong lift for genuinely dark photos.
+ *
+ * `gamma` is the midtone lift the engines consume via
+ * {@link RecolorEngine.setBrightness}: output = input^(1/gamma), 1 = off.
+ * A gamma lift (not a linear multiply) brightens shadows and midtones while
+ * leaving pure white in place, so bright skies don't clip to a white blob.
+ */
+export interface BrightenLevel {
+  id: "original" | "soft" | "radiant";
+  /** Short label shown on the studio's segmented control. */
+  label: string;
+  /** Midtone lift, 1 = untouched. See above. */
+  gamma: number;
+}
+
+export const BRIGHTEN_LEVELS: ReadonlyArray<BrightenLevel> = [
+  { id: "original", label: "Original", gamma: 1 },
+  { id: "soft", label: "Soft glow", gamma: 1.25 },
+  { id: "radiant", label: "Radiant", gamma: 1.6 },
+];
+
 export interface RecolorEngine {
   /** The on-screen canvas this engine draws into. */
   readonly canvas: HTMLCanvasElement;
@@ -58,6 +87,10 @@ export interface RecolorEngine {
    *  Changing the value invalidates any cached masks; callers re-render after.
    *  Optional so lightweight test doubles don't have to implement it. */
   setMaskFeather?(radius: number): void;
+  /** Set the whole-image brightness lift as a gamma (1 = untouched photo);
+   *  see {@link BRIGHTEN_LEVELS}. Applies to the NEXT render — callers
+   *  re-render after changing it. Optional for lightweight test doubles. */
+  setBrightness?(gamma: number): void;
   /** Draw just the untouched photo (e.g. the "before" compare view). */
   renderBase(): void;
   /** PNG data URL of the current canvas contents. */
