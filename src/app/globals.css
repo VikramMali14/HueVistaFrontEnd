@@ -1496,6 +1496,129 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 @keyframes hv-mix-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
 /* =========================================================
+   PAGE LOADER  ·  route-change "mixing" loader
+   A miniature of the /work spiral: paint-chip swatches orbit a
+   pulsing core in 3D while blurred pigment blobs swirl behind
+   them. Pure CSS so it plays before hydration; rides the
+   semantic tokens so both themes work.
+   Markup: src/components/ui/page-loader.tsx
+========================================================= */
+.hv-loader {
+  min-height: 68vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 26px;
+  color: var(--fg);
+}
+.hv-loader[data-compact] { min-height: 60vh; gap: 20px; }
+
+.hv-loader-stage {
+  position: relative;
+  width: 200px; height: 150px;
+  perspective: 640px;
+  display: flex; align-items: center; justify-content: center;
+}
+.hv-loader[data-compact] .hv-loader-stage { transform: scale(.82); }
+
+/* Swirling pigment — blurred blobs orbiting the core. Screen blend
+   glows on the dark theme; light theme flips to multiply below. */
+.hv-loader-blobs { position: absolute; inset: 0; filter: blur(18px); opacity: .75; }
+.hv-loader-blobs i {
+  position: absolute; top: 50%; left: 50%;
+  width: 72px; height: 72px; margin: -36px 0 0 -36px;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+}
+.hv-loader-blobs i:nth-child(1) { background: #b96b48; animation: hv-loader-swirl 3.4s linear infinite; }
+.hv-loader-blobs i:nth-child(2) { background: #7b8a72; width: 62px; height: 62px; margin: -31px 0 0 -31px; animation: hv-loader-swirl 4.3s linear infinite reverse; }
+.hv-loader-blobs i:nth-child(3) { background: var(--accent); width: 56px; height: 56px; margin: -28px 0 0 -28px; animation: hv-loader-swirl 5.1s linear infinite; animation-delay: -1.7s; }
+@keyframes hv-loader-swirl {
+  from { transform: rotate(0turn) translateX(26px); }
+  to   { transform: rotate(1turn) translateX(26px); }
+}
+html[data-theme="light"] .hv-loader-blobs { opacity: .4; }
+html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
+
+/* The orbit — a tilted ring of paint chips, echoing the /work helix.
+   The core sits inside the same 3D context so front chips pass over it
+   and back chips slide behind. */
+.hv-loader-ring { transform-style: preserve-3d; transform: rotateX(14deg); }
+.hv-loader-orbit {
+  position: relative; width: 0; height: 0;
+  transform-style: preserve-3d;
+  animation: hv-loader-spin 7.5s linear infinite;
+}
+@keyframes hv-loader-spin { from { transform: rotateY(0turn); } to { transform: rotateY(-1turn); } }
+.hv-loader-chip {
+  position: absolute; top: 0; left: 0;
+  width: 27px; height: 38px; margin: -19px 0 0 -14px;
+  border-radius: 5px;
+  transform: rotateY(var(--ry)) translateZ(78px) translateY(var(--dy));
+  box-shadow: 0 6px 18px rgba(0,0,0,.28);
+  border: 1px solid rgba(255,255,255,.14);
+}
+/* Chip tones — condensed from the .ph[data-tone] swatch gradients */
+.hv-loader-chip[data-tone="terracotta"] { background: linear-gradient(140deg, #c87a55 0%, #9d5236 55%, #61301d 100%); }
+.hv-loader-chip[data-tone="sage"]       { background: linear-gradient(150deg, #8a9a85 0%, #5b6c5b 55%, #2e3a2e 100%); }
+.hv-loader-chip[data-tone="slate"]      { background: linear-gradient(150deg, #6a7680 0%, #3e4a52 55%, #1f262d 100%); }
+.hv-loader-chip[data-tone="brass"]      { background: linear-gradient(135deg, #d4b88a 0%, #b89968 50%, #7a5d3a 100%); }
+.hv-loader-chip[data-tone="indigo"]     { background: linear-gradient(150deg, #3a4870 0%, #1f284a 55%, #0c1226 100%); }
+.hv-loader-chip[data-tone="ivory"]      { background: linear-gradient(160deg, #e8e0cf 0%, #c9bda4 55%, #9b8d70 100%); }
+.hv-loader-chip[data-tone="oxblood"]    { background: linear-gradient(155deg, #884240 0%, #5a2724 55%, #2a100e 100%); }
+
+.hv-loader-core {
+  position: absolute; top: 0; left: 0;
+  width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 18px 2px rgba(124,92,255,.55);
+  animation: hv-loader-pulse 1.6s var(--ease) infinite;
+}
+@keyframes hv-loader-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: .7; } }
+
+.hv-loader-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: 400 10.5px/1 var(--mono);
+  letter-spacing: .32em; text-transform: uppercase;
+  color: var(--accent);
+  padding-left: .32em;   /* optically recentre the tracked type */
+}
+.hv-loader-ell { display: inline-flex; gap: 4px; }
+.hv-loader-ell i {
+  width: 3px; height: 3px; border-radius: 50%;
+  background: currentColor;
+  animation: hv-loader-ell 1.2s infinite;
+}
+.hv-loader-ell i:nth-child(2) { animation-delay: .2s; }
+.hv-loader-ell i:nth-child(3) { animation-delay: .4s; }
+@keyframes hv-loader-ell { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
+
+/* Indeterminate sweep under the label */
+.hv-loader-bar {
+  width: 148px; height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--rule-strong);
+  position: relative; overflow: hidden;
+}
+.hv-loader-bar::before {
+  content: "";
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: 38%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: hv-loader-sweep 1.3s var(--ease) infinite;
+}
+@keyframes hv-loader-sweep { from { transform: translateX(-110%); } to { transform: translateX(380%); } }
+
+/* Reduced motion: freeze the scene into a static fan of chips */
+@media (prefers-reduced-motion: reduce) {
+  .hv-loader-orbit, .hv-loader-blobs i, .hv-loader-core,
+  .hv-loader-ell i, .hv-loader-bar::before { animation: none !important; }
+  .hv-loader-blobs { opacity: .3; }
+  .hv-loader-bar::before { transform: translateX(80%); opacity: .6; }
+}
+
+/* =========================================================
    LOGO  ·  the HueVista wordmark + dot + rule + subtitle
    Rides var(--fg) / var(--accent), so it inherits the page chrome.
 ========================================================= */
