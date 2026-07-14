@@ -15,6 +15,7 @@ import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/web
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import {
   BRIGHTEN_LEVELS,
+  EDGE_NUDGE_STEPS,
   SOFT_EDGE_FEATHER_PX,
   type BrightenLevel,
   type RecolorEngine,
@@ -258,6 +259,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // the AI mask's approximation. ON by default; the toggle opts out for
   // photos where the mask is already pixel-perfect.
   const [snapEdge, setSnapEdge] = useState(true);
+  // "Edge nudge" — uniform grow/shrink of every painted boundary by a couple
+  // of px, for masks that sit consistently inside or outside the real
+  // surfaces. 0 (off) by default; fixed steps, see EDGE_NUDGE_STEPS.
+  const [edgeNudge, setEdgeNudge] = useState(0);
   // "Brighten" — whole-image light lift for photos shot in dim light, so
   // colours can be judged as on a sunnier day. Three fixed levels (Original /
   // Soft glow / Radiant, see BRIGHTEN_LEVELS); Original (untouched) default.
@@ -392,11 +397,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     if (!rc || !imageUrl) return;
     let cancelled = false;
 
-    // Prepare mask edges before painting — both are no-ops unless the
-    // matching toggle changed since the engine last rendered: "snap edges"
-    // locks mask boundaries onto the photo's real edges, "soft edges"
-    // feathers them inward a few px.
+    // Prepare mask edges before painting — each is a no-op unless the
+    // matching control changed since the engine last rendered: "snap edges"
+    // locks mask boundaries onto the photo's real edges, "edge nudge" grows
+    // or shrinks every boundary uniformly, "soft edges" feathers them inward.
     rc.setEdgeSnap?.(snapEdge);
+    rc.setEdgeOffset?.(edgeNudge);
     rc.setMaskFeather?.(softEdge ? SOFT_EDGE_FEATHER_PX : 0);
 
     // Brighten lifts the whole scene (photo AND paint). Hold-to-compare shows
@@ -452,7 +458,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => {
       cancelled = true;
     };
-  }, [regions, imageUrl, compare, shadowOn, shadowStrength, softEdge, snapEdge, brighten, canvasCleaned, loadMask]);
+  }, [regions, imageUrl, compare, shadowOn, shadowStrength, softEdge, snapEdge, edgeNudge, brighten, canvasCleaned, loadMask]);
 
   useEffect(() => {
     return () => {
@@ -1404,6 +1410,34 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 </div>
                 <div className="hv-studio-tool hv-studio-tool-col">
                   <span className="hv-studio-tool-label">
+                    <span className="hv-studio-tool-icon"><NudgeIcon /></span>
+                    Edge nudge
+                  </span>
+                  <div className="hv-seg" role="radiogroup" aria-label="Grow or shrink the painted edges">
+                    {EDGE_NUDGE_STEPS.map((px) => (
+                      <button
+                        key={px}
+                        type="button"
+                        role="radio"
+                        aria-checked={edgeNudge === px}
+                        data-on={edgeNudge === px}
+                        className="hv-seg-btn"
+                        title={
+                          px === 0
+                            ? "Edges exactly where the masks put them"
+                            : px < 0
+                              ? `Pull every painted edge in by ${-px}px`
+                              : `Push every painted edge out by ${px}px`
+                        }
+                        onClick={() => setEdgeNudge(px)}
+                      >
+                        {px > 0 ? `+${px}` : String(px)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="hv-studio-tool hv-studio-tool-col">
+                  <span className="hv-studio-tool-label">
                     <span className="hv-studio-tool-icon"><SunIcon /></span>
                     Brighten
                   </span>
@@ -1736,6 +1770,17 @@ function ShadowIcon() {
     <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function NudgeIcon() {
+  // Opposing arrows — grow or shrink the painted edge.
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 4v16" />
+      <path d="M8 9l-4 3 4 3M4 12h5" />
+      <path d="M16 9l4 3-4 3M20 12h-5" />
     </svg>
   );
 }

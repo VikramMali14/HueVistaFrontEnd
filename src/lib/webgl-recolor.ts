@@ -17,7 +17,7 @@
  */
 
 import type { RecolorEngine, RegionPaint } from "./recolor-engine";
-import { featherMaskInward, featherRadiusInMaskPx } from "./mask-feather";
+import { featherMaskInward, featherRadiusInMaskPx, offsetMaskCanvas } from "./mask-feather";
 import { buildGuide, refineMaskToImage, type Guide } from "./mask-refine";
 
 // Shared with the Canvas 2D fallback engine (canvas2d-recolor.ts); re-exported
@@ -187,6 +187,9 @@ export class Recolor implements RecolorEngine {
    *  are refined against the photo so painted boundaries lock onto real image
    *  edges instead of the AI mask's approximation (see mask-refine.ts). */
   private edgeSnap = true;
+  /** Uniform edge nudge in photo px (the studio's "Edge nudge" control):
+   *  positive grows every painted region outward, negative shrinks it. 0 off. */
+  private edgeOffsetPx = 0;
   /** The source photo, kept to build the edge-snap guide lazily. */
   private srcImage: TexImageSource | null = null;
   /** Working-res photo guide for edge snapping. undefined = not built yet,
@@ -301,10 +304,22 @@ export class Recolor implements RecolorEngine {
   }
 
   /**
+   * Set the uniform edge nudge in photo px (positive = grow the painted
+   * regions, negative = shrink; 0 = off, the default). Cached mask textures
+   * baked in the old offset, so a change drops them; callers re-render after.
+   */
+  setEdgeOffset(px: number) {
+    if (px === this.edgeOffsetPx) return;
+    this.edgeOffsetPx = px;
+    this.clearMaskCache();
+  }
+
+  /**
    * The full mask preparation chain: snap the boundary onto the photo's real
-   * edges (when enabled and the photo is readable), then feather inward (when
-   * the soft-edges toggle is on). Each stage degrades to its input when it
-   * can't run, so a raw mask is always a valid outcome.
+   * edges (when enabled and the photo is readable), apply the user's uniform
+   * edge nudge, then feather inward (when the soft-edges toggle is on). Each
+   * stage degrades to its input when it can't run, so a raw mask is always a
+   * valid outcome.
    */
   private prepared(mask: TexImageSource): TexImageSource {
     let m = mask;
@@ -316,6 +331,15 @@ export class Recolor implements RecolorEngine {
         this.refineCache.set(mask, refined);
       }
       if (refined) m = refined;
+    }
+    if (this.edgeOffsetPx !== 0) {
+      const dims = texSize(m);
+      if (dims) {
+        const off = featherRadiusInMaskPx(Math.abs(this.edgeOffsetPx), dims.w, this.width)
+          * Math.sign(this.edgeOffsetPx);
+        const shifted = offsetMaskCanvas(m as CanvasImageSource, dims.w, dims.h, off);
+        if (shifted) m = shifted;
+      }
     }
     return this.feather(m);
   }

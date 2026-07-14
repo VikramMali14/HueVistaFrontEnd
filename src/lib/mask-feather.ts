@@ -106,6 +106,35 @@ export function chokeInward(hard: Float32Array, soft: Float32Array): Float32Arra
 }
 
 /**
+ * Shift a coverage field's boundary by `offsetPx` (positive = expand the
+ * region outward, negative = contract it inward) with an anti-aliased edge.
+ * A single clamped box blur turns the hard edge into a linear ramp whose
+ * level sets sit at known distances from the boundary; cutting the ramp at a
+ * shifted threshold moves the edge by the requested amount, and a narrow
+ * smoothstep window around the cut keeps ~1px of AA instead of re-aliasing.
+ * This is the studio's "edge nudge": a uniform grow/shrink for masks that sit
+ * consistently inside or outside the real surface.
+ */
+export function offsetCoverage(cov: Float32Array, w: number, h: number, offsetPx: number): Float32Array {
+  if (offsetPx === 0) return cov;
+  const r = Math.ceil(Math.abs(offsetPx)) + 1;
+  const soft = boxBlurField(cov, w, h, r);
+  // A box of width (2r+1) ramps linearly across the edge: level set `t` sits
+  // at signed distance (0.5 - t)·(2r+1) outside the boundary.
+  const t = 0.5 - offsetPx / (2 * r + 1);
+  const aa = 1 / (2 * r + 1); // ≈1px of anti-aliasing around the cut
+  const lo = t - aa;
+  const hi = t + aa;
+  const out = new Float32Array(cov.length);
+  for (let i = 0; i < cov.length; i++) {
+    let u = (soft[i]! - lo) / (hi - lo);
+    u = u < 0 ? 0 : u > 1 ? 1 : u;
+    out[i] = u * u * (3 - 2 * u);
+  }
+  return out;
+}
+
+/**
  * Convert a feather radius given in PHOTO pixels into MASK pixels. AI masks
  * often come back at a lower resolution than the photo; blurring them by the
  * raw radius and then upscaling magnifies the feather (the old code's wide,
@@ -134,6 +163,34 @@ export function featherMaskInward(
   h: number,
   radius: number,
 ): HTMLCanvasElement | null {
+  return transformMaskCanvas(mask, w, h, (hard) =>
+    chokeInward(hard, blurCoverage(hard, w, h, radius)),
+  );
+}
+
+/**
+ * Grow (positive offset) or shrink (negative offset) a mask by ~`offsetPx`
+ * mask pixels — the DOM wrapper around {@link offsetCoverage}, with the same
+ * output contract and failure behaviour as {@link featherMaskInward}.
+ */
+export function offsetMaskCanvas(
+  mask: CanvasImageSource,
+  w: number,
+  h: number,
+  offsetPx: number,
+): HTMLCanvasElement | null {
+  return transformMaskCanvas(mask, w, h, (hard) => offsetCoverage(hard, w, h, offsetPx));
+}
+
+/** Read a mask's coverage (red × alpha), run `transform` over it, and write
+ *  the result back as an opaque white-on-black canvas. Returns null where the
+ *  DOM is unavailable or the mask is unreadable (tainted). */
+function transformMaskCanvas(
+  mask: CanvasImageSource,
+  w: number,
+  h: number,
+  transform: (hard: Float32Array) => Float32Array,
+): HTMLCanvasElement | null {
   if (typeof document === "undefined" || w <= 0 || h <= 0) return null;
   const c = document.createElement("canvas");
   c.width = w;
@@ -145,14 +202,14 @@ export function featherMaskInward(
   try {
     img = ctx.getImageData(0, 0, w, h);
   } catch {
-    return null; // tainted — the caller keeps the crisp mask
+    return null; // tainted — the caller keeps the untouched mask
   }
   const px = img.data;
   const hard = new Float32Array(w * h);
   for (let i = 0, p = 0; i < hard.length; i++, p += 4) {
     hard[i] = (px[p]! * px[p + 3]!) / 65025; // red × alpha, normalised to 0..1
   }
-  const cov = chokeInward(hard, blurCoverage(hard, w, h, radius));
+  const cov = transform(hard);
   for (let i = 0, p = 0; i < cov.length; i++, p += 4) {
     const v = Math.round(cov[i]! * 255);
     px[p] = v;

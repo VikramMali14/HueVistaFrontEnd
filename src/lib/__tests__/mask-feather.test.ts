@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blurCoverage, chokeInward, featherRadiusInMaskPx } from "../mask-feather";
+import { blurCoverage, chokeInward, featherRadiusInMaskPx, offsetCoverage } from "../mask-feather";
 
 /** Build a w×h coverage field where `inside(x, y)` marks the masked region. */
 function field(w: number, h: number, inside: (x: number, y: number) => boolean): Float32Array {
@@ -78,6 +78,29 @@ describe("inward mask feather", () => {
     expect(soft[row + 20]!).toBeLessThan(0.7);
     expect(soft[row + 24]!).toBeGreaterThan(0); // spread past the edge…
     expect(feather(halfPlane, W, H, 3)[row + 24]).toBe(0); // …but choked to 0
+  });
+
+  it("offsetCoverage grows and shrinks the boundary by the requested pixels", () => {
+    // Edge at x = 20 (first uncovered pixel). The 0.5 crossing must move by
+    // the offset, ±1px of anti-aliasing tolerance.
+    const crossing = (out: Float32Array) => {
+      const row = 20 * W;
+      for (let x = 0; x < W; x++) {
+        if (out[row + x]! < 0.5) return x;
+      }
+      return W;
+    };
+    expect(crossing(offsetCoverage(halfPlane, W, H, 2))).toBeGreaterThanOrEqual(21);
+    expect(crossing(offsetCoverage(halfPlane, W, H, 2))).toBeLessThanOrEqual(23);
+    expect(crossing(offsetCoverage(halfPlane, W, H, -2))).toBeGreaterThanOrEqual(17);
+    expect(crossing(offsetCoverage(halfPlane, W, H, -2))).toBeLessThanOrEqual(19);
+    expect(offsetCoverage(halfPlane, W, H, 0)).toBe(halfPlane); // 0 = untouched
+  });
+
+  it("offsetCoverage keeps far interior and exterior binary", () => {
+    const out = offsetCoverage(halfPlane, W, H, 2);
+    expect(out[20 * W + 5]).toBeCloseTo(1, 5);
+    expect(out[20 * W + 35]).toBeCloseTo(0, 5);
   });
 
   it("rescales the feather radius from photo pixels to mask pixels", () => {

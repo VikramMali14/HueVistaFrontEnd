@@ -22,7 +22,7 @@
  */
 
 import type { RecolorEngine, RecolorSource, RegionPaint } from "./recolor-engine";
-import { featherMaskInward, featherRadiusInMaskPx } from "./mask-feather";
+import { featherMaskInward, featherRadiusInMaskPx, offsetMaskCanvas } from "./mask-feather";
 import { buildGuide, refineMaskToImage, type Guide } from "./mask-refine";
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
@@ -93,6 +93,9 @@ export class Canvas2DRecolor implements RecolorEngine {
    *  are refined against the photo so painted boundaries lock onto real image
    *  edges instead of the AI mask's approximation (see mask-refine.ts). */
   private edgeSnap = true;
+  /** Uniform edge nudge in photo px (the studio's "Edge nudge" control):
+   *  positive grows every painted region outward, negative shrinks it. 0 off. */
+  private edgeOffsetPx = 0;
   /** Working-res photo guide for edge snapping. undefined = not built yet,
    *  null = build failed (no DOM / tainted photo) — don't retry every mask. */
   private guide: Guide | null | undefined = undefined;
@@ -135,6 +138,17 @@ export class Canvas2DRecolor implements RecolorEngine {
   setEdgeSnap(on: boolean) {
     if (on === this.edgeSnap) return;
     this.edgeSnap = on;
+    this.alphaMaskCache.clear();
+  }
+
+  /**
+   * Set the uniform edge nudge in photo px (positive = grow the painted
+   * regions, negative = shrink; 0 = off, the default). Cached alpha masks
+   * baked in the old offset, so a change drops them; callers re-render after.
+   */
+  setEdgeOffset(px: number) {
+    if (px === this.edgeOffsetPx) return;
+    this.edgeOffsetPx = px;
     this.alphaMaskCache.clear();
   }
 
@@ -344,6 +358,15 @@ export class Canvas2DRecolor implements RecolorEngine {
           w = refined.width;
           h = refined.height;
         }
+      }
+      // Then the user's uniform edge nudge: grow or shrink every region
+      // boundary by a few photo px (rescaled to this mask's resolution).
+      if (this.edgeOffsetPx !== 0) {
+        const photoW = this.source ? sourceSize(this.source).w : 0;
+        const off = featherRadiusInMaskPx(Math.abs(this.edgeOffsetPx), w, photoW)
+          * Math.sign(this.edgeOffsetPx);
+        const shifted = offsetMaskCanvas(source, w, h, off);
+        if (shifted) source = shifted;
       }
       // Then the optional inward feather (the "soft edges" toggle): the paint
       // fades in just inside the boundary and never spills past it — a plain
