@@ -68,6 +68,13 @@ function boxPassV(src: Float32Array, w: number, h: number, r: number): Float32Ar
   return out;
 }
 
+/** One full box-blur pass (horizontal + vertical) over a 0..1 coverage field,
+ *  window clamped to the image. Shared with the edge-snap refinement
+ *  (mask-refine.ts), whose guided filter is built from box means. */
+export function boxBlurField(src: Float32Array, w: number, h: number, r: number): Float32Array {
+  return boxPassV(boxPassH(src, w, h, r), w, h, r);
+}
+
 /**
  * Blur a coverage field (0..1 per pixel) by ~`radius` px: two separable box
  * passes, whose composition approximates a Gaussian well enough for a
@@ -77,9 +84,7 @@ function boxPassV(src: Float32Array, w: number, h: number, r: number): Float32Ar
  */
 export function blurCoverage(cov: Float32Array, w: number, h: number, radius: number): Float32Array {
   const r = Math.max(1, Math.round(radius));
-  let out = boxPassV(boxPassH(cov, w, h, r), w, h, r);
-  out = boxPassV(boxPassH(out, w, h, r), w, h, r);
-  return out;
+  return boxBlurField(boxBlurField(cov, w, h, r), w, h, r);
 }
 
 /**

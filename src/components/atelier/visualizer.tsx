@@ -253,6 +253,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // (crisp edges align exactly with the surface); turning it ON hides the hard
   // seam on photos where the AI mask sits a pixel or two off the real edge.
   const [softEdge, setSoftEdge] = useState(false);
+  // "Snap edges" — refines each mask against the photo so paint boundaries
+  // lock onto real image edges (frames, wall/sky lines, railings) instead of
+  // the AI mask's approximation. ON by default; the toggle opts out for
+  // photos where the mask is already pixel-perfect.
+  const [snapEdge, setSnapEdge] = useState(true);
   // "Brighten" — whole-image light lift for photos shot in dim light, so
   // colours can be judged as on a sunnier day. Three fixed levels (Original /
   // Soft glow / Radiant, see BRIGHTEN_LEVELS); Original (untouched) default.
@@ -387,8 +392,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     if (!rc || !imageUrl) return;
     let cancelled = false;
 
-    // Feather (or un-feather) the mask edges before painting — a no-op unless
-    // the "soft edges" toggle changed since the engine last rendered.
+    // Prepare mask edges before painting — both are no-ops unless the
+    // matching toggle changed since the engine last rendered: "snap edges"
+    // locks mask boundaries onto the photo's real edges, "soft edges"
+    // feathers them inward a few px.
+    rc.setEdgeSnap?.(snapEdge);
     rc.setMaskFeather?.(softEdge ? SOFT_EDGE_FEATHER_PX : 0);
 
     // Brighten lifts the whole scene (photo AND paint). Hold-to-compare shows
@@ -444,7 +452,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => {
       cancelled = true;
     };
-  }, [regions, imageUrl, compare, shadowOn, shadowStrength, softEdge, brighten, canvasCleaned, loadMask]);
+  }, [regions, imageUrl, compare, shadowOn, shadowStrength, softEdge, snapEdge, brighten, canvasCleaned, loadMask]);
 
   useEffect(() => {
     return () => {
@@ -1358,6 +1366,25 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 </div>
                 <div className="hv-studio-tool">
                   <span className="hv-studio-tool-label">
+                    <span className="hv-studio-tool-icon"><SnapEdgeIcon /></span>
+                    Snap edges
+                  </span>
+                  <button
+                    type="button"
+                    className="hv-switch"
+                    role="switch"
+                    aria-checked={snapEdge}
+                    data-on={snapEdge}
+                    title={snapEdge
+                      ? "Snap edges on — paint borders lock onto the photo's real edges"
+                      : "Snap edges off — the AI mask's borders are used exactly as generated"}
+                    onClick={() => setSnapEdge((v) => !v)}
+                  >
+                    <span className="hv-switch-knob" />
+                  </button>
+                </div>
+                <div className="hv-studio-tool">
+                  <span className="hv-studio-tool-label">
                     <span className="hv-studio-tool-icon"><SoftEdgeIcon /></span>
                     Soft edges
                   </span>
@@ -1709,6 +1736,16 @@ function ShadowIcon() {
     <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function SnapEdgeIcon() {
+  // Magnet — paint borders attract to the photo's real edges.
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M7 3v8a5 5 0 0 0 10 0V3" />
+      <path d="M7 3h4v5H7zM13 3h4v5h-4z" fill="none" />
     </svg>
   );
 }
