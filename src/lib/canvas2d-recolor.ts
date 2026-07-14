@@ -22,6 +22,7 @@
  */
 
 import type { RecolorEngine, RecolorSource, RegionPaint } from "./recolor-engine";
+import { featherMaskInward, featherRadiusInMaskPx } from "./mask-feather";
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
@@ -294,14 +295,22 @@ export class Canvas2DRecolor implements RecolorEngine {
       const cctx = c.getContext("2d", { willReadFrequently: true });
       if (cctx) {
         // Feathering is off by default (featherPx = 0) so the region keeps a
-        // crisp edge exactly on the surface boundary — the softened edge read
-        // as a visible "blur"/glow around recoloured walls and borders. The
-        // studio's "soft edges" toggle opts in via setMaskFeather for photos
-        // where the mask sits a pixel or two off the real boundary.
-        const radius = this.featherPx;
-        if (radius > 0) cctx.filter = `blur(${radius}px)`;
-        cctx.drawImage(mask, 0, 0, w, h);
-        cctx.filter = "none";
+        // crisp edge exactly on the surface boundary. When the studio's
+        // "soft edges" toggle opts in via setMaskFeather, the feather is
+        // INWARD-only (see mask-feather.ts): the paint fades in just inside
+        // the boundary and never spills past it — a plain Gaussian blur here
+        // used to bleed colour onto sky, frames and railing gaps as a glowing
+        // halo. The radius is in photo pixels; rescale it to the mask's own
+        // resolution so a low-res AI mask doesn't magnify the feather.
+        let source: CanvasImageSource = mask as CanvasImageSource;
+        if (this.featherPx > 0) {
+          const photoW = this.source ? sourceSize(this.source).w : 0;
+          const feathered = featherMaskInward(
+            source, w, h, featherRadiusInMaskPx(this.featherPx, w, photoW),
+          );
+          if (feathered) source = feathered; // unreadable mask — keep it crisp
+        }
+        cctx.drawImage(source, 0, 0, w, h);
         try {
           const data = cctx.getImageData(0, 0, w, h);
           const px = data.data;

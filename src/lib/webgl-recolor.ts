@@ -17,6 +17,7 @@
  */
 
 import type { RecolorEngine, RegionPaint } from "./recolor-engine";
+import { featherMaskInward, featherRadiusInMaskPx } from "./mask-feather";
 
 // Shared with the Canvas 2D fallback engine (canvas2d-recolor.ts); re-exported
 // so existing `import { type RegionPaint } from "@/lib/webgl-recolor"` keeps working.
@@ -275,30 +276,25 @@ export class Recolor implements RecolorEngine {
   }
 
   /**
-   * Optionally soften a hard binary mask's edge. Feathering is off by default
-   * (featherPx = 0) because the softened edge read as a visible "blur"/glow
-   * around recoloured walls and window borders; the studio's "soft edges"
-   * toggle opts in via {@link setMaskFeather} for photos where the mask sits a
-   * pixel or two off the real boundary. With a zero radius this returns the
-   * mask untouched so the painted region keeps a crisp edge exactly on the
-   * surface boundary. The blur is applied once per mask (cached as a GL
-   * texture below) and degrades to the crisp mask where a 2D context is
-   * unavailable.
+   * Optionally soften a hard binary mask's edge (the studio's "soft edges"
+   * toggle; off by default, featherPx = 0, keeping a crisp edge exactly on
+   * the surface boundary). The feather is INWARD-only — blur, re-steepen,
+   * clamp by the hard mask (see mask-feather.ts) — so the paint fades in just
+   * inside the boundary and NEVER spills past it: a plain Gaussian feather
+   * here used to bleed colour onto the sky, window frames and railing gaps as
+   * a glowing halo. The radius is given in photo pixels and rescaled to the
+   * mask's own resolution, so a low-res AI mask doesn't magnify the feather
+   * when it's stretched over the photo. Applied once per mask (cached as a GL
+   * texture below); degrades to the crisp mask where a 2D context is
+   * unavailable or the mask is unreadable (tainted).
    */
   private feather(mask: TexImageSource): TexImageSource {
-    if (typeof document === "undefined") return mask;
+    if (this.featherPx <= 0) return mask; // feathering off — keep the edge crisp
     const dims = texSize(mask);
     if (!dims) return mask;
-    const radius = this.featherPx;
-    if (radius <= 0) return mask; // feathering off — keep the edge crisp (no blur)
-    const c = document.createElement("canvas");
-    c.width = dims.w;
-    c.height = dims.h;
-    const ctx = c.getContext("2d");
-    if (!ctx) return mask;
-    ctx.filter = `blur(${radius}px)`;
-    ctx.drawImage(mask as CanvasImageSource, 0, 0, dims.w, dims.h);
-    return c;
+    const radius = featherRadiusInMaskPx(this.featherPx, dims.w, this.width);
+    const feathered = featherMaskInward(mask as CanvasImageSource, dims.w, dims.h, radius);
+    return feathered ?? mask;
   }
 
   /** Get (or upload-once) the cached GL texture for a mask source. */

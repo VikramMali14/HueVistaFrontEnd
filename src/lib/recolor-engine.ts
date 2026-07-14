@@ -35,17 +35,21 @@ export interface RegionPaint {
 }
 
 /**
- * Feather radius (px) applied to mask edges when the user turns the
- * "soft edges" toggle ON. Feathering is OFF by default: users reported the
- * softened edge as a visible "blur" effect — a glowing halo around the
- * recoloured walls, the accent wall and the window borders — so crisp 0/255
+ * Feather radius (in PHOTO pixels) applied to mask edges when the user turns
+ * the "soft edges" toggle ON. Feathering is OFF by default — crisp 0/255
  * edges are the baseline (the engines' bilinear mask scaling already removes
- * the raw staircase). But on photos where the AI mask sits a pixel or two off
- * the real surface boundary, a small feather hides the misregistration, so
- * it's now the user's call: engines expose {@link RecolorEngine.setMaskFeather}
- * and the studio surfaces it as a toggle using this radius.
+ * the raw staircase) — and the toggle opts in via
+ * {@link RecolorEngine.setMaskFeather}.
+ *
+ * The feather is INWARD-only ("choked": blur, re-steepen, clamp by the hard
+ * mask — see mask-feather.ts). An earlier plain Gaussian feather spread half
+ * its ramp OUTSIDE the region, bleeding paint onto the sky, window borders
+ * and railing gaps as a glowing halo; the inward feather keeps crisp mode's
+ * exact outline and fades the paint in over this many pixels just inside it,
+ * so no colour ever crosses the boundary. Engines rescale the radius to each
+ * mask's own resolution, so low-res AI masks don't magnify the softness.
  */
-export const SOFT_EDGE_FEATHER_PX = 2;
+export const SOFT_EDGE_FEATHER_PX = 3;
 
 /**
  * The studio's "Brighten" control: a whole-image light lift for photos shot

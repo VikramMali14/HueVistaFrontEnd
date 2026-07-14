@@ -1368,7 +1368,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     aria-checked={softEdge}
                     data-on={softEdge}
                     title={softEdge
-                      ? "Soft edges on — mask borders blend over a couple of pixels"
+                      ? "Soft edges on — colour fades in just inside the mask border, without spilling past it"
                       : "Soft edges off — crisp mask borders"}
                     onClick={() => setSoftEdge((v) => !v)}
                   >
