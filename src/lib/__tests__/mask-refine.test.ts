@@ -111,4 +111,26 @@ describe("edge snapping (guided mask refinement)", () => {
       expect(q[i]!).toBeLessThanOrEqual(1);
     }
   });
+
+  it("the fast (subsampled) filter matches the exact filter", () => {
+    // Bigger field so the subsampled path engages; same wall/sky edge.
+    const bw = 160;
+    const bh = 120;
+    const big = makeGuide(bw, bh, (x) => (x < 80 ? [0.85, 0.8, 0.7] : [0.55, 0.65, 0.9]));
+    const mask = makeMask(bw, bh, (x) => x < 83);
+    const exact = guidedFilterAlpha(big, mask, RADIUS, EPS);
+    const fast = guidedFilterAlpha(big, mask, RADIUS, EPS, 2);
+    // Point-wise the two stay close…
+    let maxDiff = 0;
+    for (let i = 0; i < exact.length; i++) {
+      maxDiff = Math.max(maxDiff, Math.abs(exact[i]! - fast[i]!));
+    }
+    expect(maxDiff).toBeLessThan(0.15);
+    // …and after the snap both put the edge in the same place.
+    const exactSnap = snapAlpha(mask, exact, bw, bh, BAND);
+    const fastSnap = snapAlpha(mask, fast, bw, bh, BAND);
+    for (let y = 20; y < bh - 20; y += 10) {
+      expect(Math.abs(crossing(exactSnap, bw, y) - crossing(fastSnap, bw, y))).toBeLessThanOrEqual(1);
+    }
+  });
 });

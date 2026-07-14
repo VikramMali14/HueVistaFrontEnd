@@ -49,6 +49,10 @@ const SNAP_BAND_PX = 4;
  *  where the guided filter put it. */
 const STEEPEN_LO = 0.35;
 const STEEPEN_HI = 0.65;
+/** Subsample factor for the fast guided filter used by refineMaskToImage:
+ *  coefficients at half resolution ≈ 4× less arithmetic, visually identical
+ *  output — keeps the first paint after upload snappy on mobile. */
+const FAST_SUBSAMPLE = 2;
 
 /** The photo at working resolution, split into 0..1 colour planes. */
 export interface Guide {
@@ -57,14 +61,20 @@ export interface Guide {
   ch: [Float32Array, Float32Array, Float32Array];
 }
 
-/**
- * Colour guided filter of a coverage field `p` (0..1) steered by the guide
- * image: output alpha follows `p` in flat areas but re-attaches its
- * transitions to the guide's colour edges. Pure math — no DOM.
- */
-export function guidedFilterAlpha(guide: Guide, p: Float32Array, radius: number, eps: number): Float32Array {
-  const { w, h } = guide;
-  const [R, G, B] = guide.ch;
+/** The box-averaged guided-filter coefficient fields: alpha = aR·R + aG·G + aB·B + b. */
+interface GuidedCoefficients {
+  aR: Float32Array;
+  aG: Float32Array;
+  aB: Float32Array;
+  b: Float32Array;
+}
+
+/** Compute the guided filter's smoothed per-pixel coefficients at the given
+ *  resolution — the expensive part of the filter (17 box passes). */
+function guidedCoefficients(
+  R: Float32Array, G: Float32Array, B: Float32Array, p: Float32Array,
+  w: number, h: number, radius: number, eps: number,
+): GuidedCoefficients {
   const n = w * h;
   const box = (a: Float32Array) => boxBlurField(a, w, h, radius);
   const mul = (x: Float32Array, y: Float32Array) => {
@@ -112,10 +122,92 @@ export function guidedFilterAlpha(guide: Guide, p: Float32Array, radius: number,
     bb[i] = mP[i]! - ar * mR[i]! - ag * mG[i]! - ab * mB[i]!;
   }
 
-  const mAR = box(aR), mAG = box(aG), mAB = box(aB), mBB = box(bb);
-  const q = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    const v = mAR[i]! * R[i]! + mAG[i]! * G[i]! + mAB[i]! * B[i]! + mBB[i]!;
+  return { aR: box(aR), aG: box(aG), aB: box(aB), b: box(bb) };
+}
+
+/** Box-average `src` (w×h) down by integer factor `s` into a ws×hs field. */
+function downsampleField(
+  src: Float32Array, w: number, h: number, ws: number, hs: number, s: number,
+): Float32Array {
+  const out = new Float32Array(ws * hs);
+  for (let y = 0; y < hs; y++) {
+    const y0 = y * s;
+    const y1 = Math.min(h, y0 + s);
+    for (let x = 0; x < ws; x++) {
+      const x0 = x * s;
+      const x1 = Math.min(w, x0 + s);
+      let sum = 0;
+      for (let yy = y0; yy < y1; yy++) {
+        const row = yy * w;
+        for (let xx = x0; xx < x1; xx++) sum += src[row + xx]!;
+      }
+      out[y * ws + x] = sum / ((y1 - y0) * (x1 - x0));
+    }
+  }
+  return out;
+}
+
+/** Bilinearly upsample a ws×hs field to w×h (pixel-centre aligned, clamped). */
+function upsampleBilinear(
+  src: Float32Array, ws: number, hs: number, w: number, h: number,
+): Float32Array {
+  const out = new Float32Array(w * h);
+  const sx = ws / w;
+  const sy = hs / h;
+  for (let y = 0; y < h; y++) {
+    let fy = (y + 0.5) * sy - 0.5;
+    fy = fy < 0 ? 0 : fy > hs - 1 ? hs - 1 : fy;
+    const y0 = Math.floor(fy);
+    const y1 = Math.min(hs - 1, y0 + 1);
+    const wy = fy - y0;
+    for (let x = 0; x < w; x++) {
+      let fx = (x + 0.5) * sx - 0.5;
+      fx = fx < 0 ? 0 : fx > ws - 1 ? ws - 1 : fx;
+      const x0 = Math.floor(fx);
+      const x1 = Math.min(ws - 1, x0 + 1);
+      const wx = fx - x0;
+      const top = src[y0 * ws + x0]! * (1 - wx) + src[y0 * ws + x1]! * wx;
+      const bot = src[y1 * ws + x0]! * (1 - wx) + src[y1 * ws + x1]! * wx;
+      out[y * w + x] = top * (1 - wy) + bot * wy;
+    }
+  }
+  return out;
+}
+
+/**
+ * Colour guided filter of a coverage field `p` (0..1) steered by the guide
+ * image: output alpha follows `p` in flat areas but re-attaches its
+ * transitions to the guide's colour edges. Pure math — no DOM.
+ *
+ * `subsample` > 1 runs the FAST guided filter (He & Sun 2015): the smoothed
+ * coefficients are computed on a subsampled guide/mask and bilinearly
+ * upsampled, then applied to the FULL-resolution guide — ~subsample² less
+ * arithmetic with visually identical output, because the coefficients are
+ * already box-smoothed fields. 1 (default) runs the exact filter.
+ */
+export function guidedFilterAlpha(
+  guide: Guide, p: Float32Array, radius: number, eps: number, subsample = 1,
+): Float32Array {
+  const { w, h } = guide;
+  const [R, G, B] = guide.ch;
+  const s = Math.max(1, Math.floor(subsample));
+  let c: GuidedCoefficients;
+  if (s > 1 && w >= 4 * s && h >= 4 * s) {
+    const ws = Math.floor(w / s);
+    const hs = Math.floor(h / s);
+    const down = (f: Float32Array) => downsampleField(f, w, h, ws, hs, s);
+    const sub = guidedCoefficients(
+      down(R), down(G), down(B), down(p),
+      ws, hs, Math.max(1, Math.round(radius / s)), eps,
+    );
+    const up = (f: Float32Array) => upsampleBilinear(f, ws, hs, w, h);
+    c = { aR: up(sub.aR), aG: up(sub.aG), aB: up(sub.aB), b: up(sub.b) };
+  } else {
+    c = guidedCoefficients(R, G, B, p, w, h, radius, eps);
+  }
+  const q = new Float32Array(w * h);
+  for (let i = 0; i < q.length; i++) {
+    const v = c.aR[i]! * R[i]! + c.aG[i]! * G[i]! + c.aB[i]! * B[i]! + c.b[i]!;
     q[i] = v < 0 ? 0 : v > 1 ? 1 : v;
   }
   return q;
@@ -202,7 +294,7 @@ export function refineMaskToImage(mask: CanvasImageSource, guide: Guide): HTMLCa
   for (let i = 0, p = 0; i < hard.length; i++, p += 4) {
     hard[i] = (px[p]! * px[p + 3]!) / 65025; // red × alpha, as everywhere else
   }
-  const q = guidedFilterAlpha(guide, hard, SNAP_RADIUS, SNAP_EPS);
+  const q = guidedFilterAlpha(guide, hard, SNAP_RADIUS, SNAP_EPS, FAST_SUBSAMPLE);
   const alpha = snapAlpha(hard, q, w, h, SNAP_BAND_PX);
   for (let i = 0, p = 0; i < alpha.length; i++, p += 4) {
     const v = Math.round(alpha[i]! * 255);
