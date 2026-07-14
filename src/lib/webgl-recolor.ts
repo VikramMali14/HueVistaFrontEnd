@@ -17,6 +17,8 @@
  */
 
 import type { RecolorEngine, RegionPaint } from "./recolor-engine";
+import { featherMaskInward, featherRadiusInMaskPx, offsetMaskCanvas } from "./mask-feather";
+import { buildGuide, refineMaskToImage, type Guide } from "./mask-refine";
 
 // Shared with the Canvas 2D fallback engine (canvas2d-recolor.ts); re-exported
 // so existing `import { type RegionPaint } from "@/lib/webgl-recolor"` keeps working.
@@ -181,6 +183,21 @@ export class Recolor implements RecolorEngine {
   private featherPx = 0;
   /** Whole-image brightness gamma; 1 (default) leaves the photo untouched. */
   private brightGamma = 1;
+  /** Edge snapping (the studio's "Snap edges" toggle; ON by default) — masks
+   *  are refined against the photo so painted boundaries lock onto real image
+   *  edges instead of the AI mask's approximation (see mask-refine.ts). */
+  private edgeSnap = true;
+  /** Uniform edge nudge in photo px (the studio's "Edge nudge" control):
+   *  positive grows every painted region outward, negative shrinks it. 0 off. */
+  private edgeOffsetPx = 0;
+  /** The source photo, kept to build the edge-snap guide lazily. */
+  private srcImage: TexImageSource | null = null;
+  /** Working-res photo guide for edge snapping. undefined = not built yet,
+   *  null = build failed (no DOM / tainted photo) — don't retry every mask. */
+  private guide: Guide | null | undefined = undefined;
+  /** Mask source → snapped mask canvas. null marks a mask that could not be
+   *  refined (unreadable) so we fall back to the raw mask without retrying. */
+  private refineCache = new Map<TexImageSource, HTMLCanvasElement | null>();
 
   constructor(public readonly canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
@@ -257,8 +274,74 @@ export class Recolor implements RecolorEngine {
     const dpr = Math.min(2, typeof window === "undefined" ? 1 : window.devicePixelRatio);
     this.canvas.width = Math.round(this.width * dpr);
     this.canvas.height = Math.round(this.height * dpr);
-    // A new photo means the old project's masks are gone — drop their textures.
+    // A new photo means the old project's masks are gone — drop their textures,
+    // their snapped refinements, and the old photo's edge-snap guide.
     this.clearMaskCache();
+    this.refineCache.clear();
+    this.srcImage = source;
+    this.guide = undefined;
+  }
+
+  /**
+   * Toggle edge snapping (see mask-refine.ts). Cached mask textures were
+   * built with the OLD setting baked in, so a change drops them; the snapped
+   * refinements themselves stay cached — re-enabling snap is instant.
+   */
+  setEdgeSnap(on: boolean) {
+    if (on === this.edgeSnap) return;
+    this.edgeSnap = on;
+    this.clearMaskCache();
+  }
+
+  /** Build (once per photo) the working-res guide the edge snap filters against. */
+  private ensureGuide(): Guide | null {
+    if (this.guide === undefined) {
+      this.guide = this.srcImage
+        ? buildGuide(this.srcImage as CanvasImageSource, this.width, this.height)
+        : null;
+    }
+    return this.guide;
+  }
+
+  /**
+   * Set the uniform edge nudge in photo px (positive = grow the painted
+   * regions, negative = shrink; 0 = off, the default). Cached mask textures
+   * baked in the old offset, so a change drops them; callers re-render after.
+   */
+  setEdgeOffset(px: number) {
+    if (px === this.edgeOffsetPx) return;
+    this.edgeOffsetPx = px;
+    this.clearMaskCache();
+  }
+
+  /**
+   * The full mask preparation chain: snap the boundary onto the photo's real
+   * edges (when enabled and the photo is readable), apply the user's uniform
+   * edge nudge, then feather inward (when the soft-edges toggle is on). Each
+   * stage degrades to its input when it can't run, so a raw mask is always a
+   * valid outcome.
+   */
+  private prepared(mask: TexImageSource): TexImageSource {
+    let m = mask;
+    if (this.edgeSnap) {
+      let refined = this.refineCache.get(mask);
+      if (refined === undefined) {
+        const guide = this.ensureGuide();
+        refined = guide ? refineMaskToImage(mask as CanvasImageSource, guide) : null;
+        this.refineCache.set(mask, refined);
+      }
+      if (refined) m = refined;
+    }
+    if (this.edgeOffsetPx !== 0) {
+      const dims = texSize(m);
+      if (dims) {
+        const off = featherRadiusInMaskPx(Math.abs(this.edgeOffsetPx), dims.w, this.width)
+          * Math.sign(this.edgeOffsetPx);
+        const shifted = offsetMaskCanvas(m as CanvasImageSource, dims.w, dims.h, off);
+        if (shifted) m = shifted;
+      }
+    }
+    return this.feather(m);
   }
 
   /**
@@ -275,30 +358,25 @@ export class Recolor implements RecolorEngine {
   }
 
   /**
-   * Optionally soften a hard binary mask's edge. Feathering is off by default
-   * (featherPx = 0) because the softened edge read as a visible "blur"/glow
-   * around recoloured walls and window borders; the studio's "soft edges"
-   * toggle opts in via {@link setMaskFeather} for photos where the mask sits a
-   * pixel or two off the real boundary. With a zero radius this returns the
-   * mask untouched so the painted region keeps a crisp edge exactly on the
-   * surface boundary. The blur is applied once per mask (cached as a GL
-   * texture below) and degrades to the crisp mask where a 2D context is
-   * unavailable.
+   * Optionally soften a hard binary mask's edge (the studio's "soft edges"
+   * toggle; off by default, featherPx = 0, keeping a crisp edge exactly on
+   * the surface boundary). The feather is INWARD-only — blur, re-steepen,
+   * clamp by the hard mask (see mask-feather.ts) — so the paint fades in just
+   * inside the boundary and NEVER spills past it: a plain Gaussian feather
+   * here used to bleed colour onto the sky, window frames and railing gaps as
+   * a glowing halo. The radius is given in photo pixels and rescaled to the
+   * mask's own resolution, so a low-res AI mask doesn't magnify the feather
+   * when it's stretched over the photo. Applied once per mask (cached as a GL
+   * texture below); degrades to the crisp mask where a 2D context is
+   * unavailable or the mask is unreadable (tainted).
    */
   private feather(mask: TexImageSource): TexImageSource {
-    if (typeof document === "undefined") return mask;
+    if (this.featherPx <= 0) return mask; // feathering off — keep the edge crisp
     const dims = texSize(mask);
     if (!dims) return mask;
-    const radius = this.featherPx;
-    if (radius <= 0) return mask; // feathering off — keep the edge crisp (no blur)
-    const c = document.createElement("canvas");
-    c.width = dims.w;
-    c.height = dims.h;
-    const ctx = c.getContext("2d");
-    if (!ctx) return mask;
-    ctx.filter = `blur(${radius}px)`;
-    ctx.drawImage(mask as CanvasImageSource, 0, 0, dims.w, dims.h);
-    return c;
+    const radius = featherRadiusInMaskPx(this.featherPx, dims.w, this.width);
+    const feathered = featherMaskInward(mask as CanvasImageSource, dims.w, dims.h, radius);
+    return feathered ?? mask;
   }
 
   /** Get (or upload-once) the cached GL texture for a mask source. */
@@ -309,7 +387,7 @@ export class Recolor implements RecolorEngine {
     const tex = gl.createTexture()!;
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.feather(mask));
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.prepared(mask));
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -390,6 +468,9 @@ export class Recolor implements RecolorEngine {
     if (this.imgTex) gl.deleteTexture(this.imgTex);
     if (this.blurTex) gl.deleteTexture(this.blurTex);
     this.clearMaskCache();
+    this.refineCache.clear();
+    this.srcImage = null;
+    this.guide = undefined;
     gl.deleteBuffer(this.vbo);
     gl.deleteVertexArray(this.vao);
     gl.deleteProgram(this.program);
