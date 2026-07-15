@@ -15,7 +15,6 @@ import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/web
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import {
   BRIGHTEN_LEVELS,
-  EDGE_NUDGE_STEPS,
   SOFT_EDGE_FEATHER_PX,
   type BrightenLevel,
   type RecolorEngine,
@@ -81,6 +80,20 @@ interface RegionState {
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_CUSTOM_MASKS = 3;
+
+// Render options fixed at their best-looking values — they used to be
+// user-facing toggles in the floating bar, but the popup overwhelmed people
+// at the counter, so only Brighten stays interactive:
+//  - shadows ON (85%): the paint follows the photo's own light;
+//  - snap edges ON: mask borders lock onto the photo's real edges;
+//  - soft edges OFF: crisp borders, no feathering;
+//  - edge nudge +2px: masks tend to sit slightly inside the real surface,
+//    so growing every painted edge a touch hides unpainted seams.
+const SHADOW_ON = true;
+const SHADOW_STRENGTH = 0.85;
+const SOFT_EDGE_ON = false;
+const SNAP_EDGE_ON = true;
+const EDGE_NUDGE_PX = 2;
 /** Most coloured snapshots the user can collect into one downloadable PDF. */
 const MAX_PDF_PAGES = 8;
 
@@ -246,24 +259,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [details, setDetails] = useState<ProjectDetails | null>(
     initialName ? { name: initialName } : null,
   );
-  // Shadow / relief preservation — ON by default (85% strength), with a
-  // visible toggle in the canvas toolbar for users who want the flat exact
-  // swatch instead of the photo's own light on the paint.
-  const [shadowOn, setShadowOn] = useState(true);
-  const shadowStrength = 0.85;
-  // "Soft edges" — feathers the mask boundary a couple of px. OFF by default
-  // (crisp edges align exactly with the surface); turning it ON hides the hard
-  // seam on photos where the AI mask sits a pixel or two off the real edge.
-  const [softEdge, setSoftEdge] = useState(false);
-  // "Snap edges" — refines each mask against the photo so paint boundaries
-  // lock onto real image edges (frames, wall/sky lines, railings) instead of
-  // the AI mask's approximation. ON by default; the toggle opts out for
-  // photos where the mask is already pixel-perfect.
-  const [snapEdge, setSnapEdge] = useState(true);
-  // "Edge nudge" — uniform grow/shrink of every painted boundary by a couple
-  // of px, for masks that sit consistently inside or outside the real
-  // surfaces. 0 (off) by default; fixed steps, see EDGE_NUDGE_STEPS.
-  const [edgeNudge, setEdgeNudge] = useState(0);
   // "Brighten" — whole-image light lift for photos shot in dim light, so
   // colours can be judged as on a sunnier day. Three fixed levels (Original /
   // Soft glow / Radiant, see BRIGHTEN_LEVELS); Original (untouched) default.
@@ -409,9 +404,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     // matching control changed since the engine last rendered: "snap edges"
     // locks mask boundaries onto the photo's real edges, "edge nudge" grows
     // or shrinks every boundary uniformly, "soft edges" feathers them inward.
-    rc.setEdgeSnap?.(snapEdge);
-    rc.setEdgeOffset?.(edgeNudge);
-    rc.setMaskFeather?.(softEdge ? SOFT_EDGE_FEATHER_PX : 0);
+    rc.setEdgeSnap?.(SNAP_EDGE_ON);
+    rc.setEdgeOffset?.(EDGE_NUDGE_PX);
+    rc.setMaskFeather?.(SOFT_EDGE_ON ? SOFT_EDGE_FEATHER_PX : 0);
 
     // Brighten lifts the whole scene (photo AND paint). Hold-to-compare shows
     // the TRUE original — unbrightened — so the before/after is honest.
@@ -438,7 +433,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         if (cancelled) return;
         if (!mask) continue;
         let baseL = 0;
-        if (shadowOn) {
+        if (SHADOW_ON) {
           const cached = baseLumaRef.current.get(r.id);
           if (cached !== undefined) {
             baseL = cached;
@@ -454,7 +449,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           // as light or dark as the real paint would. Colour-wheel picks have
           // no shade (no LRV) and paint the raw hex, unchanged.
           target: r.shade ? lrvCorrectedRgb01(r.hex, r.shade.lrv) : hexToRgb01(r.hex),
-          preserve: shadowOn ? shadowStrength : 0,
+          preserve: SHADOW_ON ? SHADOW_STRENGTH : 0,
           baseL,
           anchor: canvasCleaned,
         });
@@ -466,7 +461,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => {
       cancelled = true;
     };
-  }, [regions, imageUrl, compare, shadowOn, shadowStrength, softEdge, snapEdge, edgeNudge, brighten, canvasCleaned, loadMask]);
+  }, [regions, imageUrl, compare, brighten, canvasCleaned, loadMask]);
 
   useEffect(() => {
     return () => {
@@ -1390,95 +1385,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               }}
             />
             {imageUrl && !pendingFile && !uploading && !segmenting && (
-              /* Floating preview options (glass, top-left): shadow preservation,
-                 soft mask edges and the Brighten level — all re-render the
-                 canvas instantly. */
+              /* Floating preview option (glass, top-left): just the Brighten
+                 level — every other render option is fixed at its best default
+                 (shadows on, snap edges on, +2px edge nudge). */
               <div className="hv-studio-floatbar" role="group" aria-label="Preview options">
-                <div className="hv-studio-tool">
-                  <span className="hv-studio-tool-label">
-                    <span className="hv-studio-tool-icon"><ShadowIcon /></span>
-                    Shadows
-                  </span>
-                  <button
-                    type="button"
-                    className="hv-switch"
-                    role="switch"
-                    aria-checked={shadowOn}
-                    data-on={shadowOn}
-                    title={shadowOn
-                      ? "Shadows on — the paint follows the photo's own light"
-                      : "Shadows off — flat exact swatch colour"}
-                    onClick={() => setShadowOn((v) => !v)}
-                  >
-                    <span className="hv-switch-knob" />
-                  </button>
-                </div>
-                <div className="hv-studio-tool">
-                  <span className="hv-studio-tool-label">
-                    <span className="hv-studio-tool-icon"><SnapEdgeIcon /></span>
-                    Snap edges
-                  </span>
-                  <button
-                    type="button"
-                    className="hv-switch"
-                    role="switch"
-                    aria-checked={snapEdge}
-                    data-on={snapEdge}
-                    title={snapEdge
-                      ? "Snap edges on — paint borders lock onto the photo's real edges"
-                      : "Snap edges off — the AI mask's borders are used exactly as generated"}
-                    onClick={() => setSnapEdge((v) => !v)}
-                  >
-                    <span className="hv-switch-knob" />
-                  </button>
-                </div>
-                <div className="hv-studio-tool">
-                  <span className="hv-studio-tool-label">
-                    <span className="hv-studio-tool-icon"><SoftEdgeIcon /></span>
-                    Soft edges
-                  </span>
-                  <button
-                    type="button"
-                    className="hv-switch"
-                    role="switch"
-                    aria-checked={softEdge}
-                    data-on={softEdge}
-                    title={softEdge
-                      ? "Soft edges on — colour fades in just inside the mask border, without spilling past it"
-                      : "Soft edges off — crisp mask borders"}
-                    onClick={() => setSoftEdge((v) => !v)}
-                  >
-                    <span className="hv-switch-knob" />
-                  </button>
-                </div>
-                <div className="hv-studio-tool hv-studio-tool-col">
-                  <span className="hv-studio-tool-label">
-                    <span className="hv-studio-tool-icon"><NudgeIcon /></span>
-                    Edge nudge
-                  </span>
-                  <div className="hv-seg" role="radiogroup" aria-label="Grow or shrink the painted edges">
-                    {EDGE_NUDGE_STEPS.map((px) => (
-                      <button
-                        key={px}
-                        type="button"
-                        role="radio"
-                        aria-checked={edgeNudge === px}
-                        data-on={edgeNudge === px}
-                        className="hv-seg-btn"
-                        title={
-                          px === 0
-                            ? "Edges exactly where the masks put them"
-                            : px < 0
-                              ? `Pull every painted edge in by ${-px}px`
-                              : `Push every painted edge out by ${px}px`
-                        }
-                        onClick={() => setEdgeNudge(px)}
-                      >
-                        {px > 0 ? `+${px}` : String(px)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
                 <div className="hv-studio-tool hv-studio-tool-col">
                   <span className="hv-studio-tool-label">
                     <span className="hv-studio-tool-icon"><SunIcon /></span>
@@ -1532,9 +1442,41 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   aria-pressed={compare}
                 >
                   <CompareIcon />
-                  {compare ? "Original" : "Hold to compare"}
+                  {/* Both labels are always in the layout (stacked in one grid
+                      cell) so the button keeps ONE width — swapping the text
+                      used to shrink it mid-press, sliding it out from under
+                      the pointer. */}
+                  <span className="hv-studio-compare-label" aria-hidden={false}>
+                    <span style={{ visibility: compare ? "hidden" : "visible" }}>Hold to compare</span>
+                    <span style={{ visibility: compare ? "visible" : "hidden" }} aria-hidden={!compare}>Original</span>
+                  </span>
                 </button>
               </>
+            )}
+            {/* On-canvas legend: every painted surface with its shade NAME and
+                CODE, so the colours in the preview are never anonymous — the
+                counter (or a screenshot) reads them straight off the image.
+                Guests see the shop-encoded code, mirroring the PDF. */}
+            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
+              <div className="hv-studio-legend" role="list" aria-label="Colours in this preview">
+                {regions.filter((r) => r.applied).map((r) => {
+                  const code = r.shade
+                    ? guest
+                      ? encodeCode
+                        ? encodeCode(r.shade.code)
+                        : undefined
+                      : r.shade.code
+                    : undefined;
+                  return (
+                    <div key={r.id} className="hv-studio-legend-row" role="listitem">
+                      <span aria-hidden className="hv-studio-legend-chip" style={{ background: r.hex }} />
+                      <span className="hv-studio-legend-region">{r.label}</span>
+                      <span className="hv-studio-legend-name">{r.shade?.name ?? "Custom colour"}</span>
+                      <span className="hv-studio-legend-code">{code ?? r.hex.toUpperCase()}</span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
             {imageUrl && !pendingFile && !uploading && !segmenting && (
               <div className="hv-pdf-tray" role="group" aria-label="Colour board PDF">
@@ -1816,46 +1758,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
 
     </div>
-  );
-}
-
-function ShadowIcon() {
-  // Half-filled circle — light and shade.
-  return (
-    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function NudgeIcon() {
-  // Opposing arrows — grow or shrink the painted edge.
-  return (
-    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 4v16" />
-      <path d="M8 9l-4 3 4 3M4 12h5" />
-      <path d="M16 9l4 3-4 3M20 12h-5" />
-    </svg>
-  );
-}
-
-function SnapEdgeIcon() {
-  // Magnet — paint borders attract to the photo's real edges.
-  return (
-    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M7 3v8a5 5 0 0 0 10 0V3" />
-      <path d="M7 3h4v5H7zM13 3h4v5h-4z" fill="none" />
-    </svg>
-  );
-}
-
-function SoftEdgeIcon() {
-  // Droplet — the classic "blur" glyph.
-  return (
-    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 3.5c3.3 4 6.5 7.2 6.5 10.5a6.5 6.5 0 1 1-13 0C5.5 10.7 8.7 7.5 12 3.5z" />
-    </svg>
   );
 }
 
