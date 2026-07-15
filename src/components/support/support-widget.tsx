@@ -9,24 +9,74 @@ import type { SupportConversation, SupportMessage } from "@/lib/types";
  * (status NEEDS_HUMAN) when it can't help or the user asks. Lives in the (app)
  * layout, so it's available to both retailers and customers while signed in.
  */
+/** How often the open panel checks for new replies (agent messages arrive
+ *  out-of-band — without polling the customer never sees them). */
+const POLL_MS = 4000;
+
 export function SupportWidget() {
   const [open, setOpen] = useState(false);
   const [convo, setConvo] = useState<SupportConversation | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [pendingText, setPendingText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Guards: don't let a slow poll response clobber the conversation returned by
+  // an in-flight send, and only bootstrap the previous conversation once.
+  const sendingRef = useRef(false);
+  const bootstrappedRef = useRef(false);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [convo, open, sending]);
 
+  // First open: resume the most recent conversation that isn't resolved, so a
+  // page reload (or coming back the next day) doesn't orphan the thread — and
+  // the team's replies are actually seen.
+  useEffect(() => {
+    if (!open || bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
+    void (async () => {
+      try {
+        const list = await api.listSupport();
+        const latest = list.find((c) => c.channel === "IN_APP" && c.status !== "RESOLVED");
+        if (latest) setConvo(await api.getSupport(latest.id));
+      } catch {
+        /* not signed in / transient — start fresh on first message */
+      }
+    })();
+  }, [open]);
+
+  // While the panel is open, poll the active conversation so replies from the
+  // other end (human agents, or a delayed AI answer) appear without the user
+  // having to send another message.
+  const convoId = convo?.id;
+  useEffect(() => {
+    if (!open || !convoId) return;
+    const timer = setInterval(() => {
+      if (sendingRef.current || document.hidden) return;
+      void api
+        .getSupport(convoId)
+        .then((fresh) => {
+          if (!sendingRef.current) {
+            setConvo((cur) => (cur && cur.id === convoId ? fresh : cur));
+          }
+        })
+        .catch(() => {
+          /* transient network/auth hiccup — next tick retries */
+        });
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [open, convoId]);
+
   const send = useCallback(async () => {
     const text = input.trim();
     if (!text || sending) return;
     setSending(true);
+    sendingRef.current = true;
     setError(null);
     setInput("");
+    setPendingText(text);
     try {
       const next = convo
         ? await api.postSupport(convo.id, { body: text })
@@ -40,7 +90,9 @@ export function SupportWidget() {
       }
       setInput(text); // restore so the user doesn't lose their message
     } finally {
+      sendingRef.current = false;
       setSending(false);
+      setPendingText(null);
     }
   }, [input, sending, convo]);
 
@@ -120,6 +172,11 @@ export function SupportWidget() {
               </p>
             )}
             {convo?.messages.map((m) => <Bubble key={m.id} message={m} />)}
+            {/* Optimistic echo: the user's message stays visible while the round
+                trip (which includes the AI reply) is in flight. */}
+            {sending && pendingText && (
+              <Bubble message={{ id: "pending", sender: "USER", body: pendingText }} />
+            )}
             {sending && <Bubble message={{ id: "typing", sender: "AI", body: "…" }} />}
           </div>
 

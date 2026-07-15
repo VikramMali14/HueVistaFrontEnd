@@ -441,6 +441,10 @@ export interface SubscriptionSummary {
   aiGenerationsUsed: number;
   aiGenerationsLimit: number;
   aiGenerationsRemaining: number;
+  pdfDownloadsUsed?: number;
+  pdfDownloadsLimit?: number;
+  pdfDownloadsRemaining?: number;
+  pdfImageLimit?: number;
   // Present on a freshly CREATED subscription: the Razorpay hosted checkout URL the
   // buyer is sent to in order to pay and activate the plan.
   paymentUrl?: string | null;
@@ -452,6 +456,16 @@ export interface SubscriptionSummary {
 
 /** Plans a retailer can purchase directly (Enterprise is custom-priced — contact sales). */
 export type PurchasablePlan = "STARTER" | "PROFESSIONAL" | "BUSINESS";
+
+/** Colour-board PDF allowance (backend PdfAllowanceResponse) — resolved against
+ *  whichever plan pays for the caller (own plan, or the issuing shop's). */
+export interface PdfAllowance {
+  imagesPerPdf: number;
+  monthlyLimit: number;
+  used: number;
+  remaining: number;
+  unlimited: boolean;
+}
 
 /** Razorpay order details returned by the backend to open Checkout for a one-time project purchase. */
 export interface ProjectCreditOrder {

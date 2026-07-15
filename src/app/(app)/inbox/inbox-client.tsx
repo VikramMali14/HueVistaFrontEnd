@@ -29,6 +29,11 @@ function relTime(iso?: string | null): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
+/** Refresh cadences: the waiting list is cheap; the open thread needs to feel
+ *  live — customer messages land between agent replies. */
+const LIST_POLL_MS = 15_000;
+const ACTIVE_POLL_MS = 5_000;
+
 export function SupportInbox() {
   const [list, setList] = useState<SupportConversationSummary[]>([]);
   const [active, setActive] = useState<SupportConversation | null>(null);
@@ -37,6 +42,8 @@ export function SupportInbox() {
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  // Don't let a slow poll response overwrite the state a reply/resolve just set.
+  const busyRef = useRef(false);
 
   // Opening a conversation (or receiving a reply) should show the LATEST message.
   useEffect(() => {
@@ -57,6 +64,33 @@ export function SupportInbox() {
 
   useEffect(() => { void loadList(); }, [loadList]);
 
+  // Live inbox: new escalations appear without pressing Refresh.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.hidden || busyRef.current) return;
+      void api.listSupportInbox().then(setList).catch(() => { /* next tick retries */ });
+    }, LIST_POLL_MS);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Live thread: the customer's new messages appear while the agent has it open.
+  const activeId = active?.id;
+  useEffect(() => {
+    if (!activeId) return;
+    const timer = setInterval(() => {
+      if (document.hidden || busyRef.current) return;
+      void api
+        .getSupportInbox(activeId)
+        .then((fresh) => {
+          if (!busyRef.current) {
+            setActive((cur) => (cur && cur.id === activeId ? fresh : cur));
+          }
+        })
+        .catch(() => { /* transient — next tick retries */ });
+    }, ACTIVE_POLL_MS);
+    return () => clearInterval(timer);
+  }, [activeId]);
+
   const open = useCallback(async (id: string) => {
     setError(null);
     try {
@@ -69,6 +103,7 @@ export function SupportInbox() {
   const sendReply = useCallback(async () => {
     if (!active || !reply.trim()) return;
     setBusy(true);
+    busyRef.current = true;
     try {
       const updated = await api.replySupport(active.id, { body: reply.trim() });
       setActive(updated);
@@ -77,6 +112,7 @@ export function SupportInbox() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send the reply.");
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }, [active, reply, loadList]);
@@ -84,6 +120,7 @@ export function SupportInbox() {
   const resolve = useCallback(async () => {
     if (!active) return;
     setBusy(true);
+    busyRef.current = true;
     try {
       await api.resolveSupport(active.id);
       setActive(null);
@@ -91,6 +128,7 @@ export function SupportInbox() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not resolve.");
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }, [active, loadList]);

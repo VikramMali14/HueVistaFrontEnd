@@ -90,6 +90,11 @@ export function PlanBanner() {
         <Mono>
           {sub.aiGenerationsUsed}/{limit} AI previews this month
         </Mono>
+        {typeof sub.pdfDownloadsLimit === "number" && sub.pdfDownloadsLimit > 0 && (
+          <Mono>
+            {sub.pdfDownloadsUsed ?? 0}/{sub.pdfDownloadsLimit >= UNLIMITED ? "∞" : sub.pdfDownloadsLimit} PDFs
+          </Mono>
+        )}
       </span>
       {sub.trial && subscribeLink}
     </div>

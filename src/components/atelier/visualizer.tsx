@@ -38,6 +38,7 @@ import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraProject } from "@/lib/payments";
 import type {
   PaintShade,
+  PdfAllowance,
   ProjectDetail,
   RegionCategory,
   RegionColorUpdate,
@@ -282,11 +283,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // no codes at all), so the counter reads the shade straight off their screen.
   const [codeScheme, setCodeScheme] = useState<ShadeCodeScheme | null>(null);
 
-  // "Add to PDF" colour board: up to MAX_PDF_PAGES snapshots of the recoloured
-  // canvas, each with the shades applied on it, downloadable as one PDF.
+  // "Add to PDF" colour board: snapshots of the recoloured canvas, each with the
+  // shades applied on it, downloadable as one PDF. How many images one board may
+  // hold and how many downloads remain this month come from the plan that pays
+  // for this studio (the retailer's own, or the issuing shop's for guests).
   const [pdfPages, setPdfPages] = useState<PdfImageEntry[]>([]);
   // Transient hint under the Add button ("apply a colour first", "board full").
   const [pdfNotice, setPdfNotice] = useState<string | null>(null);
+  const [pdfAllowance, setPdfAllowance] = useState<PdfAllowance | null>(null);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  // Plan-driven page cap, falling back to the historical constant when the
+  // allowance hasn't loaded (or an older backend doesn't serve it yet).
+  const maxPdfPages = pdfAllowance ? Math.max(1, pdfAllowance.imagesPerPdf) : MAX_PDF_PAGES;
 
   // Transient topbar notices — "Walls detected" / "Saved" auto-hide after a beat.
   const [wallsNoticeVisible, setWallsNoticeVisible] = useState(false);
@@ -1045,12 +1053,29 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     a.click();
   }, []);
 
+  // The board caps and remaining downloads come from the paying plan. Best-effort:
+  // when the endpoint is missing/unreachable the tray falls back to the defaults,
+  // and the backend still enforces the quota at download time.
+  useEffect(() => {
+    let cancelled = false;
+    void (guest ? guestApi.getPdfAllowance() : api.getPdfAllowance())
+      .then((a) => {
+        if (!cancelled) setPdfAllowance(a);
+      })
+      .catch(() => {
+        /* no active plan / older backend — defaults apply, server still gates */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [guest]);
+
   // Snapshot the current painted canvas + the shades on it into the PDF board.
   const addToPdf = useCallback(() => {
     const engine = recolorRef.current;
     if (!engine || !imageUrl) return;
-    if (pdfPages.length >= MAX_PDF_PAGES) {
-      setPdfNotice(`That's the most (${MAX_PDF_PAGES}) — download or remove one to add more.`);
+    if (pdfPages.length >= maxPdfPages) {
+      setPdfNotice(`That's the most (${maxPdfPages}) — download or remove one to add more.`);
       return;
     }
     const painted = regions.filter((r) => r.applied);
@@ -1077,18 +1102,36 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }));
     setPdfPages((prev) => [...prev, { jpegDataUrl: jpeg, shades }]);
     setPdfNotice(null);
-  }, [imageUrl, regions, pdfPages.length, guest, encodeCode]);
+  }, [imageUrl, regions, pdfPages.length, maxPdfPages, guest, encodeCode]);
 
   const removePdfPage = useCallback((index: number) => {
     setPdfPages((prev) => prev.filter((_, i) => i !== index));
     setPdfNotice(null);
   }, []);
 
-  const downloadPdf = useCallback(() => {
-    if (pdfPages.length === 0) return;
+  // Charge one download against the paying plan FIRST, then build the file — a
+  // 402 (monthly PDF limit spent) must stop the download, while a missing/older
+  // backend endpoint fails open so the tray never bricks the feature.
+  const downloadPdf = useCallback(async () => {
+    if (pdfPages.length === 0 || pdfDownloading) return;
+    setPdfDownloading(true);
+    setPdfNotice(null);
+    try {
+      const after = await (guest ? guestApi.chargePdfDownload() : api.chargePdfDownload());
+      setPdfAllowance(after);
+    } catch (e) {
+      if (e instanceof HttpError && e.status === 402) {
+        setPdfNotice(e.message || "The monthly PDF download limit is spent.");
+        setPdfDownloading(false);
+        return;
+      }
+      // Network hiccup / endpoint not deployed — the server-side quota still
+      // governs real usage; don't strand the customer at the counter.
+    }
     const blob = buildColourBoardPdf(pdfPages, projectName || "HueVista colour board");
     downloadBlob(blob, `huevista-colours-${Date.now()}.pdf`);
-  }, [pdfPages, projectName]);
+    setPdfDownloading(false);
+  }, [pdfPages, projectName, guest, pdfDownloading]);
 
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
@@ -1500,10 +1543,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     type="button"
                     className="hv-pdf-add"
                     onClick={addToPdf}
-                    disabled={pdfPages.length >= MAX_PDF_PAGES}
+                    disabled={pdfPages.length >= maxPdfPages}
                     title={
-                      pdfPages.length >= MAX_PDF_PAGES
-                        ? `The PDF is full (${MAX_PDF_PAGES} images)`
+                      pdfPages.length >= maxPdfPages
+                        ? `The PDF is full (${maxPdfPages} images on this plan)`
                         : "Add this coloured image to the PDF"
                     }
                   >
@@ -1513,10 +1556,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   {pdfPages.length > 0 && (
                     <>
                       <span className="hv-pdf-count">
-                        {pdfPages.length}/{MAX_PDF_PAGES}
+                        {pdfPages.length}/{maxPdfPages}
                       </span>
-                      <button type="button" className="hv-pdf-download" onClick={downloadPdf}>
-                        Download PDF
+                      <button
+                        type="button"
+                        className="hv-pdf-download"
+                        onClick={() => void downloadPdf()}
+                        disabled={pdfDownloading || (pdfAllowance !== null && !pdfAllowance.unlimited && pdfAllowance.remaining <= 0)}
+                        title={
+                          pdfAllowance !== null && !pdfAllowance.unlimited && pdfAllowance.remaining <= 0
+                            ? "The plan's monthly PDF downloads are used up"
+                            : pdfAllowance !== null && !pdfAllowance.unlimited
+                              ? `${pdfAllowance.remaining} download${pdfAllowance.remaining === 1 ? "" : "s"} left this month`
+                              : "Download the colour board as a PDF"
+                        }
+                      >
+                        {pdfDownloading ? "Preparing…" : "Download PDF"}
                       </button>
                     </>
                   )}
