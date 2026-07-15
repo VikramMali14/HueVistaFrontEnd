@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Mono } from "@/components/ui/eyebrow";
 import { SHADES } from "@/lib/shades";
 import {
@@ -787,6 +788,163 @@ function SelectionDock({
 
 const PALETTE_ROLES = ["Main", "Accent", "Trim"] as const;
 
+/**
+ * One suggestion card, shared by "Room palettes", "Claude's picks" and the
+ * shop's combos: three fixed role slots (Main / Accent / Trim) holding three
+ * colours. Tap a swatch to put that colour on the active wall; DRAG a swatch
+ * onto another role slot to swap the two colours' roles — palette A/B/C can
+ * become C/B/A before "Apply all". Pointer-based so it works with both mouse
+ * and touch: a mostly-horizontal press-and-move starts the drag, a vertical
+ * one stays a scroll (swatches are `touch-action: pan-y`).
+ */
+function PaletteTrioCard({
+  title,
+  rationale,
+  trio,
+  onSelect,
+  onApplyCombo,
+  codeLabel,
+  applyAllTitle,
+}: {
+  title: ReactNode;
+  rationale?: string | null;
+  trio: ReadonlyArray<PaintShade | undefined>;
+  onSelect: (shade: PaintShade) => void;
+  onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
+  codeLabel: (code: string) => string | null;
+  applyAllTitle: string;
+}) {
+  // order[slot] = index into `trio` of the colour currently in that role slot.
+  const [order, setOrder] = useState<number[]>([0, 1, 2]);
+  // New shades (shuffle / re-ask / different combo) → back to the suggested roles.
+  const trioKey = trio.map((s) => s?.code ?? "").join("|");
+  useEffect(() => {
+    setOrder([0, 1, 2]);
+  }, [trioKey]);
+  const arranged = order.map((i) => trio[i]);
+
+  // Live drag: source slot, pointer position (for the floating colour ghost)
+  // and the slot currently under the pointer. `overRef` mirrors `drag.over`
+  // so pointer-up reads the latest target without re-registering listeners.
+  const [drag, setDrag] = useState<{ from: number; x: number; y: number; over: number | null } | null>(null);
+  const overRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const startPress = (slot: number) => (down: React.PointerEvent<HTMLButtonElement>) => {
+    if (!arranged[slot]) return;
+    if (down.pointerType === "mouse" && down.button !== 0) return;
+    const startX = down.clientX;
+    const startY = down.clientY;
+    const pointerId = down.pointerId;
+    let dragging = false;
+    suppressClickRef.current = false;
+    overRef.current = null;
+
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerId !== pointerId) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!dragging) {
+        if (Math.hypot(dx, dy) < 8) return;
+        // A clearly vertical move is a scroll, not a role swap — let it go.
+        if (Math.abs(dy) > Math.abs(dx) * 1.2) {
+          cleanup();
+          return;
+        }
+        dragging = true;
+        suppressClickRef.current = true; // the pending click must not apply the shade
+      }
+      const el = typeof document.elementFromPoint === "function"
+        ? document.elementFromPoint(e.clientX, e.clientY)
+        : null;
+      const slotEl = el instanceof Element ? el.closest("[data-trio-slot]") : null;
+      const within = slotEl && rootRef.current ? rootRef.current.contains(slotEl) : false;
+      const overSlot = within ? Number((slotEl as HTMLElement).dataset.trioSlot) : NaN;
+      const over = Number.isInteger(overSlot) && overSlot !== slot ? overSlot : null;
+      overRef.current = over;
+      setDrag({ from: slot, x: e.clientX, y: e.clientY, over });
+    };
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerId !== pointerId) return;
+      if (dragging) {
+        const target = overRef.current;
+        if (target !== null && target !== slot) {
+          setOrder((o) => {
+            const next = [...o];
+            [next[slot], next[target]] = [next[target]!, next[slot]!];
+            return next;
+          });
+        }
+        setDrag(null);
+      }
+      cleanup();
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  };
+
+  const dragShade = drag ? arranged[drag.from] : undefined;
+
+  return (
+    <div ref={rootRef} className="hv-ai-card">
+      <div className="hv-ai-card-name">{title}</div>
+      {rationale && <p className="hv-ai-card-rationale">{rationale}</p>}
+      <div className="hv-ai-trio">
+        {arranged.map((s, slot) => {
+          if (!s) return null;
+          const code = codeLabel(s.code);
+          const isSource = drag?.from === slot;
+          const isTarget = drag?.over === slot;
+          return (
+            <button
+              key={`${slot}-${s.code}`}
+              type="button"
+              data-trio-slot={slot}
+              className={`hv-ai-swatch${isSource ? " is-drag-source" : ""}${isTarget ? " is-drop-target" : ""}`}
+              onPointerDown={startPress(slot)}
+              onClick={() => {
+                if (suppressClickRef.current) {
+                  suppressClickRef.current = false;
+                  return;
+                }
+                onSelect(s);
+              }}
+              title={`${s.name}${code ? ` · ${code}` : ""} — tap for the active wall, drag onto another role to swap`}
+              aria-label={`${PALETTE_ROLES[slot]}: ${s.name}${code ? ` (${code})` : ""}. Tap to apply to the active wall, drag onto another role to swap.`}
+            >
+              <span aria-hidden className="hv-ai-swatch-color" style={{ background: s.hex }} />
+              <span className="hv-ai-swatch-role">{PALETTE_ROLES[slot]}</span>
+              <span className="hv-ai-swatch-name">{s.name}</span>
+              {code && <span className="hv-ai-swatch-code">{code}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div className="hv-ai-card-actions">
+        <button type="button" onClick={() => onApplyCombo(arranged)} className="btn btn-sm" title={applyAllTitle}>
+          Apply all
+        </button>
+      </div>
+      {drag && dragShade &&
+        createPortal(
+          <span
+            className="hv-ai-drag-ghost"
+            style={{ left: drag.x, top: drag.y, background: dragShade.hex }}
+            aria-hidden
+          />,
+          document.body,
+        )}
+    </div>
+  );
+}
+
 function AISuggestPanel({
   onSelect,
   catalogue,
@@ -927,48 +1085,26 @@ function AISuggestPanel({
                   aria-hidden
                   style={{ display: "inline-block", width: 10, height: 10, background: snap.baseHex, border: "1px solid var(--rule-strong)", borderRadius: 3, margin: "0 4px", verticalAlign: "-1px" }}
                 />
-                — every swatch is a real catalogue shade.
+                — every swatch is a real catalogue shade. Drag a colour onto another
+                role (say, Main onto Trim) to swap them before applying.
               </>
             ) : (
-              "Pick a colour first and the palettes build around it — every swatch is a real catalogue shade."
+              "Pick a colour first and the palettes build around it — every swatch is a real catalogue shade. Drag a colour onto another role to swap them before applying."
             )}
           </p>
           <div className="hv-ai-cards">
-            {palettes.map((p) => {
-              const trio = [p.main, p.accent, p.trim];
-              return (
-                <div key={p.name} className="hv-ai-card">
-                  <div className="hv-ai-card-name">{p.name}</div>
-                  <p className="hv-ai-card-rationale">{p.rationale}</p>
-                  <div className="hv-ai-trio">
-                    {trio.map((s, i) => (
-                      <button
-                        key={s.code}
-                        type="button"
-                        onClick={() => onSelect(s)}
-                        title={codeLabel(s.code) ? `${s.name} · ${codeLabel(s.code)} → active wall` : `${s.name} → active wall`}
-                        aria-label={`Apply ${s.name} to the active wall`}
-                        className="hv-ai-swatch"
-                      >
-                        <span aria-hidden className="hv-ai-swatch-color" style={{ background: s.hex }} />
-                        <span className="hv-ai-swatch-role">{PALETTE_ROLES[i]}</span>
-                        <span className="hv-ai-swatch-name">{s.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="hv-ai-card-actions">
-                    <button
-                      type="button"
-                      onClick={() => applyCombo(trio)}
-                      className="btn btn-sm"
-                      title="Apply the whole palette — main, accent and trim — across the room"
-                    >
-                      Apply all
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+            {palettes.map((p) => (
+              <PaletteTrioCard
+                key={p.name}
+                title={p.name}
+                rationale={p.rationale}
+                trio={[p.main, p.accent, p.trim]}
+                onSelect={onSelect}
+                onApplyCombo={applyCombo}
+                codeLabel={codeLabel}
+                applyAllTitle="Apply the whole palette — main, accent and trim — across the room"
+              />
+            ))}
           </div>
         </>
       )}
@@ -1107,38 +1243,16 @@ function ClaudePicksSection({
       {cards.length > 0 && (
         <div className="hv-ai-cards">
           {cards.map(({ combo, trio }) => (
-            <div key={combo.name} className="hv-ai-card">
-              <div className="hv-ai-card-name">{combo.name}</div>
-              {combo.rationale && <p className="hv-ai-card-rationale">{combo.rationale}</p>}
-              <div className="hv-ai-trio">
-                {trio.map((s, i) =>
-                  s ? (
-                    <button
-                      key={`${combo.name}-${s.code}-${i}`}
-                      type="button"
-                      onClick={() => onSelect(s)}
-                      title={codeLabel(s.code) ? `${s.name} · ${codeLabel(s.code)} → active wall` : `${s.name} → active wall`}
-                      aria-label={`Apply ${s.name} to the active wall`}
-                      className="hv-ai-swatch"
-                    >
-                      <span aria-hidden className="hv-ai-swatch-color" style={{ background: s.hex }} />
-                      <span className="hv-ai-swatch-role">{PALETTE_ROLES[i]}</span>
-                      <span className="hv-ai-swatch-name">{s.name}</span>
-                    </button>
-                  ) : null,
-                )}
-              </div>
-              <div className="hv-ai-card-actions">
-                <button
-                  type="button"
-                  onClick={() => onApplyCombo(trio)}
-                  className="btn btn-sm"
-                  title="Apply the whole palette — main, accent and trim — across the room"
-                >
-                  Apply all
-                </button>
-              </div>
-            </div>
+            <PaletteTrioCard
+              key={combo.name}
+              title={combo.name}
+              rationale={combo.rationale}
+              trio={trio}
+              onSelect={onSelect}
+              onApplyCombo={onApplyCombo}
+              codeLabel={codeLabel}
+              applyAllTitle="Apply the whole palette — main, accent and trim — across the room"
+            />
           ))}
         </div>
       )}
@@ -1201,49 +1315,28 @@ function ShopPicksSection({
         <Mono brass>{shopName ? `${shopName} recommends` : "Your shop recommends"}</Mono>
       </div>
       <p className="hv-ai-intro">
-        Combinations your paint shop put together — tap a shade for the active wall, or apply
-        all three across the room.
+        Combinations your paint shop put together — tap a shade for the active wall, drag a
+        colour onto another role to swap them, or apply all three across the room.
       </p>
       <div className="hv-ai-cards">
-        {sorted.map((combo) => {
-          const trio = combo.shades.slice(0, 3).map(toShade);
-          return (
-            <div key={combo.id} className="hv-ai-card">
-              <div className="hv-ai-card-name">
+        {sorted.map((combo) => (
+          <PaletteTrioCard
+            key={combo.id}
+            title={
+              <>
                 {combo.name}
                 <span className="mono" style={{ marginLeft: 8, fontSize: 10, letterSpacing: ".14em", color: "var(--fg-mute)", textTransform: "uppercase" }}>
                   {combo.scope === "EXTERIOR" ? "Exterior" : "Interior"}
                 </span>
-              </div>
-              <div className="hv-ai-trio">
-                {trio.map((s, i) => (
-                  <button
-                    key={`${combo.id}-${s.code}-${i}`}
-                    type="button"
-                    onClick={() => onSelect(s)}
-                    title={codeLabel(s.code) ? `${s.name} · ${codeLabel(s.code)} → active wall` : `${s.name} → active wall`}
-                    aria-label={`Apply ${s.name} to the active wall`}
-                    className="hv-ai-swatch"
-                  >
-                    <span aria-hidden className="hv-ai-swatch-color" style={{ background: s.hex }} />
-                    <span className="hv-ai-swatch-role">{PALETTE_ROLES[i]}</span>
-                    <span className="hv-ai-swatch-name">{s.name}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="hv-ai-card-actions">
-                <button
-                  type="button"
-                  onClick={() => onApplyCombo(trio)}
-                  className="btn btn-sm"
-                  title="Apply the whole combination — main, accent and trim — across the room"
-                >
-                  Apply all
-                </button>
-              </div>
-            </div>
-          );
-        })}
+              </>
+            }
+            trio={combo.shades.slice(0, 3).map(toShade)}
+            onSelect={onSelect}
+            onApplyCombo={onApplyCombo}
+            codeLabel={codeLabel}
+            applyAllTitle="Apply the whole combination — main, accent and trim — across the room"
+          />
+        ))}
       </div>
     </div>
   );

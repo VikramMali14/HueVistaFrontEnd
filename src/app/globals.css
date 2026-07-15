@@ -2397,11 +2397,73 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   box-shadow: 0 16px 40px -22px rgba(0,0,0,.6);
   transition: background .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease);
 }
+/* Both labels share one grid cell so the button never changes width when the
+   text swaps between "Hold to compare" and "Original" mid-press. */
+.hv-studio-compare-label { display: inline-grid; justify-items: center; }
+.hv-studio-compare-label > span { grid-area: 1 / 1; white-space: nowrap; }
 .hv-studio-compare:hover { border-color: rgba(255,255,255,.24); }
 .hv-studio-compare.is-active {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+/* ----- On-canvas shade legend (glass, bottom-left): name + code of every
+   painted surface, readable straight off the preview / a screenshot. ----- */
+.hv-studio-legend {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(46%, 340px);
+  padding: 10px 12px;
+  background: rgba(10,9,15,.72);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 11px;
+  box-shadow: 0 16px 40px -22px rgba(0,0,0,.6);
+  pointer-events: none;
+}
+.hv-studio-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font: 400 12px/1.2 var(--sans);
+  color: rgba(247,247,245,.92);
+}
+.hv-studio-legend-chip {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,.28);
+}
+.hv-studio-legend-region {
+  flex: 0 0 auto;
+  font: 500 9px/1 var(--mono);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: rgba(247,247,245,.55);
+}
+.hv-studio-legend-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hv-studio-legend-code {
+  flex: 0 0 auto;
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .08em;
+  color: rgba(247,247,245,.72);
+}
+/* Clear the bottom-centre PDF tray on narrow screens. */
+@media (max-width: 760px) {
+  .hv-studio-legend { bottom: 92px; max-width: min(72%, 340px); }
 }
 
 /* ----- "Add to PDF" colour board (glass tray, overlaid bottom-centre) ----- */
@@ -3367,6 +3429,31 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   background: transparent;
   cursor: pointer;
   text-align: left;
+  /* Horizontal press-and-move drags the colour onto another role slot;
+     vertical stays a normal scroll. No text selection mid-drag. */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.hv-ai-swatch.is-drag-source .hv-ai-swatch-color {
+  opacity: .35;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.hv-ai-swatch.is-drop-target .hv-ai-swatch-color {
+  box-shadow: 0 0 0 3px var(--accent);
+  transform: scale(1.05);
+}
+/* Floating colour chip that follows the pointer during a role-swap drag. */
+.hv-ai-drag-ghost {
+  position: fixed;
+  z-index: 999;
+  width: 36px;
+  height: 27px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.55);
+  box-shadow: 0 10px 28px rgba(0,0,0,.4);
+  transform: translate(-50%, -130%);
+  pointer-events: none;
 }
 .hv-ai-swatch-color {
   display: block;
@@ -3388,6 +3475,15 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-ai-swatch-name {
   font: 400 11px/1.25 var(--sans);
   color: var(--fg-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+.hv-ai-swatch-code {
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .06em;
+  color: var(--fg-mute);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
