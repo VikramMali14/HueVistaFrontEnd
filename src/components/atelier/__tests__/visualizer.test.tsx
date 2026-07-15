@@ -60,6 +60,21 @@ vi.mock("@/lib/api", () => {
       getAiRecommendations: vi.fn(),
       // Shop picks load best-effort on mount; default to none so the effect is a no-op.
       getRetailerCombos: vi.fn(async () => []),
+      // PDF tray quota loads best-effort on mount.
+      getPdfAllowance: vi.fn(async () => ({
+        imagesPerPdf: 8,
+        monthlyLimit: 100,
+        used: 0,
+        remaining: 100,
+        unlimited: false,
+      })),
+      chargePdfDownload: vi.fn(async () => ({
+        imagesPerPdf: 8,
+        monthlyLimit: 100,
+        used: 1,
+        remaining: 99,
+        unlimited: false,
+      })),
     },
     guestApi: {
       uploadImage: vi.fn(),
@@ -67,6 +82,20 @@ vi.mock("@/lib/api", () => {
       getProject: vi.fn(),
       updateRegionColors: vi.fn(),
       createCustomMask: vi.fn(),
+      getPdfAllowance: vi.fn(async () => ({
+        imagesPerPdf: 8,
+        monthlyLimit: 100,
+        used: 0,
+        remaining: 100,
+        unlimited: false,
+      })),
+      chargePdfDownload: vi.fn(async () => ({
+        imagesPerPdf: 8,
+        monthlyLimit: 100,
+        used: 1,
+        remaining: 99,
+        unlimited: false,
+      })),
     },
   };
 });

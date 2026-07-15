@@ -23,4 +23,11 @@ if (typeof document !== "undefined") {
       disconnect() {}
     };
   }
+
+  // jsdom implements neither smooth scrolling nor scrollTo on elements; chat
+  // surfaces (support widget, staff inbox) scroll to the newest message on
+  // every update. Inert stubs keep those effects from throwing in tests.
+  if (typeof Element !== "undefined" && typeof Element.prototype.scrollTo !== "function") {
+    Element.prototype.scrollTo = () => {};
+  }
 }

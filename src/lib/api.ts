@@ -497,6 +497,12 @@ export const api = {
   // --- Subscription (retailer AI plan / trial) ---
   getCurrentSubscription: () =>
     browserFetch<import("./types").SubscriptionSummary>("api/billing/subscriptions/current"),
+  // Colour-board PDF quota: read the allowance, and charge one download against it
+  // (402 when the monthly limit is spent). Customers ride on the issuing shop's plan.
+  getPdfAllowance: () =>
+    browserFetch<import("./types").PdfAllowance>("api/billing/pdf-allowance"),
+  chargePdfDownload: () =>
+    browserFetch<import("./types").PdfAllowance>("api/billing/pdf-downloads", { method: "POST" }),
   // Start a paid subscription: backend creates a Razorpay subscription and returns
   // a hosted checkout `paymentUrl`. Requires an authenticated retailer (401 if not).
   createSubscription: (body: { plan: import("./types").PurchasablePlan; quantity?: number }) =>
@@ -734,6 +740,11 @@ export const guestApi = {
     browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/send-to-shop`, {
       method: "POST",
     }),
+  // Colour-board PDF quota — billed to the issuing shop's plan.
+  getPdfAllowance: () =>
+    browserFetch<import("./types").PdfAllowance>("api/guest/pdf-allowance"),
+  chargePdfDownload: () =>
+    browserFetch<import("./types").PdfAllowance>("api/guest/pdf-downloads", { method: "POST" }),
 };
 
 export { HttpError };
