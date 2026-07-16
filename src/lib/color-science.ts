@@ -211,12 +211,13 @@ export function lighterSteps(
       .filter((c) => {
         if (c.code === shade.code || c.lrv < shade.lrv + 8) return false;
         const lab = hexToLab(c.hex);
+        const ch = chroma(lab);
         // Both near-grey → hue is meaningless, treat as same family.
         const hueOk =
-          seedChroma < NEUTRAL_CHROMA || chroma(lab) < NEUTRAL_CHROMA
-            ? Math.abs(chroma(lab) - seedChroma) <= chromaSlack
+          seedChroma < NEUTRAL_CHROMA || ch < NEUTRAL_CHROMA
+            ? Math.abs(ch - seedChroma) <= chromaSlack
             : hueDistance(labHue(lab), seedHue) <= maxHueDist;
-        return hueOk && Math.abs(chroma(lab) - seedChroma) <= chromaSlack;
+        return hueOk && Math.abs(ch - seedChroma) <= chromaSlack;
       })
       .sort((a, b) => a.lrv - b.lrv);
   let out = pick(35, 25);
@@ -255,17 +256,28 @@ export function fanDeck(
   return sorted.slice(start, start + max);
 }
 
+/** Both fan-deck steps around the seed from ONE strip build — the dock needs
+ *  lighter AND darker on every shade change, and each fanDeck call is a full
+ *  catalogue filter + sort, so computing them together halves that work. */
+export function fanDeckNeighbors(
+  shade: PaintShade,
+  catalogue: ReadonlyArray<PaintShade>,
+): { lighter?: PaintShade; darker?: PaintShade } {
+  // Use a generous strip so stepping never dead-ends because of windowing.
+  const strip = fanDeck(shade, catalogue, 999);
+  const i = strip.findIndex((s) => s.code === shade.code);
+  if (i < 0) return {};
+  return { lighter: strip[i - 1], darker: strip[i + 1] };
+}
+
 /** The next strip entry one step lighter (-1) or darker (+1), if any. */
 export function stepInFanDeck(
   shade: PaintShade,
   catalogue: ReadonlyArray<PaintShade>,
   direction: -1 | 1,
 ): PaintShade | undefined {
-  // Use a generous strip so stepping never dead-ends because of windowing.
-  const strip = fanDeck(shade, catalogue, 999);
-  const i = strip.findIndex((s) => s.code === shade.code);
-  if (i < 0) return undefined;
-  return strip[i + direction];
+  const { lighter, darker } = fanDeckNeighbors(shade, catalogue);
+  return direction === -1 ? lighter : darker;
 }
 
 // ── Lamplight shift ("changes under light") ────────────────────────────────
@@ -328,17 +340,22 @@ export function fadeSaferAlternatives(
 ): PaintShade[] {
   const seed = hexToLab(shade.hex);
   const seedHue = labHue(seed);
+  const seedChroma = chroma(seed);
+  // Distance is computed once per candidate, not inside the comparator — a
+  // ΔE per comparison over a 10k catalogue made this sort needlessly heavy.
   return catalogue
-    .filter((c) => {
-      if (c.code === shade.code) return false;
+    .reduce<Array<{ shade: PaintShade; d: number }>>((acc, c) => {
+      if (c.code === shade.code) return acc;
       const lab = hexToLab(c.hex);
-      if (hueDistance(labHue(lab), seedHue) > 30) return false;
+      if (hueDistance(labHue(lab), seedHue) > 30) return acc;
       const lighter = c.lrv >= shade.lrv + 10;
-      const calmer = chroma(lab) <= chroma(seed) - 8;
-      return lighter || calmer;
-    })
-    .sort((a, b) => deltaE(hexToLab(a.hex), seed) - deltaE(hexToLab(b.hex), seed))
-    .slice(0, n);
+      const calmer = chroma(lab) <= seedChroma - 8;
+      if (lighter || calmer) acc.push({ shade: c, d: deltaE(lab, seed) });
+      return acc;
+    }, [])
+    .sort((a, b) => a.d - b.d)
+    .slice(0, n)
+    .map((x) => x.shade);
 }
 
 // ── Ceiling + trim pairing ─────────────────────────────────────────────────
@@ -367,15 +384,14 @@ export function pairCeilingAndTrim(
   const temp = temperature(shade.hex);
   const whites = catalogue.filter((s) => isWhiteShade(s) && s.code !== shade.code);
   const preferredTints = TINT_FOR_TEMP[temp];
-  const ceiling =
-    [...whites]
-      .sort((a, b) => {
-        const ra = preferredTints.indexOf(whiteTint(a.hex));
-        const rb = preferredTints.indexOf(whiteTint(b.hex));
-        const pa = ra === -1 ? 99 : ra;
-        const pb = rb === -1 ? 99 : rb;
-        return pa - pb || b.lrv - a.lrv;
-      })[0];
+  // Rank each white's tint once, not per comparison — whiteTint re-derives Lab
+  // and the whites pool can hold hundreds of shades.
+  const ceiling = whites
+    .map((s) => {
+      const r = preferredTints.indexOf(whiteTint(s.hex));
+      return { shade: s, rank: r === -1 ? 99 : r };
+    })
+    .sort((a, b) => a.rank - b.rank || b.shade.lrv - a.shade.lrv)[0]?.shade;
 
   const trimTargetLrv = shade.lrv >= 50 ? 25 : 70;
   const trim =

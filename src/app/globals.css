@@ -3032,6 +3032,21 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-region-chip-del:hover { color: var(--terracotta); }
 .hv-studio-region-chip-del:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
+.hv-studio-region-chip-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px 6px 2px;
+  margin-left: -4px;
+  background: transparent;
+  border: none;
+  color: var(--fg-mute);
+  cursor: pointer;
+  border-radius: var(--radius-pill);
+  transition: color .15s var(--ease);
+}
+.hv-studio-region-chip-edit:hover { color: var(--accent); }
+.hv-studio-region-chip-edit:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
 .hv-studio-region-chip-dot {
   width: 13px; height: 13px;
   border-radius: 50%;

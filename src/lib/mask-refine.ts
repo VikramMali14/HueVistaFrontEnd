@@ -30,25 +30,39 @@
 import { boxBlurField } from "./mask-feather";
 
 /** Longest side of the working-resolution guide image. Refinement quality is
- *  set by edge geometry, not megapixels — ~1000px keeps the guided filter
- *  well under a second per mask on mid-range hardware. */
-const GUIDE_MAX_DIM = 1000;
+ *  set by edge geometry, not megapixels, but too coarse a guide localises the
+ *  snapped boundary imprecisely on high-res photos (a 4000px photo squashed to
+ *  1000px carried 4 photo px into every working px). ~1280px sharpens where the
+ *  edge lands while keeping the guided filter well under a second per mask. */
+const GUIDE_MAX_DIM = 1280;
 /** Guided-filter window radius (working-res px): how far the filter looks for
- *  colour statistics around each pixel. */
-const SNAP_RADIUS = 6;
+ *  colour statistics around each pixel. Scaled up with the guide so the
+ *  physical look-around area stays roughly constant. */
+const SNAP_RADIUS = 7;
 /** Guided-filter regularisation. Small = strongly edge-preserving (matting
  *  grade); colours are 0..1 so this tolerates only ~1.4% channel variance
  *  before an area counts as "flat". */
 const SNAP_EPS = 2e-4;
-/** How far (working-res px) snapping may move the mask boundary. Beyond this
- *  band the hard mask wins outright, so refinement can fix misregistration
- *  but never migrate a region onto a different surface. */
-const SNAP_BAND_PX = 4;
+/** How far (working-res px) snapping may move the mask boundary — a hard clamp,
+ *  not the driver (SNAP_RADIUS governs how far the guided filter actually pulls
+ *  an edge). Beyond this band the hard mask wins outright, so refinement can fix
+ *  misregistration but never migrate a region onto a different surface. Widened
+ *  from 4 to give the outward bias and the larger filter radius room to close
+ *  the common few-px undershoot that left an unpainted rim at wall edges,
+ *  without letting the boundary run onto a neighbouring surface. */
+const SNAP_BAND_PX = 6;
 /** Re-steepening ramp for the guided alpha: values below LO clamp to 0, above
  *  HI to 1. Centred on 0.5 so the crossing point — the snapped edge — stays
  *  where the guided filter put it. */
 const STEEPEN_LO = 0.35;
 const STEEPEN_HI = 0.65;
+/** Outward bias applied when snapping real masks: nudges the locked edge to sit
+ *  ON the photo's boundary (or a hair past) rather than a fraction inside it,
+ *  so the outermost painted pixel is opaque and no rim of the original wall
+ *  shows through. It shifts the steepen crossing by this much in guided-alpha
+ *  units (~1 working px on a real edge); the band clamp still bounds the total
+ *  movement, so this can never push paint onto a neighbouring surface. */
+const SNAP_OUTWARD_BIAS = 0.08;
 /** Subsample factor for the fast guided filter used by refineMaskToImage:
  *  coefficients at half resolution ≈ 4× less arithmetic, visually identical
  *  output — keeps the first paint after upload snappy on mobile. */
@@ -218,12 +232,26 @@ export function guidedFilterAlpha(
  * edge-less boundaries stay tight instead of smearing over the filter
  * radius), then clamp inside the hard mask's eroded/dilated band so the edge
  * can move at most `band` px. Pure math — no DOM.
+ *
+ * `outwardBias` (0 by default) lowers the steepen crossing so the snapped edge
+ * sits slightly further OUT — on the photo's real boundary rather than a hair
+ * inside it, closing the unpainted rim. The band clamp still bounds the total
+ * movement, so a bias can never migrate the region onto a neighbour.
  */
-export function snapAlpha(hard: Float32Array, q: Float32Array, w: number, h: number, band: number): Float32Array {
+export function snapAlpha(
+  hard: Float32Array,
+  q: Float32Array,
+  w: number,
+  h: number,
+  band: number,
+  outwardBias = 0,
+): Float32Array {
   const inner = boxBlurField(hard, w, h, band);
+  const lo = STEEPEN_LO - outwardBias; // lower threshold ⇒ crossing moves outward
+  const span = STEEPEN_HI - STEEPEN_LO;
   const out = new Float32Array(hard.length);
   for (let i = 0; i < hard.length; i++) {
-    let t = (q[i]! - STEEPEN_LO) / (STEEPEN_HI - STEEPEN_LO);
+    let t = (q[i]! - lo) / span;
     t = t < 0 ? 0 : t > 1 ? 1 : t;
     let s = t * t * (3 - 2 * t);
     if (inner[i]! >= 0.9999) s = 1; // deep inside the region — always painted
@@ -295,7 +323,7 @@ export function refineMaskToImage(mask: CanvasImageSource, guide: Guide): HTMLCa
     hard[i] = (px[p]! * px[p + 3]!) / 65025; // red × alpha, as everywhere else
   }
   const q = guidedFilterAlpha(guide, hard, SNAP_RADIUS, SNAP_EPS, FAST_SUBSAMPLE);
-  const alpha = snapAlpha(hard, q, w, h, SNAP_BAND_PX);
+  const alpha = snapAlpha(hard, q, w, h, SNAP_BAND_PX, SNAP_OUTWARD_BIAS);
   for (let i = 0, p = 0; i < alpha.length; i++, p += 4) {
     const v = Math.round(alpha[i]! * 255);
     px[p] = v;

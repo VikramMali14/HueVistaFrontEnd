@@ -188,6 +188,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const getProjectCall = guest ? guestApi.getProject : api.getProject;
   const updateRegionColorsCall = guest ? guestApi.updateRegionColors : api.updateRegionColors;
   const createCustomMaskCall = guest ? guestApi.createCustomMask : api.createCustomMask;
+  const updateRegionMaskCall = guest ? guestApi.updateRegionMask : api.updateRegionMask;
   const deleteRegionCall = guest ? guestApi.deleteRegion : api.deleteRegion;
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -265,6 +266,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [brighten, setBrighten] = useState<BrightenLevel["id"]>("original");
   // Manual mask studio.
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
+  // When set, the studio is REFINING this region's existing mask (AI or hand-drawn)
+  // rather than drawing a new wall; null = the "add a wall" flow.
+  const [editingRegionId, setEditingRegionId] = useState<string | null>(null);
   const [savingMask, setSavingMask] = useState(false);
   // Per-region history of catalogue shades the user tried (newest first, max 5).
   const [triedByRegion, setTriedByRegion] = useState<Record<string, PaintShade[]>>({});
@@ -418,19 +422,27 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         rc.renderBase();
         return;
       }
-      const paints: RegionPaint[] = [];
-      for (const r of regions) {
-        if (!r.applied) continue;
-        // Narrow to img/canvas (both valid as a GL texture AND for 2D sampling).
-        let mask: HTMLImageElement | HTMLCanvasElement | null = r.maskCanvas ?? null;
-        if (!mask && r.maskUrl) {
+      // Fetch every painted region's mask in PARALLEL — awaiting them one by
+      // one serialised the network round-trips, so reopening a project with
+      // several walls waited masks × latency before the first painted frame.
+      const applied = regions.filter((r) => r.applied);
+      const masks = await Promise.all(
+        applied.map(async (r): Promise<HTMLImageElement | HTMLCanvasElement | null> => {
+          // Narrow to img/canvas (both valid as a GL texture AND for 2D sampling).
+          if (r.maskCanvas) return r.maskCanvas;
+          if (!r.maskUrl) return null;
           try {
-            mask = await loadMask(r.maskUrl);
+            return await loadMask(r.maskUrl);
           } catch {
-            mask = null;
+            return null;
           }
-        }
-        if (cancelled) return;
+        }),
+      );
+      if (cancelled) return;
+      const paints: RegionPaint[] = [];
+      for (let i = 0; i < applied.length; i++) {
+        const r = applied[i]!;
+        const mask = masks[i];
         if (!mask) continue;
         let baseL = 0;
         if (SHADOW_ON) {
@@ -949,6 +961,62 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [projectId, createCustomMaskCall],
   );
 
+  // Persist a REFINED mask back onto an EXISTING region (AI-detected or hand-drawn):
+  // the mask the studio opened for editing, now fixed, replaces the region's mask in
+  // place — no new region, no AI call. Optimistic: the composite shows the new shape
+  // immediately; the backend save is retryable via the same Retry chip.
+  const handleUpdateMask = useCallback(
+    async (regionId: string, mask: HTMLCanvasElement) => {
+      const target = regions.find((r) => r.id === regionId);
+      // Show the refined shape at once, and drop the cached region luminance so
+      // scene-light shading recomputes against the new mask.
+      setRegions((prev) =>
+        prev.map((r) => (r.id === regionId ? { ...r, maskCanvas: mask } : r)),
+      );
+      baseLumaRef.current.delete(regionId);
+      setActiveRegion(regionId);
+      setStage("recolor");
+
+      const backendId = target?.backendId;
+      if (!projectId || backendId === undefined) {
+        setMaskStudioOpen(false);
+        setEditingRegionId(null);
+        return;
+      }
+      const persist = async () => {
+        const detail = await updateRegionMaskCall(projectId, backendId, mask.toDataURL("image/png"));
+        setRegions((prev) =>
+          prev.map((r) =>
+            r.id === regionId ? { ...r, maskUrl: resolveMediaUrl(detail.maskUrl), maskCanvas: mask } : r,
+          ),
+        );
+      };
+      const seq = ++saveSeqRef.current;
+      setSavingMask(true);
+      setSaveStatus("saving");
+      try {
+        await persist();
+        if (failedSavesRef.current.length > 0) setSaveStatus("failed");
+        else if (saveSeqRef.current === seq) setSaveStatus("saved");
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") console.warn("Mask update failed:", err);
+        failedSavesRef.current.push(persist);
+        setSaveStatus("failed");
+      } finally {
+        setSavingMask(false);
+        setMaskStudioOpen(false);
+        setEditingRegionId(null);
+      }
+    },
+    [regions, projectId, updateRegionMaskCall],
+  );
+
+  // Open the Mask Studio to REFINE an existing region's mask (the ✎ on a wall chip).
+  const editRegionMask = useCallback((regionId: string) => {
+    setEditingRegionId(regionId);
+    setMaskStudioOpen(true);
+  }, []);
+
   // Delete a hand-drawn wall. Guard rails: only regions the user created by
   // hand (custom) can be removed — AI-detected walls have no delete control and
   // are rejected here too. Removes it from the composite immediately (optimistic),
@@ -1156,9 +1224,17 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         applied: Boolean(r.applied),
         shadeCode: r.shade?.code,
         custom: Boolean(r.custom),
+        hasMask: Boolean(r.maskCanvas || r.maskUrl),
       })),
     [regions],
   );
+
+  // The region the Mask Studio is refining (its current mask seeds the canvas).
+  const editTarget = useMemo<ExistingMask | null>(() => {
+    if (!editingRegionId) return null;
+    const r = regions.find((x) => x.id === editingRegionId);
+    return r ? { id: r.id, label: r.label, kind: r.kind, maskUrl: r.maskUrl, maskCanvas: r.maskCanvas } : null;
+  }, [editingRegionId, regions]);
 
   // Claude photo palettes: signed-in users with a saved project only. Guests
   // never get the section (their AI budget is the shop's segmentation quota),
@@ -1729,7 +1805,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             hideCodes={guest}
             encodeCode={encodeCode}
             onSelectRegion={(id) => setActiveRegion(id)}
-            onAddWall={() => setMaskStudioOpen(true)}
+            onAddWall={() => {
+              setEditingRegionId(null);
+              setMaskStudioOpen(true);
+            }}
+            onEditWall={editRegionMask}
             onDeleteWall={handleDeleteWall}
             masksRemaining={masksRemaining}
             triedShades={triedByRegion[activeRegion]}
@@ -1746,13 +1826,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
       {maskStudioOpen && imageUrl && imageDims && (
         <MaskStudio
+          key={editingRegionId ?? "new-wall"}
           imageUrl={imageUrl}
           imageDims={imageDims}
           existing={existingMasks}
           remaining={masksRemaining}
           saving={savingMask}
-          onClose={() => setMaskStudioOpen(false)}
-          onSave={(mask, category, label) => void handleSaveMask(mask, category, label)}
+          editTarget={editTarget}
+          onClose={() => {
+            setMaskStudioOpen(false);
+            setEditingRegionId(null);
+          }}
+          onSave={(mask, category, label) =>
+            editingRegionId
+              ? void handleUpdateMask(editingRegionId, mask)
+              : void handleSaveMask(mask, category, label)
+          }
         />
       )}
 

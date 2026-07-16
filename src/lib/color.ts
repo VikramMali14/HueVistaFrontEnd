@@ -50,8 +50,20 @@ export function rgbToLab(rgb: RGB): Lab {
   return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
 }
 
+// Lab depends on nothing but the hex, and the studio's hot paths (colour-wheel
+// drag ticks, palette building, the dock's catalogue scans) convert the same
+// 10k+ catalogue hexes over and over — so the conversion is memoised. Bounded:
+// arbitrary picked colours (wheel drags) would otherwise grow it without limit.
+const LAB_CACHE_MAX = 20000;
+const labCache = new Map<string, Lab>();
+
 export function hexToLab(hex: string): Lab {
-  return rgbToLab(hexToRgb(hex));
+  const cached = labCache.get(hex);
+  if (cached) return cached;
+  const lab = rgbToLab(hexToRgb(hex));
+  if (labCache.size >= LAB_CACHE_MAX) labCache.clear();
+  labCache.set(hex, lab);
+  return lab;
 }
 
 export function deltaE(a: Lab, b: Lab): number {

@@ -62,6 +62,43 @@ describe("edge snapping (guided mask refinement)", () => {
     }
   });
 
+  // The production refinement runs at a wider filter radius (SNAP_RADIUS = 7)
+  // than the module RADIUS=6 the other cases use; these two cover the seam-
+  // closing gains at that radius plus the outward bias.
+  const PROD_RADIUS = 7;
+
+  it("closes a 4px undershoot to the real edge with the production radius + bias", () => {
+    // The mask stops 4px short of the wall/sky line (an unpainted rim). The
+    // production radius plus the outward bias must land it on the edge (±1px).
+    const mask = makeMask(W, H, (x) => x < 36);
+    const q = guidedFilterAlpha(wallSky, mask, PROD_RADIUS, EPS);
+    const alpha = snapAlpha(mask, q, W, H, 6, 0.08);
+    for (let y = 8; y < H - 8; y += 4) {
+      expect(Math.abs(crossing(alpha, W, y) - 40)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("outward bias moves the edge outward to cover the seam, bounded by the band", () => {
+    // Mask undershoots by 4px; the bias should close more of the seam than the
+    // unbiased snap, without ever crossing the band around the mask boundary.
+    const mask = makeMask(W, H, (x) => x < 36);
+    const q = guidedFilterAlpha(wallSky, mask, PROD_RADIUS, EPS);
+    const plain = snapAlpha(mask, q, W, H, 6, 0);
+    const biased = snapAlpha(mask, q, W, H, 6, 0.08);
+    const y = 20;
+    const plainEdge = crossing(plain, W, y);
+    const biasedEdge = crossing(biased, W, y);
+    // Bias only ever moves the edge outward (toward more coverage), never in.
+    expect(biasedEdge).toBeGreaterThanOrEqual(plainEdge);
+    // …lands within a pixel of the real edge…
+    expect(Math.abs(biasedEdge - 40)).toBeLessThanOrEqual(1);
+    // …and never past the band around the mask boundary (36 + 6).
+    expect(biasedEdge).toBeLessThanOrEqual(36 + 6);
+    // Deep interior and far exterior stay binary regardless of the bias.
+    expect(biased[y * W + 8]).toBe(1);
+    expect(biased[y * W + 72]).toBe(0);
+  });
+
   it("keeps deep interior and far exterior binary", () => {
     const mask = makeMask(W, H, (x) => x < 43);
     const alpha = snapAlpha(mask, guidedFilterAlpha(wallSky, mask, RADIUS, EPS), W, H, BAND);

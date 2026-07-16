@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
+import { growSelectionToSimilar } from "@/lib/mask-grow";
 import type { RegionKind } from "@/lib/types";
 
 // Selection blue is the one deliberate non-token colour: it must read against
@@ -37,6 +38,11 @@ interface MaskStudioProps {
   /** How many more masks the user may still create (cap is enforced by the parent). */
   remaining: number;
   saving: boolean;
+  /** When set, the studio opens to REFINE this existing region's mask: it seeds
+   *  the canvas from that mask, doesn't count against the new-wall cap, and the
+   *  save action reads as "Update". The parent's onSave persists it back to the
+   *  same region (works for AI-detected regions too). */
+  editTarget?: ExistingMask | null;
   onClose: () => void;
   onSave: (mask: HTMLCanvasElement, category: RegionKind, label: string) => void;
 }
@@ -77,9 +83,11 @@ export function MaskStudio({
   existing,
   remaining,
   saving,
+  editTarget,
   onClose,
   onSave,
 }: MaskStudioProps) {
+  const isEditing = Boolean(editTarget);
   const wrapRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -504,6 +512,67 @@ export function MaskStudio({
     [mode, reach, pushHistory, applyWand, snapshotAlpha],
   );
 
+  // ---- complete (grow the selection to the rest of the object) -------------
+
+  /**
+   * "Complete": grow the CURRENT selection into every connected pixel of the
+   * same colour, so a half-marked object (one side of a pillar, part of a
+   * shaded wall) fills out to its real colour edges in one action. Add-only and
+   * undoable; uses the wand's Reach as the colour tolerance so the two tools
+   * behave consistently. No-op without a selection or before the photo colours
+   * are sampled (tainted / still loading).
+   */
+  const completeSelection = useCallback(() => {
+    const px = wandPixelsRef.current;
+    const mask = maskRef.current;
+    if (!px || !mask) return;
+    // Read the working mask at wand resolution → a 0/255 seed by coverage.
+    const tmp = document.createElement("canvas");
+    tmp.width = px.w;
+    tmp.height = px.h;
+    const tctx = tmp.getContext("2d", { willReadFrequently: true });
+    if (!tctx) return;
+    tctx.drawImage(mask, 0, 0, px.w, px.h);
+    const alpha = tctx.getImageData(0, 0, px.w, px.h).data;
+    const seed = new Uint8Array(px.w * px.h);
+    let any = false;
+    for (let i = 0; i < seed.length; i++) {
+      if (alpha[i * 4 + 3]! >= 128) {
+        seed[i] = 255;
+        any = true;
+      }
+    }
+    if (!any) return; // nothing selected to grow from
+    pushHistory();
+    wandSeedRef.current = null;
+    const grown = growSelectionToSimilar(px.data, px.w, px.h, seed, reach);
+    // Close speckle the same way the wand does, so the completed edge is clean.
+    const closed = morph3x3(morph3x3(grown, px.w, px.h, true), px.w, px.h, false);
+    const out = document.createElement("canvas");
+    out.width = px.w;
+    out.height = px.h;
+    const octx = out.getContext("2d")!;
+    const img = octx.createImageData(px.w, px.h);
+    const d = img.data;
+    for (let i = 0; i < closed.length; i++) {
+      const j = i * 4;
+      d[j] = 255;
+      d[j + 1] = 255;
+      d[j + 2] = 255;
+      d[j + 3] = closed[i]!;
+    }
+    octx.putImageData(img, 0, 0);
+    const mctx = mask.getContext("2d", { willReadFrequently: true })!;
+    mctx.save();
+    mctx.globalCompositeOperation = "source-over"; // growth only ADDS coverage
+    mctx.imageSmoothingEnabled = true;
+    mctx.drawImage(out, 0, 0, mask.width, mask.height);
+    mctx.restore();
+    setHasInk(true);
+    recomputeOutline();
+    drawOverlay();
+  }, [reach, pushHistory, recomputeOutline, drawOverlay]);
+
   // ---- brush ---------------------------------------------------------------
 
   /** Screen px → mask px for the brush radius at the current zoom. */
@@ -684,6 +753,15 @@ export function MaskStudio({
     },
     [ensureMask, pushHistory, restoreAlpha, syncHistCounts, recomputeOutline, drawOverlay],
   );
+
+  // Refining an existing region: seed the canvas from its mask once, on open,
+  // so the user starts from the AI's outline and fixes it rather than redrawing.
+  const seededEditRef = useRef(false);
+  useEffect(() => {
+    if (!editTarget || seededEditRef.current) return;
+    seededEditRef.current = true;
+    void startFromExisting(editTarget);
+  }, [editTarget, startFromExisting]);
 
   // ---- view (zoom / pan) ---------------------------------------------------
 
@@ -1025,6 +1103,9 @@ export function MaskStudio({
         case "c":
           setTool("poly");
           break;
+        case "g":
+          if (!onControl) completeSelection();
+          break;
         case "x":
           setMode((m) => (m === "add" ? "remove" : "add"));
           break;
@@ -1055,7 +1136,7 @@ export function MaskStudio({
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [polygon.length, tool, wandAvailable, undo, redo, bakePolygon, requestClose, zoomCentre]);
+  }, [polygon.length, tool, wandAvailable, undo, redo, bakePolygon, completeSelection, requestClose, zoomCentre]);
 
   // ---- copy ------------------------------------------------------------------
 
@@ -1142,7 +1223,8 @@ export function MaskStudio({
         {/* Screen-reader-only usage instructions (referenced by aria-describedby on the dialog). */}
         <p id="hv-ms-kbd-help" className="sr-only">
           Mark the wall on the room photo using the wand, brush, or corners tool. Keyboard
-          shortcuts: W magic wand, B brush, C corners, X switches between add and remove,
+          shortcuts: W magic wand, B brush, C corners, G completes the object by growing the
+          selection to the rest of the same colour, X switches between add and remove,
           left and right bracket change the brush size, plus and minus zoom, 0 fits the photo,
           Control+Z undoes, Control+Y redoes, Enter finishes a corner shape, Backspace removes
           the last corner, and Escape closes this dialog.
@@ -1161,9 +1243,15 @@ export function MaskStudio({
           }}
         >
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ font: "600 16px/1 var(--sans)", color: "var(--fg)" }}>Mark a wall</span>
+            <span style={{ font: "600 16px/1 var(--sans)", color: "var(--fg)" }}>
+              {isEditing ? "Fix this wall" : "Mark a wall"}
+            </span>
             <Mono>
-              {remaining === 1 ? "Last wall you can add" : `You can add ${remaining} more walls`}
+              {isEditing
+                ? `Refining ${editTarget?.label ?? "the wall"} — fix what the AI missed`
+                : remaining === 1
+                  ? "Last wall you can add"
+                  : `You can add ${remaining} more walls`}
             </Mono>
           </div>
           <button
@@ -1319,6 +1407,22 @@ export function MaskStudio({
             >
               <EyeIcon />
               Peek
+            </button>
+
+            <button
+              type="button"
+              onClick={completeSelection}
+              disabled={!hasInk || !wandReady}
+              aria-keyshortcuts="g"
+              title={
+                !wandReady
+                  ? "Preparing the photo…"
+                  : "Complete — grow the selection to cover the rest of the object, same colour (G). Undoable."
+              }
+              style={railBtn(false, !hasInk || !wandReady)}
+            >
+              <CompleteIcon />
+              Complete
             </button>
 
             <button
@@ -1645,32 +1749,41 @@ export function MaskStudio({
           >
             Cancel
           </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!hasInk || saving || remaining <= 0}
-            style={{
-              padding: "9px 18px",
-              border: "1px solid var(--accent)",
-              borderRadius: 6,
-              background: !hasInk || saving || remaining <= 0 ? "transparent" : "var(--accent)",
-              color: !hasInk || saving || remaining <= 0 ? "var(--fg-mute)" : "var(--bg)",
-              opacity: !hasInk || saving || remaining <= 0 ? 0.5 : 1,
-              cursor: !hasInk || saving || remaining <= 0 ? "not-allowed" : "pointer",
-              font: "600 12px/1 var(--sans)",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            {saving ? (
-              <>
-                <Spinner size={12} color="currentColor" /> Saving…
-              </>
-            ) : (
-              "Save wall"
-            )}
-          </button>
+          {(() => {
+            // Editing an existing region never adds a wall, so the new-wall cap
+            // (remaining) doesn't gate the save — only having ink and not already saving.
+            const blocked = !hasInk || saving || (!isEditing && remaining <= 0);
+            return (
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={blocked}
+                style={{
+                  padding: "9px 18px",
+                  border: "1px solid var(--accent)",
+                  borderRadius: 6,
+                  background: blocked ? "transparent" : "var(--accent)",
+                  color: blocked ? "var(--fg-mute)" : "var(--bg)",
+                  opacity: blocked ? 0.5 : 1,
+                  cursor: blocked ? "not-allowed" : "pointer",
+                  font: "600 12px/1 var(--sans)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                {saving ? (
+                  <>
+                    <Spinner size={12} color="currentColor" /> Saving…
+                  </>
+                ) : isEditing ? (
+                  "Update wall"
+                ) : (
+                  "Save wall"
+                )}
+              </button>
+            );
+          })()}
         </div>
       </div>
 
@@ -1870,6 +1983,16 @@ function ClearIcon() {
   return (
     <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
+    </svg>
+  );
+}
+
+function CompleteIcon() {
+  // Outward arrows from a centre — "grow the selection to fill the object".
+  return (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+      <circle cx="12" cy="12" r="2.4" />
     </svg>
   );
 }

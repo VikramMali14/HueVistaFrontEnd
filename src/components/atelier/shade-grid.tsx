@@ -7,11 +7,11 @@ import { SHADES } from "@/lib/shades";
 import {
   DARK_ROOM_LRV,
   fadeSaferAlternatives,
+  fanDeckNeighbors,
   lighterSteps,
   lightShift,
   LIGHT_SHIFT_BADGE,
   pairCeilingAndTrim,
-  stepInFanDeck,
   sunFadeRisk,
 } from "@/lib/color-science";
 import { UndertoneTag } from "@/components/catalogue/undertone-tag";
@@ -72,6 +72,8 @@ interface ShadeGridProps {
   onSelectRegion?: (id: string) => void;
   /** Open the Mask Studio to draw a new wall. */
   onAddWall?: () => void;
+  /** Open the Mask Studio to REFINE a region's existing mask (AI-detected or hand-drawn). */
+  onEditWall?: (id: string) => void;
   /** Remove a hand-drawn wall (only offered for custom regions). */
   onDeleteWall?: (id: string) => void;
   /** Hand-drawn masks still allowed (3-mask cap); disables "+ Add wall" at 0. */
@@ -116,6 +118,7 @@ export function ShadeGrid({
   encodeCode,
   onSelectRegion,
   onAddWall,
+  onEditWall,
   onDeleteWall,
   masksRemaining,
   triedShades,
@@ -368,6 +371,7 @@ export function ShadeGrid({
         activeRegionId={activeRegionId}
         onSelectRegion={onSelectRegion}
         onAddWall={onAddWall}
+        onEditWall={onEditWall}
         onDeleteWall={onDeleteWall}
         masksRemaining={masksRemaining}
       />
@@ -574,12 +578,10 @@ function SelectionDock({
   const [tipsOpen, setTipsOpen] = useState(false);
 
   // All hooks before any early return — React requires a stable hook order.
-  const lighter = useMemo(
-    () => (shade ? stepInFanDeck(shade, catalogue, -1) : undefined),
-    [shade, catalogue],
-  );
-  const darker = useMemo(
-    () => (shade ? stepInFanDeck(shade, catalogue, 1) : undefined),
+  // One strip build serves both steppers — each fanDeck pass filters and sorts
+  // the whole catalogue, so asking for lighter and darker separately doubled it.
+  const { lighter, darker } = useMemo(
+    () => (shade ? fanDeckNeighbors(shade, catalogue) : {}),
     [shade, catalogue],
   );
   const darkRoomAlts = useMemo(
@@ -1347,6 +1349,7 @@ function RegionStrip({
   activeRegionId,
   onSelectRegion,
   onAddWall,
+  onEditWall,
   onDeleteWall,
   masksRemaining,
 }: {
@@ -1354,6 +1357,7 @@ function RegionStrip({
   activeRegionId?: string;
   onSelectRegion?: (id: string) => void;
   onAddWall?: () => void;
+  onEditWall?: (id: string) => void;
   onDeleteWall?: (id: string) => void;
   masksRemaining?: number;
 }) {
@@ -1392,6 +1396,9 @@ function RegionStrip({
           const isActive = r.id === activeRegionId;
           // Only hand-drawn walls can be removed — AI-detected ones have no ✕.
           const canDelete = Boolean(r.custom && onDeleteWall);
+          // Any region with a mask can be REFINED — this is how AI-detected walls
+          // get fixed (an edge that overshoots, half a pillar the AI missed).
+          const canEdit = Boolean(r.hasMask && onEditWall);
           return (
             <div
               key={r.id}
@@ -1412,6 +1419,20 @@ function RegionStrip({
                 </span>
                 <span className="hv-studio-region-chip-name">{r.label}</span>
               </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  className="hv-studio-region-chip-edit"
+                  onClick={() => onEditWall?.(r.id)}
+                  aria-label={`Fix the shape of ${r.label}`}
+                  title={`Fix the shape of ${r.label} — refine what the AI outlined`}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                </button>
+              )}
               {canDelete && (
                 <button
                   type="button"
