@@ -15,6 +15,8 @@ export interface RegionLite {
   shadeCode?: string;
   /** Hand-drawn wall (vs. AI-detected) — only these can be deleted. */
   custom?: boolean;
+  /** Whether this region has a mask to refine — drives the "edit shape" affordance. */
+  hasMask?: boolean;
 }
 
 /**

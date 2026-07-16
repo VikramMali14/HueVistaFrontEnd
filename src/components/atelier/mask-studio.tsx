@@ -38,6 +38,11 @@ interface MaskStudioProps {
   /** How many more masks the user may still create (cap is enforced by the parent). */
   remaining: number;
   saving: boolean;
+  /** When set, the studio opens to REFINE this existing region's mask: it seeds
+   *  the canvas from that mask, doesn't count against the new-wall cap, and the
+   *  save action reads as "Update". The parent's onSave persists it back to the
+   *  same region (works for AI-detected regions too). */
+  editTarget?: ExistingMask | null;
   onClose: () => void;
   onSave: (mask: HTMLCanvasElement, category: RegionKind, label: string) => void;
 }
@@ -78,9 +83,11 @@ export function MaskStudio({
   existing,
   remaining,
   saving,
+  editTarget,
   onClose,
   onSave,
 }: MaskStudioProps) {
+  const isEditing = Boolean(editTarget);
   const wrapRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -747,6 +754,15 @@ export function MaskStudio({
     [ensureMask, pushHistory, restoreAlpha, syncHistCounts, recomputeOutline, drawOverlay],
   );
 
+  // Refining an existing region: seed the canvas from its mask once, on open,
+  // so the user starts from the AI's outline and fixes it rather than redrawing.
+  const seededEditRef = useRef(false);
+  useEffect(() => {
+    if (!editTarget || seededEditRef.current) return;
+    seededEditRef.current = true;
+    void startFromExisting(editTarget);
+  }, [editTarget, startFromExisting]);
+
   // ---- view (zoom / pan) ---------------------------------------------------
 
   const clampView = useCallback(
@@ -1227,9 +1243,15 @@ export function MaskStudio({
           }}
         >
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ font: "600 16px/1 var(--sans)", color: "var(--fg)" }}>Mark a wall</span>
+            <span style={{ font: "600 16px/1 var(--sans)", color: "var(--fg)" }}>
+              {isEditing ? "Fix this wall" : "Mark a wall"}
+            </span>
             <Mono>
-              {remaining === 1 ? "Last wall you can add" : `You can add ${remaining} more walls`}
+              {isEditing
+                ? `Refining ${editTarget?.label ?? "the wall"} — fix what the AI missed`
+                : remaining === 1
+                  ? "Last wall you can add"
+                  : `You can add ${remaining} more walls`}
             </Mono>
           </div>
           <button
@@ -1727,32 +1749,41 @@ export function MaskStudio({
           >
             Cancel
           </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!hasInk || saving || remaining <= 0}
-            style={{
-              padding: "9px 18px",
-              border: "1px solid var(--accent)",
-              borderRadius: 6,
-              background: !hasInk || saving || remaining <= 0 ? "transparent" : "var(--accent)",
-              color: !hasInk || saving || remaining <= 0 ? "var(--fg-mute)" : "var(--bg)",
-              opacity: !hasInk || saving || remaining <= 0 ? 0.5 : 1,
-              cursor: !hasInk || saving || remaining <= 0 ? "not-allowed" : "pointer",
-              font: "600 12px/1 var(--sans)",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            {saving ? (
-              <>
-                <Spinner size={12} color="currentColor" /> Saving…
-              </>
-            ) : (
-              "Save wall"
-            )}
-          </button>
+          {(() => {
+            // Editing an existing region never adds a wall, so the new-wall cap
+            // (remaining) doesn't gate the save — only having ink and not already saving.
+            const blocked = !hasInk || saving || (!isEditing && remaining <= 0);
+            return (
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={blocked}
+                style={{
+                  padding: "9px 18px",
+                  border: "1px solid var(--accent)",
+                  borderRadius: 6,
+                  background: blocked ? "transparent" : "var(--accent)",
+                  color: blocked ? "var(--fg-mute)" : "var(--bg)",
+                  opacity: blocked ? 0.5 : 1,
+                  cursor: blocked ? "not-allowed" : "pointer",
+                  font: "600 12px/1 var(--sans)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                {saving ? (
+                  <>
+                    <Spinner size={12} color="currentColor" /> Saving…
+                  </>
+                ) : isEditing ? (
+                  "Update wall"
+                ) : (
+                  "Save wall"
+                )}
+              </button>
+            );
+          })()}
         </div>
       </div>
 

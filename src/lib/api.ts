@@ -488,6 +488,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // Replace an EXISTING region's mask with a hand-refined one. Unlike delete this
+  // works for AI-detected regions too — it's how a mask the AI got wrong (half a
+  // pillar, an overshooting edge) is fixed after segmentation. maskBase64 may be a
+  // bare base64 string or a data URL. Only the mask changes; colour/label/category stay.
+  updateRegionMask: (projectId: string, regionId: number, maskBase64: string) =>
+    browserFetch<RegionDetail>(
+      `api/projects/${encodeURIComponent(projectId)}/regions/${regionId}/mask`,
+      { method: "PUT", body: JSON.stringify({ maskBase64 }) },
+    ),
   // Delete a hand-drawn wall. The backend rejects non-manual (AI-detected) regions.
   deleteRegion: (projectId: string, regionId: number) =>
     browserFetch<void>(
@@ -729,6 +738,11 @@ export const guestApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  updateRegionMask: (projectId: string, regionId: number, maskBase64: string) =>
+    browserFetch<RegionDetail>(
+      `api/guest/projects/${encodeURIComponent(projectId)}/regions/${regionId}/mask`,
+      { method: "PUT", body: JSON.stringify({ maskBase64 }) },
+    ),
   deleteRegion: (projectId: string, regionId: number) =>
     browserFetch<void>(
       `api/guest/projects/${encodeURIComponent(projectId)}/regions/${regionId}`,
