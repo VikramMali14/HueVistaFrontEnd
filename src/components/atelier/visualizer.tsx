@@ -418,19 +418,27 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         rc.renderBase();
         return;
       }
-      const paints: RegionPaint[] = [];
-      for (const r of regions) {
-        if (!r.applied) continue;
-        // Narrow to img/canvas (both valid as a GL texture AND for 2D sampling).
-        let mask: HTMLImageElement | HTMLCanvasElement | null = r.maskCanvas ?? null;
-        if (!mask && r.maskUrl) {
+      // Fetch every painted region's mask in PARALLEL — awaiting them one by
+      // one serialised the network round-trips, so reopening a project with
+      // several walls waited masks × latency before the first painted frame.
+      const applied = regions.filter((r) => r.applied);
+      const masks = await Promise.all(
+        applied.map(async (r): Promise<HTMLImageElement | HTMLCanvasElement | null> => {
+          // Narrow to img/canvas (both valid as a GL texture AND for 2D sampling).
+          if (r.maskCanvas) return r.maskCanvas;
+          if (!r.maskUrl) return null;
           try {
-            mask = await loadMask(r.maskUrl);
+            return await loadMask(r.maskUrl);
           } catch {
-            mask = null;
+            return null;
           }
-        }
-        if (cancelled) return;
+        }),
+      );
+      if (cancelled) return;
+      const paints: RegionPaint[] = [];
+      for (let i = 0; i < applied.length; i++) {
+        const r = applied[i]!;
+        const mask = masks[i];
         if (!mask) continue;
         let baseL = 0;
         if (SHADOW_ON) {

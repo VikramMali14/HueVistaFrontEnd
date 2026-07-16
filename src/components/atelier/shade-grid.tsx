@@ -7,11 +7,11 @@ import { SHADES } from "@/lib/shades";
 import {
   DARK_ROOM_LRV,
   fadeSaferAlternatives,
+  fanDeckNeighbors,
   lighterSteps,
   lightShift,
   LIGHT_SHIFT_BADGE,
   pairCeilingAndTrim,
-  stepInFanDeck,
   sunFadeRisk,
 } from "@/lib/color-science";
 import { UndertoneTag } from "@/components/catalogue/undertone-tag";
@@ -574,12 +574,10 @@ function SelectionDock({
   const [tipsOpen, setTipsOpen] = useState(false);
 
   // All hooks before any early return — React requires a stable hook order.
-  const lighter = useMemo(
-    () => (shade ? stepInFanDeck(shade, catalogue, -1) : undefined),
-    [shade, catalogue],
-  );
-  const darker = useMemo(
-    () => (shade ? stepInFanDeck(shade, catalogue, 1) : undefined),
+  // One strip build serves both steppers — each fanDeck pass filters and sorts
+  // the whole catalogue, so asking for lighter and darker separately doubled it.
+  const { lighter, darker } = useMemo(
+    () => (shade ? fanDeckNeighbors(shade, catalogue) : {}),
     [shade, catalogue],
   );
   const darkRoomAlts = useMemo(
