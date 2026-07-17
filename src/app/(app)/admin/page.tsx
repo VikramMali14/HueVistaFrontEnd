@@ -44,6 +44,9 @@ export default async function AdminPage() {
         <Link href="/admin/migration" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Maintenance &amp; migration →
         </Link>
+        <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          Mask viewer →
+        </Link>
       </p>
       <CreateRetailerForm />
 

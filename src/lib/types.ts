@@ -153,6 +153,10 @@ export interface ProjectDetail {
   imageId: string;
   imageUrl: string;
   cleanedImageUrl?: string | null;
+  /** The model's raw colour-coded mask (RED/GREEN/BLUE/BLACK) from the accepted
+   *  generation — admin mask-viewer diagnostics. Null for projects segmented
+   *  before raw-mask capture shipped or with manual-only regions. */
+  rawMaskUrl?: string | null;
   failureReason?: string | null;
   regions: RegionDetail[];
   hasShareLink?: boolean;
