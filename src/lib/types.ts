@@ -161,6 +161,9 @@ export interface ProjectDetail {
   regions: RegionDetail[];
   hasShareLink?: boolean;
   shareExpiresAt?: string | null;
+  /** Shared/public view only: brand names the retailer opened for the share
+   *  viewer's repaint palette. Empty = every brand. */
+  sharedBrands?: string[] | null;
   /** When the customer sent the project to the issuing shop; null until then. */
   sentToShopAt?: string | null;
   createdAt?: string;
@@ -441,6 +444,7 @@ export interface SubscriptionSummary {
   planDisplayName: string;
   status: "CREATED" | "ACTIVE" | "HALTED" | "CANCELLED" | "COMPLETED" | "EXPIRED";
   trial: boolean;
+  cancelAtPeriodEnd?: boolean;
   currentPeriodEnd?: string | null;
   aiGenerationsUsed: number;
   aiGenerationsLimit: number;
@@ -460,6 +464,17 @@ export interface SubscriptionSummary {
 
 /** Plans a retailer can purchase directly (Enterprise is custom-priced — contact sales). */
 export type PurchasablePlan = "STARTER" | "PROFESSIONAL" | "BUSINESS";
+
+/** One plan option from GET /api/billing/plans (pricing + quota limits). */
+export interface PlanOption {
+  plan: "STARTER" | "PROFESSIONAL" | "BUSINESS" | "ENTERPRISE";
+  displayName: string;
+  priceInPaise: number;
+  priceInRupees: number;
+  monthlyAiLimit: number | "unlimited";
+  pdfImageLimit: number;
+  monthlyPdfLimit: number | "unlimited";
+}
 
 /** Colour-board PDF allowance (backend PdfAllowanceResponse) — resolved against
  *  whichever plan pays for the caller (own plan, or the issuing shop's). */

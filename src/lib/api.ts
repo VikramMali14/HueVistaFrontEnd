@@ -192,6 +192,12 @@ export const billingApi = {
     serverFetch<import("./types").SubscriptionSummary>("/api/billing/subscriptions/current", {
       accessToken,
     }),
+  subscriptionHistory: (accessToken: string) =>
+    serverFetch<import("./types").SubscriptionSummary[]>("/api/billing/subscriptions", {
+      accessToken,
+    }),
+  plans: (accessToken: string) =>
+    serverFetch<import("./types").PlanOption[]>("/api/billing/plans", { accessToken }),
 };
 
 /**
@@ -310,6 +316,32 @@ export const adminApi = {
     serverFetch<ResnapSummary>(
       `/api/admin/maintenance/resnap-masks?limit=${encodeURIComponent(String(limit))}`,
       { method: "POST", accessToken },
+    ),
+  // A user's active (or most recent) subscription. 404 (HttpError) when they have none.
+  getUserSubscription: (accessToken: string, userId: string) =>
+    serverFetch<import("./types").SubscriptionSummary>(
+      `/api/admin/users/${encodeURIComponent(userId)}/subscription`,
+      { accessToken },
+    ),
+  // Activate a plan for a user without a payment (supersedes any active plan).
+  grantSubscription: (
+    accessToken: string,
+    userId: string,
+    body: { plan: string; days: number; aiGenerationsLimit?: number },
+  ) =>
+    serverFetch<import("./types").SubscriptionSummary>(
+      `/api/admin/users/${encodeURIComponent(userId)}/subscription`,
+      { method: "POST", accessToken, body: JSON.stringify(body) },
+    ),
+  // Add AI image-generation credits and/or extend (reactivating a lapsed plan).
+  adjustSubscription: (
+    accessToken: string,
+    userId: string,
+    body: { addAiGenerations?: number; extendDays?: number },
+  ) =>
+    serverFetch<import("./types").SubscriptionSummary>(
+      `/api/admin/users/${encodeURIComponent(userId)}/subscription`,
+      { method: "PATCH", accessToken, body: JSON.stringify(body) },
     ),
 };
 
@@ -482,9 +514,12 @@ export const api = {
       `api/projects/${encodeURIComponent(projectId)}/recommendations`,
       { method: "POST" },
     ),
-  generateShareLink: (projectId: string, days = 7) =>
+  // `brands` limits which paint companies the share viewer may repaint with
+  // (omit / empty = every brand).
+  generateShareLink: (projectId: string, days = 7, brands?: string[]) =>
     browserFetch<import("./types").ShareLink>(
-      `api/projects/${encodeURIComponent(projectId)}/share?days=${days}`,
+      `api/projects/${encodeURIComponent(projectId)}/share?days=${days}` +
+        (brands && brands.length > 0 ? `&brands=${encodeURIComponent(brands.join(","))}` : ""),
       { method: "POST" },
     ),
   // Autosave — fires on every swatch click; the backend answers 204 (returning
@@ -522,6 +557,16 @@ export const api = {
   // --- Subscription (retailer AI plan / trial) ---
   getCurrentSubscription: () =>
     browserFetch<import("./types").SubscriptionSummary>("api/billing/subscriptions/current"),
+  // Every subscription the account has held, newest first (the /subscription page's history list).
+  getSubscriptionHistory: () =>
+    browserFetch<import("./types").SubscriptionSummary[]>("api/billing/subscriptions"),
+  // Cancel at period end (paid) / end immediately (trial or admin-granted plan).
+  cancelSubscription: () =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/subscriptions/cancel", {
+      method: "POST",
+    }),
+  // All plan options with pricing + AI/PDF limits (drives the plan cards).
+  listPlans: () => browserFetch<import("./types").PlanOption[]>("api/billing/plans"),
   // Colour-board PDF quota: read the allowance, and charge one download against it
   // (402 when the monthly limit is spent). Customers ride on the issuing shop's plan.
   getPdfAllowance: () =>
