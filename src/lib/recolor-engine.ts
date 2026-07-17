@@ -52,17 +52,6 @@ export interface RegionPaint {
 export const SOFT_EDGE_FEATHER_PX = 3;
 
 /**
- * The studio's "Edge nudge" steps, in photo pixels: a uniform grow (+) or
- * shrink (−) applied to every painted region's boundary, for masks that sit
- * consistently inside or outside the real surfaces. Fixed steps rather than a
- * free slider (mirroring BRIGHTEN_LEVELS): ±2px covers realistic
- * misregistration, while larger offsets start swallowing railings and frames.
- * 0 (off) is the default; engines consume the value via
- * {@link RecolorEngine.setEdgeOffset}.
- */
-export const EDGE_NUDGE_STEPS: ReadonlyArray<number> = [-2, -1, 0, 1, 2];
-
-/**
  * The studio's "Brighten" control: a whole-image light lift for photos shot
  * in dim or flat light, so users can judge colours the way the wall would
  * read on a sunnier day. Three fixed levels (no free slider — a slider
@@ -109,12 +98,12 @@ export interface RecolorEngine {
    *  photos where the mask is already pixel-perfect. Changing it invalidates
    *  cached masks; callers re-render after. Optional for test doubles. */
   setEdgeSnap?(on: boolean): void;
-  /** Set the uniform edge nudge in photo px (the studio's "Edge nudge"
-   *  control; see {@link EDGE_NUDGE_STEPS}): positive grows every painted
+  /** Set the uniform edge nudge in photo px: positive grows every painted
    *  region outward, negative shrinks it, 0 = off (the default). For masks
-   *  that sit consistently inside or outside the real surfaces. Changing it
-   *  invalidates cached masks; callers re-render after. Optional for test
-   *  doubles. */
+   *  that sit consistently inside or outside the real surfaces — the
+   *  visualizer applies a fixed +2px (EDGE_NUDGE_PX) so mask borders hide
+   *  unpainted seams. Changing it invalidates cached masks; callers
+   *  re-render after. Optional for test doubles. */
   setEdgeOffset?(px: number): void;
   /** Set the whole-image brightness lift as a gamma (1 = untouched photo);
    *  see {@link BRIGHTEN_LEVELS}. Applies to the NEXT render — callers
