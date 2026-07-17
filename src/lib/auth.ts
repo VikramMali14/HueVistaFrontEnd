@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
-import type { AdminUserRow, AuditLogRow, DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
+import type { AdminUserRow, AuditLogRow, DeleteAllShadesResult, ResnapSummary, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import type { AuthResponse, AuthUser, WalletRedemption } from "./types";
@@ -493,6 +493,30 @@ export async function deleteAllShadesAction(): Promise<{ result?: DeleteAllShade
       return { error: err.message };
     }
     return { error: "Delete failed. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: maintenance pass that re-runs the MaskRefiner edge-snap over already-stored
+ * auto region masks for up to `limit` projects with a cleaned canvas (oldest first).
+ * The backend caps `limit` at 200 per run and re-snapping a snapped mask is a no-op,
+ * so it's safe to run repeatedly to walk a backlog. Returns the outcome counts.
+ */
+export async function resnapMasksAction(
+  limit: number,
+): Promise<{ summary?: ResnapSummary; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(1, Math.trunc(limit)), 200) : 50;
+  try {
+    return { summary: await adminApi.resnapMasks(token, safeLimit) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Could not run the re-snap pass. Please try again." };
   }
 }
 

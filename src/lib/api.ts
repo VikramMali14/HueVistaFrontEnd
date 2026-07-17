@@ -303,6 +303,14 @@ export const adminApi = {
       `/api/admin/wallet/redemptions/${encodeURIComponent(redemptionId)}/decision`,
       { method: "POST", accessToken, body: JSON.stringify({ approve, note }) },
     ),
+  // Maintenance: re-run the MaskRefiner edge-snap over already-stored auto region
+  // masks for up to `limit` projects with a cleaned canvas (oldest first). The
+  // backend caps `limit` at 200 per run; re-running is a safe no-op on snapped masks.
+  resnapMasks: (accessToken: string, limit: number) =>
+    serverFetch<ResnapSummary>(
+      `/api/admin/maintenance/resnap-masks?limit=${encodeURIComponent(String(limit))}`,
+      { method: "POST", accessToken },
+    ),
 };
 
 /** A user as the admin console sees them (backend AdminUserResponse). */
@@ -366,6 +374,14 @@ export interface DeleteAllShadesResult {
   deletedShades: number;
   clearedRegionReferences: number;
   message: string;
+}
+
+/** Outcome counts of one mask re-snap maintenance pass (backend ResnapSummary). */
+export interface ResnapSummary {
+  projectsExamined: number;
+  regionsResnapped: number;
+  regionsSkipped: number;
+  failures: number;
 }
 
 /**
