@@ -582,6 +582,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return pollSegmentationStatus<ProjectDetail>({
       getStatus: () => (guest ? guestApi.getProject(id) : api.getProjectStatus(id)),
       isCancelled: () => token.cancelled,
+      // Wall detection is two generative model calls back to back (image
+      // clean + colour-coded mask), each of which the backend allows up to
+      // ~3 minutes — plus a retry when the first generation is a dud. The
+      // library default of 90s gave up on slow-but-successful runs AFTER the
+      // AI credit was spent; this deadline covers the backend's worst case,
+      // and genuine failures still surface early via status FAILED.
+      timeoutMs: 480_000,
     });
   }, [guest]);
 
@@ -1262,7 +1269,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const overlayHint = uploading && !segmenting
     ? "Sending the photo to our service."
     : segmenting
-      ? "Finding the walls, trim and other paintable surfaces. This usually takes 5 to 10 seconds."
+      ? "Finding the walls, trim and other paintable surfaces. This usually takes about a minute — hang tight, complex photos can take a little longer."
       : undefined;
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
