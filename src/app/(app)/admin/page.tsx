@@ -37,9 +37,12 @@ export default async function AdminPage() {
         Provision a retailer with their shop, an organization and a free trial subscription. They sign in with
         the email and initial password you set, then can change it from their account.
       </Lead>
-      <p style={{ marginTop: 16 }}>
+      <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
         <Link href="/admin/shades" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Upload company shades →
+        </Link>
+        <Link href="/admin/migration" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          Maintenance &amp; migration →
         </Link>
       </p>
       <CreateRetailerForm />
