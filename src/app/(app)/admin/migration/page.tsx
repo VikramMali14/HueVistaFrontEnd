@@ -40,6 +40,11 @@ export default async function AdminMigrationPage() {
           only helps older projects — and re-running is a no-op on masks already snapped.
         </p>
         <ResnapMasks />
+        <p style={{ marginTop: 20 }}>
+          <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+            Inspect a project&apos;s masks in the mask viewer →
+          </Link>
+        </p>
       </section>
 
       <section style={{ marginTop: 64, borderTop: "1px solid var(--rule)", paddingTop: 40 }}>
