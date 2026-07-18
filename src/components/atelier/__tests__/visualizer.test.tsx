@@ -422,7 +422,7 @@ describe("Visualizer — confirm before processing", () => {
 
     expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
       cleanImage: false,
-      colourGate: false,
+      colourGate: true, // fixture-protecting gate is on by default
       morphClean: false,
       straighten: false,
       edgeSnap: false,
@@ -452,7 +452,7 @@ describe("Visualizer — confirm before processing", () => {
     // Re-derived from the STORED raw mask — the model is never re-invoked.
     expect(api.reprocessMasks).toHaveBeenCalledWith("p-1", {
       cleanImage: true,
-      colourGate: false,
+      colourGate: true, // fixture-protecting gate is on by default
       morphClean: false,
       straighten: true,
       edgeSnap: false,
