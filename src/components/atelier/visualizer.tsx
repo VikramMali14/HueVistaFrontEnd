@@ -90,15 +90,13 @@ const MAX_CUSTOM_MASKS = 3;
 // user-facing toggles in the floating bar, but the popup overwhelmed people
 // at the counter, so only Brighten stays interactive:
 //  - shadows ON (85%): the paint follows the photo's own light;
-//  - snap edges ON: mask borders lock onto the photo's real edges;
 //  - soft edges OFF: crisp borders, no feathering;
-//  - edge nudge +2px: masks tend to sit slightly inside the real surface,
+//  - edge nudge +1px: masks tend to sit slightly inside the real surface,
 //    so growing every painted edge a touch hides unpainted seams.
 const SHADOW_ON = true;
 const SHADOW_STRENGTH = 0.85;
 const SOFT_EDGE_ON = false;
-const SNAP_EDGE_ON = true;
-const EDGE_NUDGE_PX = 2;
+const EDGE_NUDGE_PX = 1;
 /** Most coloured snapshots the user can collect into one downloadable PDF. */
 const MAX_PDF_PAGES = 8;
 
@@ -244,19 +242,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // a local preview with a Continue/Choose-different prompt; no upload, no
   // classification and no (billable) segmentation runs until the user confirms.
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  // ADMIN testing panel (isAdmin only): whether the backend's image-cleaner
-  // step runs, plus which mask-enhancement steps the run applies. Mirrors the
-  // backend default: just the fixture-protecting colour gate on (it strips
-  // paint from railings/doors/grills), everything else raw. Sent with every
-  // segmentation request so a retry keeps the same choices; the backend
-  // ignores all of it for other roles.
+  // ADMIN testing knob (isAdmin only): whether the backend's image-cleaner
+  // step runs. Sent with every segmentation request so a retry keeps the same
+  // choice; the backend ignores it for other roles. Masks are always stored
+  // raw — exactly as the model painted them.
   const [segOptions, setSegOptions] = useState<SegmentationOptions>({
     cleanImage: true,
-    colourGate: true,
-    morphClean: false,
-    straighten: false,
-    edgeSnap: false,
-    closeSeams: false,
   });
   // AI-preview quota, shown in the topbar so the cost is visible at the moment
   // it's spent (wall detection and Claude palettes each use one; recolouring is
@@ -424,10 +415,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     let cancelled = false;
 
     // Prepare mask edges before painting — each is a no-op unless the
-    // matching control changed since the engine last rendered: "snap edges"
-    // locks mask boundaries onto the photo's real edges, "edge nudge" grows
-    // or shrinks every boundary uniformly, "soft edges" feathers them inward.
-    rc.setEdgeSnap?.(SNAP_EDGE_ON);
+    // matching control changed since the engine last rendered: "edge nudge"
+    // grows or shrinks every boundary uniformly, "soft edges" feathers them
+    // inward.
     rc.setEdgeOffset?.(EDGE_NUDGE_PX);
     rc.setMaskFeather?.(SOFT_EDGE_ON ? SOFT_EDGE_FEATHER_PX : 0);
 
@@ -813,25 +803,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       refreshQuota(); // retry charges on success / refunds on failure
     }
   }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, segOptions]);
-
-  // ADMIN testing: re-apply the chosen mask enhancements to the ALREADY
-  // generated regions. The backend re-derives them from the project's stored
-  // raw mask — no model call, no AI credit, deterministic — so different
-  // enhancement combinations can be compared on the same model output.
-  const [reprocessing, setReprocessing] = useState(false);
-  const handleApplyEnhancements = useCallback(async () => {
-    if (!projectId) return;
-    setError(null);
-    setReprocessing(true);
-    try {
-      const detail = await api.reprocessMasks(projectId, segOptions);
-      await applyProjectDetail(detail);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not re-process the masks.");
-    } finally {
-      setReprocessing(false);
-    }
-  }, [projectId, segOptions, applyProjectDetail]);
 
   const handleBuyAndRetry = useCallback(async () => {
     setError(null);
@@ -1508,7 +1479,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             {imageUrl && !pendingFile && !uploading && !segmenting && (
               /* Floating preview option (glass, top-left): just the Brighten
                  level — every other render option is fixed at its best default
-                 (shadows on, snap edges on, +2px edge nudge). */
+                 (shadows on, +1px edge nudge). */
               <div className="hv-studio-floatbar" role="group" aria-label="Preview options">
                 <div className="hv-studio-tool hv-studio-tool-col">
                   <span className="hv-studio-tool-label">
@@ -1538,50 +1509,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     ))}
                   </div>
                 </div>
-                {isAdmin && !guest && masksReady && projectId && (
-                  /* ADMIN mask-enhancement tester: re-derives the regions from
-                     the STORED raw mask with the checked steps — no model
-                     call, no AI credit, so combinations are comparable on the
-                     same output. Invisible to every other role. */
-                  <div
-                    className="hv-studio-tool hv-studio-tool-col"
-                    role="group"
-                    aria-label="Mask enhancements (admin testing)"
-                  >
-                    <span className="hv-studio-tool-label" style={{ font: "500 10px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase" }}>
-                      Masks · admin testing
-                    </span>
-                    {(
-                      [
-                        ["colourGate", "Colour gate", "drop non-paintable pixels (needs cleaned photo)"],
-                        ["morphClean", "Morph clean", "despeckle + fill pinholes"],
-                        ["straighten", "Straighten", "wobbly boundaries → straight lines"],
-                        ["edgeSnap", "Edge snap", "re-attach boundaries to the photo's real edges"],
-                        ["closeSeams", "Close seams", "fill gaps between adjacent regions"],
-                      ] as const
-                    ).map(([key, label, hint]) => (
-                      <label key={key} title={hint} style={{ display: "inline-flex", alignItems: "center", gap: 7, font: "400 12.5px/1.3 var(--sans)", cursor: "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(segOptions[key])}
-                          onChange={(e) => setSegOptions((o) => ({ ...o, [key]: e.target.checked }))}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                    <button
-                      type="button"
-                      className="btn btn-brass"
-                      style={{ marginTop: 4, padding: "6px 12px", font: "500 12.5px/1 var(--sans)" }}
-                      disabled={reprocessing}
-                      onClick={() => void handleApplyEnhancements()}
-                    >
-                      {reprocessing
-                        ? <><Spinner size={12} color="currentColor" decorative /> Applying…</>
-                        : <>Apply to regions</>}
-                    </button>
-                  </div>
-                )}
               </div>
             )}
             {imageUrl && !pendingFile && (

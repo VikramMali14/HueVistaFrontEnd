@@ -44,7 +44,6 @@ vi.mock("@/lib/api", () => {
       uploadImage: vi.fn(),
       createProject: vi.fn(),
       requestSegmentation: vi.fn(),
-      reprocessMasks: vi.fn(),
       getProjectStatus: vi.fn(),
       getProject: vi.fn(),
       generateShareLink: vi.fn(),
@@ -412,7 +411,7 @@ describe("Visualizer — confirm before processing", () => {
       });
     });
     const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
-    // Uncheck cleaning — exactly that state is sent (enhancements default off).
+    // Uncheck cleaning — exactly that state is sent.
     await act(async () => {
       fireEvent.click(screen.getByLabelText(/Clean the photo/i));
     });
@@ -422,52 +421,7 @@ describe("Visualizer — confirm before processing", () => {
 
     expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
       cleanImage: false,
-      colourGate: true, // fixture-protecting gate is on by default
-      morphClean: false,
-      straighten: false,
-      edgeSnap: false,
-      closeSeams: false,
     });
-  });
-
-  it("admin can re-apply mask enhancements to generated regions without a new AI run", async () => {
-    vi.mocked(api.reprocessMasks).mockResolvedValue(
-      projectDetail({ status: "SEGMENTED", regions: SEGMENTED_REGIONS }),
-    );
-    const { container } = render(<Visualizer initialName="Test room" isAdmin />);
-    await screen.findByText("Add a photo of the room");
-    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
-
-    // Masks are ready — the studio testing panel appears with the enhancement
-    // checkboxes and an apply button.
-    const apply = await screen.findByRole("button", { name: /Apply to regions/i });
-    await act(async () => {
-      fireEvent.click(screen.getByLabelText(/Straighten/i));
-      fireEvent.click(screen.getByLabelText(/Close seams/i));
-    });
-    await act(async () => {
-      fireEvent.click(apply);
-    });
-
-    // Re-derived from the STORED raw mask — the model is never re-invoked.
-    expect(api.reprocessMasks).toHaveBeenCalledWith("p-1", {
-      cleanImage: true,
-      colourGate: true, // fixture-protecting gate is on by default
-      morphClean: false,
-      straighten: true,
-      edgeSnap: false,
-      closeSeams: true,
-    });
-    expect(api.requestSegmentation).toHaveBeenCalledTimes(1); // only the original run
-  });
-
-  it("never shows the studio enhancement panel to non-admins", async () => {
-    const { container } = render(<Visualizer initialName="Test room" />);
-    await screen.findByText("Add a photo of the room");
-    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
-
-    await screen.findByText("Left feature wall"); // masks ready, chips rendered
-    expect(screen.queryByRole("button", { name: /Apply to regions/i })).not.toBeInTheDocument();
   });
 
   it("discards the preview on 'choose different' without any backend call", async () => {

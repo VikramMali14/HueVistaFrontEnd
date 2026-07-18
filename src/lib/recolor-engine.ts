@@ -91,17 +91,10 @@ export interface RecolorEngine {
    *  Changing the value invalidates any cached masks; callers re-render after.
    *  Optional so lightweight test doubles don't have to implement it. */
   setMaskFeather?(radius: number): void;
-  /** Toggle edge snapping (ON by default): each mask is refined against the
-   *  photo so painted boundaries lock onto real image edges — window frames,
-   *  wall/sky lines, railings — instead of the AI mask's approximation of
-   *  them (see mask-refine.ts). The studio's "Snap edges" toggle opts out for
-   *  photos where the mask is already pixel-perfect. Changing it invalidates
-   *  cached masks; callers re-render after. Optional for test doubles. */
-  setEdgeSnap?(on: boolean): void;
   /** Set the uniform edge nudge in photo px: positive grows every painted
    *  region outward, negative shrinks it, 0 = off (the default). For masks
    *  that sit consistently inside or outside the real surfaces — the
-   *  visualizer applies a fixed +2px (EDGE_NUDGE_PX) so mask borders hide
+   *  visualizer applies a fixed +1px (EDGE_NUDGE_PX) so mask borders hide
    *  unpainted seams. Changing it invalidates cached masks; callers
    *  re-render after. Optional for test doubles. */
   setEdgeOffset?(px: number): void;

@@ -9,11 +9,11 @@ import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Admin mask-viewer: loads a project's RAW colour-coded model mask and the
- * STORED (post-processed) per-region masks, splits the raw image into its
- * red/green/blue category layers client-side, and composites everything over
- * the photo as toggleable overlays — including a per-category diff of pixels
- * the fidelity pipeline added or removed. Pure diagnostics; nothing here
- * writes to the backend.
+ * STORED per-region masks (raw splits, resized to the canvas), splits the raw
+ * image into its red/green/blue category layers client-side, and composites
+ * everything over the photo as toggleable overlays — including a per-category
+ * diff of pixels the split/resize step added or removed. Pure diagnostics;
+ * nothing here writes to the backend.
  */
 
 /** Longest side of the working canvas — everything is rasterized to one grid. */
