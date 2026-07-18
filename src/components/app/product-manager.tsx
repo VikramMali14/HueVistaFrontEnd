@@ -121,6 +121,15 @@ export function ProductManager() {
 
   const addBrand = useCallback(async () => {
     if (!newBrand.trim()) return;
+    // Catch the obvious duplicate before a round-trip; the backend still owns
+    // the authoritative uniqueness check.
+    const existing = brands.find((b) => b.name.trim().toLowerCase() === newBrand.trim().toLowerCase());
+    if (existing) {
+      setBrandId(existing.id);
+      setNewBrand("");
+      setError(`"${existing.name}" is already listed — selected it for you.`);
+      return;
+    }
     try {
       const b = await api.addPaintBrand({ name: newBrand.trim() });
       setBrands((prev) => (prev.some((x) => x.id === b.id) ? prev : [...prev, b].sort((a, c) => a.name.localeCompare(c.name))));
@@ -129,10 +138,16 @@ export function ProductManager() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not add the brand.");
     }
-  }, [newBrand]);
+  }, [newBrand, brands]);
 
   const addLine = useCallback(async () => {
     if (!newLine.trim() || brandId == null || !category) return;
+    const duplicate = lines.find((l) => l.name.trim().toLowerCase() === newLine.trim().toLowerCase());
+    if (duplicate) {
+      setNewLine("");
+      setError(`"${duplicate.name}" already exists in this list — tick it below instead.`);
+      return;
+    }
     try {
       const l = await api.addPaintLine(brandId, { name: newLine.trim(), category });
       setLines((prev) => (prev.some((x) => x.id === l.id) ? prev : [...prev, l]));
@@ -141,7 +156,7 @@ export function ProductManager() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not add the line.");
     }
-  }, [newLine, brandId, category]);
+  }, [newLine, brandId, category, lines]);
 
   const toggleLine = useCallback((line: PaintLine) => {
     setDrafts((prev) => {
@@ -224,7 +239,8 @@ export function ProductManager() {
       <div style={{ border: "1px solid var(--rule)", borderRadius: "var(--radius)", padding: 24 }}>
         <Mono brass>No shop yet</Mono>
         <p style={{ font: "400 17px/1.5 var(--sans)", color: "var(--fg-soft)", margin: "10px 0 16px" }}>
-          Set up your shop first, then come back to list products.
+          Listing products needs a shop. Create yours in the customer portal — the &ldquo;Active
+          codes&rdquo; section sets it up in one step — then come back here.
         </p>
         <Link className="btn" href="/portal">Go to the customer portal <span className="arr">→</span></Link>
       </div>

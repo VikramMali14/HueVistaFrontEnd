@@ -41,6 +41,9 @@ export function SupportInbox() {
   const [error, setError] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
+  // Two-step Resolve: closing a customer thread is one mis-click from the
+  // header, so the first click only arms the confirm state.
+  const [confirmResolve, setConfirmResolve] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   // Don't let a slow poll response overwrite the state a reply/resolve just set.
   const busyRef = useRef(false);
@@ -64,14 +67,23 @@ export function SupportInbox() {
 
   useEffect(() => { void loadList(); }, [loadList]);
 
+  // A poll that hits 401 means the session ended mid-shift: redirect like the
+  // initial load does, instead of every tick failing silently forever.
+  const pollFailed = useCallback((e: unknown) => {
+    if (e instanceof HttpError && e.status === 401) {
+      window.location.href = "/sign-in?next=/inbox";
+    }
+    /* anything else is transient — the next tick retries */
+  }, []);
+
   // Live inbox: new escalations appear without pressing Refresh.
   useEffect(() => {
     const timer = setInterval(() => {
       if (document.hidden || busyRef.current) return;
-      void api.listSupportInbox().then(setList).catch(() => { /* next tick retries */ });
+      void api.listSupportInbox().then(setList).catch(pollFailed);
     }, LIST_POLL_MS);
     return () => clearInterval(timer);
-  }, []);
+  }, [pollFailed]);
 
   // Live thread: the customer's new messages appear while the agent has it open.
   const activeId = active?.id;
@@ -86,13 +98,15 @@ export function SupportInbox() {
             setActive((cur) => (cur && cur.id === activeId ? fresh : cur));
           }
         })
-        .catch(() => { /* transient — next tick retries */ });
+        .catch(pollFailed);
     }, ACTIVE_POLL_MS);
     return () => clearInterval(timer);
-  }, [activeId]);
+  }, [activeId, pollFailed]);
 
   const open = useCallback(async (id: string) => {
     setError(null);
+    // An armed "Resolve?" must not carry over to a different thread.
+    setConfirmResolve(false);
     try {
       setActive(await api.getSupportInbox(id));
     } catch (e) {
@@ -119,6 +133,7 @@ export function SupportInbox() {
 
   const resolve = useCallback(async () => {
     if (!active) return;
+    setConfirmResolve(false);
     setBusy(true);
     busyRef.current = true;
     try {
@@ -188,7 +203,15 @@ export function SupportInbox() {
                 <div style={{ font: "400 18px/1.1 var(--serif)" }}>{active.subject || "Support request"}</div>
                 <Mono>{STATUS_LABEL[active.status] ?? active.status}</Mono>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => void resolve()} disabled={busy}>Resolve</Button>
+              {confirmResolve ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <Mono>Close this thread?</Mono>
+                  <Button size="sm" onClick={() => void resolve()} disabled={busy}>Yes, resolve</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirmResolve(false)}>Keep open</Button>
+                </span>
+              ) : (
+                <Button size="sm" variant="ghost" onClick={() => setConfirmResolve(true)} disabled={busy}>Resolve</Button>
+              )}
             </div>
             <div role="log" aria-label="Messages" style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", flexDirection: "column", gap: 10, maxHeight: 420 }}>
               {active.messages.map((m) => (

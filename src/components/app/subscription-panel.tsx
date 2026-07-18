@@ -61,7 +61,15 @@ function statusLabel(s: SubscriptionSummary): { text: string; color: string } {
   }
   if (s.status === "EXPIRED") return { text: "Ended", color: "var(--terracotta)" };
   if (s.status === "HALTED") return { text: "Payment failed", color: "var(--terracotta)" };
-  if (s.status === "CANCELLED") return { text: "Cancelled", color: "var(--fg-mute)" };
+  if (s.status === "CANCELLED") {
+    // A cancelled plan stays usable to the end of the paid period — a bare
+    // "Cancelled" read as if access had already ended.
+    const stillInPaidPeriod =
+      s.cancelAtPeriodEnd && s.currentPeriodEnd && new Date(s.currentPeriodEnd).getTime() > Date.now();
+    return stillInPaidPeriod
+      ? { text: "Cancelled · active till period end", color: "var(--fg-mute)" }
+      : { text: "Cancelled", color: "var(--fg-mute)" };
+  }
   if (s.status === "CREATED") return { text: "Awaiting payment", color: "var(--fg-mute)" };
   return { text: s.status, color: "var(--fg-mute)" };
 }

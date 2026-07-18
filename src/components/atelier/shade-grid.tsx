@@ -1095,9 +1095,11 @@ function AISuggestPanel({
             )}
           </p>
           <div className="hv-ai-cards">
-            {palettes.map((p) => (
+            {palettes.map((p, i) => (
               <PaletteTrioCard
-                key={p.name}
+                // Claude names aren't guaranteed unique — the index keeps two
+                // same-named palettes from colliding and dropping a card.
+                key={`${i}-${p.name}`}
                 title={p.name}
                 rationale={p.rationale}
                 trio={[p.main, p.accent, p.trim]}
@@ -1244,9 +1246,11 @@ function ClaudePicksSection({
       )}
       {cards.length > 0 && (
         <div className="hv-ai-cards">
-          {cards.map(({ combo, trio }) => (
+          {cards.map(({ combo, trio }, i) => (
             <PaletteTrioCard
-              key={combo.name}
+              // Combo names aren't guaranteed unique — the index keeps two
+              // same-named combos from colliding and dropping a card.
+              key={`${i}-${combo.name}`}
               title={combo.name}
               rationale={combo.rationale}
               trio={trio}

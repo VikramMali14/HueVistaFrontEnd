@@ -5,7 +5,7 @@ import { api, HttpError } from "@/lib/api";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import type { CustomerEntitlement } from "@/lib/types";
+import type { CustomerEntitlement, OrgResponse } from "@/lib/types";
 
 function formatAccessLeft(iso?: string | null): string {
   if (!iso) return "—";
@@ -26,8 +26,11 @@ function formatAccessLeft(iso?: string | null): string {
  * Live list of the customers a retailer has onboarded (via access codes), with each
  * customer's project usage, access validity, and a "grant another project" action.
  * Talks to the backend through the same-origin BFF.
+ *
+ * `org` comes from the portal page's single org fetch (null = resolved, no
+ * shop); when undefined the component falls back to fetching the orgs itself.
  */
-export function RetailerCustomers() {
+export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }) {
   const [orgId, setOrgId] = useState<string | null>(null);
   const [rows, setRows] = useState<CustomerEntitlement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,8 +41,13 @@ export function RetailerCustomers() {
     setLoading(true);
     setError(null);
     try {
-      const orgs = await api.listMyOrgs();
-      const retailer = orgs.find((o) => o.type === "RETAILER") ?? orgs[0];
+      // Strictly the RETAILER org — the other portal sections do the same, so
+      // falling back to orgs[0] here made an admin with only a DISTRIBUTOR org
+      // see this one section populated while the rest said "no shop".
+      const retailer =
+        orgProp !== undefined
+          ? orgProp
+          : ((await api.listMyOrgs()).find((o) => o.type === "RETAILER") ?? null);
       if (!retailer) {
         setOrgId(null);
         setRows([]);
@@ -52,7 +60,7 @@ export function RetailerCustomers() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [orgProp]);
 
   useEffect(() => {
     void load();

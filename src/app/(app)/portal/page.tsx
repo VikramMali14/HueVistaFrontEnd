@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { requireRole } from "@/lib/auth";
+import { getAccessToken, requireRole } from "@/lib/auth";
+import { orgApi } from "@/lib/api";
+import type { OrgResponse } from "@/lib/types";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { RetailerCustomers } from "@/components/app/retailer-customers";
 import { AccessCodes } from "@/components/app/access-codes";
@@ -19,12 +21,25 @@ export default async function PortalPage() {
   await requireRole(["RETAILER", "ADMIN"]);
   // Live catalogue for the combo builder's shade search (bundled sample on failure).
   const shades = await getCatalogueOrSample();
+  // The user's orgs, fetched ONCE for the whole page — every section used to
+  // fetch this same list independently (six identical requests per load, with
+  // the sections free to disagree mid-load). `undefined` on failure lets each
+  // section fall back to its own fetch, so a hiccup here degrades, not breaks.
+  let orgs: OrgResponse[] | undefined;
+  try {
+    const token = await getAccessToken();
+    orgs = token ? await orgApi.mine(token) : undefined;
+  } catch {
+    orgs = undefined;
+  }
+  const shopOrg = orgs === undefined ? undefined : (orgs.find((o) => o.type === "RETAILER") ?? null);
+  const subdomainSlug = orgs === undefined ? undefined : (orgs.find((o) => o.slug)?.slug ?? null);
   return (
     <>
       <header style={{ marginBottom: 48 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
           <Eyebrow>Customer portal</Eyebrow>
-          <PortalSubdomain />
+          <PortalSubdomain slug={subdomainSlug} />
         </div>
         <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Your white-label<br />customer portal</h1>
         <Lead style={{ marginTop: 24 }}>Issue temporary access codes for your customers. They visualise colours on your subdomain — without seeing shade codes. When they're ready, they "Send to retailer" and you receive the full project.</Lead>
@@ -35,7 +50,7 @@ export default async function PortalPage() {
           Issue a code and share it with a customer. They enter it at <Mono>huevista.com/redeem</Mono> to start
           visualising — with one project and a validity window you control.
         </p>
-        <AccessCodes />
+        <AccessCodes org={shopOrg} />
       </section>
       <section style={{ marginBottom: 56 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
@@ -46,7 +61,7 @@ export default async function PortalPage() {
           exteriors. Everyone visualising under your shop sees them in the studio&apos;s AI Suggest
           tab as soon as their photo is up, labelled with your shop&apos;s name.
         </p>
-        <ShopCombos shades={shades} />
+        <ShopCombos shades={shades} org={shopOrg} />
       </section>
       <section style={{ marginBottom: 56 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
@@ -59,7 +74,7 @@ export default async function PortalPage() {
           number; you read the real shade straight off their screen, and the checker below decodes
           any code without opening a project.
         </p>
-        <ShadeCodePanel shades={shades} />
+        <ShadeCodePanel shades={shades} org={shopOrg} />
       </section>
       <section style={{ marginBottom: 56 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
@@ -70,7 +85,7 @@ export default async function PortalPage() {
           (min ₹50), upload one room photo and pick colours. Everything above the ₹50 base lands in
           your wallet — redeem it to your UPI whenever you like.
         </p>
-        <StoreKioskPanel />
+        <StoreKioskPanel org={shopOrg} />
       </section>
       <section style={{ marginBottom: 56 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
@@ -80,7 +95,7 @@ export default async function PortalPage() {
           Each customer gets one project with their access code. Grant another when they want a second
           room — or they can pay for one themselves from the visualiser.
         </p>
-        <RetailerCustomers />
+        <RetailerCustomers org={shopOrg} />
       </section>
       <section style={{ marginTop: 56, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
         <Mono style={{ marginBottom: 18, display: "block" }}>What they see</Mono>

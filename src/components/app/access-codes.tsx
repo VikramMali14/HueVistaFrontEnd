@@ -24,8 +24,12 @@ function slugify(name: string): string {
 /**
  * Retailer-facing: create your shop org (once) and issue customer access codes.
  * A walk-in customer redeems a code at /redeem to become a CUSTOMER tied to you.
+ *
+ * `org` comes from the portal page's single org fetch (null = resolved, no
+ * shop yet); when it's undefined (page fetch failed) the component falls back
+ * to fetching the orgs itself.
  */
-export function AccessCodes() {
+export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   const [loading, setLoading] = useState(true);
   const [org, setOrg] = useState<OrgResponse | null>(null);
   const [codes, setCodes] = useState<AccessCode[]>([]);
@@ -84,8 +88,10 @@ export function AccessCodes() {
     (async () => {
       setError(null);
       try {
-        const orgs = await api.listMyOrgs();
-        const retailer = orgs.find((o) => o.type === "RETAILER") ?? null;
+        const retailer =
+          orgProp !== undefined
+            ? orgProp
+            : ((await api.listMyOrgs()).find((o) => o.type === "RETAILER") ?? null);
         setOrg(retailer);
         if (retailer) await loadCodes(retailer.id);
       } catch (e) {
@@ -98,7 +104,7 @@ export function AccessCodes() {
         setLoading(false);
       }
     })();
-  }, [loadCodes]);
+  }, [loadCodes, orgProp]);
 
   const createShop = useCallback(async () => {
     if (!shopName.trim()) return;

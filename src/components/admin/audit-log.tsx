@@ -5,9 +5,12 @@ import { Mono } from "@/components/ui/eyebrow";
 import type { AuditLogRow } from "@/lib/api";
 
 interface AuditLogProps {
-  initial: AuditLogRow[];
-  /** Re-query the trail, optionally narrowed to one exact action. */
-  refreshAction: (action?: string) => Promise<AuditLogRow[]>;
+  /** Null = the trail could not be loaded (outage / expired session) — shown
+   *  as an error, never as "nothing recorded". */
+  initial: AuditLogRow[] | null;
+  /** Re-query the trail, optionally narrowed to one exact action. Null = the
+   *  refresh failed; the component keeps the rows it has. */
+  refreshAction: (action?: string) => Promise<AuditLogRow[] | null>;
 }
 
 /**
@@ -16,8 +19,9 @@ interface AuditLogProps {
  * filter isn't limited to what happens to be on the first page.
  */
 export function AuditLog({ initial, refreshAction }: AuditLogProps) {
-  const [rows, setRows] = useState(initial);
+  const [rows, setRows] = useState(initial ?? []);
   const [filter, setFilter] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [pending, startTransition] = useTransition();
 
   // Chip list: actions seen in the CURRENT rows plus the active filter itself,
@@ -31,8 +35,19 @@ export function AuditLog({ initial, refreshAction }: AuditLogProps) {
   function applyFilter(action: string | null) {
     startTransition(async () => {
       setFilter(action);
-      setRows(await refreshAction(action ?? undefined));
+      const fresh = await refreshAction(action ?? undefined);
+      // A failed refresh keeps what's on screen rather than blanking the trail.
+      setLoadError(fresh === null);
+      if (fresh !== null) setRows(fresh);
     });
+  }
+
+  if (initial === null && rows.length === 0) {
+    return (
+      <p className="field-error" role="alert">
+        Could not load the audit trail — refresh the page, or sign in again if it keeps happening.
+      </p>
+    );
   }
 
   if (rows.length === 0 && !filter) {
@@ -46,6 +61,11 @@ export function AuditLog({ initial, refreshAction }: AuditLogProps) {
 
   return (
     <div aria-busy={pending}>
+      {loadError && (
+        <p className="field-error" role="alert" style={{ marginBottom: 12 }}>
+          Could not refresh the trail — showing the last loaded records.
+        </p>
+      )}
       {actions.length > 1 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
           <FilterChip label="All" active={filter === null} onClick={() => applyFilter(null)} />

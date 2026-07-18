@@ -17,7 +17,7 @@ const MAX_RESULTS = 8;
  * staff, entitled customers, and guests on an access code. Slot order matches
  * the studio's Apply-all mapping: main wall, accent wall, trim.
  */
-export function ShopCombos({ shades }: { shades: ReadonlyArray<PaintShade> }) {
+export function ShopCombos({ shades, org: orgProp }: { shades: ReadonlyArray<PaintShade>; org?: OrgResponse | null }) {
   const [loading, setLoading] = useState(true);
   const [org, setOrg] = useState<OrgResponse | null>(null);
   const [combos, setCombos] = useState<RetailerCombo[]>([]);
@@ -32,8 +32,12 @@ export function ShopCombos({ shades }: { shades: ReadonlyArray<PaintShade> }) {
   useEffect(() => {
     (async () => {
       try {
-        const orgs = await api.listMyOrgs();
-        const retailer = orgs.find((o) => o.type === "RETAILER") ?? null;
+        // The portal page fetches the orgs once and passes the shop org down;
+        // fetch here only when that page-level fetch wasn't available.
+        const retailer =
+          orgProp !== undefined
+            ? orgProp
+            : ((await api.listMyOrgs()).find((o) => o.type === "RETAILER") ?? null);
         setOrg(retailer);
         if (retailer) setCombos(await api.listCombos(retailer.id));
       } catch (e) {
@@ -42,7 +46,7 @@ export function ShopCombos({ shades }: { shades: ReadonlyArray<PaintShade> }) {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [orgProp]);
 
   const setSlot = useCallback((index: number, shade: PaintShade | null) => {
     setSlots((prev) => prev.map((s, i) => (i === index ? shade : s)));
