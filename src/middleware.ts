@@ -9,7 +9,7 @@ import { clientIpFromHeaders } from "@/lib/client-ip";
 // KEEP IN SYNC with `config.matcher` at the bottom of this file — Next.js
 // requires the matcher to be a static literal, so the same route list exists
 // twice. Adding a protected route means updating BOTH lists.
-const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/products", "/color-finder", "/account", "/admin"];
+const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/products", "/color-finder", "/account", "/admin", "/subscription"];
 // Pages that only make sense for a signed-OUT visitor. A signed-in user landing
 // here is bounced home — they can't register or sign in again without signing
 // out first. The Google OAuth callback at /sign-in/google is deliberately NOT
@@ -115,6 +115,25 @@ export async function middleware(req: NextRequest) {
   // Demo mode: no backend to refresh against — a refresh cookie alone is enough.
   if (DEMO_MODE) return NextResponse.next();
 
+  // The backend couldn't be reached or answered 5xx — a restart/deploy in
+  // progress, NOT an invalid session. Critically, the refresh cookie is KEPT:
+  // deleting it here is what used to log everyone out on every server restart.
+  // BFF callers get a 503 they can retry; page loads bounce to the (public,
+  // backend-free) home page, and the still-present cookies mean the very next
+  // visit to a protected page silently refreshes and restores the session.
+  const unavailable = () => {
+    if (isBff) {
+      return NextResponse.json(
+        { message: "The server is starting up — please try again in a moment." },
+        { status: 503 },
+      );
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    url.search = "?server=starting";
+    return NextResponse.redirect(url);
+  };
+
   // Access expired but a refresh token is present → refresh it here. The backend
   // rotates refresh tokens, so we must persist the new pair (which is why this
   // can't live in a Server Component render).
@@ -131,7 +150,13 @@ export async function middleware(req: NextRequest) {
       body: JSON.stringify({ refreshToken: refresh }),
       cache: "no-store",
     });
-    if (!upstream.ok) return denied();
+    if (!upstream.ok) {
+      // Only a definitive auth verdict (401/403) means the session is dead and
+      // the cookies should go. Anything else (5xx, 429, proxy errors) is the
+      // backend having trouble — keep the session and fail soft.
+      if (upstream.status === 401 || upstream.status === 403) return denied();
+      return unavailable();
+    }
     const auth = (await upstream.json()) as {
       accessToken: string;
       refreshToken: string;
@@ -147,7 +172,8 @@ export async function middleware(req: NextRequest) {
     res.cookies.set(SESSION_COOKIE, auth.refreshToken, cookieOpts(REFRESH_TTL));
     return res;
   } catch {
-    return denied();
+    // Network failure (backend down / restarting) — keep the session cookies.
+    return unavailable();
   }
 }
 
@@ -163,6 +189,7 @@ export const config = {
     "/color-finder/:path*",
     "/account/:path*",
     "/admin/:path*",
+    "/subscription/:path*",
     "/bff/:path*",
     // Rewritten-to-backend auth endpoints — X-Forwarded-For normalisation only.
     "/api/auth/:path*",

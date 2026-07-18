@@ -6,7 +6,7 @@ import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api"
 import type { AdminUserRow, AuditLogRow, DeleteAllShadesResult, ResnapSummary, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
-import type { AuthResponse, AuthUser, WalletRedemption } from "./types";
+import type { AuthResponse, AuthUser, SubscriptionSummary, WalletRedemption } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -128,7 +128,10 @@ export async function loginAction(formData: FormData) {
       if (err.status === 401) return { error: "Incorrect email or password." };
       return { error: err.message };
     }
-    return { error: "Could not sign in. Please try again." };
+    // Not an HTTP response at all — the backend is unreachable (restarting or
+    // still booting). Say so, instead of a generic failure that reads like
+    // wrong credentials and makes people retry blindly.
+    return { error: "The server is starting up — please try again in a few seconds." };
   }
   redirect(next);
 }
@@ -154,7 +157,7 @@ export async function loginWithOtpAction(formData: FormData) {
       if (err.status === 401) return { error: "Incorrect email or password." };
       return { error: err.message }; // wrong/expired code — backend message says what to do
     }
-    return { error: "Could not sign in. Please try again." };
+    return { error: "The server is starting up — please try again in a few seconds." };
   }
   redirect(next);
 }
@@ -429,6 +432,64 @@ export async function searchUsersAction(
   }
 }
 
+/** ADMIN: a user's active (or most recent) subscription; null when they have none. */
+export async function getUserSubscriptionAction(
+  userId: string,
+): Promise<{ subscription?: SubscriptionSummary | null; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { subscription: await adminApi.getUserSubscription(token, userId) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 404) return { subscription: null }; // never had one — not an error
+      return { error: err.message };
+    }
+    return { error: "Could not load the subscription. Please try again." };
+  }
+}
+
+/** ADMIN: activate a plan for a user without a payment (supersedes any active plan). */
+export async function grantSubscriptionAction(
+  userId: string,
+  input: { plan: string; days: number; aiGenerationsLimit?: number },
+): Promise<{ subscription?: SubscriptionSummary; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { subscription: await adminApi.grantSubscription(token, userId, input) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Could not grant the subscription. Please try again." };
+  }
+}
+
+/** ADMIN: add AI image-generation credits and/or extend a user's subscription
+ *  (extending a lapsed one reactivates it). */
+export async function adjustSubscriptionAction(
+  userId: string,
+  input: { addAiGenerations?: number; extendDays?: number },
+): Promise<{ subscription?: SubscriptionSummary; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { subscription: await adminApi.adjustSubscription(token, userId, input) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "Admin access is required." };
+      if (err.status === 404) return { error: "This user has no subscription yet — grant one first." };
+      return { error: err.message };
+    }
+    return { error: "Could not update the subscription. Please try again." };
+  }
+}
+
 /** ADMIN: the audit trail (latest 50, optional exact-action filter). Empty on any
  *  failure so the admin page still renders. */
 export async function getAuditLog(action?: string): Promise<AuditLogRow[]> {
@@ -553,7 +614,9 @@ export async function requireActiveSubscription(): Promise<void> {
   }
   const user = await getCurrentUser();
   if (user?.role === "CUSTOMER") redirect("/redeem");
-  redirect("/pricing?need=subscription");
+  // The in-app subscription page shows why access is paused AND the renew
+  // buttons — a better landing than the public pricing pitch.
+  redirect("/subscription?need=subscription");
 }
 
 /**

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { decideWalletRedemptionAction, getAuditLog, getShopLeads, getWalletRedemptions, requireRole, searchUsersAction, updateShopLeadStatusAction } from "@/lib/auth";
+import { adjustSubscriptionAction, decideWalletRedemptionAction, getAuditLog, getShopLeads, getUserSubscriptionAction, getWalletRedemptions, grantSubscriptionAction, requireRole, searchUsersAction, updateShopLeadStatusAction } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { CreateRetailerForm } from "@/components/admin/create-retailer-form";
 import { ShopLeads } from "@/components/admin/shop-leads";
+import { SubscriptionManager } from "@/components/admin/subscription-manager";
 import { UserSearch } from "@/components/admin/user-search";
 import { AuditLog } from "@/components/admin/audit-log";
 import { WalletRedemptions } from "@/components/admin/wallet-redemptions";
@@ -70,6 +71,22 @@ export default async function AdminPage() {
           then mark it approved; rejecting returns the amount to the shop&rsquo;s wallet.
         </p>
         <WalletRedemptions initial={redemptions} decideAction={decideWalletRedemptionAction} />
+      </section>
+
+      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+        <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
+          Subscriptions
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch", marginBottom: 24 }}>
+          Give a user a plan without a payment, top up their AI image generations, or extend an
+          ended subscription to bring it back to life. Find them first.
+        </p>
+        <SubscriptionManager
+          searchAction={searchUsersAction}
+          getSubscriptionAction={getUserSubscriptionAction}
+          grantAction={grantSubscriptionAction}
+          adjustAction={adjustSubscriptionAction}
+        />
       </section>
 
       <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>

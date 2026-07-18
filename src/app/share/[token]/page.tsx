@@ -5,8 +5,8 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { config } from "@/lib/config";
-import type { ProjectDetail } from "@/lib/types";
-import { PaintedPreview, type PaintedRegion } from "./painted-preview";
+import type { ProjectDetail, ShadeBrandSummary } from "@/lib/types";
+import { ShareRepaint, type RepaintBrand, type RepaintRegion } from "./share-repaint";
 
 // Public, read-only view of a shared project — colours are shown, shade codes hidden
 // (the backend's /api/share endpoint serves the code-hidden projection).
@@ -28,6 +28,30 @@ function absUrl(u?: string | null): string | null {
   if (!u) return null;
   if (u.startsWith("http")) return u;
   return `${config.apiOrigin}${u.startsWith("/") ? "" : "/"}${u}`;
+}
+
+/**
+ * The paint companies this share's viewer may repaint with: the live catalogue
+ * brands, cut down to the retailer's chosen list when they restricted the share
+ * (empty/absent = every brand). Empty on any failure — the page then renders the
+ * static preview without the picker.
+ */
+async function fetchShareBrands(project: ProjectDetail): Promise<RepaintBrand[]> {
+  try {
+    const res = await fetch(`${config.internalApiOrigin}/api/shades/brands`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const all = (await res.json()) as ShadeBrandSummary[];
+    const allowed = (project.sharedBrands ?? []).map((b) => b.trim().toLowerCase()).filter(Boolean);
+    const list = allowed.length === 0
+      ? all
+      : all.filter((b) => allowed.includes(b.name.trim().toLowerCase()));
+    return list.map((b) => ({ name: b.name, slug: b.slug }));
+  } catch {
+    return [];
+  }
 }
 
 // The share link travels by WhatsApp — give the recipient the painted room in the
@@ -69,14 +93,15 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   }
 
   const img = absUrl(project.cleanedImageUrl) ?? absUrl(project.imageUrl);
-  const applied = project.regions.filter((r) => r.appliedHexCode);
-  // The painted composite is rendered client-side from the saved masks — the
-  // recipient sees the room WITH the colours, not just the bare photo.
-  const paintedRegions: PaintedRegion[] = applied.map((r) => ({
-    maskUrl: absUrl(r.maskUrl),
-    hex: r.appliedHexCode!,
+  // Every masked region is repaintable — the viewer can recolour walls the
+  // retailer left bare, too. Colours applied by the retailer are the start state.
+  const repaintRegions: RepaintRegion[] = project.regions.map((r) => ({
+    id: r.id,
     label: r.label,
+    maskUrl: absUrl(r.maskUrl),
+    initialHex: r.appliedHexCode ?? null,
   }));
+  const brands = await fetchShareBrands(project);
 
   return (
     <>
@@ -85,42 +110,23 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         <header style={{ marginBottom: 32 }}>
           <Eyebrow>Shared colour preview</Eyebrow>
           <h1 className="display" style={{ fontSize: "clamp(36px, 5vw, 64px)", marginTop: 12 }}>{project.name}</h1>
-          <Lead style={{ marginTop: 16 }}>A colour preview shared with you. Pick the look you love — your retailer has the exact shades.</Lead>
+          <Lead style={{ marginTop: 16 }}>
+            A colour preview shared with you. Repaint it with your own picks — your retailer has the exact shades.
+          </Lead>
         </header>
 
-        <div className="r-cols-md-1" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 32, alignItems: "start" }}>
-          <div style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)", aspectRatio: "4 / 3", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {img ? (
-              <PaintedPreview
-                imageUrl={img}
-                alt={project.name}
-                regions={paintedRegions}
-                anchored={Boolean(project.cleanedImageUrl)}
-              />
-            ) : (
-              <Mono>Preview unavailable</Mono>
-            )}
-          </div>
-
-          <aside>
-            <Mono brass style={{ display: "block", marginBottom: 14 }}>The palette</Mono>
-            {applied.length === 0 ? (
-              <p style={{ font: "400 16px/1.5 var(--serif)", color: "var(--fg-mute)" }}>No colours applied yet.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {applied.map((r) => (
-                  <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span aria-hidden style={{ width: 40, height: 40, background: r.appliedHexCode ?? "#ccc", border: "1px solid var(--rule-strong)", flexShrink: 0 }} />
-                    <span style={{ font: "400 17px/1.2 var(--serif)", color: "var(--fg)" }}>{r.label || "Wall"}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <p style={{ marginTop: 24, font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
-              Shade codes are kept with your retailer. Visit them to order the exact colours.
-            </p>
-          </aside>
-        </div>
+        {img ? (
+          <ShareRepaint
+            imageUrl={img}
+            alt={project.name}
+            regions={repaintRegions}
+            anchored={Boolean(project.cleanedImageUrl)}
+            brands={brands}
+            apiOrigin={config.apiOrigin}
+          />
+        ) : (
+          <Mono>Preview unavailable</Mono>
+        )}
 
         <div
           className="r-cols-md-1"
