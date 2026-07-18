@@ -401,7 +401,7 @@ describe("Visualizer — confirm before processing", () => {
     expect(screen.getByLabelText(/Clean the photo/i)).toBeChecked();
   });
 
-  it("admin unchecking the toggle sends cleanImage: false with the segment request", async () => {
+  it("admin panel choices are sent with the segment request", async () => {
     const { container } = render(<Visualizer initialName="Test room" isAdmin />);
     await screen.findByText("Add a photo of the room");
 
@@ -411,14 +411,23 @@ describe("Visualizer — confirm before processing", () => {
       });
     });
     const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
+    // Uncheck cleaning, enable one enhancement — exactly that state is sent.
     await act(async () => {
       fireEvent.click(screen.getByLabelText(/Clean the photo/i));
+      fireEvent.click(screen.getByLabelText(/Straighten/i));
     });
     await act(async () => {
       fireEvent.click(confirm);
     });
 
-    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", { cleanImage: false });
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
+      cleanImage: false,
+      colourGate: false,
+      morphClean: false,
+      straighten: true,
+      edgeSnap: false,
+      closeSeams: false,
+    });
   });
 
   it("discards the preview on 'choose different' without any backend call", async () => {

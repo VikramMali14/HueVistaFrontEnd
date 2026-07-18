@@ -144,6 +144,26 @@ export interface RegionDetail {
   manual?: boolean;
 }
 
+/** ADMIN-only testing panel sent with a segmentation request (the backend
+ *  ignores it for other roles). cleanImage=false skips the image-cleaner
+ *  step; each mask-enhancement flag enables one post-processing step for the
+ *  run. Default (all false/absent): masks are stored exactly as the model
+ *  painted them. */
+export interface SegmentationOptions {
+  cleanImage?: boolean;
+  /** Trim mask pixels that aren't freshly painted surface on the cleaned
+   *  canvas. No-op when cleaning was skipped. */
+  colourGate?: boolean;
+  /** Morphological cleanup: despeckle + fill pinholes. */
+  morphClean?: boolean;
+  /** Straighten the model's wobbly boundaries onto polygon segments. */
+  straighten?: boolean;
+  /** Snap mask boundaries to the canvas's real edges. */
+  edgeSnap?: boolean;
+  /** Fill the unpainted ribbons between adjacent region masks. */
+  closeSeams?: boolean;
+}
+
 export interface ProjectDetail {
   id: string;
   name: string;
