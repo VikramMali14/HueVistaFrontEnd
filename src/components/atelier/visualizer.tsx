@@ -245,13 +245,14 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // classification and no (billable) segmentation runs until the user confirms.
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   // ADMIN testing panel (isAdmin only): whether the backend's image-cleaner
-  // step runs, plus which mask-enhancement steps the run applies (default
-  // none — masks are stored exactly as the model painted them). Sent with
-  // every segmentation request so a retry keeps the same choices; the
-  // backend ignores all of it for other roles.
+  // step runs, plus which mask-enhancement steps the run applies. Mirrors the
+  // backend default: just the fixture-protecting colour gate on (it strips
+  // paint from railings/doors/grills), everything else raw. Sent with every
+  // segmentation request so a retry keeps the same choices; the backend
+  // ignores all of it for other roles.
   const [segOptions, setSegOptions] = useState<SegmentationOptions>({
     cleanImage: true,
-    colourGate: false,
+    colourGate: true,
     morphClean: false,
     straighten: false,
     edgeSnap: false,
