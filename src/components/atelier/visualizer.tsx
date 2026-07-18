@@ -91,12 +91,12 @@ const MAX_CUSTOM_MASKS = 3;
 // at the counter, so only Brighten stays interactive:
 //  - shadows ON (85%): the paint follows the photo's own light;
 //  - soft edges OFF: crisp borders, no feathering;
-//  - edge nudge +2px: masks tend to sit slightly inside the real surface,
+//  - edge nudge +1px: masks tend to sit slightly inside the real surface,
 //    so growing every painted edge a touch hides unpainted seams.
 const SHADOW_ON = true;
 const SHADOW_STRENGTH = 0.85;
 const SOFT_EDGE_ON = false;
-const EDGE_NUDGE_PX = 2;
+const EDGE_NUDGE_PX = 1;
 /** Most coloured snapshots the user can collect into one downloadable PDF. */
 const MAX_PDF_PAGES = 8;
 
@@ -1479,7 +1479,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             {imageUrl && !pendingFile && !uploading && !segmenting && (
               /* Floating preview option (glass, top-left): just the Brighten
                  level — every other render option is fixed at its best default
-                 (shadows on, snap edges on, +2px edge nudge). */
+                 (shadows on, +1px edge nudge). */
               <div className="hv-studio-floatbar" role="group" aria-label="Preview options">
                 <div className="hv-studio-tool hv-studio-tool-col">
                   <span className="hv-studio-tool-label">

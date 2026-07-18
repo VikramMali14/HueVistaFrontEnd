@@ -94,7 +94,7 @@ export interface RecolorEngine {
   /** Set the uniform edge nudge in photo px: positive grows every painted
    *  region outward, negative shrinks it, 0 = off (the default). For masks
    *  that sit consistently inside or outside the real surfaces — the
-   *  visualizer applies a fixed +2px (EDGE_NUDGE_PX) so mask borders hide
+   *  visualizer applies a fixed +1px (EDGE_NUDGE_PX) so mask borders hide
    *  unpainted seams. Changing it invalidates cached masks; callers
    *  re-render after. Optional for test doubles. */
   setEdgeOffset?(px: number): void;
