@@ -813,6 +813,25 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
   }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, segOptions]);
 
+  // ADMIN testing: re-apply the chosen mask enhancements to the ALREADY
+  // generated regions. The backend re-derives them from the project's stored
+  // raw mask — no model call, no AI credit, deterministic — so different
+  // enhancement combinations can be compared on the same model output.
+  const [reprocessing, setReprocessing] = useState(false);
+  const handleApplyEnhancements = useCallback(async () => {
+    if (!projectId) return;
+    setError(null);
+    setReprocessing(true);
+    try {
+      const detail = await api.reprocessMasks(projectId, segOptions);
+      await applyProjectDetail(detail);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not re-process the masks.");
+    } finally {
+      setReprocessing(false);
+    }
+  }, [projectId, segOptions, applyProjectDetail]);
+
   const handleBuyAndRetry = useCallback(async () => {
     setError(null);
     setBuying(true);
@@ -1518,6 +1537,50 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     ))}
                   </div>
                 </div>
+                {isAdmin && !guest && masksReady && projectId && (
+                  /* ADMIN mask-enhancement tester: re-derives the regions from
+                     the STORED raw mask with the checked steps — no model
+                     call, no AI credit, so combinations are comparable on the
+                     same output. Invisible to every other role. */
+                  <div
+                    className="hv-studio-tool hv-studio-tool-col"
+                    role="group"
+                    aria-label="Mask enhancements (admin testing)"
+                  >
+                    <span className="hv-studio-tool-label" style={{ font: "500 10px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase" }}>
+                      Masks · admin testing
+                    </span>
+                    {(
+                      [
+                        ["colourGate", "Colour gate", "drop non-paintable pixels (needs cleaned photo)"],
+                        ["morphClean", "Morph clean", "despeckle + fill pinholes"],
+                        ["straighten", "Straighten", "wobbly boundaries → straight lines"],
+                        ["edgeSnap", "Edge snap", "re-attach boundaries to the photo's real edges"],
+                        ["closeSeams", "Close seams", "fill gaps between adjacent regions"],
+                      ] as const
+                    ).map(([key, label, hint]) => (
+                      <label key={key} title={hint} style={{ display: "inline-flex", alignItems: "center", gap: 7, font: "400 12.5px/1.3 var(--sans)", cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(segOptions[key])}
+                          onChange={(e) => setSegOptions((o) => ({ ...o, [key]: e.target.checked }))}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                    <button
+                      type="button"
+                      className="btn btn-brass"
+                      style={{ marginTop: 4, padding: "6px 12px", font: "500 12.5px/1 var(--sans)" }}
+                      disabled={reprocessing}
+                      onClick={() => void handleApplyEnhancements()}
+                    >
+                      {reprocessing
+                        ? <><Spinner size={12} color="currentColor" decorative /> Applying…</>
+                        : <>Apply to regions</>}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             {imageUrl && !pendingFile && (
@@ -1672,54 +1735,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   Use this photo? Nothing is sent for processing until you continue.
                 </p>
                 {isAdmin && !guest && (
-                  <div
+                  <label
                     style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      gap: 6,
-                      width: "100%",
-                      padding: "10px 12px",
-                      border: "1px solid var(--rule-strong)",
-                      borderRadius: 8,
-                      textAlign: "left",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      font: "400 13px/1.4 var(--sans)",
+                      color: "var(--fg-soft)",
+                      cursor: "pointer",
                     }}
                   >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(segOptions.cleanImage)}
+                      onChange={(e) => setSegOptions((o) => ({ ...o, cleanImage: e.target.checked }))}
+                    />
+                    Clean the photo before mask generation
                     <span style={{ font: "500 10px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
                       admin · testing
                     </span>
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(segOptions.cleanImage)}
-                        onChange={(e) => setSegOptions((o) => ({ ...o, cleanImage: e.target.checked }))}
-                      />
-                      Clean the photo before mask generation
-                    </label>
-                    <span style={{ font: "400 11px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-                      Mask enhancements — default off, masks stay exactly as the model painted them:
-                    </span>
-                    {(
-                      [
-                        ["colourGate", "Colour gate", "drop non-paintable pixels (needs cleaned photo)"],
-                        ["morphClean", "Morph clean", "despeckle + fill pinholes"],
-                        ["straighten", "Straighten", "wobbly boundaries → straight lines"],
-                        ["edgeSnap", "Edge snap", "re-attach boundaries to the photo's real edges"],
-                        ["closeSeams", "Close seams", "fill gaps between adjacent regions"],
-                      ] as const
-                    ).map(([key, label, hint]) => (
-                      <label key={key} style={{ display: "inline-flex", alignItems: "baseline", gap: 8, font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", cursor: "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(segOptions[key])}
-                          onChange={(e) => setSegOptions((o) => ({ ...o, [key]: e.target.checked }))}
-                          style={{ position: "relative", top: 1 }}
-                        />
-                        {label}
-                        <span style={{ font: "400 11px/1.4 var(--sans)", color: "var(--fg-mute)" }}>{hint}</span>
-                      </label>
-                    ))}
-                  </div>
+                  </label>
                 )}
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
                   <button type="button" className="btn btn-ghost" onClick={chooseDifferent}>
