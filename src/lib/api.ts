@@ -503,6 +503,15 @@ export const api = {
       method: "POST",
       ...(opts ? { body: JSON.stringify(opts) } : {}),
     }),
+  // ADMIN-only: re-derives the regions from the project's STORED raw mask with
+  // the given enhancement flags — no model call, no AI charge, deterministic.
+  // Synchronous on the backend (a few seconds); returns the updated project
+  // with fresh mask URLs.
+  reprocessMasks: (projectId: string, opts: SegmentationOptions) =>
+    browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/masks/reprocess`, {
+      method: "POST",
+      body: JSON.stringify(opts),
+    }),
   getProjectStatus: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/status`),
   getProject: (projectId: string) =>
