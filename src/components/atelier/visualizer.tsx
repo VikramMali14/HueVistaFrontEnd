@@ -58,6 +58,10 @@ interface VisualizerProps {
    *  guest endpoints, there's no AI auto-segment or share link, and the single
    *  project is owned by the access code. The shop resolves real shade codes. */
   guest?: boolean;
+  /** Signed in as ADMIN: shows the testing-only "clean the photo first" toggle
+   *  on the photo-confirm step, sent with the segmentation request. The backend
+   *  ignores the flag for every other role. */
+  isAdmin?: boolean;
 }
 
 interface RegionState {
@@ -179,7 +183,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";
 
-export function Visualizer({ projectId: openProjectId, shades, initialName, guest = false }: VisualizerProps) {
+export function Visualizer({ projectId: openProjectId, shades, initialName, guest = false, isAdmin = false }: VisualizerProps) {
   // Guest mode swaps the CRUD calls to the access-code-scoped endpoints. Signatures
   // match the user `api`, so the rest of the flow is identical. User-only calls
   // (segmentation, share) are guarded by `!guest` at their call sites.
@@ -239,6 +243,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // a local preview with a Continue/Choose-different prompt; no upload, no
   // classification and no (billable) segmentation runs until the user confirms.
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  // ADMIN testing knob (isAdmin only): whether the backend's image-cleaner step
+  // runs before mask generation. Sent with every segmentation request so a
+  // retry keeps the same choice; the backend ignores it for other roles.
+  const [cleanImage, setCleanImage] = useState(true);
   // AI-preview quota, shown in the topbar so the cost is visible at the moment
   // it's spent (wall detection and Claude palettes each use one; recolouring is
   // free). Null hides the pill: guests (the shop's budget, not theirs),
@@ -632,7 +640,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           }
           setMasksReady(true);
         } else {
-          await api.requestSegmentation(project.id);
+          await api.requestSegmentation(project.id, isAdmin ? { cleanImage } : undefined);
           const segmented = await pollUntilSegmented(project.id);
           await applyProjectDetail(segmented);
           setMasksReady(true);
@@ -667,7 +675,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         refreshQuota(); // segmentation charges on success / refunds on failure
       }
     },
-    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota],
+    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota, isAdmin, cleanImage],
   );
 
   // Pick / receive a photo (file picker, drag-drop, or phone hand-off) and show it
@@ -781,7 +789,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           setGuestAiUnavailable(true);
         }
       } else {
-        await api.requestSegmentation(projectId);
+        await api.requestSegmentation(projectId, isAdmin ? { cleanImage } : undefined);
         const segmented = await pollUntilSegmented(projectId);
         await applyProjectDetail(segmented);
       }
@@ -793,7 +801,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setSegmenting(false);
       refreshQuota(); // retry charges on success / refunds on failure
     }
-  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota]);
+  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, cleanImage]);
 
   const handleBuyAndRetry = useCallback(async () => {
     setError(null);
@@ -1653,6 +1661,28 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 <p style={{ margin: 0, font: "400 15px/1.4 var(--serif)", color: "var(--fg)" }}>
                   Use this photo? Nothing is sent for processing until you continue.
                 </p>
+                {isAdmin && !guest && (
+                  <label
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      font: "400 13px/1.4 var(--sans)",
+                      color: "var(--fg-soft)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={cleanImage}
+                      onChange={(e) => setCleanImage(e.target.checked)}
+                    />
+                    Clean the photo before mask generation
+                    <span style={{ font: "500 10px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+                      admin · testing
+                    </span>
+                  </label>
+                )}
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
                   <button type="button" className="btn btn-ghost" onClick={chooseDifferent}>
                     Choose a different photo

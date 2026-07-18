@@ -493,9 +493,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  requestSegmentation: (projectId: string) =>
+  // opts.cleanImage is an ADMIN-only testing knob: false skips the backend's
+  // image-cleaner step for this run. The backend ignores it for other roles.
+  requestSegmentation: (projectId: string, opts?: { cleanImage?: boolean }) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/segment`, {
       method: "POST",
+      ...(opts?.cleanImage !== undefined
+        ? { body: JSON.stringify({ cleanImage: opts.cleanImage }) }
+        : {}),
     }),
   getProjectStatus: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/status`),

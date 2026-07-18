@@ -375,7 +375,50 @@ describe("Visualizer — confirm before processing", () => {
       fireEvent.click(confirm);
     });
     expect(api.uploadImage).toHaveBeenCalledTimes(1);
-    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1");
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", undefined);
+  });
+
+  it("hides the admin clean-image toggle from non-admins and shows it to admins", async () => {
+    const { container, unmount } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    await screen.findByRole("button", { name: /Continue with this image/i });
+    expect(screen.queryByLabelText(/Clean the photo/i)).not.toBeInTheDocument();
+    unmount();
+
+    const admin = render(<Visualizer initialName="Test room" isAdmin />);
+    await screen.findByText("Add a photo of the room");
+    await act(async () => {
+      fireEvent.change(fileInput(admin.container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    await screen.findByRole("button", { name: /Continue with this image/i });
+    expect(screen.getByLabelText(/Clean the photo/i)).toBeChecked();
+  });
+
+  it("admin unchecking the toggle sends cleanImage: false with the segment request", async () => {
+    const { container } = render(<Visualizer initialName="Test room" isAdmin />);
+    await screen.findByText("Add a photo of the room");
+
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText(/Clean the photo/i));
+    });
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", { cleanImage: false });
   });
 
   it("discards the preview on 'choose different' without any backend call", async () => {
@@ -417,7 +460,7 @@ describe("Visualizer — happy path (upload → segment → regions)", () => {
       roomType: undefined,
       notes: undefined,
     });
-    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1");
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", undefined);
     expect(api.getProjectStatus).toHaveBeenCalledTimes(2); // SEGMENTING, then SEGMENTED
 
     // Mask stage reached: notice chip + classification + the backend regions
@@ -457,7 +500,7 @@ describe("Visualizer — segmentation give-up and retry", () => {
     });
 
     expect(api.requestSegmentation).toHaveBeenCalledTimes(2);
-    expect(api.requestSegmentation).toHaveBeenLastCalledWith("p-1");
+    expect(api.requestSegmentation).toHaveBeenLastCalledWith("p-1", undefined);
     expect(api.uploadImage).toHaveBeenCalledTimes(1); // unchanged
     expect(api.createProject).toHaveBeenCalledTimes(1); // unchanged
 

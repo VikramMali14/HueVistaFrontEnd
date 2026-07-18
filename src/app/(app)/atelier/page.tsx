@@ -20,8 +20,7 @@ type CustomerGate = "missing" | "expired" | null;
  * to upload a photo and rejected afterwards. Fail-open on any fetch problem —
  * the backend enforces the same rules authoritatively on every write.
  */
-async function customerGate(accessToken: string): Promise<CustomerGate> {
-  const user = await getCurrentUser();
+async function customerGate(user: Awaited<ReturnType<typeof getCurrentUser>>, accessToken: string): Promise<CustomerGate> {
   if (user?.role !== "CUSTOMER") return null;
   try {
     const ent = await entitlementApi.my(accessToken);
@@ -68,7 +67,8 @@ export default async function AtelierPage({
 }) {
   // Gate the route — the BFF proxy will pick up the cookie itself; we don't pass the token.
   const token = await requireAccessToken();
-  const gate = await customerGate(token);
+  const user = await getCurrentUser();
+  const gate = await customerGate(user, token);
   if (gate) {
     return <AccessGate kind={gate} />;
   }
@@ -77,7 +77,12 @@ export default async function AtelierPage({
   const shades = await getCatalogueOrSample();
   return (
     <div className="hv-atelier-page">
-      <Visualizer projectId={project} shades={shades} initialName={name} />
+      <Visualizer
+        projectId={project}
+        shades={shades}
+        initialName={name}
+        isAdmin={user?.role === "ADMIN"}
+      />
     </div>
   );
 }
