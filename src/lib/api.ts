@@ -29,6 +29,7 @@ import type {
   ProjectSummary,
   RegionColorUpdate,
   RegionDetail,
+  SegmentationOptions,
   SupportConversation,
   SupportConversationSummary,
   UploadedImage,
@@ -493,14 +494,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  // opts.cleanImage is an ADMIN-only testing knob: false skips the backend's
-  // image-cleaner step for this run. The backend ignores it for other roles.
-  requestSegmentation: (projectId: string, opts?: { cleanImage?: boolean }) =>
+  // opts is the ADMIN-only testing panel (the backend ignores it for other
+  // roles): cleanImage=false skips the image-cleaner step, and each
+  // mask-enhancement flag enables one post-processing step for this run
+  // (default: none — masks are stored exactly as the model painted them).
+  requestSegmentation: (projectId: string, opts?: SegmentationOptions) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/segment`, {
       method: "POST",
-      ...(opts?.cleanImage !== undefined
-        ? { body: JSON.stringify({ cleanImage: opts.cleanImage }) }
-        : {}),
+      ...(opts ? { body: JSON.stringify(opts) } : {}),
     }),
   getProjectStatus: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/status`),

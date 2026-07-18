@@ -44,6 +44,7 @@ import type {
   RegionDetail,
   RegionKind,
   RetailerCombo,
+  SegmentationOptions,
 } from "@/lib/types";
 
 interface VisualizerProps {
@@ -243,10 +244,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // a local preview with a Continue/Choose-different prompt; no upload, no
   // classification and no (billable) segmentation runs until the user confirms.
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  // ADMIN testing knob (isAdmin only): whether the backend's image-cleaner step
-  // runs before mask generation. Sent with every segmentation request so a
-  // retry keeps the same choice; the backend ignores it for other roles.
-  const [cleanImage, setCleanImage] = useState(true);
+  // ADMIN testing panel (isAdmin only): whether the backend's image-cleaner
+  // step runs, plus which mask-enhancement steps the run applies (default
+  // none — masks are stored exactly as the model painted them). Sent with
+  // every segmentation request so a retry keeps the same choices; the
+  // backend ignores all of it for other roles.
+  const [segOptions, setSegOptions] = useState<SegmentationOptions>({
+    cleanImage: true,
+    colourGate: false,
+    morphClean: false,
+    straighten: false,
+    edgeSnap: false,
+    closeSeams: false,
+  });
   // AI-preview quota, shown in the topbar so the cost is visible at the moment
   // it's spent (wall detection and Claude palettes each use one; recolouring is
   // free). Null hides the pill: guests (the shop's budget, not theirs),
@@ -640,7 +650,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           }
           setMasksReady(true);
         } else {
-          await api.requestSegmentation(project.id, isAdmin ? { cleanImage } : undefined);
+          await api.requestSegmentation(project.id, isAdmin ? segOptions : undefined);
           const segmented = await pollUntilSegmented(project.id);
           await applyProjectDetail(segmented);
           setMasksReady(true);
@@ -675,7 +685,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         refreshQuota(); // segmentation charges on success / refunds on failure
       }
     },
-    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota, isAdmin, cleanImage],
+    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota, isAdmin, segOptions],
   );
 
   // Pick / receive a photo (file picker, drag-drop, or phone hand-off) and show it
@@ -789,7 +799,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           setGuestAiUnavailable(true);
         }
       } else {
-        await api.requestSegmentation(projectId, isAdmin ? { cleanImage } : undefined);
+        await api.requestSegmentation(projectId, isAdmin ? segOptions : undefined);
         const segmented = await pollUntilSegmented(projectId);
         await applyProjectDetail(segmented);
       }
@@ -801,7 +811,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setSegmenting(false);
       refreshQuota(); // retry charges on success / refunds on failure
     }
-  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, cleanImage]);
+  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, segOptions]);
 
   const handleBuyAndRetry = useCallback(async () => {
     setError(null);
@@ -1662,26 +1672,54 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   Use this photo? Nothing is sent for processing until you continue.
                 </p>
                 {isAdmin && !guest && (
-                  <label
+                  <div
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      font: "400 13px/1.4 var(--sans)",
-                      color: "var(--fg-soft)",
-                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: 6,
+                      width: "100%",
+                      padding: "10px 12px",
+                      border: "1px solid var(--rule-strong)",
+                      borderRadius: 8,
+                      textAlign: "left",
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={cleanImage}
-                      onChange={(e) => setCleanImage(e.target.checked)}
-                    />
-                    Clean the photo before mask generation
                     <span style={{ font: "500 10px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
                       admin · testing
                     </span>
-                  </label>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(segOptions.cleanImage)}
+                        onChange={(e) => setSegOptions((o) => ({ ...o, cleanImage: e.target.checked }))}
+                      />
+                      Clean the photo before mask generation
+                    </label>
+                    <span style={{ font: "400 11px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+                      Mask enhancements — default off, masks stay exactly as the model painted them:
+                    </span>
+                    {(
+                      [
+                        ["colourGate", "Colour gate", "drop non-paintable pixels (needs cleaned photo)"],
+                        ["morphClean", "Morph clean", "despeckle + fill pinholes"],
+                        ["straighten", "Straighten", "wobbly boundaries → straight lines"],
+                        ["edgeSnap", "Edge snap", "re-attach boundaries to the photo's real edges"],
+                        ["closeSeams", "Close seams", "fill gaps between adjacent regions"],
+                      ] as const
+                    ).map(([key, label, hint]) => (
+                      <label key={key} style={{ display: "inline-flex", alignItems: "baseline", gap: 8, font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(segOptions[key])}
+                          onChange={(e) => setSegOptions((o) => ({ ...o, [key]: e.target.checked }))}
+                          style={{ position: "relative", top: 1 }}
+                        />
+                        {label}
+                        <span style={{ font: "400 11px/1.4 var(--sans)", color: "var(--fg-mute)" }}>{hint}</span>
+                      </label>
+                    ))}
+                  </div>
                 )}
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
                   <button type="button" className="btn btn-ghost" onClick={chooseDifferent}>
