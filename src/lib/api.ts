@@ -310,14 +310,6 @@ export const adminApi = {
       `/api/admin/wallet/redemptions/${encodeURIComponent(redemptionId)}/decision`,
       { method: "POST", accessToken, body: JSON.stringify({ approve, note }) },
     ),
-  // Maintenance: re-run the MaskRefiner edge-snap over already-stored auto region
-  // masks for up to `limit` projects with a cleaned canvas (oldest first). The
-  // backend caps `limit` at 200 per run; re-running is a safe no-op on snapped masks.
-  resnapMasks: (accessToken: string, limit: number) =>
-    serverFetch<ResnapSummary>(
-      `/api/admin/maintenance/resnap-masks?limit=${encodeURIComponent(String(limit))}`,
-      { method: "POST", accessToken },
-    ),
   // A user's active (or most recent) subscription. 404 (HttpError) when they have none.
   getUserSubscription: (accessToken: string, userId: string) =>
     serverFetch<import("./types").SubscriptionSummary>(
@@ -409,14 +401,6 @@ export interface DeleteAllShadesResult {
   message: string;
 }
 
-/** Outcome counts of one mask re-snap maintenance pass (backend ResnapSummary). */
-export interface ResnapSummary {
-  projectsExamined: number;
-  regionsResnapped: number;
-  regionsSkipped: number;
-  failures: number;
-}
-
 /**
  * Server-side guest helpers. `redeemGuest` is anonymous (no token); `claimGuest`
  * runs right after a user signs in to re-point their guest projects to the account.
@@ -494,23 +478,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  // opts is the ADMIN-only testing panel (the backend ignores it for other
-  // roles): cleanImage=false skips the image-cleaner step, and each
-  // mask-enhancement flag enables one post-processing step for this run
-  // (default: none — masks are stored exactly as the model painted them).
+  // opts is the ADMIN-only testing knob (the backend ignores it for other
+  // roles): cleanImage=false skips the image-cleaner step. Masks are always
+  // stored raw — exactly as the model painted them.
   requestSegmentation: (projectId: string, opts?: SegmentationOptions) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/segment`, {
       method: "POST",
       ...(opts ? { body: JSON.stringify(opts) } : {}),
-    }),
-  // ADMIN-only: re-derives the regions from the project's STORED raw mask with
-  // the given enhancement flags — no model call, no AI charge, deterministic.
-  // Synchronous on the backend (a few seconds); returns the updated project
-  // with fresh mask URLs.
-  reprocessMasks: (projectId: string, opts: SegmentationOptions) =>
-    browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/masks/reprocess`, {
-      method: "POST",
-      body: JSON.stringify(opts),
     }),
   getProjectStatus: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/status`),

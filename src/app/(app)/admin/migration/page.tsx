@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
-import { ResnapMasks } from "@/components/admin/resnap-masks";
 
 export const metadata: Metadata = {
   title: "Admin · Maintenance & migration",
@@ -29,23 +28,6 @@ export default async function AdminMigrationPage() {
         One-off data passes over the whole platform. These run against the admin API with your
         signed-in session — no tokens to copy, no shell required. Each pass is safe to re-run.
       </Lead>
-
-      <section style={{ marginTop: 56, borderTop: "1px solid var(--rule)", paddingTop: 40 }}>
-        <h2 className="display" style={{ fontSize: "clamp(24px, 3.2vw, 34px)", marginBottom: 8 }}>
-          Re-snap region masks
-        </h2>
-        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch", marginBottom: 20 }}>
-          Re-runs the edge-snap over already-stored auto region masks for projects that have a
-          cleaned canvas. Projects segmented since the snap shipped are already aligned, so this
-          only helps older projects — and re-running is a no-op on masks already snapped.
-        </p>
-        <ResnapMasks />
-        <p style={{ marginTop: 20 }}>
-          <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
-            Inspect a project&apos;s masks in the mask viewer →
-          </Link>
-        </p>
-      </section>
 
       <section style={{ marginTop: 64, borderTop: "1px solid var(--rule)", paddingTop: 40 }}>
         <h2 className="display" style={{ fontSize: "clamp(24px, 3.2vw, 34px)", marginBottom: 8 }}>

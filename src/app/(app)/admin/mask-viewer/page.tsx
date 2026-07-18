@@ -11,9 +11,8 @@ export const metadata: Metadata = {
 
 /**
  * Admin-only segmentation diagnostics. Overlays the model's raw colour-coded
- * mask and the stored (post-processed) region masks on the project photo, with
- * per-layer toggles and a raw-vs-stored diff — for judging what the fidelity
- * pipeline fixed, what it missed and what should be cut. Gated to ROLE_ADMIN.
+ * mask and the stored region masks (raw splits of that image) on the project
+ * photo, with per-layer toggles and a raw-vs-stored diff. Gated to ROLE_ADMIN.
  * Reads the signed-in admin's own projects (upload a test photo to inspect it).
  */
 export default async function AdminMaskViewerPage() {
@@ -29,9 +28,9 @@ export default async function AdminMaskViewerPage() {
       </h1>
       <Lead style={{ maxWidth: "60ch" }}>
         Pick one of your projects and see every mask as a layer over the photo: the raw
-        red/green/blue image the model generated, the processed regions the studio actually
-        paints through, and a diff of what the pipeline added or removed. Toggle layers to
-        judge what fits, what was enhanced and what needs to go.
+        red/green/blue image the model generated, the stored regions the studio actually
+        paints through, and a raw-vs-stored diff. Toggle layers to judge what fits and
+        what needs to go.
       </Lead>
       <MaskViewer />
     </div>

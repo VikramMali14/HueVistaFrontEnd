@@ -18,7 +18,6 @@
 
 import type { RecolorEngine, RegionPaint } from "./recolor-engine";
 import { featherMaskInward, featherRadiusInMaskPx, offsetMaskCanvas } from "./mask-feather";
-import { buildGuide, refineMaskToImage, type Guide } from "./mask-refine";
 
 // Shared with the Canvas 2D fallback engine (canvas2d-recolor.ts); re-exported
 // so existing `import { type RegionPaint } from "@/lib/webgl-recolor"` keeps working.
@@ -183,21 +182,9 @@ export class Recolor implements RecolorEngine {
   private featherPx = 0;
   /** Whole-image brightness gamma; 1 (default) leaves the photo untouched. */
   private brightGamma = 1;
-  /** Edge snapping (the studio's "Snap edges" toggle; ON by default) — masks
-   *  are refined against the photo so painted boundaries lock onto real image
-   *  edges instead of the AI mask's approximation (see mask-refine.ts). */
-  private edgeSnap = true;
   /** Uniform edge nudge in photo px (the studio's "Edge nudge" control):
    *  positive grows every painted region outward, negative shrinks it. 0 off. */
   private edgeOffsetPx = 0;
-  /** The source photo, kept to build the edge-snap guide lazily. */
-  private srcImage: TexImageSource | null = null;
-  /** Working-res photo guide for edge snapping. undefined = not built yet,
-   *  null = build failed (no DOM / tainted photo) — don't retry every mask. */
-  private guide: Guide | null | undefined = undefined;
-  /** Mask source → snapped mask canvas. null marks a mask that could not be
-   *  refined (unreadable) so we fall back to the raw mask without retrying. */
-  private refineCache = new Map<TexImageSource, HTMLCanvasElement | null>();
 
   constructor(public readonly canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
@@ -274,33 +261,8 @@ export class Recolor implements RecolorEngine {
     const dpr = Math.min(2, typeof window === "undefined" ? 1 : window.devicePixelRatio);
     this.canvas.width = Math.round(this.width * dpr);
     this.canvas.height = Math.round(this.height * dpr);
-    // A new photo means the old project's masks are gone — drop their textures,
-    // their snapped refinements, and the old photo's edge-snap guide.
+    // A new photo means the old project's masks are gone — drop their textures.
     this.clearMaskCache();
-    this.refineCache.clear();
-    this.srcImage = source;
-    this.guide = undefined;
-  }
-
-  /**
-   * Toggle edge snapping (see mask-refine.ts). Cached mask textures were
-   * built with the OLD setting baked in, so a change drops them; the snapped
-   * refinements themselves stay cached — re-enabling snap is instant.
-   */
-  setEdgeSnap(on: boolean) {
-    if (on === this.edgeSnap) return;
-    this.edgeSnap = on;
-    this.clearMaskCache();
-  }
-
-  /** Build (once per photo) the working-res guide the edge snap filters against. */
-  private ensureGuide(): Guide | null {
-    if (this.guide === undefined) {
-      this.guide = this.srcImage
-        ? buildGuide(this.srcImage as CanvasImageSource, this.width, this.height)
-        : null;
-    }
-    return this.guide;
   }
 
   /**
@@ -315,23 +277,13 @@ export class Recolor implements RecolorEngine {
   }
 
   /**
-   * The full mask preparation chain: snap the boundary onto the photo's real
-   * edges (when enabled and the photo is readable), apply the user's uniform
-   * edge nudge, then feather inward (when the soft-edges toggle is on). Each
-   * stage degrades to its input when it can't run, so a raw mask is always a
+   * The full mask preparation chain: apply the user's uniform edge nudge,
+   * then feather inward (when the soft-edges toggle is on). Each stage
+   * degrades to its input when it can't run, so the raw mask is always a
    * valid outcome.
    */
   private prepared(mask: TexImageSource): TexImageSource {
     let m = mask;
-    if (this.edgeSnap) {
-      let refined = this.refineCache.get(mask);
-      if (refined === undefined) {
-        const guide = this.ensureGuide();
-        refined = guide ? refineMaskToImage(mask as CanvasImageSource, guide) : null;
-        this.refineCache.set(mask, refined);
-      }
-      if (refined) m = refined;
-    }
     if (this.edgeOffsetPx !== 0) {
       const dims = texSize(m);
       if (dims) {
@@ -468,9 +420,6 @@ export class Recolor implements RecolorEngine {
     if (this.imgTex) gl.deleteTexture(this.imgTex);
     if (this.blurTex) gl.deleteTexture(this.blurTex);
     this.clearMaskCache();
-    this.refineCache.clear();
-    this.srcImage = null;
-    this.guide = undefined;
     gl.deleteBuffer(this.vbo);
     gl.deleteVertexArray(this.vao);
     gl.deleteProgram(this.program);
