@@ -11,8 +11,9 @@ import { Spinner } from "@/components/ui/spinner";
  * Admin mask-viewer: loads a project's RAW colour-coded model mask and the
  * STORED (post-processed) per-region masks, splits the raw image into its
  * red/green/blue category layers client-side, and composites everything over
- * the photo as toggleable overlays. Pure diagnostics; nothing here writes to
- * the backend.
+ * the photo as toggleable overlays — including a per-category diff of pixels
+ * the fidelity pipeline added or removed. Pure diagnostics; nothing here
+ * writes to the backend.
  */
 
 /** Longest side of the working canvas — everything is rasterized to one grid. */
@@ -32,10 +33,10 @@ type BaseMode = "cleaned" | "original" | "black";
 
 interface Layer {
   id: string;
-  group: "raw" | "stored";
+  group: "raw" | "stored" | "diff";
   label: string;
-  /** Legend swatch colour. */
-  color: string;
+  /** Legend swatch (diff layers show two colours: added / removed). */
+  swatches: Array<{ color: string; note?: string }>;
   canvas: HTMLCanvasElement;
   /** Foreground pixel share of the canvas, 0..100. */
   pct: number;
@@ -55,6 +56,8 @@ const STORED_TINT: Record<RegionCategory, string> = {
   TRIM: "#8fb0ff",
   MANUAL: "#ffa94d",
 };
+const DIFF_ADDED = "#00f0ff";   // pipeline painted where the model didn't
+const DIFF_REMOVED = "#ff9f0a"; // model painted, pipeline dropped it
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -94,6 +97,27 @@ function bitmapToCanvas(bits: Uint8Array, w: number, h: number, hex: string): HT
     out.data[o + 1] = g;
     out.data[o + 2] = b;
     out.data[o + 3] = 255;
+  }
+  ctx.putImageData(out, 0, 0);
+  return c;
+}
+
+/** Two-colour overlay canvas (diff: added / removed). */
+function diffToCanvas(
+  added: Uint8Array, removed: Uint8Array, w: number, h: number,
+): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d")!;
+  const out = ctx.createImageData(w, h);
+  for (let i = 0; i < added.length; i++) {
+    const o = i * 4;
+    if (added[i]) {
+      out.data[o] = 0x00; out.data[o + 1] = 0xf0; out.data[o + 2] = 0xff; out.data[o + 3] = 255;
+    } else if (removed[i]) {
+      out.data[o] = 0xff; out.data[o + 1] = 0x9f; out.data[o + 2] = 0x0a; out.data[o + 3] = 255;
+    }
   }
   ctx.putImageData(out, 0, 0);
   return c;
@@ -175,6 +199,7 @@ export function MaskViewer() {
       const h = Math.max(1, Math.round(sizeSrc.naturalHeight * scale));
 
       const built: Layer[] = [];
+      const rawBits: Partial<Record<"red" | "green" | "blue", Uint8Array>> = {};
 
       // ---- RAW: classify every pixel of the colour-coded model output ----
       if (detail.rawMaskUrl) {
@@ -205,6 +230,10 @@ export function MaskViewer() {
             if (bestD > OFF_PALETTE_DIST2) bits.off[i] = 1;
             else if (best !== "black") bits[best as "red" | "green" | "blue"][i] = 1;
           }
+          rawBits.red = bits.red;
+          rawBits.green = bits.green;
+          rawBits.blue = bits.blue;
+
           const rawAspect = rawImg.naturalWidth / rawImg.naturalHeight;
           const canvasAspect = w / h;
           if (Math.abs(rawAspect - canvasAspect) / canvasAspect > 0.015) {
@@ -219,9 +248,9 @@ export function MaskViewer() {
           setMeta(`canvas ${w}×${h}${rawMeta}`);
 
           built.push(
-            { id: "raw-red", group: "raw", label: "Red — main walls", color: RAW_TINT.red, canvas: bitmapToCanvas(bits.red, w, h, RAW_TINT.red), pct: pctOf(bits.red) },
-            { id: "raw-green", group: "raw", label: "Green — accent wall", color: RAW_TINT.green, canvas: bitmapToCanvas(bits.green, w, h, RAW_TINT.green), pct: pctOf(bits.green) },
-            { id: "raw-blue", group: "raw", label: "Blue — trim & borders", color: RAW_TINT.blue, canvas: bitmapToCanvas(bits.blue, w, h, RAW_TINT.blue), pct: pctOf(bits.blue) },
+            { id: "raw-red", group: "raw", label: "Red — main walls", swatches: [{ color: RAW_TINT.red }], canvas: bitmapToCanvas(bits.red, w, h, RAW_TINT.red), pct: pctOf(bits.red) },
+            { id: "raw-green", group: "raw", label: "Green — accent wall", swatches: [{ color: RAW_TINT.green }], canvas: bitmapToCanvas(bits.green, w, h, RAW_TINT.green), pct: pctOf(bits.green) },
+            { id: "raw-blue", group: "raw", label: "Blue — trim & borders", swatches: [{ color: RAW_TINT.blue }], canvas: bitmapToCanvas(bits.blue, w, h, RAW_TINT.blue), pct: pctOf(bits.blue) },
           );
           const offPct = pctOf(bits.off);
           if (offPct > 0) {
@@ -229,7 +258,7 @@ export function MaskViewer() {
               id: "raw-off",
               group: "raw",
               label: "Off-palette pixels",
-              color: RAW_TINT.off,
+              swatches: [{ color: RAW_TINT.off }],
               canvas: bitmapToCanvas(bits.off, w, h, RAW_TINT.off),
               pct: offPct,
               detail: "colours outside the 4-colour contract (white/grey/blends)",
@@ -247,6 +276,7 @@ export function MaskViewer() {
       }
 
       // ---- STORED: each persisted region mask (white-on-black PNG) ----
+      const storedBits = new Map<RegionCategory, Uint8Array>();
       for (const region of detail.regions) {
         if (!region.maskUrl) continue;
         try {
@@ -263,14 +293,47 @@ export function MaskViewer() {
             id: `stored-${region.id}`,
             group: "stored",
             label: `${region.label || region.category}${region.manual ? " (manual)" : ""}`,
-            color: tint,
+            swatches: [{ color: tint }],
             canvas: bitmapToCanvas(bits, w, h, tint),
             pct: pctOf(bits),
             detail: `${img.naturalWidth}×${img.naturalHeight}`,
           });
+          // First auto region per category feeds the diff below.
+          if (!region.manual && !storedBits.has(region.category)) {
+            storedBits.set(region.category, bits);
+          }
         } catch {
           warn.push(`Mask for region "${region.label}" failed to load.`);
         }
+      }
+
+      // ---- DIFF: what the pipeline changed per category ----
+      const diffPairs: Array<{ cat: RegionCategory; raw: Uint8Array | undefined; label: string }> = [
+        { cat: "MAIN_WALL", raw: rawBits.red, label: "Main wall" },
+        { cat: "ACCENT_WALL", raw: rawBits.green, label: "Accent wall" },
+        { cat: "TRIM", raw: rawBits.blue, label: "Trim" },
+      ];
+      for (const { cat, raw, label } of diffPairs) {
+        const stored = storedBits.get(cat);
+        if (!raw || !stored) continue;
+        const added = new Uint8Array(w * h);
+        const removed = new Uint8Array(w * h);
+        for (let i = 0; i < w * h; i++) {
+          if (stored[i] && !raw[i]) added[i] = 1;
+          else if (raw[i] && !stored[i]) removed[i] = 1;
+        }
+        built.push({
+          id: `diff-${cat}`,
+          group: "diff",
+          label: `${label}: pipeline vs model`,
+          swatches: [
+            { color: DIFF_ADDED, note: `+${pctOf(added)}%` },
+            { color: DIFF_REMOVED, note: `−${pctOf(removed)}%` },
+          ],
+          canvas: diffToCanvas(added, removed, w, h),
+          pct: Math.round((pctOf(added) + pctOf(removed)) * 10) / 10,
+          detail: "cyan = added by pipeline · orange = removed from model output",
+        });
       }
 
       // Default view: the three raw layers on (the screenshot view).
@@ -310,6 +373,7 @@ export function MaskViewer() {
   const groups: Array<{ key: Layer["group"]; title: string; hint: string }> = [
     { key: "raw", title: "Raw model output", hint: "extracted from the colour-coded image, before any processing" },
     { key: "stored", title: "Stored regions", hint: "the processed masks the studio actually paints through" },
+    { key: "diff", title: "Pipeline diff", hint: "where processing disagrees with the model" },
   ];
 
   return (
@@ -394,7 +458,9 @@ export function MaskViewer() {
                         onChange={(e) => setVisible((v) => ({ ...v, [layer.id]: e.target.checked }))}
                         style={{ flexShrink: 0, position: "relative", top: 2 }}
                       />
-                      <span style={{ width: 12, height: 12, borderRadius: 3, background: layer.color, flexShrink: 0, position: "relative", top: 1 }} />
+                      {layer.swatches.map((s, i) => (
+                        <span key={i} title={s.note} style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flexShrink: 0, position: "relative", top: 1 }} />
+                      ))}
                       <span style={{ flex: 1 }}>
                         {layer.label}
                         {layer.detail && (
