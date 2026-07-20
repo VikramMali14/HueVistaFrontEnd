@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { HttpError } from "@/lib/http-error";
-import { subscribeToPlan } from "@/lib/payments";
+import { buyExtraImage, subscribeToPlan } from "@/lib/payments";
 import type { PlanOption, PurchasablePlan, SubscriptionSummary } from "@/lib/types";
 
 interface SubscriptionPanelProps {
@@ -14,6 +14,20 @@ interface SubscriptionPanelProps {
 }
 
 const UNLIMITED_FLOOR = 2_000_000_000;
+
+// Tier ladder for the upgrade rules: while a paid plan is ACTIVE, only a step
+// UP can be bought in place (the backend cancels the old plan on activation);
+// a downgrade needs a cancel first. Must match the backend Plan enum order.
+const PLAN_RANK: Record<string, number> = { STARTER: 0, PROFESSIONAL: 1, BUSINESS: 2, ENTERPRISE: 3 };
+
+const GST_PERCENT = 18;
+
+/** Base ₹ -> GST-inclusive ₹ string ("1,178.82"; trailing .00 trimmed). */
+const inrWithGst = (base: number) =>
+  ((base * (100 + GST_PERCENT)) / 100).toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 
 const card: React.CSSProperties = {
   border: "1px solid var(--rule-strong)",
@@ -104,22 +118,31 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
   const [busyPlan, setBusyPlan] = useState<PurchasablePlan | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [buyingImage, setBuyingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const active = sub?.status === "ACTIVE";
   const ended = sub != null && !active;
+  // A paid ACTIVE plan can only be changed by an upgrade; trials can buy anything.
+  const activePaid = active && !sub?.trial;
+  const currentRank = activePaid && sub ? (PLAN_RANK[sub.plan] ?? -1) : -1;
 
   async function buy(plan: PurchasablePlan) {
     setError(null);
     setNotice(null);
     setBusyPlan(plan);
+    const upgrading = activePaid;
     try {
       const paid = await subscribeToPlan(plan);
       if (paid) {
         const fresh = await api.getCurrentSubscription().catch(() => null);
         if (fresh) setSub(fresh);
-        setNotice("Payment received — your plan is active. Happy painting!");
+        setNotice(
+          upgrading
+            ? "Upgrade complete — your new plan is active with its full quota, and the old one has been cancelled. No further charges on it."
+            : "Payment received — your plan is active. Happy painting!",
+        );
         router.refresh();
       }
     } catch (e) {
@@ -130,6 +153,30 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
       setError(e instanceof Error ? e.message : "Could not start checkout. Please try again.");
     } finally {
       setBusyPlan(null);
+    }
+  }
+
+  // Pay-per-image overage: one extra image at ₹50 + GST once the quota is spent.
+  async function buyImage() {
+    setError(null);
+    setNotice(null);
+    setBuyingImage(true);
+    try {
+      const paid = await buyExtraImage();
+      if (paid) {
+        const fresh = await api.getCurrentSubscription().catch(() => null);
+        if (fresh) setSub(fresh);
+        setNotice("Payment received — one extra image has been added to your plan. It never expires.");
+        router.refresh();
+      }
+    } catch (e) {
+      if (e instanceof HttpError && e.status === 401) {
+        window.location.assign(`/sign-in?next=${encodeURIComponent("/subscription")}`);
+        return;
+      }
+      setError(e instanceof Error ? e.message : "Could not start the payment. Please try again.");
+    } finally {
+      setBuyingImage(false);
     }
   }
 
@@ -171,8 +218,8 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
       <section style={card}>
         {!sub && (
           <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", margin: 0 }}>
-            You don&rsquo;t have a subscription yet. Pick a plan below to unlock AI previews
-            and colour boards.
+            You don&rsquo;t have a subscription yet. Pick a plan below to unlock AI-cleaned
+            images, wall masking and colour boards.
           </p>
         )}
         {sub && (
@@ -210,7 +257,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                   color: "var(--fg-soft)",
                 }}
               >
-                Your subscription has ended, so AI previews are paused. Choose a plan below and
+                Your subscription has ended, so image processing is paused. Choose a plan below and
                 pay to start a fresh one — you&rsquo;ll be active again the moment the payment
                 completes.
               </p>
@@ -219,16 +266,50 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
             {active && (
               <div
                 className="r-cols-md-1"
-                style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 24 }}
+                style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24, marginTop: 24 }}
               >
                 <div>
-                  <span style={fieldLabel}>AI image previews this cycle</span>
-                  <UsageBar used={sub.aiGenerationsUsed} limit={sub.aiGenerationsLimit} />
+                  <span style={fieldLabel}>Images this cycle (incl. AI clean-up)</span>
+                  <UsageBar
+                    used={sub.aiGenerationsUsed}
+                    limit={sub.aiGenerationsLimit + (sub.purchasedImageCredits ?? 0)}
+                  />
+                  {(sub.purchasedImageCredits ?? 0) > 0 && (
+                    <span style={{ font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)", display: "block", marginTop: 4 }}>
+                      includes {sub.purchasedImageCredits} purchased extra{(sub.purchasedImageCredits ?? 0) === 1 ? "" : "s"}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <span style={fieldLabel}>AI auto-masks (wall detection)</span>
+                  {(sub.autoMasksLimit ?? 0) > 0 ? (
+                    <UsageBar used={sub.autoMasksUsed ?? 0} limit={sub.autoMasksLimit ?? 0} />
+                  ) : (
+                    <span style={{ font: "400 13px/1.5 var(--mono)", color: "var(--fg-mute)", display: "block", marginTop: 8 }}>
+                      Not in this plan — manual masking is unlimited. Upgrade for AI wall detection.
+                    </span>
+                  )}
                 </div>
                 <div>
                   <span style={fieldLabel}>Colour-board PDF downloads</span>
                   <UsageBar used={sub.pdfDownloadsUsed ?? 0} limit={sub.pdfDownloadsLimit ?? 0} />
                 </div>
+              </div>
+            )}
+
+            {active && sub.aiGenerationsLimit < UNLIMITED_FLOOR && (
+              <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => void buyImage()}
+                  disabled={buyingImage}
+                  style={{ ...buttonStyle, borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }}
+                >
+                  {buyingImage ? "Opening payment…" : "Buy 1 extra image — ₹59 (₹50 + GST)"}
+                </button>
+                <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+                  Out of images mid-cycle? Extras never expire.
+                </span>
               </div>
             )}
 
@@ -272,10 +353,10 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
         <h2 style={{ font: "600 20px/1.2 var(--serif)", color: "var(--fg)", margin: "0 0 6px" }}>
           {ended || !sub ? "Choose a plan" : "Upgrade or change plan"}
         </h2>
-        <p style={{ font: "300 16px/1.6 var(--serif)", color: "var(--fg-soft)", margin: "0 0 18px", maxWidth: "58ch" }}>
-          Billed monthly through Razorpay, cancel anytime.
-          {active && !sub?.trial
-            ? " To switch plans, cancel your current one first — it stays active till the period ends."
+        <p style={{ font: "300 16px/1.6 var(--serif)", color: "var(--fg-soft)", margin: "0 0 18px", maxWidth: "62ch" }}>
+          Billed monthly through Razorpay (+18% GST), cancel anytime.
+          {activePaid
+            ? " Upgrades apply instantly — pay for the bigger plan and it starts right away with its full quota, while your old plan is cancelled automatically (no double billing). To downgrade, cancel first: your plan stays active till the period ends, then pick the smaller tier."
             : ""}
         </p>
         <div
@@ -283,19 +364,34 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
           style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}
         >
           {purchasable.map((p) => {
-            const isCurrent = active && sub?.plan === p.plan && !sub?.trial;
+            const isCurrent = activePaid && sub?.plan === p.plan;
+            const isUpgrade = activePaid && (PLAN_RANK[p.plan] ?? -1) > currentRank;
+            const isDowngrade = activePaid && !isCurrent && !isUpgrade;
             return (
               <div key={p.plan} style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                   <h3 style={{ font: "600 18px/1.2 var(--serif)", color: "var(--fg)", margin: 0 }}>
                     {p.displayName}
                   </h3>
                   <span style={{ font: "400 15px/1 var(--mono)", color: "var(--fg-soft)" }}>
                     ₹{p.priceInRupees.toLocaleString("en-IN")}/mo
                   </span>
+                  <span style={{ font: "400 11px/1 var(--mono)", color: "var(--fg-mute)" }}>
+                    +18% GST · ₹{inrWithGst(p.priceInRupees)} all-in
+                  </span>
                 </div>
                 <ul style={{ margin: 0, paddingLeft: 18, font: "400 14px/1.7 var(--sans)", color: "var(--fg-soft)" }}>
-                  <li>{p.monthlyAiLimit === "unlimited" ? "Unlimited" : p.monthlyAiLimit} AI previews / month</li>
+                  <li>
+                    {p.monthlyImageLimit === "unlimited" ? "Unlimited" : p.monthlyImageLimit} images / month
+                    {" "}(AI clean-up included)
+                  </li>
+                  <li>
+                    {p.monthlyAutoMaskLimit === "unlimited"
+                      ? "Unlimited AI auto-masks"
+                      : p.monthlyAutoMaskLimit === 0
+                        ? "Manual masking only (unlimited)"
+                        : `${p.monthlyAutoMaskLimit} AI auto-masks / month + unlimited manual`}
+                  </li>
                   <li>
                     {p.monthlyPdfLimit === "unlimited" ? "Unlimited" : p.monthlyPdfLimit} colour-board PDFs
                     {" "}({p.pdfImageLimit} images each)
@@ -304,11 +400,11 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                 <button
                   type="button"
                   onClick={() => buy(p.plan)}
-                  disabled={busyPlan !== null || isCurrent || (active && !sub?.trial)}
+                  disabled={busyPlan !== null || isCurrent || isDowngrade}
                   style={{
                     ...buttonStyle,
                     marginTop: "auto",
-                    ...(isCurrent
+                    ...(isCurrent || isDowngrade
                       ? {}
                       : { borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }),
                   }}
@@ -317,10 +413,19 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                     ? "Current plan"
                     : busyPlan === p.plan
                       ? "Opening checkout…"
-                      : ended
-                        ? "Renew with this plan"
-                        : "Get this plan"}
+                      : isUpgrade
+                        ? `Upgrade to ${p.displayName}`
+                        : isDowngrade
+                          ? "Cancel current plan first"
+                          : ended
+                            ? "Renew with this plan"
+                            : "Get this plan"}
                 </button>
+                {isUpgrade && (
+                  <span style={{ font: "400 11px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
+                    Starts immediately · old plan cancelled automatically
+                  </span>
+                )}
               </div>
             );
           })}

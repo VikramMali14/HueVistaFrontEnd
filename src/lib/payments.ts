@@ -147,6 +147,47 @@ export async function openStoreCheckout(
 }
 
 /**
+ * Pay-per-image overage: full one-time purchase of ONE extra image (₹50 + 18%
+ * GST = ₹59) once the monthly image quota is spent:
+ *   create order -> open Razorpay Checkout -> verify on the server -> credit applied.
+ * Resolves `true` when the image credit was added (the verify response also
+ * refreshes the caller's subscription), `false` if the user dismisses the modal,
+ * and throws on a real error (network / verification / no active plan).
+ */
+export async function buyExtraImage(prefill?: { name?: string; email?: string }): Promise<boolean> {
+  const order = await api.createImageCreditOrder();
+  await loadCheckout();
+  if (!window.Razorpay) throw new Error("Payment library unavailable.");
+
+  return new Promise<boolean>((resolve, reject) => {
+    const rzp = new window.Razorpay!({
+      key: order.razorpayKeyId,
+      amount: order.amount,
+      currency: order.currency,
+      order_id: order.orderId,
+      name: "HueVista",
+      description: "One extra image (₹50 + 18% GST)",
+      prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
+      theme: { color: "#7c5cff" },
+      handler: async (resp: CheckoutSuccess) => {
+        try {
+          await api.verifyImageCredit({
+            orderId: resp.razorpay_order_id,
+            paymentId: resp.razorpay_payment_id,
+            signature: resp.razorpay_signature,
+          });
+          resolve(true);
+        } catch (e) {
+          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+        }
+      },
+      modal: { ondismiss: () => resolve(false) },
+    });
+    rzp.open();
+  });
+}
+
+/**
  * Full one-time purchase of a single extra project:
  *   create order -> open Razorpay Checkout -> verify on the server -> credit applied.
  * Resolves `true` when a project credit was added, `false` if the user dismisses

@@ -1235,7 +1235,7 @@ function ClaudePicksSection({
       {error && (
         <p className="field-error" role="alert">
           {error.quota
-            ? "You're out of AI previews this month. Upgrade your plan or wait for the reset — the free Room palettes below still work."
+            ? "You're out of images this month. Buy an extra image (₹50 + GST), upgrade your plan, or wait for the reset — the free Room palettes below still work."
             : error.message}
         </p>
       )}

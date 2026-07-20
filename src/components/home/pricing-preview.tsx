@@ -4,10 +4,10 @@ import { Mono } from "@/components/ui/eyebrow";
 interface Tier { name: string; price: string; feature: string; featured?: boolean; }
 
 const TIERS: ReadonlyArray<Tier> = [
-  { name: "Starter", price: "₹19", feature: "20 AI previews / mo" },
-  { name: "Professional", price: "₹999", feature: "60 AI previews / mo", featured: true },
-  { name: "Business", price: "₹1,999", feature: "150 / mo · multi-shop" },
-  { name: "Enterprise", price: "On request", feature: "Unlimited previews" },
+  { name: "Starter", price: "₹999", feature: "25 images / mo · manual masking" },
+  { name: "Professional", price: "₹2,499", feature: "60 images · 40 AI auto-masks / mo", featured: true },
+  { name: "Business", price: "₹4,999", feature: "120 images · 90 auto-masks · multi-shop" },
+  { name: "Enterprise", price: "On request", feature: "Unlimited images & masks" },
 ];
 
 export function PricingPreview() {
@@ -44,7 +44,7 @@ export function PricingPreview() {
           </div>
         ))}
       </div>
-      <Mono style={{ display: "block", marginTop: 24 }}>Every new shop starts with a 14-day trial · no card · we set you up</Mono>
+      <Mono style={{ display: "block", marginTop: 24 }}>Prices + 18% GST · every new shop starts with a 14-day trial · no card · we set you up</Mono>
     </section>
   );
 }

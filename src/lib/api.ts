@@ -478,8 +478,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  // opts is the ADMIN-only testing knob (the backend ignores it for other
-  // roles): cleanImage=false skips the image-cleaner step. Masks are always
+  // opts.maskMode ("AUTO" default / "MANUAL") is open to every caller — it decides
+  // whether AI wall detection runs after the compulsory photo clean-up (MANUAL stops
+  // there; walls are then marked by hand, free on every plan). opts.cleanImage is an
+  // ADMIN-only testing knob (the backend strips it for other roles). Masks are always
   // stored raw — exactly as the model painted them.
   requestSegmentation: (projectId: string, opts?: SegmentationOptions) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/segment`, {
@@ -583,6 +585,16 @@ export const api = {
     browserFetch<ProjectCreditOrder>("api/billing/project-credit/order", { method: "POST" }),
   verifyProjectCredit: (body: { orderId: string; paymentId: string; signature: string }) =>
     browserFetch<CustomerEntitlement>("api/billing/project-credit/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  // --- Pay-per-image overage (retailer buys one extra image after the monthly quota) ---
+  // One-time purchase at Rs. 50 + 18% GST: order -> Checkout -> verify. Verify returns
+  // the refreshed subscription with the credited image included in the remaining count.
+  createImageCreditOrder: () =>
+    browserFetch<ProjectCreditOrder>("api/billing/image-credits/order", { method: "POST" }),
+  verifyImageCredit: (body: { orderId: string; paymentId: string; signature: string }) =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/image-credits/verify", {
       method: "POST",
       body: JSON.stringify(body),
     }),

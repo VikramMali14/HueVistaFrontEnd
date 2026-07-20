@@ -22,11 +22,14 @@ const MATRIX: ReadonlyArray<Section> = [
   {
     title: "The preview",
     rows: [
-      ["AI previews / month", "20", "60", "150", "Unlimited"],
+      ["Images / month (AI photo clean-up on every one)", "25", "60", "120", "Unlimited"],
+      ["AI auto-masks / month (instant wall detection)", "—", "40", "90", "Unlimited"],
+      ["Manual wall masking (click-to-segment)", "Unlimited", "Unlimited", "Unlimited", "Unlimited"],
+      ["Extra images after the quota", "₹59 each", "₹59 each", "₹59 each", "—"],
+      ["Colour-board PDFs / month", "25 (4 img)", "100 (8 img)", "300 (12 img)", "Unlimited (16 img)"],
       ["Recolour speed", "60 fps", "60 fps", "60 fps", "60 fps"],
-      ["Per-region recolour", "—", "●", "●", "●"],
-      ["Manual wall selection", "—", "●", "●", "●"],
-      ["AI photo clean-up", "—", "●", "●", "●"],
+      ["Per-region recolour", "●", "●", "●", "●"],
+      ["AI colour palette suggestions", "—", "●", "●", "●"],
     ],
   },
   {
@@ -124,11 +127,11 @@ export default async function PricingPage() {
                 <thead className="hv-matrix-head">
                   <tr>
                     <th style={{ ...headStyle, width: "34%" }}>Capability</th>
-                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹19 / mo</div></th>
+                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹999 / mo + GST</div></th>
                     {/* Literal metallic on the always-dark band. Opaque composite
                         so the tint survives sticky overlap. */}
-                    <th style={{ ...headStyle, color: "var(--accent-soft)", background: "linear-gradient(rgba(124,92,255,.08), rgba(124,92,255,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "var(--accent-soft)" }}>₹999 / mo</div></th>
-                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Business<div style={thPriceStyle}>₹1,999 / mo</div></th>
+                    <th style={{ ...headStyle, color: "var(--accent-soft)", background: "linear-gradient(rgba(124,92,255,.08), rgba(124,92,255,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "var(--accent-soft)" }}>₹2,499 / mo + GST</div></th>
+                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Business<div style={thPriceStyle}>₹4,999 / mo + GST</div></th>
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Enterprise<div style={thPriceStyle}>On request</div></th>
                   </tr>
                 </thead>
