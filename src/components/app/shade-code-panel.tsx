@@ -25,7 +25,7 @@ const EMPTY: ShadeCodeScheme = { prefix: "", infix: "", suffix: "" };
  * the checker below encodes/decodes any code on the spot, so nobody has to
  * open a project on the site to read a shade off a customer code.
  */
-export function ShadeCodePanel({ shades }: { shades: ReadonlyArray<PaintShade> }) {
+export function ShadeCodePanel({ shades, org: orgProp }: { shades: ReadonlyArray<PaintShade>; org?: OrgResponse | null }) {
   const [loading, setLoading] = useState(true);
   const [org, setOrg] = useState<OrgResponse | null>(null);
   const [saved, setSaved] = useState<ShadeCodeScheme>(EMPTY);
@@ -37,8 +37,12 @@ export function ShadeCodePanel({ shades }: { shades: ReadonlyArray<PaintShade> }
   useEffect(() => {
     (async () => {
       try {
-        const orgs = await api.listMyOrgs();
-        const retailer = orgs.find((o) => o.type === "RETAILER") ?? null;
+        // The portal page fetches the orgs once and passes the shop org down;
+        // fetch here only when that page-level fetch wasn't available.
+        const retailer =
+          orgProp !== undefined
+            ? orgProp
+            : ((await api.listMyOrgs()).find((o) => o.type === "RETAILER") ?? null);
         setOrg(retailer);
         if (retailer) {
           const scheme = await api.getShadeCodeScheme(retailer.id);
@@ -51,7 +55,7 @@ export function ShadeCodePanel({ shades }: { shades: ReadonlyArray<PaintShade> }
         setLoading(false);
       }
     })();
-  }, []);
+  }, [orgProp]);
 
   const dirty =
     draft.prefix !== saved.prefix || draft.infix !== saved.infix || draft.suffix !== saved.suffix;

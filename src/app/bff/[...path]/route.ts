@@ -28,6 +28,9 @@ const ALLOWED_PREFIXES = [
   // Email/mobile verification (send + confirm OTP). NOT "api/auth" — that would
   // also expose login/register/refresh/logout through the BFF.
   "api/auth/verify",
+  // Change password from the account page (requires the current password; the
+  // backend revokes every session on success).
+  "api/auth/change-password",
   "api/me/entitlement",
   // The shop's suggested combinations for whoever is visualising (studio AI tab).
   "api/me/retailer-combos",

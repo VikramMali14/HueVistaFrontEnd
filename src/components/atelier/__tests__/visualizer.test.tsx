@@ -383,6 +383,29 @@ describe("Visualizer — confirm before processing", () => {
     expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", { maskMode: "AUTO" });
   });
 
+  it("keeps the confirm prompt for a retry when the upload fails", async () => {
+    vi.mocked(api.uploadImage).mockRejectedValueOnce(new Error("Network request failed"));
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+
+    // chooseFile picks the photo AND clicks "Continue" — this first attempt fails.
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    // The failure is shown AND the confirm prompt survives, so the user can
+    // retry without re-picking the photo (they used to be stranded on a dead
+    // canvas with no button at all).
+    expect(await screen.findByRole("alert")).toHaveTextContent("Network request failed");
+    const retry = screen.getByRole("button", { name: /Continue with this image/i });
+    expect(screen.getByRole("button", { name: /Choose a different photo/i })).toBeInTheDocument();
+
+    // Retrying re-uploads and the flow completes normally.
+    await act(async () => {
+      fireEvent.click(retry);
+    });
+    expect(api.uploadImage).toHaveBeenCalledTimes(2);
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", undefined);
+  });
+
   it("hides the admin clean-image toggle from non-admins and shows it to admins", async () => {
     const { container, unmount } = render(<Visualizer initialName="Test room" />);
     await screen.findByText("Add a photo of the room");

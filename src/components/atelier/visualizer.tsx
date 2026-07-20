@@ -346,8 +346,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => clearTimeout(t);
   }, [masksReady]);
 
-  // Shop picks load once — best-effort, the section simply hides on failure.
+  // Shop picks load once, and only after a room photo is up — the section is
+  // hidden before then, so visitors who never upload never trigger the request.
+  // Best-effort: the section simply hides on failure.
+  const shopCombosRequestedRef = useRef(false);
   useEffect(() => {
+    if (!imageUrl || shopCombosRequestedRef.current) return;
+    shopCombosRequestedRef.current = true;
     let cancelled = false;
     api.getRetailerCombos()
       .then((combos) => {
@@ -357,7 +362,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [imageUrl]);
 
   // The shade-code scheme only changes what GUESTS see, so only guests fetch it.
   // Best-effort: on failure codes just stay hidden, exactly as without a scheme.
@@ -780,31 +785,34 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     baseLumaRef.current.clear();
     try {
       setStage("clean");
-      try {
-        const uploaded = await uploadImageCall(file);
-        if (!uploaded?.imageId) {
-          throw new Error("Upload failed. Please try again.");
-        }
-        setClassification(uploaded.imageType);
-        setPendingImageId(uploaded.imageId);
-        setStage("mask");
+      const uploaded = await uploadImageCall(file);
+      if (!uploaded?.imageId) {
+        throw new Error("Upload failed. Please try again.");
+      }
+      // The photo is safely on the backend — only now is the confirm step done.
+      // (createAndSegment reports its own failures and offers its own retries.)
+      setPendingFile(null);
+      setClassification(uploaded.imageType);
+      setPendingImageId(uploaded.imageId);
+      setStage("mask");
 
-        await createAndSegment(uploaded.imageId);
-      } catch (err) {
-        if (err instanceof HttpError && err.status === 401) {
-          setError("Your session expired. Please sign in again.");
-          setTimeout(() => {
-            window.location.href = "/sign-in?next=/atelier";
-          }, 1200);
-        } else if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError("Something went wrong.");
-        }
+      await createAndSegment(uploaded.imageId);
+    } catch (err) {
+      // Upload failed: return to the confirm step with the photo still pending,
+      // so "Continue with this image" retries without re-picking the file.
+      setStage("upload");
+      if (err instanceof HttpError && err.status === 401) {
+        setError("Your session expired. Please sign in again.");
+        setTimeout(() => {
+          window.location.href = "/sign-in?next=/atelier";
+        }, 1200);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong.");
       }
     } finally {
       setUploading(false);
-      setPendingFile(null);
     }
   }, [pendingFile, createAndSegment, uploadImageCall]);
 
@@ -880,13 +888,23 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       const purchased = await buyExtraProject();
       if (!purchased) return; // user dismissed the payment modal
       setLimitReached(false);
-      if (pendingImageId) await createAndSegment(pendingImageId);
+      if (pendingImageId) {
+        await createAndSegment(pendingImageId);
+      } else if (!pendingFile) {
+        // Paid, but the uploaded photo's id is gone (state was reset along the
+        // way). Never leave a blank canvas after taking money: back to the
+        // picker with a note — the purchased slot stays on the account.
+        chooseDifferent();
+        setError("Payment received — your extra project is ready. Add your photo again to continue.");
+      }
+      // With a pendingFile the confirm box is back on screen — "Continue with
+      // this image" re-runs the upload against the freshly bought slot.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Payment could not be completed.");
     } finally {
       setBuying(false);
     }
-  }, [pendingImageId, createAndSegment]);
+  }, [pendingImageId, pendingFile, createAndSegment, chooseDifferent]);
 
   // Retailer pay-per-image overage: buy ONE extra image (₹50 + 18% GST) and
   // immediately re-run the blocked segmentation — on the already-created
@@ -1177,12 +1195,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       });
 
       if (projectId && target.backendId != null) {
-        void deleteRegionCall(projectId, target.backendId).catch((err) => {
-          if (process.env.NODE_ENV !== "production") console.warn("Delete region failed:", err);
+        // Through the shared save machine, so a failed delete surfaces the
+        // "Could not save · Retry" chip (like colour saves) instead of the wall
+        // silently reappearing on the next reload.
+        const backendId = target.backendId;
+        runSave(async () => {
+          await deleteRegionCall(projectId, backendId);
         });
       }
     },
-    [regions, projectId, deleteRegionCall],
+    [regions, projectId, deleteRegionCall, runSave],
   );
 
   // Generate a public, code-hidden share link for this project and copy it.
@@ -1329,9 +1351,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       // Network hiccup / endpoint not deployed — the server-side quota still
       // governs real usage; don't strand the customer at the counter.
     }
-    const blob = buildColourBoardPdf(pdfPages, projectName || "HueVista colour board");
-    downloadBlob(blob, `huevista-colours-${Date.now()}.pdf`);
-    setPdfDownloading(false);
+    try {
+      const blob = buildColourBoardPdf(pdfPages, projectName || "HueVista colour board");
+      downloadBlob(blob, `huevista-colours-${Date.now()}.pdf`);
+    } catch {
+      // Building the PDF can genuinely fail (e.g. a full board on a low-memory
+      // phone). Without this the button would stay on "Preparing…" forever.
+      setPdfNotice("Could not build the PDF on this device — try removing an image and downloading again.");
+    } finally {
+      setPdfDownloading(false);
+    }
   }, [pdfPages, projectName, guest, pdfDownloading]);
 
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
@@ -1412,6 +1441,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // project exists and we're still on the mask step. Guests can retry too — each
   // attempt is billed to the shop, falling back to manual if it's out of credits.
   const canRetrySegmentation = Boolean(projectId) && stage === "mask";
+  // The photo uploaded fine but creating the project failed (network blip, 5xx):
+  // retry project creation + segmentation from the already-uploaded image, so
+  // the user never has to re-pick or re-upload the photo.
+  const canRetryCreate = !projectId && Boolean(pendingImageId) && stage === "mask";
   // Errors after the photo is on screen (segmentation timeout/failure, share
   // failures…) need their own surface — the DropZone one is gone by then.
   const showCanvasError = Boolean(
@@ -1904,10 +1937,14 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 }}
               >
                 <span>{error}</span>
-                {canRetrySegmentation && (
+                {(canRetrySegmentation || canRetryCreate) && (
                   <button
                     type="button"
-                    onClick={() => void handleRetrySegmentation()}
+                    onClick={() =>
+                      void (canRetrySegmentation
+                        ? handleRetrySegmentation()
+                        : createAndSegment(pendingImageId!))
+                    }
                     style={{
                       padding: "6px 12px",
                       background: "transparent",

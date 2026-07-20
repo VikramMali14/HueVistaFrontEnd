@@ -84,14 +84,31 @@ export async function hasSession(): Promise<boolean> {
   return Boolean(jar.get(config.sessionCookie)?.value);
 }
 
-export async function getCurrentUser(): Promise<AuthUser | null> {
+/**
+ * The profile fetch's two distinct "no user" cases, kept apart so pages can
+ * react differently:
+ *  - `user: null, unavailable: false` — genuinely signed out (no token, or the
+ *    backend rejected it): redirecting to /sign-in is correct.
+ *  - `user: null, unavailable: true` — the user IS signed in but the profile
+ *    fetch failed transiently (backend restarting, 5xx, network): treating this
+ *    as "signed out" causes phantom sign-out redirects, so callers should show
+ *    an error/retry surface instead.
+ */
+export async function getCurrentUserResult(): Promise<{ user: AuthUser | null; unavailable: boolean }> {
   const token = await getAccessToken();
-  if (!token) return null;
+  if (!token) return { user: null, unavailable: false };
   try {
-    return await authApi.profile(token);
-  } catch {
-    return null;
+    return { user: await authApi.profile(token), unavailable: false };
+  } catch (err) {
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      return { user: null, unavailable: false };
+    }
+    return { user: null, unavailable: true };
   }
+}
+
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  return (await getCurrentUserResult()).user;
 }
 
 /** Open-redirect guard: only allow same-origin relative paths (start with a
@@ -356,16 +373,16 @@ export async function logoutAction() {
   redirect("/");
 }
 
-/** ADMIN: the shop-account request queue (newest first). Empty on any failure so
- *  the admin page still renders. */
-export async function getShopLeads(): Promise<ShopLeadRow[]> {
+/** ADMIN: the shop-account request queue (newest first). NULL on any failure —
+ *  never an empty list, which would render an outage as "no requests". */
+export async function getShopLeads(): Promise<ShopLeadRow[] | null> {
   "use server";
   const token = await getAccessToken();
-  if (!token) return [];
+  if (!token) return null;
   try {
     return await adminApi.listShopLeads(token);
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -385,16 +402,17 @@ export async function updateShopLeadStatusAction(
   }
 }
 
-/** ADMIN: the wallet payout queue (all requests, newest first). Empty on any
- *  failure so the admin page still renders. */
-export async function getWalletRedemptions(): Promise<WalletRedemption[]> {
+/** ADMIN: the wallet payout queue (all requests, newest first). NULL on any
+ *  failure — this is a money queue, and an expired session or backend outage
+ *  must never read as "the queue is clear". */
+export async function getWalletRedemptions(): Promise<WalletRedemption[] | null> {
   "use server";
   const token = await getAccessToken();
-  if (!token) return [];
+  if (!token) return null;
   try {
     return await adminApi.listWalletRedemptions(token);
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -490,16 +508,16 @@ export async function adjustSubscriptionAction(
   }
 }
 
-/** ADMIN: the audit trail (latest 50, optional exact-action filter). Empty on any
- *  failure so the admin page still renders. */
-export async function getAuditLog(action?: string): Promise<AuditLogRow[]> {
+/** ADMIN: the audit trail (latest 50, optional exact-action filter). NULL on any
+ *  failure — never an empty list, which would render an outage as "no records". */
+export async function getAuditLog(action?: string): Promise<AuditLogRow[] | null> {
   "use server";
   const token = await getAccessToken();
-  if (!token) return [];
+  if (!token) return null;
   try {
     return await adminApi.listAuditLog(token, action?.trim() || undefined);
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -603,8 +621,16 @@ export async function requireActiveSubscription(): Promise<void> {
 export async function requireRole(
   allowed: ReadonlyArray<NonNullable<AuthUser["role"]>>,
 ): Promise<AuthUser> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
+  const { user, unavailable } = await getCurrentUserResult();
+  if (!user) {
+    // A transient backend failure is NOT "signed out". Redirecting to /sign-in
+    // here bounced still-cookied users around like a random sign-out; throwing
+    // instead lands on the app error boundary, which offers a Retry.
+    if (unavailable) {
+      throw new Error("We couldn't reach the server to load your account. Please retry in a moment.");
+    }
+    redirect("/sign-in");
+  }
   if (!allowed.includes(user.role)) redirect("/dashboard?denied=role");
   return user;
 }

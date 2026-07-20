@@ -184,6 +184,16 @@ export const authApi = {
 };
 
 /**
+ * Organizations API for SERVER components. The portal page fetches the user's
+ * orgs ONCE here and passes them to its sections, instead of every section
+ * fetching the same list through the BFF on mount.
+ */
+export const orgApi = {
+  mine: (accessToken: string) =>
+    serverFetch<OrgResponse[]>("/api/organizations/mine", { accessToken }),
+};
+
+/**
  * Billing API for SERVER components (e.g. gating subscriber-only pages). Goes
  * directly to the backend with the cookie-resident access token. The browser
  * equivalent is `api.getCurrentSubscription()` via the BFF.
@@ -452,6 +462,17 @@ export const api = {
   },
   // --- Account profile + email/mobile verification (6-digit OTP) ---
   getMyProfile: () => browserFetch<UserProfile>("api/auth/profile"),
+  /** Update the signed-in user's display name (the backend PATCH also accepts
+   *  a picture URL; phone changes are NOT supported by this endpoint). */
+  updateMyProfile: (body: { name: string }) =>
+    browserFetch<UserProfile>("api/auth/profile", { method: "PATCH", body: JSON.stringify(body) }),
+  /** Change the password of a LOCAL account. The backend revokes every session
+   *  on success — the caller must sign the user out and back in. */
+  changeMyPassword: (body: { currentPassword: string; newPassword: string }) =>
+    browserFetch<{ message: string }>("api/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   sendEmailCode: () =>
     browserFetch<VerificationStatus>("api/auth/verify/email/send", { method: "POST" }),
   confirmEmailCode: (code: string) =>

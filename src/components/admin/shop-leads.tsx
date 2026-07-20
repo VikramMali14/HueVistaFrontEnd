@@ -5,7 +5,9 @@ import { Mono } from "@/components/ui/eyebrow";
 import type { ShopLeadRow, ShopLeadStatus } from "@/lib/api";
 
 interface ShopLeadsProps {
-  initial: ShopLeadRow[];
+  /** Null = the queue could not be loaded (outage / expired session) — shown
+   *  as an error, never as "no requests". */
+  initial: ShopLeadRow[] | null;
   updateAction: (leadId: string, status: ShopLeadStatus) => Promise<{ lead?: ShopLeadRow; error?: string }>;
 }
 
@@ -18,9 +20,17 @@ const STATUS_LABEL: Record<ShopLeadStatus, string> = {
 
 /** The admin queue for shop-account requests submitted on /trial. */
 export function ShopLeads({ initial, updateAction }: ShopLeadsProps) {
-  const [leads, setLeads] = useState(initial);
+  const [leads, setLeads] = useState(initial ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  if (initial === null) {
+    return (
+      <p className="field-error" role="alert">
+        Could not load the shop requests — refresh the page, or sign in again if it keeps happening.
+      </p>
+    );
+  }
 
   function setStatus(leadId: string, status: ShopLeadStatus) {
     startTransition(async () => {

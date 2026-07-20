@@ -6,7 +6,9 @@ import { formatRupees } from "@/lib/money";
 import type { WalletRedemption } from "@/lib/types";
 
 interface WalletRedemptionsProps {
-  initial: WalletRedemption[];
+  /** Null = the queue could not be loaded (outage / expired session) — shown
+   *  as an error. A money queue must never render a failure as "clear". */
+  initial: WalletRedemption[] | null;
   decideAction: (
     redemptionId: string,
     approve: boolean,
@@ -20,10 +22,19 @@ interface WalletRedemptionsProps {
  * records the payout as settled; reject returns the amount to the shop's wallet.
  */
 export function WalletRedemptions({ initial, decideAction }: WalletRedemptionsProps) {
-  const [rows, setRows] = useState(initial);
+  const [rows, setRows] = useState(initial ?? []);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  if (initial === null) {
+    return (
+      <p className="field-error" role="alert">
+        Could not load the payout queue — pending requests may exist. Refresh the page, or sign in
+        again if it keeps happening.
+      </p>
+    );
+  }
 
   function decide(id: string, approve: boolean) {
     startTransition(async () => {

@@ -32,7 +32,7 @@ const inputStyle = {
  * excess accrues to — including "redeem to my UPI id" payout requests that an
  * admin settles manually.
  */
-export function StoreKioskPanel() {
+export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) {
   const [loading, setLoading] = useState(true);
   const [org, setOrg] = useState<OrgResponse | null>(null);
   const [links, setLinks] = useState<StoreLink[]>([]);
@@ -69,8 +69,12 @@ export function StoreKioskPanel() {
     (async () => {
       setError(null);
       try {
-        const orgs = await api.listMyOrgs();
-        const retailer = orgs.find((o) => o.type === "RETAILER") ?? null;
+        // The portal page fetches the orgs once and passes the shop org down;
+        // fetch here only when that page-level fetch wasn't available.
+        const retailer =
+          orgProp !== undefined
+            ? orgProp
+            : ((await api.listMyOrgs()).find((o) => o.type === "RETAILER") ?? null);
         setOrg(retailer);
         if (retailer) await load(retailer.id);
       } catch (e) {
@@ -83,7 +87,7 @@ export function StoreKioskPanel() {
         setLoading(false);
       }
     })();
-  }, [load]);
+  }, [load, orgProp]);
 
   const createLink = useCallback(async () => {
     if (!org) return;
