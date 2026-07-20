@@ -34,7 +34,7 @@ import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
-import { buyExtraProject } from "@/lib/payments";
+import { buyExtraImage, buyExtraProject } from "@/lib/payments";
 import type {
   PaintShade,
   PdfAllowance,
@@ -236,24 +236,40 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // verification required before the first project, and "subscribe to a plan".
   const [needVerification, setNeedVerification] = useState(false);
   const [needSubscription, setNeedSubscription] = useState(false);
+  // Retailer image-quota gate (402 IMAGE_LIMIT_REACHED): monthly images spent —
+  // offer the ₹50 + GST buy-one-extra-image checkout right in the overlay.
+  const [imageLimitReached, setImageLimitReached] = useState(false);
+  // Auto-mask gate (402 AUTO_MASK_UNAVAILABLE): plan has no AI wall-detection
+  // credit for this run — steer to manual masking (free) or an upgrade.
+  const [autoMaskBlocked, setAutoMaskBlocked] = useState(false);
   const [buying, setBuying] = useState(false);
+  const [buyingImage, setBuyingImage] = useState(false);
   const [pendingImageId, setPendingImageId] = useState<string | null>(null);
   // A photo the user has picked/received but NOT yet confirmed. While set, we show
   // a local preview with a Continue/Choose-different prompt; no upload, no
   // classification and no (billable) segmentation runs until the user confirms.
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  // ADMIN testing knob (isAdmin only): whether the backend's image-cleaner
-  // step runs. Sent with every segmentation request so a retry keeps the same
-  // choice; the backend ignores it for other roles. Masks are always stored
-  // raw — exactly as the model painted them.
+  // Per-run segmentation choices sent with every request so a retry keeps them.
+  // maskMode is a real product choice (every signed-in role): AUTO = AI wall
+  // detection after the compulsory clean-up (uses one auto-mask credit),
+  // MANUAL = stop after the clean-up and mark walls by hand (free, unlimited).
+  // cleanImage is the ADMIN-only testing knob (backend strips it otherwise).
+  // Masks are always stored raw — exactly as the model painted them.
   const [segOptions, setSegOptions] = useState<SegmentationOptions>({
     cleanImage: true,
+    maskMode: "AUTO",
   });
-  // AI-preview quota, shown in the topbar so the cost is visible at the moment
-  // it's spent (wall detection and Claude palettes each use one; recolouring is
-  // free). Null hides the pill: guests (the shop's budget, not theirs),
-  // customers (no subscription → 404) and fetch failures.
-  const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
+  // Image + auto-mask quotas, shown in the topbar so the cost is visible at the
+  // moment it's spent (every image consumes one image credit — the AI clean-up
+  // is compulsory; AI wall detection additionally uses one auto-mask credit;
+  // recolouring is free). Null hides the pill: guests (the shop's budget, not
+  // theirs), customers (no subscription → 404) and fetch failures.
+  const [quota, setQuota] = useState<{
+    used: number;
+    limit: number;
+    autoMasksUsed: number;
+    autoMasksLimit: number;
+  } | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -305,6 +321,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // allowance hasn't loaded (or an older backend doesn't serve it yet).
   const maxPdfPages = pdfAllowance ? Math.max(1, pdfAllowance.imagesPerPdf) : MAX_PDF_PAGES;
 
+  // True when the (last loaded) project ran in MANUAL mask mode — the clean-up
+  // finished but walls are the user's to mark, so notices must not claim the AI
+  // detected anything.
+  const [manualMaskProject, setManualMaskProject] = useState(false);
   // Transient topbar notices — "Walls detected" / "Saved" auto-hide after a beat.
   const [wallsNoticeVisible, setWallsNoticeVisible] = useState(false);
   const [savedNoticeVisible, setSavedNoticeVisible] = useState(false);
@@ -499,13 +519,32 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       .getCurrentSubscription()
       .then((s) => {
         if (s?.status === "ACTIVE") {
-          setQuota({ used: s.aiGenerationsUsed, limit: s.aiGenerationsLimit });
+          setQuota({
+            // Purchased ₹50 + GST overage credits extend the image allowance.
+            used: s.aiGenerationsUsed,
+            limit:
+              s.aiGenerationsLimit >= 2147483647
+                ? s.aiGenerationsLimit
+                : s.aiGenerationsLimit + (s.purchasedImageCredits ?? 0),
+            autoMasksUsed: s.autoMasksUsed ?? 0,
+            // Wallet-bought auto-mask credits extend the allowance like image credits.
+            autoMasksLimit:
+              (s.autoMasksLimit ?? 0) >= 2147483647
+                ? (s.autoMasksLimit ?? 0)
+                : (s.autoMasksLimit ?? 0) + (s.purchasedAutoMaskCredits ?? 0),
+          });
         } else {
           setQuota(null);
         }
       })
       .catch(() => setQuota(null));
   }, [guest]);
+
+  // Whether an AI auto-mask credit is available for the next run. Unknown quota
+  // (pill hidden) errs on the side of allowing — the backend is the authority
+  // and answers with a clean 402 AUTO_MASK_UNAVAILABLE if not.
+  const autoMaskAvailable =
+    quota == null || (quota.autoMasksLimit > 0 && quota.autoMasksUsed < quota.autoMasksLimit);
 
   useEffect(() => {
     refreshQuota();
@@ -533,6 +572,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       if (detail.name) setProjectName(detail.name);
       if (detail.roomType) setProjectRoom(detail.roomType);
       if (detail.sentToShopAt) setSentToShop(true);
+      // MANUAL-mode projects arrive SEGMENTED with zero auto regions — the
+      // cleaned canvas is the deliverable and the user marks walls by hand.
+      setManualMaskProject(detail.maskMode === "MANUAL");
       const mapped = detail.regions
         .slice()
         .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
@@ -616,6 +658,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setAccessExpired(false);
       setNeedVerification(false);
       setNeedSubscription(false);
+      setImageLimitReached(false);
+      setAutoMaskBlocked(false);
       setSegmenting(true);
       try {
         const project = await createProjectCall({
@@ -641,7 +685,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           }
           setMasksReady(true);
         } else {
-          await api.requestSegmentation(project.id, isAdmin ? segOptions : undefined);
+          // Force MANUAL when the plan has no auto-mask credit left — the run
+          // still happens (clean-up + hand-marked walls) instead of 402ing.
+          const maskMode = autoMaskAvailable ? segOptions.maskMode : "MANUAL";
+          await api.requestSegmentation(
+            project.id,
+            isAdmin ? { ...segOptions, maskMode } : { maskMode },
+          );
           const segmented = await pollUntilSegmented(project.id);
           await applyProjectDetail(segmented);
           setMasksReady(true);
@@ -657,8 +707,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             window.location.href = "/sign-in?next=/atelier";
           }, 1200);
         } else if (err instanceof HttpError && err.status === 402) {
-          // Retailer "subscribe to a plan" (coded) vs customer "buy one extra project".
+          // Retailer gates (coded): subscribe / monthly images spent / no auto-mask
+          // credit — vs the customer "buy one extra project" fallback (uncoded).
           if (err.code === "SUBSCRIPTION_REQUIRED") setNeedSubscription(true);
+          else if (err.code === "IMAGE_LIMIT_REACHED") setImageLimitReached(true);
+          else if (err.code === "AUTO_MASK_UNAVAILABLE") setAutoMaskBlocked(true);
           else setLimitReached(true);
           setError(err.message);
         } else if (err instanceof HttpError && err.status === 403) {
@@ -676,7 +729,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         refreshQuota(); // segmentation charges on success / refunds on failure
       }
     },
-    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota, isAdmin, segOptions],
+    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota, isAdmin, segOptions, autoMaskAvailable],
   );
 
   // Pick / receive a photo (file picker, drag-drop, or phone hand-off) and show it
@@ -772,9 +825,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
   // "Try again" after a wall-detection timeout/failure: re-runs segmentation on
   // the ALREADY-created project, so the customer never re-uploads the photo.
-  const handleRetrySegmentation = useCallback(async () => {
+  const handleRetrySegmentation = useCallback(async (forcedMaskMode?: "AUTO" | "MANUAL") => {
     if (!projectId) return;
     setError(null);
+    setImageLimitReached(false);
+    setAutoMaskBlocked(false);
     setSegmenting(true);
     try {
       if (guest) {
@@ -790,19 +845,33 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           setGuestAiUnavailable(true);
         }
       } else {
-        await api.requestSegmentation(projectId, isAdmin ? segOptions : undefined);
+        const maskMode =
+          forcedMaskMode ?? (autoMaskAvailable ? segOptions.maskMode : "MANUAL");
+        if (forcedMaskMode) setSegOptions((o) => ({ ...o, maskMode: forcedMaskMode }));
+        await api.requestSegmentation(
+          projectId,
+          isAdmin ? { ...segOptions, maskMode } : { maskMode },
+        );
         const segmented = await pollUntilSegmented(projectId);
         await applyProjectDetail(segmented);
       }
       setMasksReady(true);
     } catch (err) {
       if (err instanceof PollCancelledError) return;
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      if (err instanceof HttpError && err.status === 402) {
+        if (err.code === "SUBSCRIPTION_REQUIRED") setNeedSubscription(true);
+        else if (err.code === "IMAGE_LIMIT_REACHED") setImageLimitReached(true);
+        else if (err.code === "AUTO_MASK_UNAVAILABLE") setAutoMaskBlocked(true);
+        else setLimitReached(true);
+        setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong.");
+      }
     } finally {
       setSegmenting(false);
       refreshQuota(); // retry charges on success / refunds on failure
     }
-  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, segOptions]);
+  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, segOptions, autoMaskAvailable]);
 
   const handleBuyAndRetry = useCallback(async () => {
     setError(null);
@@ -818,6 +887,59 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setBuying(false);
     }
   }, [pendingImageId, createAndSegment]);
+
+  // Retailer pay-per-image overage: buy ONE extra image (₹50 + 18% GST) and
+  // immediately re-run the blocked segmentation — on the already-created
+  // project when there is one, else from the pending upload.
+  const handleBuyImageAndRetry = useCallback(async () => {
+    setError(null);
+    setBuyingImage(true);
+    try {
+      const purchased = await buyExtraImage();
+      if (!purchased) return; // user dismissed the payment modal
+      setImageLimitReached(false);
+      if (projectId) await handleRetrySegmentation();
+      else if (pendingImageId) await createAndSegment(pendingImageId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Payment could not be completed.");
+    } finally {
+      setBuyingImage(false);
+    }
+  }, [projectId, pendingImageId, createAndSegment, handleRetrySegmentation]);
+
+  // Same purchase paid from the prepaid wallet — no checkout, one atomic server
+  // debit. An insufficient balance surfaces the backend's "top up or pay
+  // directly" message in place.
+  const handleWalletImageAndRetry = useCallback(async () => {
+    setError(null);
+    setBuyingImage(true);
+    try {
+      await api.walletPayImageCredit();
+      setImageLimitReached(false);
+      if (projectId) await handleRetrySegmentation();
+      else if (pendingImageId) await createAndSegment(pendingImageId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Wallet payment failed.");
+    } finally {
+      setBuyingImage(false);
+    }
+  }, [projectId, pendingImageId, createAndSegment, handleRetrySegmentation]);
+
+  // Wallet-paid extra AI auto-mask (₹25 + GST): credit it, then force an AUTO
+  // retry — the stale quota state would otherwise steer the retry to MANUAL.
+  const handleWalletAutoMaskAndRetry = useCallback(async () => {
+    setError(null);
+    setBuyingImage(true);
+    try {
+      await api.walletPayAutoMaskCredit();
+      setAutoMaskBlocked(false);
+      await handleRetrySegmentation("AUTO");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Wallet payment failed.");
+    } finally {
+      setBuyingImage(false);
+    }
+  }, [handleRetrySegmentation]);
 
   // Run a persistence call under the shared save-status machine. Failures are
   // queued for Retry even when a newer save has since succeeded — an older
@@ -1270,15 +1392,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [guest, projectId, refreshQuota],
   );
 
+  const manualRun = !guest && (segOptions.maskMode === "MANUAL" || !autoMaskAvailable);
   const overlayLabel = uploading && !segmenting
     ? "Uploading photo"
     : segmenting
-      ? "Detecting walls"
+      ? manualRun ? "Cleaning up the photo" : "Detecting walls"
       : "Working";
   const overlayHint = uploading && !segmenting
     ? "Sending the photo to our service."
     : segmenting
-      ? "Finding the walls, trim and other paintable surfaces. This usually takes about a minute — hang tight, complex photos can take a little longer."
+      ? manualRun
+        ? "Removing clutter and blemishes from the photo. When it's done, click each wall to mark it yourself."
+        : "Finding the walls, trim and other paintable surfaces. This usually takes about a minute — hang tight, complex photos can take a little longer."
       : undefined;
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
@@ -1291,7 +1416,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // failures…) need their own surface — the DropZone one is gone by then.
   const showCanvasError = Boolean(
     error && imageUrl && !uploading && !segmenting &&
-    !limitReached && !accessExpired && !needVerification && !needSubscription,
+    !limitReached && !accessExpired && !needVerification && !needSubscription &&
+    !imageLimitReached && !autoMaskBlocked,
   );
 
   return (
@@ -1350,9 +1476,17 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           {quota && (
             <span
               className={`hv-status-pill ${quota.used >= quota.limit ? "is-error" : ""}`}
-              title="AI previews used this month. Wall detection and Claude palettes each use one; trying shades and recolouring are free."
+              title="Images used this month — every image includes the compulsory AI photo clean-up. Claude palettes also use one; trying shades and recolouring are free."
             >
-              {quota.used}/{quota.limit >= 2147483647 ? "∞" : quota.limit} AI previews
+              {quota.used}/{quota.limit >= 2147483647 ? "∞" : quota.limit} images
+            </span>
+          )}
+          {quota && quota.autoMasksLimit > 0 && (
+            <span
+              className={`hv-status-pill ${quota.autoMasksUsed >= quota.autoMasksLimit ? "is-error" : ""}`}
+              title="AI auto-masks used this month — spent only when the AI detects walls for you. Manual masking is free and unlimited."
+            >
+              {quota.autoMasksUsed}/{quota.autoMasksLimit >= 2147483647 ? "∞" : quota.autoMasksLimit} auto-masks
             </span>
           )}
           {basicPreview && (
@@ -1372,7 +1506,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             </span>
           )}
           {masksReady && wallsNoticeVisible && !guestAiUnavailable && (
-            <span className="hv-status-pill is-success">Walls detected</span>
+            <span className="hv-status-pill is-success">
+              {manualMaskProject ? "Photo cleaned — click walls to mark them" : "Walls detected"}
+            </span>
           )}
           {guest && guestAiUnavailable && masksReady && (
             <span className="hv-status-pill" title="The shop's AI previews are used up — mark the walls by hand instead.">
@@ -1662,6 +1798,59 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 <p style={{ margin: 0, font: "400 15px/1.4 var(--serif)", color: "var(--fg)" }}>
                   Use this photo? Nothing is sent for processing until you continue.
                 </p>
+                {!guest && (
+                  <fieldset
+                    style={{
+                      border: "1px solid var(--rule)",
+                      borderRadius: 8,
+                      padding: "10px 12px",
+                      margin: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      textAlign: "left",
+                    }}
+                  >
+                    <legend style={{ font: "500 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)", padding: "0 6px" }}>
+                      After the AI photo clean-up
+                    </legend>
+                    <label style={{ display: "flex", alignItems: "flex-start", gap: 8, font: "400 13px/1.4 var(--sans)", color: autoMaskAvailable ? "var(--fg-soft)" : "var(--fg-mute)", cursor: autoMaskAvailable ? "pointer" : "not-allowed" }}>
+                      <input
+                        type="radio"
+                        name="mask-mode"
+                        checked={segOptions.maskMode !== "MANUAL" && autoMaskAvailable}
+                        disabled={!autoMaskAvailable}
+                        onChange={() => setSegOptions((o) => ({ ...o, maskMode: "AUTO" }))}
+                        style={{ marginTop: 2 }}
+                      />
+                      <span>
+                        Let AI detect the walls
+                        <span style={{ display: "block", font: "400 11px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
+                          {autoMaskAvailable
+                            ? "uses 1 AI auto-mask credit"
+                            : quota != null && quota.autoMasksLimit <= 0
+                              ? "not in your plan — upgrade to unlock"
+                              : "monthly auto-mask credits used up"}
+                        </span>
+                      </span>
+                    </label>
+                    <label style={{ display: "flex", alignItems: "flex-start", gap: 8, font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="mask-mode"
+                        checked={segOptions.maskMode === "MANUAL" || !autoMaskAvailable}
+                        onChange={() => setSegOptions((o) => ({ ...o, maskMode: "MANUAL" }))}
+                        style={{ marginTop: 2 }}
+                      />
+                      <span>
+                        I&apos;ll mark the walls myself
+                        <span style={{ display: "block", font: "400 11px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
+                          free & unlimited — click each wall after the clean-up
+                        </span>
+                      </span>
+                    </label>
+                  </fieldset>
+                )}
                 {isAdmin && !guest && (
                   <label
                     style={{
@@ -1753,7 +1942,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               </div>
             )}
             <LoaderOverlay show={uploading || segmenting} label={overlayLabel} hint={overlayHint} />
-            {(limitReached || accessExpired || needVerification || needSubscription) && (
+            {(limitReached || accessExpired || needVerification || needSubscription || imageLimitReached || autoMaskBlocked) && (
               <div
                 style={{
                   position: "absolute",
@@ -1783,7 +1972,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                         ? "Subscribe to continue"
                         : accessExpired
                           ? "Access ended"
-                          : "Project limit reached"}
+                          : imageLimitReached
+                            ? "Monthly images used up"
+                            : autoMaskBlocked
+                              ? "AI wall detection unavailable"
+                              : "Project limit reached"}
                   </Mono>
                   <p style={{ font: "400 19px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "14px 0 22px" }}>
                     {error ||
@@ -1793,7 +1986,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                           ? "Your free trial includes one project. Subscribe to a plan to create more."
                           : accessExpired
                             ? "Your access has ended. Ask your retailer for a new code."
-                            : "You've used your included project.")}
+                            : imageLimitReached
+                              ? "You've used this month's image allowance."
+                              : autoMaskBlocked
+                                ? "Your plan has no AI wall-detection credit for this run — manual masking is free and unlimited."
+                                : "You've used your included project.")}
                   </p>
                   {needVerification && (
                     <a className="btn btn-brass" href="/dashboard">
@@ -1804,6 +2001,56 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     <a className="btn btn-brass" href="/pricing">
                       See plans <span className="arr">→</span>
                     </a>
+                  )}
+                  {imageLimitReached && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
+                      <Button variant="brass" onClick={() => void handleWalletImageAndRetry()} disabled={buyingImage}>
+                        {buyingImage ? (
+                          <>
+                            <Spinner size={14} color="currentColor" />
+                            <span>Paying…</span>
+                          </>
+                        ) : (
+                          <>
+                            Pay ₹59 from wallet <span className="arr">→</span>
+                          </>
+                        )}
+                      </Button>
+                      <Button onClick={() => void handleBuyImageAndRetry()} disabled={buyingImage}>
+                        or pay ₹59 by UPI / card <span className="arr">→</span>
+                      </Button>
+                      <a
+                        href="/subscription"
+                        style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-soft)" }}
+                      >
+                        or top up the wallet / upgrade your plan →
+                      </a>
+                    </div>
+                  )}
+                  {autoMaskBlocked && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
+                      <Button variant="brass" onClick={() => void handleWalletAutoMaskAndRetry()} disabled={buyingImage}>
+                        {buyingImage ? (
+                          <>
+                            <Spinner size={14} color="currentColor" />
+                            <span>Paying…</span>
+                          </>
+                        ) : (
+                          <>
+                            Pay ₹29.50 from wallet & detect walls <span className="arr">→</span>
+                          </>
+                        )}
+                      </Button>
+                      <Button onClick={() => void handleRetrySegmentation("MANUAL")} disabled={buyingImage}>
+                        Continue with manual masking (free) <span className="arr">→</span>
+                      </Button>
+                      <a
+                        href="/subscription"
+                        style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-soft)" }}
+                      >
+                        or top up the wallet / upgrade your plan →
+                      </a>
+                    </div>
                   )}
                   {limitReached && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>

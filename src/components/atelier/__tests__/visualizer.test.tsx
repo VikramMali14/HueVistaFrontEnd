@@ -49,13 +49,17 @@ vi.mock("@/lib/api", () => {
       generateShareLink: vi.fn(),
       updateRegionColors: vi.fn(),
       createCustomMask: vi.fn(),
-      // Topbar quota pill reads this on mount and after AI spends.
+      // Topbar quota pill reads this on mount and after AI spends. The
+      // auto-mask allowance keeps the default AUTO mask mode available.
       getCurrentSubscription: vi.fn(async () => ({
         status: "ACTIVE",
         trial: true,
         planDisplayName: "Professional",
         aiGenerationsUsed: 3,
         aiGenerationsLimit: 60,
+        autoMasksUsed: 0,
+        autoMasksLimit: 40,
+        purchasedImageCredits: 0,
       })),
       getAiRecommendations: vi.fn(),
       // Shop picks load best-effort on mount; default to none so the effect is a no-op.
@@ -375,7 +379,8 @@ describe("Visualizer — confirm before processing", () => {
       fireEvent.click(confirm);
     });
     expect(api.uploadImage).toHaveBeenCalledTimes(1);
-    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", undefined);
+    // Non-admins send only the mask-mode product choice (AUTO by default).
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", { maskMode: "AUTO" });
   });
 
   it("hides the admin clean-image toggle from non-admins and shows it to admins", async () => {
@@ -421,6 +426,7 @@ describe("Visualizer — confirm before processing", () => {
 
     expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
       cleanImage: false,
+      maskMode: "AUTO",
     });
   });
 
@@ -463,7 +469,7 @@ describe("Visualizer — happy path (upload → segment → regions)", () => {
       roomType: undefined,
       notes: undefined,
     });
-    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", undefined);
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", { maskMode: "AUTO" });
     expect(api.getProjectStatus).toHaveBeenCalledTimes(2); // SEGMENTING, then SEGMENTED
 
     // Mask stage reached: notice chip + classification + the backend regions
@@ -503,7 +509,7 @@ describe("Visualizer — segmentation give-up and retry", () => {
     });
 
     expect(api.requestSegmentation).toHaveBeenCalledTimes(2);
-    expect(api.requestSegmentation).toHaveBeenLastCalledWith("p-1", undefined);
+    expect(api.requestSegmentation).toHaveBeenLastCalledWith("p-1", { maskMode: "AUTO" });
     expect(api.uploadImage).toHaveBeenCalledTimes(1); // unchanged
     expect(api.createProject).toHaveBeenCalledTimes(1); // unchanged
 

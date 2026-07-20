@@ -23,14 +23,32 @@ interface Tier {
 // labelled "coming soon" — a counter owner comparing tiers must never buy a
 // line item that doesn't exist yet. (Annual billing, device limits and the
 // paint quantity estimator were removed for exactly that reason.)
+//
+// The quota model behind the numbers: every image gets the compulsory AI photo
+// clean-up, so IMAGES are the core allowance. After clean-up the shop chooses —
+// AI wall detection (an "AI auto-mask", its own monthly allowance) or marking
+// walls by hand (free and unlimited on every tier). Out of allowance mid-month?
+// Extras cost ₹50 + GST per image / ₹25 + GST per auto-mask, paid from the
+// prepaid wallet or directly. All prices +18% GST.
 const TIERS: ReadonlyArray<Tier> = [
-  { name: "Starter", plan: "STARTER", monthlyN: 19, lede: "For a single shop. The studio, the full colour library, and easy sharing with customers.", featured: false, features: ["20 AI previews / month", "20 colour-board PDFs / month (4 images each)", "Full multi-brand colour library", "Link & WhatsApp share", "Customer access codes", "Email support"] },
-  { name: "Professional", plan: "PROFESSIONAL", monthlyN: 999, lede: "For busy shops. Automatic wall detection, per-wall recolouring, and AI photo clean-up.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["60 AI previews / month", "100 colour-board PDFs / month (8 images each)", "Per-wall recolouring", "Manual wall selection", "AI photo clean-up", "Priority support"] },
-  { name: "Business", plan: "BUSINESS", monthlyN: 1999, lede: "For multi-shop dealers who run several counters on one account.", featured: false, inherits: "Everything in Professional, plus", note: "White-label subdomain & painter portal are rolling out — Business shops get them first.", features: ["150 AI previews / month", "300 colour-board PDFs / month (12 images each)", "Multi-shop friendly quota", "White-label subdomain (coming soon)", "Painter portal (coming soon)", "Dedicated account manager"] },
-  { name: "Enterprise", monthlyN: null, lede: "For manufacturers and large chains. SLA, dedicated catalogue ingestion, custom terms.", featured: false, inherits: "Everything in Business, plus", note: "Distributor commissions on request.", features: ["Unlimited AI previews", "Unlimited colour-board PDFs (16 images each)", "Dedicated catalogue ingest", "SLA · 99.9%", "Named technical lead"] },
+  { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Every photo professionally cleaned by AI, with a taste of automatic wall detection.", featured: false, features: ["20 images / month — AI photo clean-up on every one", "5 AI auto-masks / month (instant wall detection)", "Manual wall masking (click-to-segment) — unlimited", "25 colour-board PDFs / month (4 images each)", "Full multi-brand colour library & colour finder", "Link & WhatsApp share", "Customer access codes", "Email support"] },
+  { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. After the clean-up, let the AI detect walls for you — or mask by hand.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["60 images / month — AI photo clean-up on every one", "40 AI auto-masks / month (instant wall detection)", "Per-wall recolouring", "100 colour-board PDFs / month (8 images each)", "AI colour palette suggestions", "Priority support"] },
+  { name: "Business", plan: "BUSINESS", monthlyN: 4999, lede: "For multi-shop dealers who run several counters on one account.", featured: false, inherits: "Everything in Professional, plus", note: "White-label subdomain & painter portal are rolling out — Business shops get them first.", features: ["120 images / month — AI photo clean-up on every one", "90 AI auto-masks / month", "300 colour-board PDFs / month (12 images each)", "Multi-shop friendly quota", "White-label subdomain (coming soon)", "Painter portal (coming soon)", "Dedicated account manager"] },
+  { name: "Enterprise", monthlyN: null, lede: "For manufacturers and large chains. SLA, dedicated catalogue ingestion, custom terms.", featured: false, inherits: "Everything in Business, plus", note: "Distributor commissions on request.", features: ["Unlimited images & AI auto-masks", "Unlimited colour-board PDFs (16 images each)", "Dedicated catalogue ingest", "SLA · 99.9%", "Named technical lead"] },
 ];
 
+const GST_PERCENT = 18;
+
 const inr = (n: number) => n.toLocaleString("en-IN");
+
+/** Base ₹/mo -> "₹1,178.82" (price incl. 18% GST, trailing .00 trimmed). */
+const inrWithGst = (base: number) => {
+  const gross = (base * (100 + GST_PERCENT)) / 100;
+  return gross.toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+};
 
 interface PricingTiersProps {
   /** Signed-in CUSTOMER accounts can't buy shop plans — swap the buy CTA for guidance. */
@@ -66,9 +84,15 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
 
   return (
     <>
-      <div className="reveal d2" style={{ marginTop: 32, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
+      <div className="reveal d2" style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 8 }}>
         <span style={{ font: "400 16px/1.4 var(--serif)", color: "var(--fg-soft)" }}>
           Billed monthly · cancel anytime · every new shop starts with a 14-day trial we set up for you.
+        </span>
+        <span style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
+          Prices exclude 18% GST. Every image includes the compulsory AI photo clean-up;
+          manual wall masking is free and unlimited on all plans. Used your month&apos;s allowance?
+          Top up your prepaid wallet and pay per use — ₹50 + GST per extra image, ₹25 + GST per
+          extra AI auto-mask — or pay per item by UPI/card. Upgrades apply instantly from your dashboard.
         </span>
       </div>
 
@@ -97,10 +121,15 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
                     <div style={{ marginTop: 8, font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)" }}>custom commercial terms</div>
                   </>
                 ) : (
-                  <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "#fff" : "var(--ivory)" }}>
-                    ₹{inr(t.monthlyN)}
-                    <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)", marginLeft: 6 }}>/ month</span>
-                  </div>
+                  <>
+                    <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "#fff" : "var(--ivory)" }}>
+                      ₹{inr(t.monthlyN)}
+                      <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)", marginLeft: 6 }}>/ month</span>
+                    </div>
+                    <div style={{ marginTop: 8, font: "400 10px/1.4 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)" }}>
+                      + {GST_PERCENT}% GST · ₹{inrWithGst(t.monthlyN)} all-in
+                    </div>
+                  </>
                 )}
               </div>
               <p style={{ font: "400 17px/1.5 var(--serif)", color: t.featured ? "rgba(255,255,255,.85)" : "var(--ivory-soft)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.25)" : "var(--rule)"), paddingTop: 18 }}>{t.lede}</p>

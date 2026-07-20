@@ -144,11 +144,16 @@ export interface RegionDetail {
   manual?: boolean;
 }
 
-/** ADMIN-only testing knob sent with a segmentation request (the backend
- *  ignores it for other roles). cleanImage=false skips the image-cleaner
- *  step. Masks are always stored raw — exactly as the model painted them. */
+/** Options sent with a segmentation request. maskMode is a real product choice
+ *  open to everyone: "AUTO" (default) runs AI wall detection after the
+ *  compulsory photo clean-up and consumes one auto-mask credit; "MANUAL" stops
+ *  after the clean-up so walls are marked by hand (free, unlimited on every
+ *  plan). cleanImage is an ADMIN-only testing knob (the backend strips it for
+ *  other roles): false skips the image-cleaner step. Masks are always stored
+ *  raw — exactly as the model painted them. */
 export interface SegmentationOptions {
   cleanImage?: boolean;
+  maskMode?: "AUTO" | "MANUAL";
 }
 
 export interface ProjectDetail {
@@ -165,6 +170,10 @@ export interface ProjectDetail {
    *  before raw-mask capture shipped or with manual-only regions. */
   rawMaskUrl?: string | null;
   failureReason?: string | null;
+  /** "AUTO" / "MANUAL" — the wall-creation choice this project was segmented
+   *  with; null/undefined = default AUTO. MANUAL projects arrive SEGMENTED with
+   *  zero auto regions: the cleaned canvas is ready for hand-marked walls. */
+  maskMode?: "AUTO" | "MANUAL" | null;
   regions: RegionDetail[];
   hasShareLink?: boolean;
   shareExpiresAt?: string | null;
@@ -453,9 +462,21 @@ export interface SubscriptionSummary {
   trial: boolean;
   cancelAtPeriodEnd?: boolean;
   currentPeriodEnd?: string | null;
+  // Image quota — the AI photo clean-up is compulsory, so EVERY image consumes
+  // one. (Field names keep the historical "aiGenerations" naming.) Remaining
+  // includes any purchased pay-per-image overage credits.
   aiGenerationsUsed: number;
   aiGenerationsLimit: number;
   aiGenerationsRemaining: number;
+  // AI auto-mask (wall-detection) quota — spent only when the shop picks the
+  // automatic mask after clean-up. Limit 0 = plan is manual-masking only.
+  autoMasksUsed?: number;
+  autoMasksLimit?: number;
+  autoMasksRemaining?: number;
+  /** Unused pay-per-image overage credits (₹50 + GST each); never expire. */
+  purchasedImageCredits?: number;
+  /** Unused pay-per-use AI auto-mask credits (₹25 + GST each, wallet-paid). */
+  purchasedAutoMaskCredits?: number;
   pdfDownloadsUsed?: number;
   pdfDownloadsLimit?: number;
   pdfDownloadsRemaining?: number;
@@ -472,15 +493,48 @@ export interface SubscriptionSummary {
 /** Plans a retailer can purchase directly (Enterprise is custom-priced — contact sales). */
 export type PurchasablePlan = "STARTER" | "PROFESSIONAL" | "BUSINESS";
 
-/** One plan option from GET /api/billing/plans (pricing + quota limits). */
+/** One plan option from GET /api/billing/plans (pricing + quota limits).
+ *  Prices are BASE prices; 18% GST is added on top (priceWithTax*). */
 export interface PlanOption {
   plan: "STARTER" | "PROFESSIONAL" | "BUSINESS" | "ENTERPRISE";
   displayName: string;
   priceInPaise: number;
   priceInRupees: number;
+  taxPercent: number;
+  priceWithTaxInPaise: number;
+  priceWithTaxInRupees: number;
+  /** Images processed per cycle (clean-up is compulsory on every image).
+   *  Kept as monthlyAiLimit too for API compatibility. */
   monthlyAiLimit: number | "unlimited";
+  monthlyImageLimit: number | "unlimited";
+  /** AI wall-detection runs per cycle; 0 = manual masking only (Starter). */
+  monthlyAutoMaskLimit: number | "unlimited";
   pdfImageLimit: number;
   monthlyPdfLimit: number | "unlimited";
+  /** One extra image once the monthly quota is spent: ₹50 base / ₹59 with GST. */
+  imageOveragePriceInPaise: number;
+  imageOveragePriceWithTaxInPaise: number;
+  /** One extra AI auto-mask run: ₹25 base / ₹29.50 with GST (wallet-paid). */
+  autoMaskOveragePriceInPaise: number;
+  autoMaskOveragePriceWithTaxInPaise: number;
+}
+
+/** One movement on the prepaid billing wallet (positive = top-up, negative = purchase). */
+export interface BillingWalletTransaction {
+  id: string;
+  type: "TOPUP" | "EXTRA_IMAGE" | "EXTRA_AUTO_MASK";
+  amountPaise: number;
+  createdAt: string;
+}
+
+/** The prepaid billing wallet (GET /api/billing/wallet): money added by Razorpay
+ *  top-up, spent on pay-per-use overage once monthly allowances run out. */
+export interface BillingWalletSummary {
+  balancePaise: number;
+  currency: string;
+  imageCreditPricePaise: number;
+  autoMaskCreditPricePaise: number;
+  transactions: BillingWalletTransaction[];
 }
 
 /** Colour-board PDF allowance (backend PdfAllowanceResponse) — resolved against

@@ -93,7 +93,7 @@ describe("Claude's picks (AI Suggest tab)", () => {
     await user.click(screen.getByRole("button", { name: /Ask Claude/ }));
 
     await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(/out of AI previews/),
+      expect(screen.getByRole("alert")).toHaveTextContent(/out of images/),
     );
     // The button stays usable for a retry after the reset/upgrade.
     expect(screen.getByRole("button", { name: /Ask Claude/ })).toBeEnabled();

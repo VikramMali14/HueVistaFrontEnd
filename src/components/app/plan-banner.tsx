@@ -58,7 +58,7 @@ export function PlanBanner() {
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <Mono brass>{halted ? "Payment issue" : "Trial ended"}</Mono>
           <span style={{ font: "400 15px/1 var(--sans)", color: "var(--fg-soft)" }}>
-            AI previews are paused. Subscribe to keep working.
+            Image processing is paused. Subscribe to keep working.
           </span>
         </span>
         {subscribeLink}
@@ -68,7 +68,8 @@ export function PlanBanner() {
 
   if (sub.status !== "ACTIVE") return null;
 
-  const limit = sub.aiGenerationsLimit >= UNLIMITED ? "∞" : sub.aiGenerationsLimit;
+  const extraCredits = sub.purchasedImageCredits ?? 0;
+  const limit = sub.aiGenerationsLimit >= UNLIMITED ? "∞" : sub.aiGenerationsLimit + extraCredits;
   const daysLeft = sub.currentPeriodEnd
     ? Math.max(0, Math.ceil((new Date(sub.currentPeriodEnd).getTime() - now) / 86_400_000))
     : null;
@@ -88,8 +89,13 @@ export function PlanBanner() {
             : "active"}
         </span>
         <Mono>
-          {sub.aiGenerationsUsed}/{limit} AI previews this month
+          {sub.aiGenerationsUsed}/{limit} images this month
         </Mono>
+        {typeof sub.autoMasksLimit === "number" && sub.autoMasksLimit > 0 && (
+          <Mono>
+            {sub.autoMasksUsed ?? 0}/{sub.autoMasksLimit >= UNLIMITED ? "∞" : sub.autoMasksLimit} AI auto-masks
+          </Mono>
+        )}
         {typeof sub.pdfDownloadsLimit === "number" && sub.pdfDownloadsLimit > 0 && (
           <Mono>
             {sub.pdfDownloadsUsed ?? 0}/{sub.pdfDownloadsLimit >= UNLIMITED ? "∞" : sub.pdfDownloadsLimit} PDFs
