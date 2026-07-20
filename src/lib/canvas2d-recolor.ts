@@ -303,7 +303,7 @@ export class Canvas2DRecolor implements RecolorEngine {
     if (cached !== undefined) return cached;
     let result: HTMLCanvasElement | null = null;
     let source: CanvasImageSource = mask as CanvasImageSource;
-    let { w, h } = sourceSize(mask);
+    const { w, h } = sourceSize(mask);
     if (w > 0 && h > 0) {
       // The user's uniform edge nudge: grow or shrink every region
       // boundary by a few photo px (rescaled to this mask's resolution).
