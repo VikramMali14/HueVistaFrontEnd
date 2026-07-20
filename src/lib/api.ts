@@ -598,6 +598,29 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // --- Prepaid billing wallet (top up once, spend on extra images / auto-masks) ---
+  getBillingWallet: () =>
+    browserFetch<import("./types").BillingWalletSummary>("api/billing/wallet"),
+  createWalletTopUpOrder: (amountPaise: number) =>
+    browserFetch<ProjectCreditOrder>("api/billing/wallet/topup/order", {
+      method: "POST",
+      body: JSON.stringify({ amountPaise }),
+    }),
+  verifyWalletTopUp: (body: { orderId: string; paymentId: string; signature: string }) =>
+    browserFetch<import("./types").BillingWalletSummary>("api/billing/wallet/topup/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  // Atomic wallet debits: ₹59 buys one extra image, ₹29.50 one extra AI auto-mask.
+  // Both 402 with a clear message when the balance is short.
+  walletPayImageCredit: () =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/wallet/pay/image-credit", {
+      method: "POST",
+    }),
+  walletPayAutoMaskCredit: () =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/wallet/pay/auto-mask-credit", {
+      method: "POST",
+    }),
   // Companies that actually have shades in the catalogue (name + slug + count).
   listShadeBrands: () =>
     browserFetch<import("./types").ShadeBrandSummary[]>("api/shades/brands"),

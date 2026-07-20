@@ -147,6 +147,49 @@ export async function openStoreCheckout(
 }
 
 /**
+ * Add money to the prepaid billing wallet:
+ *   create order for the chosen amount -> open Razorpay Checkout -> verify on the
+ *   server -> balance credited.
+ * Resolves `true` once the wallet is credited, `false` if the user dismisses the
+ * modal, and throws on a real error (bounds, network, verification).
+ */
+export async function topUpWallet(
+  amountPaise: number,
+  prefill?: { name?: string; email?: string },
+): Promise<boolean> {
+  const order = await api.createWalletTopUpOrder(amountPaise);
+  await loadCheckout();
+  if (!window.Razorpay) throw new Error("Payment library unavailable.");
+
+  return new Promise<boolean>((resolve, reject) => {
+    const rzp = new window.Razorpay!({
+      key: order.razorpayKeyId,
+      amount: order.amount,
+      currency: order.currency,
+      order_id: order.orderId,
+      name: "HueVista",
+      description: "Wallet top-up",
+      prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
+      theme: { color: "#7c5cff" },
+      handler: async (resp: CheckoutSuccess) => {
+        try {
+          await api.verifyWalletTopUp({
+            orderId: resp.razorpay_order_id,
+            paymentId: resp.razorpay_payment_id,
+            signature: resp.razorpay_signature,
+          });
+          resolve(true);
+        } catch (e) {
+          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+        }
+      },
+      modal: { ondismiss: () => resolve(false) },
+    });
+    rzp.open();
+  });
+}
+
+/**
  * Pay-per-image overage: full one-time purchase of ONE extra image (₹50 + 18%
  * GST = ₹59) once the monthly image quota is spent:
  *   create order -> open Razorpay Checkout -> verify on the server -> credit applied.

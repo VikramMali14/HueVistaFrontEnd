@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { HttpError } from "@/lib/http-error";
-import { buyExtraImage, subscribeToPlan } from "@/lib/payments";
-import type { PlanOption, PurchasablePlan, SubscriptionSummary } from "@/lib/types";
+import { buyExtraImage, subscribeToPlan, topUpWallet } from "@/lib/payments";
+import type { BillingWalletSummary, PlanOption, PurchasablePlan, SubscriptionSummary } from "@/lib/types";
 
 interface SubscriptionPanelProps {
   initialSubscription: SubscriptionSummary | null;
@@ -28,6 +28,19 @@ const inrWithGst = (base: number) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
+
+/** Paise -> "₹59" / "₹29.50" (trailing .00 trimmed). */
+const paise = (p: number) =>
+  "₹" + (p / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+const TXN_LABEL: Record<string, string> = {
+  TOPUP: "Wallet top-up",
+  EXTRA_IMAGE: "Extra image",
+  EXTRA_AUTO_MASK: "Extra AI auto-mask",
+};
+
+/** Quick top-up choices, in paise. */
+const TOPUP_PRESETS = [19900, 49900, 99900] as const;
 
 const card: React.CSSProperties = {
   border: "1px solid var(--rule-strong)",
@@ -121,6 +134,31 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
   const [buyingImage, setBuyingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Prepaid billing wallet — loaded client-side; null while loading / on failure
+  // (the section renders a quiet fallback either way).
+  const [wallet, setWallet] = useState<BillingWalletSummary | null>(null);
+  const [toppingUp, setToppingUp] = useState(false);
+  const [customTopUp, setCustomTopUp] = useState("");
+  const [walletPaying, setWalletPaying] = useState<"image" | "mask" | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getBillingWallet()
+      .then((w) => !cancelled && setWallet(w))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function refreshWalletAndSub() {
+    const [w, fresh] = await Promise.all([
+      api.getBillingWallet().catch(() => null),
+      api.getCurrentSubscription().catch(() => null),
+    ]);
+    if (w) setWallet(w);
+    if (fresh) setSub(fresh);
+  }
 
   const active = sub?.status === "ACTIVE";
   const ended = sub != null && !active;
@@ -177,6 +215,53 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
       setError(e instanceof Error ? e.message : "Could not start the payment. Please try again.");
     } finally {
       setBuyingImage(false);
+    }
+  }
+
+  // Add money to the prepaid wallet through Razorpay Checkout.
+  async function topUp(amountPaise: number) {
+    setError(null);
+    setNotice(null);
+    setToppingUp(true);
+    try {
+      const paid = await topUpWallet(amountPaise);
+      if (paid) {
+        await refreshWalletAndSub();
+        setCustomTopUp("");
+        setNotice("Wallet topped up — the balance is ready to spend on extra images and AI auto-masks.");
+      }
+    } catch (e) {
+      if (e instanceof HttpError && e.status === 401) {
+        window.location.assign(`/sign-in?next=${encodeURIComponent("/subscription")}`);
+        return;
+      }
+      setError(e instanceof Error ? e.message : "Could not start the top-up. Please try again.");
+    } finally {
+      setToppingUp(false);
+    }
+  }
+
+  // Spend the wallet on one extra image / one extra AI auto-mask — no checkout,
+  // just an atomic balance debit on the server.
+  async function walletPay(kind: "image" | "mask") {
+    setError(null);
+    setNotice(null);
+    setWalletPaying(kind);
+    try {
+      const fresh = kind === "image"
+        ? await api.walletPayImageCredit()
+        : await api.walletPayAutoMaskCredit();
+      setSub(fresh);
+      const w = await api.getBillingWallet().catch(() => null);
+      if (w) setWallet(w);
+      setNotice(kind === "image"
+        ? "Paid from wallet — one extra image added to your plan."
+        : "Paid from wallet — one extra AI auto-mask added to your plan.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Wallet payment failed. Please try again.");
+    } finally {
+      setWalletPaying(null);
     }
   }
 
@@ -282,8 +367,18 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                 </div>
                 <div>
                   <span style={fieldLabel}>AI auto-masks (wall detection)</span>
-                  {(sub.autoMasksLimit ?? 0) > 0 ? (
-                    <UsageBar used={sub.autoMasksUsed ?? 0} limit={sub.autoMasksLimit ?? 0} />
+                  {(sub.autoMasksLimit ?? 0) + (sub.purchasedAutoMaskCredits ?? 0) > 0 ? (
+                    <>
+                      <UsageBar
+                        used={sub.autoMasksUsed ?? 0}
+                        limit={(sub.autoMasksLimit ?? 0) + (sub.purchasedAutoMaskCredits ?? 0)}
+                      />
+                      {(sub.purchasedAutoMaskCredits ?? 0) > 0 && (
+                        <span style={{ font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)", display: "block", marginTop: 4 }}>
+                          includes {sub.purchasedAutoMaskCredits} purchased extra{(sub.purchasedAutoMaskCredits ?? 0) === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </>
                   ) : (
                     <span style={{ font: "400 13px/1.5 var(--mono)", color: "var(--fg-mute)", display: "block", marginTop: 8 }}>
                       Not in this plan — manual masking is unlimited. Upgrade for AI wall detection.
@@ -299,16 +394,42 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
 
             {active && sub.aiGenerationsLimit < UNLIMITED_FLOOR && (
               <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                {wallet != null && wallet.balancePaise >= wallet.imageCreditPricePaise && (
+                  <button
+                    type="button"
+                    onClick={() => void walletPay("image")}
+                    disabled={walletPaying !== null || buyingImage}
+                    style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
+                  >
+                    {walletPaying === "image"
+                      ? "Paying…"
+                      : `1 extra image from wallet — ${paise(wallet.imageCreditPricePaise)}`}
+                  </button>
+                )}
+                {wallet != null
+                  && (sub.autoMasksLimit ?? 0) < UNLIMITED_FLOOR
+                  && wallet.balancePaise >= wallet.autoMaskCreditPricePaise && (
+                  <button
+                    type="button"
+                    onClick={() => void walletPay("mask")}
+                    disabled={walletPaying !== null || buyingImage}
+                    style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
+                  >
+                    {walletPaying === "mask"
+                      ? "Paying…"
+                      : `1 extra AI auto-mask from wallet — ${paise(wallet.autoMaskCreditPricePaise)}`}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => void buyImage()}
-                  disabled={buyingImage}
+                  disabled={buyingImage || walletPaying !== null}
                   style={{ ...buttonStyle, borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }}
                 >
                   {buyingImage ? "Opening payment…" : "Buy 1 extra image — ₹59 (₹50 + GST)"}
                 </button>
                 <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-                  Out of images mid-cycle? Extras never expire.
+                  Out of allowance mid-cycle? Extras never expire.
                 </span>
               </div>
             )}
@@ -347,6 +468,95 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
           </>
         )}
       </section>
+
+      {/* Prepaid wallet: top up once, spend on extra images / AI auto-masks */}
+      {active && (
+        <section style={card}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "8px 16px" }}>
+            <h2 style={{ font: "600 20px/1.2 var(--serif)", color: "var(--fg)", margin: 0 }}>Wallet</h2>
+            <span style={{ font: "600 18px/1 var(--mono)", color: "var(--accent)" }}>
+              {wallet ? paise(wallet.balancePaise) : "—"}
+            </span>
+            <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+              Prepaid balance for pay-per-use: extra image {wallet ? paise(wallet.imageCreditPricePaise) : "₹59"},
+              extra AI auto-mask {wallet ? paise(wallet.autoMaskCreditPricePaise) : "₹29.50"} (both incl. 18% GST).
+            </span>
+          </div>
+
+          <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            {TOPUP_PRESETS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => void topUp(p)}
+                disabled={toppingUp}
+                style={{ ...buttonStyle, borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }}
+              >
+                + {paise(p)}
+              </button>
+            ))}
+            <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={100}
+                step={50}
+                placeholder="Custom ₹"
+                aria-label="Custom top-up amount in rupees"
+                value={customTopUp}
+                onChange={(e) => setCustomTopUp(e.target.value)}
+                style={{
+                  width: 110,
+                  padding: "9px 10px",
+                  border: "1px solid var(--rule-strong)",
+                  borderRadius: 6,
+                  background: "var(--surface)",
+                  color: "var(--fg)",
+                  font: "400 13px/1 var(--mono)",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const rupees = Number(customTopUp);
+                  if (!Number.isFinite(rupees) || rupees <= 0) {
+                    setError("Enter a top-up amount in rupees first.");
+                    return;
+                  }
+                  void topUp(Math.round(rupees * 100));
+                }}
+                disabled={toppingUp}
+                style={buttonStyle}
+              >
+                {toppingUp ? "Opening payment…" : "Add money"}
+              </button>
+            </span>
+            <span style={{ font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
+              min ₹100 · UPI / cards / netbanking · balance never expires
+            </span>
+          </div>
+
+          {wallet && wallet.transactions.length > 0 && (
+            <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 6 }}>
+              <span style={fieldLabel}>Recent activity</span>
+              {wallet.transactions.slice(0, 8).map((t) => (
+                <div
+                  key={t.id}
+                  style={{ display: "flex", gap: 12, alignItems: "baseline", font: "400 13px/1.5 var(--sans)", color: "var(--fg-soft)" }}
+                >
+                  <span style={{ minWidth: 150 }}>{TXN_LABEL[t.type] ?? t.type}</span>
+                  <span style={{ font: "500 13px/1 var(--mono)", color: t.amountPaise >= 0 ? "var(--accent)" : "var(--terracotta)" }}>
+                    {t.amountPaise >= 0 ? "+" : "−"}{paise(Math.abs(t.amountPaise))}
+                  </span>
+                  <span style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", color: "var(--fg-mute)" }}>
+                    {fmtDate(t.createdAt)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Plans: upgrade / renew */}
       <section>

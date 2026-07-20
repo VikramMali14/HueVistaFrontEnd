@@ -27,11 +27,11 @@ interface Tier {
 // The quota model behind the numbers: every image gets the compulsory AI photo
 // clean-up, so IMAGES are the core allowance. After clean-up the shop chooses —
 // AI wall detection (an "AI auto-mask", its own monthly allowance) or marking
-// walls by hand (free and unlimited on every tier). Starter is the manual-
-// masking tier; Professional and Business include auto-mask allowances. Out of
-// images mid-month? Extras cost ₹50 + GST each. All prices +18% GST.
+// walls by hand (free and unlimited on every tier). Out of allowance mid-month?
+// Extras cost ₹50 + GST per image / ₹25 + GST per auto-mask, paid from the
+// prepaid wallet or directly. All prices +18% GST.
 const TIERS: ReadonlyArray<Tier> = [
-  { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Every photo professionally cleaned by AI — you mark the walls yourself.", featured: false, features: ["25 images / month — AI photo clean-up on every one", "Manual wall masking (click-to-segment) — unlimited", "25 colour-board PDFs / month (4 images each)", "Full multi-brand colour library & colour finder", "Link & WhatsApp share", "Customer access codes", "Email support"] },
+  { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Every photo professionally cleaned by AI, with a taste of automatic wall detection.", featured: false, features: ["20 images / month — AI photo clean-up on every one", "5 AI auto-masks / month (instant wall detection)", "Manual wall masking (click-to-segment) — unlimited", "25 colour-board PDFs / month (4 images each)", "Full multi-brand colour library & colour finder", "Link & WhatsApp share", "Customer access codes", "Email support"] },
   { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. After the clean-up, let the AI detect walls for you — or mask by hand.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["60 images / month — AI photo clean-up on every one", "40 AI auto-masks / month (instant wall detection)", "Per-wall recolouring", "100 colour-board PDFs / month (8 images each)", "AI colour palette suggestions", "Priority support"] },
   { name: "Business", plan: "BUSINESS", monthlyN: 4999, lede: "For multi-shop dealers who run several counters on one account.", featured: false, inherits: "Everything in Professional, plus", note: "White-label subdomain & painter portal are rolling out — Business shops get them first.", features: ["120 images / month — AI photo clean-up on every one", "90 AI auto-masks / month", "300 colour-board PDFs / month (12 images each)", "Multi-shop friendly quota", "White-label subdomain (coming soon)", "Painter portal (coming soon)", "Dedicated account manager"] },
   { name: "Enterprise", monthlyN: null, lede: "For manufacturers and large chains. SLA, dedicated catalogue ingestion, custom terms.", featured: false, inherits: "Everything in Business, plus", note: "Distributor commissions on request.", features: ["Unlimited images & AI auto-masks", "Unlimited colour-board PDFs (16 images each)", "Dedicated catalogue ingest", "SLA · 99.9%", "Named technical lead"] },
@@ -90,8 +90,9 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
         </span>
         <span style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
           Prices exclude 18% GST. Every image includes the compulsory AI photo clean-up;
-          manual wall masking is free and unlimited on all plans. Used your month&apos;s images?
-          Buy extras any time at ₹50 + GST (₹59) per image — upgrades apply instantly from your dashboard.
+          manual wall masking is free and unlimited on all plans. Used your month&apos;s allowance?
+          Top up your prepaid wallet and pay per use — ₹50 + GST per extra image, ₹25 + GST per
+          extra AI auto-mask — or pay per item by UPI/card. Upgrades apply instantly from your dashboard.
         </span>
       </div>
 

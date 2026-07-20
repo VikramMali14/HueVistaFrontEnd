@@ -527,7 +527,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 ? s.aiGenerationsLimit
                 : s.aiGenerationsLimit + (s.purchasedImageCredits ?? 0),
             autoMasksUsed: s.autoMasksUsed ?? 0,
-            autoMasksLimit: s.autoMasksLimit ?? 0,
+            // Wallet-bought auto-mask credits extend the allowance like image credits.
+            autoMasksLimit:
+              (s.autoMasksLimit ?? 0) >= 2147483647
+                ? (s.autoMasksLimit ?? 0)
+                : (s.autoMasksLimit ?? 0) + (s.purchasedAutoMaskCredits ?? 0),
           });
         } else {
           setQuota(null);
@@ -902,6 +906,40 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setBuyingImage(false);
     }
   }, [projectId, pendingImageId, createAndSegment, handleRetrySegmentation]);
+
+  // Same purchase paid from the prepaid wallet — no checkout, one atomic server
+  // debit. An insufficient balance surfaces the backend's "top up or pay
+  // directly" message in place.
+  const handleWalletImageAndRetry = useCallback(async () => {
+    setError(null);
+    setBuyingImage(true);
+    try {
+      await api.walletPayImageCredit();
+      setImageLimitReached(false);
+      if (projectId) await handleRetrySegmentation();
+      else if (pendingImageId) await createAndSegment(pendingImageId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Wallet payment failed.");
+    } finally {
+      setBuyingImage(false);
+    }
+  }, [projectId, pendingImageId, createAndSegment, handleRetrySegmentation]);
+
+  // Wallet-paid extra AI auto-mask (₹25 + GST): credit it, then force an AUTO
+  // retry — the stale quota state would otherwise steer the retry to MANUAL.
+  const handleWalletAutoMaskAndRetry = useCallback(async () => {
+    setError(null);
+    setBuyingImage(true);
+    try {
+      await api.walletPayAutoMaskCredit();
+      setAutoMaskBlocked(false);
+      await handleRetrySegmentation("AUTO");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Wallet payment failed.");
+    } finally {
+      setBuyingImage(false);
+    }
+  }, [handleRetrySegmentation]);
 
   // Run a persistence call under the shared save-status machine. Failures are
   // queued for Retry even when a newer save has since succeeded — an older
@@ -1966,36 +2004,51 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   )}
                   {imageLimitReached && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
-                      <Button variant="brass" onClick={() => void handleBuyImageAndRetry()} disabled={buyingImage}>
+                      <Button variant="brass" onClick={() => void handleWalletImageAndRetry()} disabled={buyingImage}>
                         {buyingImage ? (
                           <>
                             <Spinner size={14} color="currentColor" />
-                            <span>Opening payment…</span>
+                            <span>Paying…</span>
                           </>
                         ) : (
                           <>
-                            Buy 1 extra image — ₹59 (₹50 + GST) <span className="arr">→</span>
+                            Pay ₹59 from wallet <span className="arr">→</span>
                           </>
                         )}
+                      </Button>
+                      <Button onClick={() => void handleBuyImageAndRetry()} disabled={buyingImage}>
+                        or pay ₹59 by UPI / card <span className="arr">→</span>
                       </Button>
                       <a
                         href="/subscription"
                         style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-soft)" }}
                       >
-                        or upgrade your plan →
+                        or top up the wallet / upgrade your plan →
                       </a>
                     </div>
                   )}
                   {autoMaskBlocked && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
-                      <Button variant="brass" onClick={() => void handleRetrySegmentation("MANUAL")}>
+                      <Button variant="brass" onClick={() => void handleWalletAutoMaskAndRetry()} disabled={buyingImage}>
+                        {buyingImage ? (
+                          <>
+                            <Spinner size={14} color="currentColor" />
+                            <span>Paying…</span>
+                          </>
+                        ) : (
+                          <>
+                            Pay ₹29.50 from wallet & detect walls <span className="arr">→</span>
+                          </>
+                        )}
+                      </Button>
+                      <Button onClick={() => void handleRetrySegmentation("MANUAL")} disabled={buyingImage}>
                         Continue with manual masking (free) <span className="arr">→</span>
                       </Button>
                       <a
                         href="/subscription"
                         style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-soft)" }}
                       >
-                        or upgrade for AI wall detection →
+                        or top up the wallet / upgrade your plan →
                       </a>
                     </div>
                   )}

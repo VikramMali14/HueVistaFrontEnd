@@ -475,6 +475,8 @@ export interface SubscriptionSummary {
   autoMasksRemaining?: number;
   /** Unused pay-per-image overage credits (₹50 + GST each); never expire. */
   purchasedImageCredits?: number;
+  /** Unused pay-per-use AI auto-mask credits (₹25 + GST each, wallet-paid). */
+  purchasedAutoMaskCredits?: number;
   pdfDownloadsUsed?: number;
   pdfDownloadsLimit?: number;
   pdfDownloadsRemaining?: number;
@@ -512,6 +514,27 @@ export interface PlanOption {
   /** One extra image once the monthly quota is spent: ₹50 base / ₹59 with GST. */
   imageOveragePriceInPaise: number;
   imageOveragePriceWithTaxInPaise: number;
+  /** One extra AI auto-mask run: ₹25 base / ₹29.50 with GST (wallet-paid). */
+  autoMaskOveragePriceInPaise: number;
+  autoMaskOveragePriceWithTaxInPaise: number;
+}
+
+/** One movement on the prepaid billing wallet (positive = top-up, negative = purchase). */
+export interface BillingWalletTransaction {
+  id: string;
+  type: "TOPUP" | "EXTRA_IMAGE" | "EXTRA_AUTO_MASK";
+  amountPaise: number;
+  createdAt: string;
+}
+
+/** The prepaid billing wallet (GET /api/billing/wallet): money added by Razorpay
+ *  top-up, spent on pay-per-use overage once monthly allowances run out. */
+export interface BillingWalletSummary {
+  balancePaise: number;
+  currency: string;
+  imageCreditPricePaise: number;
+  autoMaskCreditPricePaise: number;
+  transactions: BillingWalletTransaction[];
 }
 
 /** Colour-board PDF allowance (backend PdfAllowanceResponse) — resolved against
