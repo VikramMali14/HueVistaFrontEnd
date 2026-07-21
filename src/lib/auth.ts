@@ -2,11 +2,11 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { adminApi, authApi, billingApi, guestServerApi, HttpError } from "./api";
+import { adminApi, authApi, billingApi, guestServerApi, networkApi, HttpError } from "./api";
 import type { AdminUserRow, AuditLogRow, DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
-import type { AuthResponse, AuthUser, SubscriptionSummary, WalletRedemption } from "./types";
+import type { AuthResponse, AuthUser, NetworkReport, SubscriptionSummary, WalletRedemption } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -359,6 +359,132 @@ export async function createRetailerAction(
       return { error: err.message };
     }
     return { error: "Could not create the shop account. Please try again." };
+  }
+}
+
+/**
+ * ADMIN-only: create a distributor account (+ distributor org). The distributor
+ * then provisions their own shops, which land in their downline.
+ */
+export async function createDistributorAction(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  const str = (k: string) => {
+    const v = String(formData.get(k) ?? "").trim();
+    return v || undefined;
+  };
+  const name = str("name");
+  const email = str("email")?.toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const companyName = str("companyName");
+  if (!name || !email || !companyName) return { error: "Owner name, email and company name are required." };
+  if (password.length < 8) return { error: "Set an initial password of at least eight characters." };
+  try {
+    await adminApi.createDistributor(token, {
+      name,
+      email,
+      password,
+      companyName,
+      city: str("city"),
+      state: str("state"),
+      phone: str("phone"),
+    });
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 409) return { error: "An account with that email already exists." };
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Could not create the distributor account. Please try again." };
+  }
+}
+
+/**
+ * DISTRIBUTOR (or ADMIN): create a shop account through the hierarchy endpoint.
+ * A distributor's new shop is auto-linked to their org — it lands in their
+ * network report immediately.
+ */
+export async function createNetworkRetailerAction(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  const str = (k: string) => {
+    const v = String(formData.get(k) ?? "").trim();
+    return v || undefined;
+  };
+  const name = str("name");
+  const email = str("email")?.toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const shopName = str("shopName");
+  if (!name || !email || !shopName) return { error: "Owner name, email and shop name are required." };
+  if (password.length < 8) return { error: "Set an initial password of at least eight characters." };
+  try {
+    await networkApi.createRetailer(token, {
+      name,
+      email,
+      password,
+      shopName,
+      city: str("city"),
+      state: str("state"),
+      phone: str("phone"),
+      tier: str("tier"),
+    });
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 409) return { error: "An account with that email already exists." };
+      if (err.status === 403) return { error: "Only distributors and admins can create shop accounts." };
+      return { error: err.message };
+    }
+    return { error: "Could not create the shop account. Please try again." };
+  }
+}
+
+/** RETAILER: create a painter account already linked to the caller's shop. */
+export async function createPainterAction(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  const str = (k: string) => {
+    const v = String(formData.get(k) ?? "").trim();
+    return v || undefined;
+  };
+  const name = str("name");
+  const email = str("email")?.toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  if (!name || !email) return { error: "Painter name and email are required." };
+  if (password.length < 8) return { error: "Set an initial password of at least eight characters." };
+  try {
+    await networkApi.createPainter(token, { name, email, password, phone: str("phone") });
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 409) return { error: "An account with that email already exists." };
+      if (err.status === 403) return { error: "Only shop (retailer) accounts can create painters." };
+      return { error: err.message };
+    }
+    return { error: "Could not create the painter account. Please try again." };
+  }
+}
+
+/** Role-scoped network report (tree + totals). NULL on any failure — an outage
+ *  must never render as "your network is empty". */
+export async function getNetworkReport(): Promise<NetworkReport | null> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    return await networkApi.report(token);
+  } catch {
+    return null;
   }
 }
 

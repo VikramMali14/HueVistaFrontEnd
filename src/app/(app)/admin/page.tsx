@@ -3,6 +3,7 @@ import Link from "next/link";
 import { adjustSubscriptionAction, decideWalletRedemptionAction, getAuditLog, getShopLeads, getUserSubscriptionAction, getWalletRedemptions, grantSubscriptionAction, requireRole, searchUsersAction, updateShopLeadStatusAction } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { CreateRetailerForm } from "@/components/admin/create-retailer-form";
+import { CreateDistributorForm } from "@/components/admin/create-distributor-form";
 import { ShopLeads } from "@/components/admin/shop-leads";
 import { SubscriptionManager } from "@/components/admin/subscription-manager";
 import { UserSearch } from "@/components/admin/user-search";
@@ -39,6 +40,9 @@ export default async function AdminPage() {
         the email and initial password you set, then can change it from their account.
       </Lead>
       <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
+        <Link href="/network" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          Network &amp; reports →
+        </Link>
         <Link href="/admin/shades" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Upload company shades →
         </Link>
@@ -50,6 +54,18 @@ export default async function AdminPage() {
         </Link>
       </p>
       <CreateRetailerForm />
+
+      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+        <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
+          Create a distributor
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch", marginBottom: 24 }}>
+          Distributors sit above shops in the network. Once created, a distributor provisions their
+          own shop accounts &mdash; each one links to them automatically &mdash; and every shop&rsquo;s
+          painters and customer activity roll up into your network report.
+        </p>
+        <CreateDistributorForm />
+      </section>
 
       <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
         <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>

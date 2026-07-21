@@ -269,6 +269,24 @@ export const adminApi = {
       accessToken,
       body: JSON.stringify(body),
     }),
+  // Provision a DISTRIBUTOR account + org. Distributors then create their own shops.
+  createDistributor: (
+    accessToken: string,
+    body: {
+      name: string;
+      email: string;
+      password: string;
+      companyName: string;
+      city?: string;
+      state?: string;
+      phone?: string;
+    },
+  ) =>
+    serverFetch<{ id: string; name: string; email: string; role: string }>("/api/admin/distributors", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify(body),
+    }),
   // Companies for the shade-upload dropdown.
   listUploadBrands: (accessToken: string) =>
     serverFetch<UploadBrand[]>("/api/admin/paint/brands", { accessToken }),
@@ -346,6 +364,45 @@ export const adminApi = {
       `/api/admin/users/${encodeURIComponent(userId)}/subscription`,
       { method: "PATCH", accessToken, body: JSON.stringify(body) },
     ),
+};
+
+/**
+ * Hierarchy / network API — the admin → distributor → retailer → painter chain.
+ * Server actions only; the backend scopes every call to the caller's role.
+ */
+export const networkApi = {
+  // Role-scoped downline report (tree + totals).
+  report: (accessToken: string) =>
+    serverFetch<import("./types").NetworkReport>("/api/hierarchy/network", { accessToken }),
+  // DISTRIBUTOR (or ADMIN): create a shop; a distributor's shop is auto-linked to them.
+  createRetailer: (
+    accessToken: string,
+    body: {
+      name: string;
+      email: string;
+      password: string;
+      shopName: string;
+      city?: string;
+      state?: string;
+      phone?: string;
+      tier?: string;
+    },
+  ) =>
+    serverFetch<{ id: string; name: string; email: string; role: string }>("/api/hierarchy/retailers", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify(body),
+    }),
+  // RETAILER: create a painter already linked (ACTIVE) to the caller's shop.
+  createPainter: (
+    accessToken: string,
+    body: { name: string; email: string; password: string; phone?: string },
+  ) =>
+    serverFetch<{ id: string; name: string; email: string; role: string }>("/api/hierarchy/painters", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify(body),
+    }),
 };
 
 /** A user as the admin console sees them (backend AdminUserResponse). */

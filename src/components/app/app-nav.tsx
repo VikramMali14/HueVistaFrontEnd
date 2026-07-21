@@ -12,6 +12,7 @@ const TABS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/atelier", label: "Studio" },
   { href: "/color-finder", label: "Colour finder" },
+  { href: "/network", label: "Network" },
   { href: "/portal", label: "Customer portal" },
   { href: "/products", label: "Products" },
   { href: "/subscription", label: "Plan" },
@@ -33,12 +34,16 @@ export function AppNav({ user }: AppNavProps) {
   const studioMode = pathname.startsWith("/atelier");
   const [revealed, setRevealed] = useState(false);
   const visibleTabs = TABS.filter((t) => {
+    // Hierarchy console — admins, distributors and retailers manage their downline here.
+    if (t.href === "/network" && (!user || (user.role !== "ADMIN" && user.role !== "DISTRIBUTOR" && user.role !== "RETAILER"))) return false;
     if (t.href === "/portal" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     if (t.href === "/products" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
-    // Subscriber-only retailer tool — a customer clicking it would only be bounced.
-    if (t.href === "/color-finder" && user && user.role === "CUSTOMER") return false;
-    // Plans are shop products — a customer's subscription page only redirects them.
-    if (t.href === "/subscription" && user && user.role === "CUSTOMER") return false;
+    // Subscriber-only retailer tools — a customer or distributor clicking them
+    // would only be bounced (neither holds a shop subscription).
+    if (t.href === "/color-finder" && user && (user.role === "CUSTOMER" || user.role === "DISTRIBUTOR")) return false;
+    if (t.href === "/atelier" && user && user.role === "DISTRIBUTOR") return false;
+    // Plans are shop products — customer/distributor subscription pages only redirect them.
+    if (t.href === "/subscription" && user && (user.role === "CUSTOMER" || user.role === "DISTRIBUTOR")) return false;
     if (t.href === "/inbox" && (!user || user.role !== "ADMIN")) return false;
     if (t.href === "/admin" && (!user || user.role !== "ADMIN")) return false;
     return true;

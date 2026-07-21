@@ -75,15 +75,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <header style={{ marginBottom: 32 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
           <Eyebrow>Dashboard</Eyebrow>
-          <Mono>{user?.role === "ADMIN" ? "Administrator" : user?.role === "RETAILER" ? "Retailer account" : unavailable ? "" : "Your account"}</Mono>
+          <Mono>{user?.role === "ADMIN" ? "Administrator" : user?.role === "DISTRIBUTOR" ? "Distributor account" : user?.role === "RETAILER" ? "Retailer account" : user?.role === "PAINTER" ? "Painter account" : unavailable ? "" : "Your account"}</Mono>
         </div>
         <h1 className="display" style={{ fontSize: "clamp(36px, 4.5vw, 56px)" }}>{greeting}{user?.name ? <><br />{user.name.split(" ")[0]}</> : unavailable ? null : <><br />Friend</>}.</h1>
         <Lead style={{ marginTop: 24 }}>Pick up a saved project, or start a new one.</Lead>
-        {/* Role-specific CTA: with the profile unavailable the role is UNKNOWN,
-            so don't pitch the customer redeem flow at retailers/admins. */}
-        {!unavailable && user?.role !== "RETAILER" && user?.role !== "ADMIN" && (
+        {/* Role-specific CTA: the customer redeem flow is only for walk-in
+            customers. Retailers/admins run shops; distributors and painters
+            manage their own downline/jobs — none of them redeem shop codes. */}
+        {!unavailable && user?.role === "CUSTOMER" && (
           <div style={{ marginTop: 16 }}>
             <LinkButton href="/redeem" variant="ghost" size="sm">Have a shop access code? Redeem it <span className="arr">→</span></LinkButton>
+          </div>
+        )}
+        {/* Distributors and retailers get a direct line to their network console. */}
+        {!unavailable && (user?.role === "DISTRIBUTOR" || user?.role === "RETAILER") && (
+          <div style={{ marginTop: 16 }}>
+            <LinkButton href="/network" variant="ghost" size="sm">
+              {user?.role === "DISTRIBUTOR" ? "Manage your shops & reports" : "Manage your painters & reports"} <span className="arr">→</span>
+            </LinkButton>
           </div>
         )}
       </header>

@@ -14,6 +14,35 @@ export interface AuthUser {
   phoneVerified?: boolean;
 }
 
+/**
+ * One account in the network tree (backend NetworkNodeResponse). Children carry
+ * the downline: distributor → retailers → painters. Counts are subtree rollups.
+ */
+export interface NetworkNode {
+  userId: string | null;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  role: UserRole;
+  joinedAt?: string | null;
+  orgId?: string | null;
+  orgName?: string | null;
+  city?: string | null;
+  state?: string | null;
+  retailerCount: number;
+  painterCount: number;
+  codesIssued: number;
+  codesRedeemed: number;
+  children: NetworkNode[];
+}
+
+/** Role-scoped network report (backend NetworkReportResponse). */
+export interface NetworkReport {
+  viewerRole: UserRole;
+  totals: Record<string, number>;
+  roots: NetworkNode[];
+}
+
 /** Returned after a verification code is sent. */
 export interface VerificationStatus {
   channel: "EMAIL" | "PHONE";
