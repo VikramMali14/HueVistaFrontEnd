@@ -738,6 +738,27 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  updateShopProduct: (
+    orgId: string,
+    productId: string,
+    body: {
+      lineId: number;
+      price?: number;
+      priceUnit?: string;
+      packSize?: string;
+      coverage?: string;
+      finish?: string;
+      qualityTier?: QualityTier;
+      brightness?: number;
+      imageUrl?: string;
+      features?: string;
+      description?: string;
+    },
+  ) =>
+    browserFetch<ShopProduct>(`api/organizations/${encodeURIComponent(orgId)}/products/${encodeURIComponent(productId)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
   deleteShopProduct: (orgId: string, productId: string) =>
     browserFetch<void>(`api/organizations/${encodeURIComponent(orgId)}/products/${encodeURIComponent(productId)}`, {
       method: "DELETE",

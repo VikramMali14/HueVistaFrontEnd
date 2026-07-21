@@ -379,6 +379,33 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
       store.products.unshift(product);
       return json(product);
     }
+    if (seg[3] === "products" && seg.length === 5 && method === "PUT") {
+      const body = await readJson(req);
+      const idx = store.products.findIndex((p) => p.id === seg[4]);
+      const current = store.products[idx];
+      if (idx === -1 || !current) return json({ message: "Product not found." }, 404);
+      const line = Object.values(store.lines).flat().find((l) => l.id === Number(body.lineId));
+      const brand = store.brands.find((b) => store.lines[`${b.id}:INTERIOR`]?.some((l) => l.id === Number(body.lineId)) || store.lines[`${b.id}:EXTERIOR`]?.some((l) => l.id === Number(body.lineId)));
+      const updated: ShopProduct = {
+        ...current,
+        lineId: Number(body.lineId),
+        brandName: brand?.name ?? current.brandName ?? null,
+        lineName: line?.name ?? current.lineName ?? null,
+        category: line?.category ?? current.category ?? null,
+        price: body.price != null ? Number(body.price) : null,
+        priceUnit: (body.priceUnit as string) ?? null,
+        packSize: (body.packSize as string) ?? null,
+        coverage: (body.coverage as string) ?? null,
+        finish: (body.finish as string) ?? null,
+        qualityTier: (body.qualityTier as QualityTier) ?? null,
+        brightness: body.brightness != null ? Number(body.brightness) : null,
+        imageUrl: (body.imageUrl as string) ?? null,
+        features: (body.features as string) ?? null,
+        description: (body.description as string) ?? null,
+      };
+      store.products[idx] = updated;
+      return json(updated);
+    }
     if (seg[3] === "products" && seg.length === 5 && method === "DELETE") {
       store.products = store.products.filter((p) => p.id !== seg[4]);
       return json(undefined);
