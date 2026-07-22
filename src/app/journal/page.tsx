@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export default function JournalPage() {
   return (
     <>
-      <Marquee items={["The Journal · Letters from the studio", "Monthly · Belgavi", "On colour, on craft, on the counter"]} />
+      <Marquee items={["The Journal · Letters from the studio", "Monthly · India", "On colour, on craft, on the counter"]} />
       <SiteHeader />
       <main>
         <RevealMount />
@@ -37,7 +37,7 @@ export default function JournalPage() {
                 The colour of an <i>Indian afternoon.</i>
               </h2>
               <p style={{ font: "300 18px/1.55 var(--sans)", color: "var(--fg-soft)" }}>
-                Why western light reads warmer in Belgavi than in Bengaluru — and what that means for the shade card you place on the counter. A meditation on geography, glazing, and the eye that has grown up watching either.
+                Why western light reads warmer in a small town than in a metro like Bengaluru — and what that means for the shade card you place on the counter. A meditation on geography, glazing, and the eye that has grown up watching either.
               </p>
               <div style={{ marginTop: 32, display: "flex", alignItems: "center", gap: 16 }}>
                 <div style={{ width: 48, height: 48, borderRadius: "50%", background: "linear-gradient(135deg, var(--brass), var(--brass-deep))", border: "1px solid var(--rule-strong)", display: "flex", alignItems: "center", justifyContent: "center" }}>

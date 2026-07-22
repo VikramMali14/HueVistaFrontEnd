@@ -73,7 +73,7 @@ export default function MethodPage() {
         <header className="page-head">
           <div className="eyebrow-row">
             <Eyebrow>How it works</Eyebrow>
-            <Mono>Made in Belgavi, India</Mono>
+            <Mono>Made in India</Mono>
           </div>
           <h1 className="display">From a photo,<br /><i>a painted wall.</i></h1>
           <Lead className="page-lead">A photograph leaves the customer's hand. Seconds later, the same photograph returns — its walls in any of two thousand catalogued shades, every shadow exactly where it was.</Lead>

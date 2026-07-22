@@ -30,7 +30,7 @@ export function Footer() {
           </Link>
           <p className="body" style={{ fontSize: 14, maxWidth: "34ch", marginTop: 12, color: "var(--fg-mute)" }}>
             Preview any paint colour on real walls before the can opens.
-            Built in Abu Road, Rajasthan for paint shops and their customers.
+            Built in India for paint shops and their customers.
           </p>
           <address style={{ fontStyle: "normal", fontSize: 12.5, lineHeight: 1.6, marginTop: 18, color: "var(--fg-mute)", maxWidth: "34ch" }}>
             <div style={{ fontWeight: 600, color: "var(--fg-soft)" }}>Sundha Mata Paint House</div>
