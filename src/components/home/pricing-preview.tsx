@@ -44,7 +44,7 @@ export function PricingPreview() {
           </div>
         ))}
       </div>
-      <Mono style={{ display: "block", marginTop: 24 }}>Prices + 18% GST · every new shop starts with a 14-day trial · no card · we set you up</Mono>
+      <Mono style={{ display: "block", marginTop: 24 }}>Every new shop starts with a 14-day trial · no card · we set you up</Mono>
     </section>
   );
 }

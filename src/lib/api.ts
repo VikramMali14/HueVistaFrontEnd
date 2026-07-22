@@ -676,7 +676,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
   // --- Pay-per-image overage (retailer buys one extra image after the monthly quota) ---
-  // One-time purchase at Rs. 50 + 18% GST: order -> Checkout -> verify. Verify returns
+  // One-time purchase at Rs. 50: order -> Checkout -> verify. Verify returns
   // the refreshed subscription with the credited image included in the remaining count.
   createImageCreditOrder: () =>
     browserFetch<ProjectCreditOrder>("api/billing/image-credits/order", { method: "POST" }),
@@ -698,7 +698,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  // Atomic wallet debits: ₹59 buys one extra image, ₹29.50 one extra AI auto-mask.
+  // Atomic wallet debits: ₹50 buys one extra image, ₹25 one extra AI auto-mask.
   // Both 402 with a clear message when the balance is short.
   walletPayImageCredit: () =>
     browserFetch<import("./types").SubscriptionSummary>("api/billing/wallet/pay/image-credit", {

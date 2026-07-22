@@ -505,9 +505,9 @@ export interface SubscriptionSummary {
   autoMasksUsed?: number;
   autoMasksLimit?: number;
   autoMasksRemaining?: number;
-  /** Unused pay-per-image overage credits (₹50 + GST each); never expire. */
+  /** Unused pay-per-image overage credits (₹50 each); never expire. */
   purchasedImageCredits?: number;
-  /** Unused pay-per-use AI auto-mask credits (₹25 + GST each, wallet-paid). */
+  /** Unused pay-per-use AI auto-mask credits (₹25 each, wallet-paid). */
   purchasedAutoMaskCredits?: number;
   pdfDownloadsUsed?: number;
   pdfDownloadsLimit?: number;
@@ -526,7 +526,7 @@ export interface SubscriptionSummary {
 export type PurchasablePlan = "STARTER" | "PROFESSIONAL" | "BUSINESS";
 
 /** One plan option from GET /api/billing/plans (pricing + quota limits).
- *  Prices are BASE prices; 18% GST is added on top (priceWithTax*). */
+ *  Prices are BASE prices; GST (currently 0%) is added on top (priceWithTax*). */
 export interface PlanOption {
   plan: "STARTER" | "PROFESSIONAL" | "BUSINESS" | "ENTERPRISE";
   displayName: string;
@@ -543,10 +543,10 @@ export interface PlanOption {
   monthlyAutoMaskLimit: number | "unlimited";
   pdfImageLimit: number;
   monthlyPdfLimit: number | "unlimited";
-  /** One extra image once the monthly quota is spent: ₹50 base / ₹59 with GST. */
+  /** One extra image once the monthly quota is spent: ₹50 (GST currently 0%). */
   imageOveragePriceInPaise: number;
   imageOveragePriceWithTaxInPaise: number;
-  /** One extra AI auto-mask run: ₹25 base / ₹29.50 with GST (wallet-paid). */
+  /** One extra AI auto-mask run: ₹25 (GST currently 0%, wallet-paid). */
   autoMaskOveragePriceInPaise: number;
   autoMaskOveragePriceWithTaxInPaise: number;
 }

@@ -237,7 +237,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [needVerification, setNeedVerification] = useState(false);
   const [needSubscription, setNeedSubscription] = useState(false);
   // Retailer image-quota gate (402 IMAGE_LIMIT_REACHED): monthly images spent —
-  // offer the ₹50 + GST buy-one-extra-image checkout right in the overlay.
+  // offer the ₹50 buy-one-extra-image checkout right in the overlay.
   const [imageLimitReached, setImageLimitReached] = useState(false);
   // Auto-mask gate (402 AUTO_MASK_UNAVAILABLE): plan has no AI wall-detection
   // credit for this run — steer to manual masking (free) or an upgrade.
@@ -525,7 +525,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       .then((s) => {
         if (s?.status === "ACTIVE") {
           setQuota({
-            // Purchased ₹50 + GST overage credits extend the image allowance.
+            // Purchased ₹50 overage credits extend the image allowance.
             used: s.aiGenerationsUsed,
             limit:
               s.aiGenerationsLimit >= 2147483647
@@ -906,7 +906,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
   }, [pendingImageId, pendingFile, createAndSegment, chooseDifferent]);
 
-  // Retailer pay-per-image overage: buy ONE extra image (₹50 + 18% GST) and
+  // Retailer pay-per-image overage: buy ONE extra image (₹50) and
   // immediately re-run the blocked segmentation — on the already-created
   // project when there is one, else from the pending upload.
   const handleBuyImageAndRetry = useCallback(async () => {
@@ -943,7 +943,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
   }, [projectId, pendingImageId, createAndSegment, handleRetrySegmentation]);
 
-  // Wallet-paid extra AI auto-mask (₹25 + GST): credit it, then force an AUTO
+  // Wallet-paid extra AI auto-mask (₹25): credit it, then force an AUTO
   // retry — the stale quota state would otherwise steer the retry to MANUAL.
   const handleWalletAutoMaskAndRetry = useCallback(async () => {
     setError(null);
@@ -2049,12 +2049,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                           </>
                         ) : (
                           <>
-                            Pay ₹59 from wallet <span className="arr">→</span>
+                            Pay ₹50 from wallet <span className="arr">→</span>
                           </>
                         )}
                       </Button>
                       <Button onClick={() => void handleBuyImageAndRetry()} disabled={buyingImage}>
-                        or pay ₹59 by UPI / card <span className="arr">→</span>
+                        or pay ₹50 by UPI / card <span className="arr">→</span>
                       </Button>
                       <a
                         href="/subscription"
@@ -2074,7 +2074,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                           </>
                         ) : (
                           <>
-                            Pay ₹29.50 from wallet & detect walls <span className="arr">→</span>
+                            Pay ₹25 from wallet & detect walls <span className="arr">→</span>
                           </>
                         )}
                       </Button>

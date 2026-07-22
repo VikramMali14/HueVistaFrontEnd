@@ -20,16 +20,7 @@ const UNLIMITED_FLOOR = 2_000_000_000;
 // a downgrade needs a cancel first. Must match the backend Plan enum order.
 const PLAN_RANK: Record<string, number> = { STARTER: 0, PROFESSIONAL: 1, BUSINESS: 2, ENTERPRISE: 3 };
 
-const GST_PERCENT = 18;
-
-/** Base ₹ -> GST-inclusive ₹ string ("1,178.82"; trailing .00 trimmed). */
-const inrWithGst = (base: number) =>
-  ((base * (100 + GST_PERCENT)) / 100).toLocaleString("en-IN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
-
-/** Paise -> "₹59" / "₹29.50" (trailing .00 trimmed). */
+/** Paise -> "₹50" / "₹25" (trailing .00 trimmed). */
 const paise = (p: number) =>
   "₹" + (p / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
@@ -202,7 +193,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
     }
   }
 
-  // Pay-per-image overage: one extra image at ₹50 + GST once the quota is spent.
+  // Pay-per-image overage: one extra image at ₹50 once the quota is spent.
   async function buyImage() {
     setError(null);
     setNotice(null);
@@ -434,7 +425,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                   disabled={buyingImage || walletPaying !== null}
                   style={{ ...buttonStyle, borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }}
                 >
-                  {buyingImage ? "Opening payment…" : "Buy 1 extra image — ₹59 (₹50 + GST)"}
+                  {buyingImage ? "Opening payment…" : "Buy 1 extra image — ₹50"}
                 </button>
                 <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
                   Out of allowance mid-cycle? Extras never expire.
@@ -486,8 +477,8 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
               {wallet ? paise(wallet.balancePaise) : "—"}
             </span>
             <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-              Prepaid balance for pay-per-use: extra image {wallet ? paise(wallet.imageCreditPricePaise) : "₹59"},
-              extra AI auto-mask {wallet ? paise(wallet.autoMaskCreditPricePaise) : "₹29.50"} (both incl. 18% GST).
+              Prepaid balance for pay-per-use: extra image {wallet ? paise(wallet.imageCreditPricePaise) : "₹50"},
+              extra AI auto-mask {wallet ? paise(wallet.autoMaskCreditPricePaise) : "₹25"}.
             </span>
           </div>
 
@@ -572,7 +563,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
           {ended || !sub ? "Choose a plan" : "Upgrade or change plan"}
         </h2>
         <p style={{ font: "300 16px/1.6 var(--serif)", color: "var(--fg-soft)", margin: "0 0 18px", maxWidth: "62ch" }}>
-          Billed monthly through Razorpay (+18% GST), cancel anytime.
+          Billed monthly through Razorpay, cancel anytime.
           {activePaid
             ? " Upgrades apply instantly — pay for the bigger plan and it starts right away with its full quota, while your old plan is cancelled automatically (no double billing). To downgrade, cancel first: your plan stays active till the period ends, then pick the smaller tier."
             : ""}
@@ -593,9 +584,6 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                   </h3>
                   <span style={{ font: "400 15px/1 var(--mono)", color: "var(--fg-soft)" }}>
                     ₹{p.priceInRupees.toLocaleString("en-IN")}/mo
-                  </span>
-                  <span style={{ font: "400 11px/1 var(--mono)", color: "var(--fg-mute)" }}>
-                    +18% GST · ₹{inrWithGst(p.priceInRupees)} all-in
                   </span>
                 </div>
                 <ul style={{ margin: 0, paddingLeft: 18, font: "400 14px/1.7 var(--sans)", color: "var(--fg-soft)" }}>

@@ -25,7 +25,7 @@ const MATRIX: ReadonlyArray<Section> = [
       ["Images / month (AI photo clean-up on every one)", "20", "60", "120", "Unlimited"],
       ["AI auto-masks / month (instant wall detection)", "5", "40", "90", "Unlimited"],
       ["Manual wall masking (click-to-segment)", "Unlimited", "Unlimited", "Unlimited", "Unlimited"],
-      ["Extra image / extra auto-mask (wallet or UPI)", "₹59 / ₹29.50", "₹59 / ₹29.50", "₹59 / ₹29.50", "—"],
+      ["Extra image / extra auto-mask (wallet or UPI)", "₹50 / ₹25", "₹50 / ₹25", "₹50 / ₹25", "—"],
       ["Prepaid wallet for pay-per-use", "●", "●", "●", "●"],
       ["Colour-board PDFs / month", "25 (4 img)", "100 (8 img)", "300 (12 img)", "Unlimited (16 img)"],
       ["Recolour speed", "60 fps", "60 fps", "60 fps", "60 fps"],
@@ -100,7 +100,7 @@ export default async function PricingPage() {
         </header>
 
         <div className="reveal" style={{ borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", padding: "22px 0", marginTop: 64, display: "flex", flexWrap: "wrap", gap: "12px 36px", justifyContent: "center", font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
-          <span>GST invoice on request</span>
+          <span>Payment receipt for every order</span>
           <span aria-hidden>·</span>
           <span>UPI · cards · netbanking</span>
           <span aria-hidden>·</span>
@@ -128,11 +128,11 @@ export default async function PricingPage() {
                 <thead className="hv-matrix-head">
                   <tr>
                     <th style={{ ...headStyle, width: "34%" }}>Capability</th>
-                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹999 / mo + GST</div></th>
+                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹999 / mo</div></th>
                     {/* Literal metallic on the always-dark band. Opaque composite
                         so the tint survives sticky overlap. */}
-                    <th style={{ ...headStyle, color: "var(--accent-soft)", background: "linear-gradient(rgba(124,92,255,.08), rgba(124,92,255,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "var(--accent-soft)" }}>₹2,499 / mo + GST</div></th>
-                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Business<div style={thPriceStyle}>₹4,999 / mo + GST</div></th>
+                    <th style={{ ...headStyle, color: "var(--accent-soft)", background: "linear-gradient(rgba(124,92,255,.08), rgba(124,92,255,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "var(--accent-soft)" }}>₹2,499 / mo</div></th>
+                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Business<div style={thPriceStyle}>₹4,999 / mo</div></th>
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Enterprise<div style={thPriceStyle}>On request</div></th>
                   </tr>
                 </thead>
@@ -196,7 +196,7 @@ export default async function PricingPage() {
               <Link href="/redeem" className="btn btn-ghost">Have a shop code? <span className="arr">→</span></Link>
             </div>
             <div style={{ marginTop: 24, font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
-              GST invoice on request · UPI accepted · cancel anytime
+              Payment receipt for every order · UPI accepted · cancel anytime
             </div>
           </div>
         </section>

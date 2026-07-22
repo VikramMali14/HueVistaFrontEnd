@@ -26,8 +26,10 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [panelVisible, setPanelVisible] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const openRef = useRef(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const wrapRef = useRef<HTMLElement | null>(null);
   const tlRef = useRef<gsap.core.Timeline | null>(null);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
@@ -70,6 +72,49 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Scroll behaviour: the bar stays put through the FIRST section (the hero /
+  // page-head), then hides on scroll-down and reveals on scroll-up once past it.
+  // "First section" = the first child of <main>, measured live (falls back to one
+  // viewport). Re-showing on any upward scroll makes it "come down" again.
+  useEffect(() => {
+    setHidden(false); // never start a new page tucked away
+    let firstSectionH = window.innerHeight;
+    const measure = () => {
+      const first = document.querySelector("main")?.firstElementChild as HTMLElement | null;
+      firstSectionH = first && first.offsetHeight > 120 ? first.offsetHeight : window.innerHeight;
+    };
+    measure();
+
+    let lastY = window.scrollY;
+    let ticking = false;
+    const evaluate = () => {
+      ticking = false;
+      const y = window.scrollY;
+      const delta = y - lastY;
+      // Menu open, or still within the first section → always visible.
+      if (openRef.current || y < firstSectionH - 72) {
+        setHidden(false);
+      } else if (delta > 4) {
+        setHidden(true);          // scrolling down past the first section → tuck up
+      } else if (delta < -4) {
+        setHidden(false);         // scrolling up → bring it back down
+      }
+      lastY = y;
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        window.requestAnimationFrame(evaluate);
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", measure);
+    };
+  }, [pathname]);
+
   const mobileLinks = authed
     ? [
         { href: "/dashboard", label: "Dashboard" },
@@ -84,7 +129,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
       ];
 
   return (
-    <header className="cnav-wrap">
+    <header ref={wrapRef} className={`cnav-wrap${hidden ? " is-hidden" : ""}`}>
       <nav className={`cnav${panelVisible ? " is-open" : ""}`} aria-label="Primary">
         <div className="cnav-bar">
           {/* Logo */}

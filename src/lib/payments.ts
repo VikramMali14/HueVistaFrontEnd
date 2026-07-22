@@ -190,8 +190,8 @@ export async function topUpWallet(
 }
 
 /**
- * Pay-per-image overage: full one-time purchase of ONE extra image (₹50 + 18%
- * GST = ₹59) once the monthly image quota is spent:
+ * Pay-per-image overage: full one-time purchase of ONE extra image (₹50)
+ * once the monthly image quota is spent:
  *   create order -> open Razorpay Checkout -> verify on the server -> credit applied.
  * Resolves `true` when the image credit was added (the verify response also
  * refreshes the caller's subscription), `false` if the user dismisses the modal,
@@ -209,7 +209,7 @@ export async function buyExtraImage(prefill?: { name?: string; email?: string })
       currency: order.currency,
       order_id: order.orderId,
       name: "HueVista",
-      description: "One extra image (₹50 + 18% GST)",
+      description: "One extra image (₹50)",
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
       theme: { color: "#7c5cff" },
       handler: async (resp: CheckoutSuccess) => {

@@ -46,7 +46,6 @@ export default async function PortalPage() {
         <Lead style={{ marginTop: 24 }}>Issue temporary access codes for your customers. They visualise colours on your subdomain — without seeing shade codes. When they're ready, they "Send to retailer" and you receive the full project.</Lead>
       </header>
       <SectionNav
-        style={{ marginBottom: 48 }}
         items={[
           { id: "active-codes", label: "Active codes", hint: "Issue customer access codes" },
           { id: "suggested-combos", label: "Suggested combos", hint: "Predefine shade combinations" },
