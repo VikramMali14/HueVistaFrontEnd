@@ -191,6 +191,14 @@ export const authApi = {
 export const orgApi = {
   mine: (accessToken: string) =>
     serverFetch<OrgResponse[]>("/api/organizations/mine", { accessToken }),
+  // The shop's saved shade-code scheme, for SERVER components (e.g. deciding
+  // whether to show the dashboard code checker). Browser equivalent:
+  // `api.getShadeCodeScheme(orgId)` via the BFF.
+  shadeCodeScheme: (accessToken: string, orgId: string) =>
+    serverFetch<import("./shade-codes").ShadeCodeScheme>(
+      `/api/organizations/${encodeURIComponent(orgId)}/shade-code-scheme`,
+      { accessToken },
+    ),
 };
 
 /**
