@@ -679,7 +679,6 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   .app-tabs.is-closed { display: none; }
   .app-nav-meta { gap: 8px; }
   .app-nav-meta > span:first-child { display: none; }
-  .masthead-strip { display: none; }   /* single decorative child → hide the whole strip, not an empty bar */
 }
 
 /* ----- Mobile drawer scrim ----- */

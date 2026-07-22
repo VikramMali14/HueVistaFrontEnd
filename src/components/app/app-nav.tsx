@@ -104,13 +104,6 @@ export function AppNav({ user }: AppNavProps) {
         </>
       )}
       <div className="app-header-slide">
-      <div className="masthead-strip">
-        <span>
-          <span className="dot" />
-          &nbsp;&nbsp;Hue Vista · Belgavi · India&nbsp;&nbsp;
-          <span className="dot" />
-        </span>
-      </div>
       <div className={`app-nav-inner${wideNav ? " nav-wide" : ""}`}>
         <Link href="/dashboard" className="brand-logo" aria-label="HueVista — dashboard">
           <Logo size="sm" inverted ariaLabel={null} />
@@ -192,8 +185,6 @@ export function AppNav({ user }: AppNavProps) {
       )}
       </div>
       <style>{`
-        .masthead-strip { background: var(--bg-deep); color: var(--fg-soft); border-bottom: 1px solid var(--rule); padding: 10px var(--gutter); font: 400 10px/1 var(--mono); letter-spacing: .32em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; }
-        .masthead-strip .dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
         /* Floating glassy bar — same surface language as the public card-nav
            (var(--nav-bg) + blur, rounded, --rule-strong border, glass shadow),
            just wider to hold the app tabs. Keeps the navbar in sync everywhere. */
