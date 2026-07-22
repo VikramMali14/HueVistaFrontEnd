@@ -9,9 +9,8 @@ import { UndertoneTag } from "./undertone-tag";
 import { CompareTray, CompareOverlay, COMPARE_MAX } from "./compare-shades";
 import { FanDeck } from "./fan-deck";
 import { FullscreenSwatch } from "./fullscreen-swatch";
-import { BoardsPanel, HeartButton, useBoards } from "./favourites";
 
-const PAGE_SIZE = 96;
+const PAGE_SIZE = 60;
 
 const ALL_BRANDS = "All brands";
 const ALL_FAMILIES = "All families";
@@ -103,13 +102,11 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [openId, setOpenId] = useState<string | null>(null);
   const { copied, copy: copyCode } = useCopied();
-  // Counter tools: comparison queue, fan-deck strip, hold-to-wall, boards.
+  // Counter tools: comparison queue, fan-deck strip, hold-to-wall.
   const [compareCodes, setCompareCodes] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
   const [fanShade, setFanShade] = useState<PaintShade | null>(null);
   const [wallShade, setWallShade] = useState<PaintShade | null>(null);
-  const [savedToast, setSavedToast] = useState<string | null>(null);
-  const { boards, refresh } = useBoards();
 
   // Companies actually present in the catalogue drive the dropdown; well-known
   // brands with no shades yet stay listed but disabled ("· soon").
@@ -155,11 +152,6 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
     });
   };
 
-  const showSavedToast = (boardName: string) => {
-    setSavedToast(`Saved to ${boardName}`);
-    setTimeout(() => setSavedToast(null), 1800);
-  };
-
   // Deferred so typing stays responsive while a 10k-shade list re-filters.
   const deferredQuery = useDeferredValue(query);
 
@@ -199,6 +191,25 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   };
 
   const shown = sorted.slice(0, visible);
+  const hasMore = visible < sorted.length;
+
+  // Infinite scroll: a sentinel just below the grid loads the next page as it
+  // scrolls into view, so shades keep coming as you scroll rather than needing
+  // a button. rootMargin pre-loads a screen early to avoid a visible stall.
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !hasMore) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setVisible((v) => v + PAGE_SIZE);
+      },
+      { rootMargin: "600px 0px" },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [hasMore, sorted.length]);
+
   const emptyCause =
     family !== ALL_FAMILIES ? family
     : finish !== "All" ? finish
@@ -283,14 +294,12 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
                     <Mono>{copied === s.code ? `${s.code} · copied` : s.code}</Mono>
                   </div>
                 </button>
-                {/* Tool row: heart · compare · strip (the strip's footer holds
-                    "Hold to wall", so it needs no button of its own — three
-                    targets stay comfortable even on a two-column phone grid). */}
+                {/* Tool row: compare · strip (the strip's footer holds
+                    "Hold to wall", so it needs no button of its own). */}
                 <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, rowGap: 8, flexWrap: "wrap" }}>
                   <UndertoneTag hex={s.hex} />
                   <span style={{ flex: 1 }} />
                   <span style={{ display: "inline-flex", gap: 6 }}>
-                    <HeartButton shade={s} boards={boards} refresh={refresh} onSaved={showSavedToast} />
                     <button
                       type="button"
                       className="hv-card-action"
@@ -319,11 +328,9 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
         </div>
       </div>
 
-      {visible < sorted.length && (
-        <div style={{ marginTop: 80, textAlign: "center" }}>
-          <button type="button" onClick={() => setVisible((v) => v + PAGE_SIZE)} className="btn btn-ghost">
-            Load the next {Math.min(PAGE_SIZE, sorted.length - visible)} <span className="arr">→</span>
-          </button>
+      {hasMore && (
+        <div ref={sentinelRef} aria-hidden style={{ marginTop: 80, textAlign: "center" }}>
+          <Mono>Loading more shades…</Mono>
         </div>
       )}
       {sorted.length === 0 && (
@@ -332,19 +339,6 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
           <button type="button" className="btn btn-ghost" onClick={clearAll}>Clear all filters</button>
         </div>
       )}
-
-      {/* ── Boards (saved shades) ── */}
-      <section id="boards" style={{ paddingTop: 96, paddingBottom: 0 }}>
-        <Mono brass>Your boards</Mono>
-        <h2 className="display" style={{ fontSize: "clamp(28px, 3.5vw, 44px)", margin: "12px 0 8px" }}>
-          Saved shades
-        </h2>
-        <p style={{ font: "400 16px/1.55 var(--serif)", color: "var(--fg-soft)", margin: "0 0 28px", maxWidth: "56ch" }}>
-          Tap ♡ on any shade to collect it. Boards stay on this device — share one as a single
-          image on WhatsApp and decide together at home.
-        </p>
-        <BoardsPanel boards={boards} refresh={refresh} catalogue={shades} />
-      </section>
 
       <CompareTray
         shades={compareShades}
@@ -374,14 +368,6 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
         />
       )}
       {wallShade && <FullscreenSwatch shades={[wallShade]} onClose={() => setWallShade(null)} />}
-      {savedToast && (
-        <div
-          role="status"
-          style={{ position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: "calc(78px + env(safe-area-inset-bottom))", zIndex: 121, padding: "10px 16px", borderRadius: 999, background: "var(--nav-bg-strong)", border: "1px solid var(--rule-strong)", font: "400 11px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-soft)" }}
-        >
-          {savedToast} · <a href="#boards" style={{ color: "var(--fg)" }}>view</a>
-        </div>
-      )}
 
       <style>{`
         /* 10k-shade catalogues: skip layout + paint for cards far off-screen. */

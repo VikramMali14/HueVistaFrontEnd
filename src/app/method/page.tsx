@@ -100,8 +100,7 @@ export default function MethodPage() {
               The colour, <i>at the counter.</i>
             </h2>
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-              <Link href="/trial" className="btn btn-brass">Try it free <span className="arr">→</span></Link>
-              <Link href="/gallery" className="btn btn-ghost">See it on real rooms <span className="arr">→</span></Link>
+              <Link href="/gallery" className="btn btn-brass">See it on real rooms <span className="arr">→</span></Link>
             </div>
           </div>
         </section>

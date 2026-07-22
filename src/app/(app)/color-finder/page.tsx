@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { getCatalogueOrSample } from "@/lib/catalogue";
 import { ColorFinder } from "@/components/catalogue/color-finder";
-import { FabricPalette } from "@/components/catalogue/fabric-palette";
 import { requireActiveSubscription } from "@/lib/auth";
 
 export const metadata: Metadata = {
@@ -36,10 +35,6 @@ export default async function ColorFinderPage() {
           Match a colour by code on the catalogue →
         </Link>
       </p>
-
-      <section style={{ marginTop: 72, paddingTop: 56, borderTop: "1px solid var(--rule)", paddingBottom: 0 }}>
-        <FabricPalette shades={shades} />
-      </section>
     </div>
   );
 }

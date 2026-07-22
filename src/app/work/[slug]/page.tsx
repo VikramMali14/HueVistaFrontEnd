@@ -113,8 +113,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
               See your walls<br /><i>before you paint them.</i>
             </h2>
             <div style={{ marginTop: 48, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-              <Link href="/trial" className="btn btn-brass">Try it free <span className="arr">→</span></Link>
-              <Link href="/method" className="btn btn-ghost">How it works <span className="arr">→</span></Link>
+              <Link href="/method" className="btn btn-brass">How it works <span className="arr">→</span></Link>
             </div>
           </div>
         </section>
