@@ -1043,6 +1043,43 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [activeRegion, projectId, updateRegionColorsCall, runSave],
   );
 
+  // "Keep original" — strip any colour from a region so it renders unpainted
+  // (the cleaned surface shows through) instead of forcing one of the three
+  // colours onto every wall. Clears the saved colour on the backend too, so a
+  // reopened project remembers the wall was left bare on purpose.
+  const clearRegionColor = useCallback(
+    (regionId: string) => {
+      let updatedBackendId: number | undefined;
+      let didClear = false;
+      setRegions((prev) =>
+        prev.map((r) => {
+          if (r.id !== regionId) return r;
+          updatedBackendId = r.backendId;
+          if (r.applied) didClear = true;
+          return { ...r, shade: undefined, applied: false };
+        }),
+      );
+      if (!didClear) return; // nothing painted here — no-op, no needless save
+      setCompare(false);
+      setStage("recolor");
+
+      if (projectId && updatedBackendId !== undefined) {
+        const payload: RegionColorUpdate[] = [
+          { regionId: updatedBackendId, shadeCode: null, hexCode: null },
+        ];
+        runSave(async () => {
+          await updateRegionColorsCall(projectId, payload);
+        });
+      }
+    },
+    [projectId, updateRegionColorsCall, runSave],
+  );
+
+  const onKeepOriginalActive = useCallback(
+    () => clearRegionColor(activeRegion),
+    [clearRegionColor, activeRegion],
+  );
+
   // Re-run every failed save; any that fails again re-queues itself via runSave.
   const retrySave = useCallback(() => {
     const pending = failedSavesRef.current;
@@ -1739,6 +1776,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 })}
               </div>
             )}
+            {/* Screens and real paint never match exactly, and the preview is a
+                lighting-aware approximation — set that expectation on the page
+                itself so a colour is chosen by its shade name/code, not the pixels. */}
+            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
+              <p className="hv-studio-disclaimer" role="note">
+                Colours shown are indicative. The final painted shade may look different on your
+                wall — confirm the exact colour by its shade name and number before buying.
+              </p>
+            )}
             {imageUrl && !pendingFile && !uploading && !segmenting && (
               <div className="hv-pdf-tray" role="group" aria-label="Colour board PDF">
                 <div className="hv-pdf-tray-main">
@@ -2119,11 +2165,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             onApplyExact={onApplyCustom}
             activeShade={active.shade}
             activeRegionLabel={active.label}
+            activeApplied={active.applied}
             shades={shades}
             baseHex={active.applied ? active.hex : undefined}
             activeRegionId={activeRegion}
             regions={regionLites}
             onApplyToRegion={applyShadeTo}
+            onKeepOriginal={onKeepOriginalActive}
             hideCodes={guest}
             encodeCode={encodeCode}
             onSelectRegion={(id) => setActiveRegion(id)}

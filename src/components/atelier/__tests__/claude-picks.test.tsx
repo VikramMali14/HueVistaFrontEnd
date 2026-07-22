@@ -159,6 +159,41 @@ describe("Company filter (AI Suggest tab)", () => {
   });
 });
 
+describe("Keep original (leave a wall unpainted)", () => {
+  it("offers to clear the active region's colour when it is painted", async () => {
+    const user = userEvent.setup();
+    const onKeepOriginal = vi.fn();
+    render(
+      <ShadeGrid
+        onSelect={vi.fn()}
+        shades={SHADES}
+        regions={REGIONS}
+        activeRegionId="main"
+        activeRegionLabel="Main wall"
+        activeApplied
+        onKeepOriginal={onKeepOriginal}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Keep Main wall unpainted/ }));
+    expect(onKeepOriginal).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the control when the active region has no colour to remove", () => {
+    render(
+      <ShadeGrid
+        onSelect={vi.fn()}
+        shades={SHADES}
+        regions={REGIONS}
+        activeRegionId="main"
+        activeRegionLabel="Main wall"
+        activeApplied={false}
+        onKeepOriginal={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /unpainted/ })).not.toBeInTheDocument();
+  });
+});
+
 /** Dispatch a window-level pointer event (the card's drag listeners live on
  *  window); jsdom's MouseEvent lacks pointerId, so it's defined by hand. */
 function firePointer(type: string, opts: { pointerId: number; clientX: number; clientY: number }) {

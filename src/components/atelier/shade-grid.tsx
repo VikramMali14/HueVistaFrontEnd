@@ -54,6 +54,10 @@ interface ShadeGridProps {
   onApplyExact?: (hex: string) => void;
   activeShade?: PaintShade;
   activeRegionLabel?: string;
+  /** Whether the active region currently has a colour on it (drives "Keep original"). */
+  activeApplied?: boolean;
+  /** Remove the colour from the active region so it renders unpainted. */
+  onKeepOriginal?: () => void;
   /** Shades fetched from the backend; falls back to the bundled sample. */
   shades?: ReadonlyArray<PaintShade>;
   // --- Coordinate suggestions ("complete the look") ---
@@ -109,6 +113,8 @@ export function ShadeGrid({
   onApplyExact,
   activeShade,
   activeRegionLabel,
+  activeApplied = false,
+  onKeepOriginal,
   shades,
   baseHex,
   activeRegionId,
@@ -446,6 +452,9 @@ export function ShadeGrid({
             : undefined
         }
         onApply={activeShade ? () => onSelect(activeShade) : undefined}
+        onKeepOriginal={onKeepOriginal}
+        canKeepOriginal={activeApplied}
+        activeRegionLabel={activeRegionLabel}
         hideCodes={hideCodes}
         encodeCode={encodeCode}
         clashNote={clashNote}
@@ -554,6 +563,9 @@ function SelectionDock({
   onSelectShade,
   onFindSimilar,
   onApply,
+  onKeepOriginal,
+  canKeepOriginal = false,
+  activeRegionLabel,
   hideCodes = false,
   encodeCode,
   clashNote,
@@ -568,6 +580,11 @@ function SelectionDock({
   onSelectShade: (shade: PaintShade) => void;
   onFindSimilar?: () => void;
   onApply?: () => void;
+  /** Remove the colour from the active region so it renders unpainted. */
+  onKeepOriginal?: () => void;
+  /** Only offer "Keep original" when the active region actually has a colour. */
+  canKeepOriginal?: boolean;
+  activeRegionLabel?: string;
   hideCodes?: boolean;
   encodeCode?: (code: string) => string;
   clashNote?: string | null;
@@ -763,6 +780,27 @@ function SelectionDock({
           </button>
         </div>
       </div>
+
+      {/* Leave a wall out of the scheme: strip its colour so the original
+          surface shows through, instead of being forced to paint every region. */}
+      {onKeepOriginal && canKeepOriginal && (
+        <button
+          type="button"
+          onClick={onKeepOriginal}
+          className="hv-studio-dock-keep"
+          title={
+            activeRegionLabel
+              ? `Leave ${activeRegionLabel} unpainted — show the original surface`
+              : "Leave this wall unpainted"
+          }
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M5.6 5.6l12.8 12.8" />
+          </svg>
+          Keep {activeRegionLabel ?? "this wall"} unpainted
+        </button>
+      )}
 
       <div className="hv-studio-dock-recent">
         <Mono>Recent</Mono>

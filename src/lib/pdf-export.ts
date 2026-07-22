@@ -297,6 +297,15 @@ function pageChrome(
   if (counter) ops.push(textOp("F1", 10, right - counterW, titleY, counter, MUTE));
   ops.push(hline(PAGE_H - 100, MARGIN, right, RULE_STRONG, 1));
 
+  // Indicative-colour disclaimer, centred just above the footer rule. Screens,
+  // print and real paint never match exactly, so the board is a guide, not a
+  // colour proof — say so on every page.
+  const disclaimer =
+    "Shades shown are indicative — the actual painted colour may vary from what appears here.";
+  ops.push(
+    textOp("F1", 7.5, (PAGE_W - textWidth(disclaimer, 7.5)) / 2, FOOT_RULE_Y + 7, disclaimer, MUTE),
+  );
+
   // Footer.
   ops.push(hline(FOOT_RULE_Y, MARGIN, right, RULE_SOFT));
   ops.push(textOp("F1", 8, MARGIN, FOOT_BASE, "Made with HueVista", MUTE));

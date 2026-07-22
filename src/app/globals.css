@@ -2470,6 +2470,16 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .hv-studio-legend { bottom: 92px; max-width: min(72%, 340px); }
 }
 
+/* Indicative-colour disclaimer, a quiet caption under the preview. Mirrors the
+   line printed on the colour-board PDF so the expectation is set on-screen too. */
+.hv-studio-disclaimer {
+  margin: 10px auto 0;
+  max-width: 62ch;
+  text-align: center;
+  font: 400 11.5px/1.5 var(--sans);
+  color: var(--fg-mute);
+}
+
 /* ----- "Add to PDF" colour board (glass tray, overlaid bottom-centre) ----- */
 .hv-pdf-tray {
   position: absolute;
@@ -3353,6 +3363,29 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-dock-tipsbtn:disabled { opacity: .4; cursor: default; }
 .hv-studio-dock-tipsbtn.has-warn { color: var(--terracotta); border-color: var(--terracotta); }
 .hv-studio-dock-tipsbtn.is-open { background: var(--surface-soft); color: var(--fg); }
+/* "Keep this wall unpainted" — remove a region's colour so the original surface
+   shows through. A quiet full-width ghost action under the selected-colour row. */
+.hv-studio-dock-keep {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: calc(100% - 24px);
+  margin: 0 12px 2px;
+  padding: 7px 10px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--fg-mute);
+  font: 500 11.5px/1 var(--sans);
+  cursor: pointer;
+  transition: color .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease);
+}
+.hv-studio-dock-keep:hover {
+  color: var(--fg);
+  border-color: var(--fg-mute);
+  background: var(--surface-soft);
+}
 .hv-studio-dock-recent {
   display: flex;
   align-items: center;
