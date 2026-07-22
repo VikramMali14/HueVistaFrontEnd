@@ -32,6 +32,7 @@ import {
 } from "@/lib/pdf-export";
 import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
+import { nearestShade } from "@/lib/color";
 import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
 import { buyExtraImage, buyExtraProject } from "@/lib/payments";
@@ -135,23 +136,71 @@ const KIND_LABEL: Record<RegionKind, string> = {
   MANUAL: "Wall",
 };
 
+// The paint company the opening 3-colour scheme is locked to. A freshly
+// segmented exterior opens painted with the backend's fixed reference hexes;
+// we snap those to REAL catalogue shades from this ONE company so the house
+// never opens on a colour the shop can't sell, and never mixes two brands
+// across main/accent/trim. Falls back to the catalogue's best-stocked brand
+// when a shop doesn't carry this one (see pickOpeningBrand).
+const OPENING_BRAND = "Asian Paints";
+
+/**
+ * The single company the opening scheme should draw from: OPENING_BRAND when the
+ * catalogue stocks it, otherwise the brand with the most shades (always ONE
+ * real, well-stocked company — never a mix). Undefined only for an empty catalogue.
+ */
+export function pickOpeningBrand(catalogue: ReadonlyArray<PaintShade>): string | undefined {
+  if (catalogue.some((s) => s.brand === OPENING_BRAND)) return OPENING_BRAND;
+  const counts = new Map<string, number>();
+  for (const s of catalogue) counts.set(s.brand, (counts.get(s.brand) ?? 0) + 1);
+  let best: string | undefined;
+  let bestN = 0;
+  for (const [brand, n] of counts) {
+    if (n > bestN) {
+      best = brand;
+      bestN = n;
+    }
+  }
+  return best;
+}
+
 function mapBackendRegion(
   region: RegionDetail,
   catalogue: ReadonlyArray<PaintShade>,
+  openingBrand?: string,
 ): RegionState {
   const kind = CATEGORY_TO_KIND[region.category] ?? "MANUAL";
   const fallback = KIND_LABEL[kind];
   const hasColor = Boolean(region.appliedHexCode || region.appliedShadeCode);
-  const hex = region.appliedHexCode || DEFAULT_HEX_FOR_KIND[kind];
+  let hex = region.appliedHexCode || DEFAULT_HEX_FOR_KIND[kind];
   // Re-attach the catalogue shade: the saved row keeps only code + hex, but
   // LRV-true painting needs the shade's measured LRV back. Match by the saved
   // shade code first, then by exact hex (covers the auto-detected regions,
   // whose reference colours are catalogue shades applied by hex alone).
-  const shade =
+  let shade =
     (region.appliedShadeCode
       ? catalogue.find((s) => s.code === region.appliedShadeCode)
       : undefined) ??
     catalogue.find((s) => s.hex.toLowerCase() === hex.toLowerCase());
+
+  // Opening scheme: an auto-detected region still carrying the backend's default
+  // reference hex (no saved shade code) is the untouched "colour on create" —
+  // snap it to the nearest shade from the single opening brand so every opening
+  // colour is a real, same-company catalogue shade. Deterministic, so reopening
+  // reproduces the same shades with nothing persisted; once the user picks a
+  // real shade (appliedShadeCode set) this no longer fires.
+  const isOpeningDefault =
+    kind !== "MANUAL" &&
+    hasColor &&
+    !region.appliedShadeCode &&
+    hex.toLowerCase() === DEFAULT_HEX_FOR_KIND[kind].toLowerCase();
+  if (isOpeningDefault && openingBrand) {
+    const snapped = nearestShade(hex, catalogue.filter((s) => s.brand === openingBrand));
+    if (snapped) {
+      shade = snapped;
+      hex = snapped.hex;
+    }
+  }
   return {
     id: `r-${region.id}`,
     backendId: region.id,
@@ -580,10 +629,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       // MANUAL-mode projects arrive SEGMENTED with zero auto regions — the
       // cleaned canvas is the deliverable and the user marks walls by hand.
       setManualMaskProject(detail.maskMode === "MANUAL");
+      const openingBrand = pickOpeningBrand(shades ?? []);
       const mapped = detail.regions
         .slice()
         .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-        .map((r) => mapBackendRegion(r, shades ?? []));
+        .map((r) => mapBackendRegion(r, shades ?? [], openingBrand));
       if (mapped.length > 0) {
         setRegions(mapped);
         setActiveRegion(mapped[0]!.id);
