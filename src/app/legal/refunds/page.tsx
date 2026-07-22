@@ -38,11 +38,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
     p: "If you believe you have been charged in error — for example a duplicate payment or a charge for a service that was never delivered — write to us within 7 days of the transaction with your payment reference. Verified erroneous charges are refunded to the original payment method, typically within 5–7 business days once approved.",
   },
   {
-    h: "8 · GST and invoices",
-    p: "All plans and pay-per-use top-ups carry 18% GST, and Razorpay emails a tax invoice for every payment. Any approved refund is processed net of applicable taxes in accordance with the original invoice.",
-  },
-  {
-    h: "9 · How to reach us",
+    h: "8 · How to reach us",
     p: "For any cancellation, billing or refund question, use the in-app support chat or write to hello@huevista.com with your account and payment details. We reply within one business day.",
   },
 ];
