@@ -55,9 +55,8 @@ export default async function AdminPage() {
         </Link>
       </p>
 
-      {/* Quick-jump cards — the working sections are a long scroll apart. */}
+      {/* Fixed side menu — the working sections are a long scroll apart. */}
       <SectionNav
-        style={{ margin: "28px 0 40px" }}
         items={[
           { id: "create-distributor", label: "Create distributor", hint: "Provision a distributor account" },
           { id: "shop-requests", label: "Shop requests", hint: "Leads from the public form" },

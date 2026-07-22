@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -33,6 +33,20 @@ export function AppNav({ user }: AppNavProps) {
   // below 900px the CSS keeps the nav in normal flow.
   const studioMode = pathname.startsWith("/atelier");
   const [revealed, setRevealed] = useState(false);
+  // Debounced reveal/hide so crossing the small gap between the top hotzone and
+  // the slid-down bar never flickers the navbar shut mid-move (the reported bug).
+  const hideTimer = useRef<number | null>(null);
+  const revealNav = () => {
+    if (hideTimer.current) {
+      window.clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+    setRevealed(true);
+  };
+  const scheduleHideNav = () => {
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setRevealed(false), 160);
+  };
   const visibleTabs = TABS.filter((t) => {
     // Hierarchy console — admins, distributors and retailers manage their downline here.
     if (t.href === "/network" && (!user || (user.role !== "ADMIN" && user.role !== "DISTRIBUTOR" && user.role !== "RETAILER"))) return false;
@@ -58,7 +72,16 @@ export function AppNav({ user }: AppNavProps) {
   useEffect(() => {
     setOpen(false);
     setRevealed(false);
+    if (hideTimer.current) {
+      window.clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
   }, [pathname]);
+
+  // Clear any pending hide timer on unmount.
+  useEffect(() => () => {
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+  }, []);
 
   // Studio overlay: Escape tucks the navbar away again.
   useEffect(() => {
@@ -83,20 +106,21 @@ export function AppNav({ user }: AppNavProps) {
   return (
     <header
       className={studioMode ? `app-header-studio${revealed || open ? " is-revealed" : ""}` : undefined}
-      onMouseLeave={studioMode && !open ? () => setRevealed(false) : undefined}
-      onFocusCapture={studioMode ? () => setRevealed(true) : undefined}
+      onMouseEnter={studioMode && !open ? revealNav : undefined}
+      onMouseLeave={studioMode && !open ? scheduleHideNav : undefined}
+      onFocusCapture={studioMode ? revealNav : undefined}
     >
       {studioMode && (
         <>
           {/* Invisible hot zone along the very top edge — hovering it slides the nav in. */}
-          <div className="studio-nav-hotzone" aria-hidden onMouseEnter={() => setRevealed(true)} />
+          <div className="studio-nav-hotzone" aria-hidden onMouseEnter={revealNav} />
           <button
             type="button"
             className={`studio-nav-handle${revealed || open ? " is-hidden" : ""}`}
             aria-label="Show navigation"
             aria-expanded={revealed}
-            onMouseEnter={() => setRevealed(true)}
-            onClick={() => setRevealed((v) => !v)}
+            onMouseEnter={revealNav}
+            onClick={() => (revealed ? setRevealed(false) : revealNav())}
           >
             <MenuIcon size={13} />
             <span>Menu</span>
@@ -204,7 +228,13 @@ export function AppNav({ user }: AppNavProps) {
         .app-header-studio { position: fixed; top: 0; left: 0; right: 0; z-index: 80; pointer-events: none; }
         .app-header-studio .app-header-slide { transform: translateY(-112%); transition: transform .32s var(--ease); pointer-events: auto; }
         .app-header-studio.is-revealed .app-header-slide { transform: none; }
-        .studio-nav-hotzone { position: absolute; top: 0; left: 0; right: 0; height: 12px; pointer-events: auto; }
+        /* Bridge the gap between the top edge and the revealed bar: pad the slide
+           (a pointer-events:auto surface) right up to the top so moving the mouse
+           from the hotzone onto the nav never crosses a dead zone that hides it.
+           The nav-inner's own top margin is dropped so the bar keeps its position. */
+        .app-header-studio .app-header-slide { padding-top: 16px; }
+        .app-header-studio .app-nav-inner { margin-top: 0; }
+        .studio-nav-hotzone { position: absolute; top: 0; left: 0; right: 0; height: 16px; pointer-events: auto; }
         .studio-nav-handle {
           position: absolute; top: 0; left: 50%; transform: translateX(-50%);
           display: inline-flex; align-items: center; gap: 8px;

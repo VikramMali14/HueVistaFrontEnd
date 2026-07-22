@@ -1957,7 +1957,12 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   display: flex; justify-content: center;
   padding: 14px var(--gutter);
   pointer-events: none;
+  transition: transform .38s var(--ease);
 }
+/* Tucked up out of view — set once the page has scrolled past the first section
+   and the reader is scrolling down; any upward scroll clears it (bar slides back
+   down). Translates far enough to hide the card's glass shadow too. */
+.cnav-wrap.is-hidden { transform: translateY(-140%); }
 .cnav {
   pointer-events: auto;
   position: relative; z-index: 2;

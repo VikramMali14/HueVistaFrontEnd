@@ -33,7 +33,7 @@ export function Footer() {
             Built in India for paint shops and their customers.
           </p>
           <address style={{ fontStyle: "normal", fontSize: 12.5, lineHeight: 1.6, marginTop: 18, color: "var(--fg-mute)", maxWidth: "34ch" }}>
-            <div style={{ fontWeight: 600, color: "var(--fg-soft)" }}>Sundha Mata Paint House</div>
+            <div style={{ fontWeight: 600, color: "var(--fg-soft)" }}>HueVista</div>
             <div>Proprietor: Vikram Mali</div>
             <div>Mount Road, Manpur, Abu Road,<br />Sirohi, Rajasthan 307026, India</div>
             <div style={{ marginTop: 6 }}>
