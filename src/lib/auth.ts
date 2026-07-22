@@ -6,7 +6,7 @@ import { adminApi, authApi, billingApi, guestServerApi, networkApi, HttpError } 
 import type { AdminUserRow, AuditLogRow, DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
-import type { AuthResponse, AuthUser, NetworkReport, SubscriptionSummary, WalletRedemption } from "./types";
+import type { AuthResponse, AuthUser, NetworkReport, RetailerBrandOption, SubscriptionSummary, WalletRedemption } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -485,6 +485,49 @@ export async function getNetworkReport(): Promise<NetworkReport | null> {
     return await networkApi.report(token);
   } catch {
     return null;
+  }
+}
+
+/**
+ * DISTRIBUTOR (or ADMIN): every paint brand with a flag for whether the given
+ * shop currently has it assigned. Used by the per-shop brand editor.
+ */
+export async function getRetailerBrandsAction(
+  retailerOrgId: string,
+): Promise<{ options?: RetailerBrandOption[]; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { options: await networkApi.retailerBrands(token, retailerOrgId) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "You can only manage shops in your own network." };
+      return { error: err.message };
+    }
+    return { error: "Could not load this shop's brands. Please try again." };
+  }
+}
+
+/**
+ * DISTRIBUTOR (or ADMIN): replace a shop's brand selection wholesale. An empty
+ * list clears every restriction (the shop reverts to all brands).
+ */
+export async function setRetailerBrandsAction(
+  retailerOrgId: string,
+  brandIds: number[],
+): Promise<{ options?: RetailerBrandOption[]; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { options: await networkApi.setRetailerBrands(token, retailerOrgId, brandIds) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "You can only manage shops in your own network." };
+      return { error: err.message };
+    }
+    return { error: "Could not save the brand selection. Please try again." };
   }
 }
 

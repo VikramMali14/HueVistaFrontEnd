@@ -33,7 +33,17 @@ export interface NetworkNode {
   painterCount: number;
   codesIssued: number;
   codesRedeemed: number;
+  /** Paint brands a distributor granted this shop (RETAILER nodes). Empty = all brands. */
+  assignedBrands?: string[] | null;
   children: NetworkNode[];
+}
+
+/** One assignable paint brand for a shop, with whether it's currently granted. */
+export interface RetailerBrandOption {
+  id: number;
+  name: string;
+  slug: string;
+  assigned: boolean;
 }
 
 /** Role-scoped network report (backend NetworkReportResponse). */

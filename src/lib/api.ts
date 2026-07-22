@@ -412,6 +412,18 @@ export const networkApi = {
       accessToken,
       body: JSON.stringify(body),
     }),
+  // DISTRIBUTOR (or ADMIN): every brand with a flag for whether this shop has it.
+  retailerBrands: (accessToken: string, retailerOrgId: string) =>
+    serverFetch<import("./types").RetailerBrandOption[]>(
+      `/api/hierarchy/retailers/${encodeURIComponent(retailerOrgId)}/brands`,
+      { accessToken },
+    ),
+  // DISTRIBUTOR (or ADMIN): replace a shop's brand selection wholesale.
+  setRetailerBrands: (accessToken: string, retailerOrgId: string, brandIds: number[]) =>
+    serverFetch<import("./types").RetailerBrandOption[]>(
+      `/api/hierarchy/retailers/${encodeURIComponent(retailerOrgId)}/brands`,
+      { method: "PUT", accessToken, body: JSON.stringify({ brandIds }) },
+    ),
 };
 
 /** A user as the admin console sees them (backend AdminUserResponse). */
