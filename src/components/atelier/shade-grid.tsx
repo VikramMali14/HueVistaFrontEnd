@@ -54,6 +54,10 @@ interface ShadeGridProps {
   onApplyExact?: (hex: string) => void;
   activeShade?: PaintShade;
   activeRegionLabel?: string;
+  /** Whether the active region currently has a colour on it (drives "Keep original"). */
+  activeApplied?: boolean;
+  /** Remove the colour from the active region so it renders unpainted. */
+  onKeepOriginal?: () => void;
   /** Shades fetched from the backend; falls back to the bundled sample. */
   shades?: ReadonlyArray<PaintShade>;
   // --- Coordinate suggestions ("complete the look") ---
@@ -109,6 +113,8 @@ export function ShadeGrid({
   onApplyExact,
   activeShade,
   activeRegionLabel,
+  activeApplied = false,
+  onKeepOriginal,
   shades,
   baseHex,
   activeRegionId,
@@ -446,6 +452,9 @@ export function ShadeGrid({
             : undefined
         }
         onApply={activeShade ? () => onSelect(activeShade) : undefined}
+        onKeepOriginal={onKeepOriginal}
+        canKeepOriginal={activeApplied}
+        activeRegionLabel={activeRegionLabel}
         hideCodes={hideCodes}
         encodeCode={encodeCode}
         clashNote={clashNote}
@@ -554,6 +563,9 @@ function SelectionDock({
   onSelectShade,
   onFindSimilar,
   onApply,
+  onKeepOriginal,
+  canKeepOriginal = false,
+  activeRegionLabel,
   hideCodes = false,
   encodeCode,
   clashNote,
@@ -568,6 +580,11 @@ function SelectionDock({
   onSelectShade: (shade: PaintShade) => void;
   onFindSimilar?: () => void;
   onApply?: () => void;
+  /** Remove the colour from the active region so it renders unpainted. */
+  onKeepOriginal?: () => void;
+  /** Only offer "Keep original" when the active region actually has a colour. */
+  canKeepOriginal?: boolean;
+  activeRegionLabel?: string;
   hideCodes?: boolean;
   encodeCode?: (code: string) => string;
   clashNote?: string | null;
@@ -763,6 +780,27 @@ function SelectionDock({
           </button>
         </div>
       </div>
+
+      {/* Leave a wall out of the scheme: strip its colour so the original
+          surface shows through, instead of being forced to paint every region. */}
+      {onKeepOriginal && canKeepOriginal && (
+        <button
+          type="button"
+          onClick={onKeepOriginal}
+          className="hv-studio-dock-keep"
+          title={
+            activeRegionLabel
+              ? `Leave ${activeRegionLabel} unpainted — show the original surface`
+              : "Leave this wall unpainted"
+          }
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M5.6 5.6l12.8 12.8" />
+          </svg>
+          Keep {activeRegionLabel ?? "this wall"} unpainted
+        </button>
+      )}
 
       <div className="hv-studio-dock-recent">
         <Mono>Recent</Mono>
@@ -986,12 +1024,43 @@ function AISuggestPanel({
     variant: number;
   }>(() => ({ baseHex, regions: regions ?? [], variant: 0 }));
 
+  // Company filter for the generated suggestions — empty set means "every brand
+  // in the catalogue". Picking one or more companies scopes the algorithmic Room
+  // palettes and coordinate pairings so a shop can suggest within a single brand;
+  // the shop's own picks and Claude's photo picks are authored combos and stay
+  // as they are.
+  const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
+
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
+
+  // Distinct paint companies in the (already brand-scoped for guests) catalogue.
+  const availableBrands = useMemo(
+    () => Array.from(new Set(catalogue.map((s) => s.brand))).sort((a, b) => a.localeCompare(b)),
+    [catalogue],
+  );
+
+  // The catalogue the generated palettes and pairings draw from. Scoped to the
+  // chosen companies; we keep the full set if the filter would empty it (e.g. a
+  // stale brand name) so the suggestions never go blank.
+  const scopedCatalogue = useMemo(() => {
+    if (selectedBrands.size === 0) return catalogue;
+    const scoped = catalogue.filter((s) => selectedBrands.has(s.brand));
+    return scoped.length > 0 ? scoped : catalogue;
+  }, [catalogue, selectedBrands]);
+
+  const toggleBrand = useCallback((brand: string) => {
+    setSelectedBrands((prev) => {
+      const next = new Set(prev);
+      if (next.has(brand)) next.delete(brand);
+      else next.add(brand);
+      return next;
+    });
+  }, []);
 
   const stale = (baseHex ?? "") !== (snap.baseHex ?? "");
   const palettes = useMemo(
-    () => generatePalettes(catalogue, snap.baseHex, snap.variant),
-    [catalogue, snap.baseHex, snap.variant],
+    () => generatePalettes(scopedCatalogue, snap.baseHex, snap.variant),
+    [scopedCatalogue, snap.baseHex, snap.variant],
   );
   const rebuild = () => setSnap({ baseHex, regions: regions ?? [], variant: 0 });
   const shuffle = () => setSnap((s) => ({ ...s, variant: s.variant + 1 }));
@@ -1026,6 +1095,43 @@ function AISuggestPanel({
 
   return (
     <div className="hv-ai-panel">
+      {availableBrands.length > 1 && (
+        <div className="hv-ai-company-filter">
+          <div className="hv-ai-head">
+            <Mono>Company</Mono>
+            {selectedBrands.size > 0 && (
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setSelectedBrands(new Set())}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <p className="hv-ai-intro" style={{ marginBottom: 8 }}>
+            Pick one or more companies and the palettes and pairings below draw only
+            from their shades. Leave it clear for every brand.
+          </p>
+          <div className="hv-studio-pills">
+            {availableBrands.map((brand) => {
+              const on = selectedBrands.has(brand);
+              return (
+                <button
+                  key={brand}
+                  type="button"
+                  onClick={() => toggleBrand(brand)}
+                  aria-pressed={on}
+                  className={`hv-studio-pill ${on ? "is-active" : ""}`}
+                >
+                  {on ? "✓ " : ""}{brand}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {shopCombos && shopCombos.length > 0 && (
         <ShopPicksSection
           combos={shopCombos}
@@ -1118,7 +1224,7 @@ function AISuggestPanel({
           baseHex={snap.baseHex!}
           activeRegionId={activeRegionId!}
           regions={snap.regions}
-          catalogue={catalogue}
+          catalogue={scopedCatalogue}
           onApplyToRegion={onApplyToRegion!}
           hideCodes={hideCodes}
           encodeCode={encodeCode}
