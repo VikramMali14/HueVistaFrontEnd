@@ -221,6 +221,9 @@ export interface ProjectSummary {
   status: ProjectStatus;
   imageId: string;
   imageUrl: string;
+  /** Cleaned (AI photo clean-up) image, when produced; null/absent until the
+   *  project has been cleaned. Drives the dashboard raw-vs-cleaned slider. */
+  cleanedImageUrl?: string | null;
   regionCount: number;
   hasShareLink?: boolean;
   createdAt?: string;
