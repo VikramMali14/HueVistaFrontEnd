@@ -39,6 +39,14 @@ const ALLOWED_PREFIXES = [
   "api/billing/project-credit",
   "api/billing/subscriptions",
   "api/billing/plans",
+  // Pay-per-use billing the signed-in retailer drives from the plan page: the
+  // prepaid wallet (balance, top-up, pay-from-wallet), one-off extra-image
+  // purchases, and the colour-board PDF allowance/downloads. Without these the
+  // BFF answers 403 before the request ever reaches the backend.
+  "api/billing/wallet",
+  "api/billing/image-credits",
+  "api/billing/pdf-allowance",
+  "api/billing/pdf-downloads",
   "api/organizations",
   "api/access-codes",
   // Retailer kiosk-link updates (create/list live under api/organizations).
