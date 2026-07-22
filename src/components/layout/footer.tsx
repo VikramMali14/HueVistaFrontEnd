@@ -51,7 +51,8 @@ export function Footer() {
         <span className="mono">Belgavi · India</span>
         <span className="mono" style={{ display: "inline-flex", gap: 8 }}>
           <Link href="/legal/privacy" style={{ color: "inherit" }}>Privacy</Link>·
-          <Link href="/legal/terms" style={{ color: "inherit" }}>Terms</Link>
+          <Link href="/legal/terms" style={{ color: "inherit" }}>Terms</Link>·
+          <Link href="/legal/refunds" style={{ color: "inherit" }}>Refunds</Link>
         </span>
       </div>
     </footer>

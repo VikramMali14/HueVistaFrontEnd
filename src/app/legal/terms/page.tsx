@@ -23,7 +23,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "4 · Plans, trials and billing",
-    p: "Paid plans and any included AI preview allowances are described at checkout. Trials carry no obligation. Fees are billed via our payment processor; taxes may apply. Allowances reset each billing cycle and do not roll over.",
+    p: "Paid plans and any included AI preview allowances are described at checkout. Trials carry no obligation. Fees are billed via our payment processor; taxes may apply. Allowances reset each billing cycle and do not roll over. Cancellations and refunds are governed by our Refund & Cancellation Policy.",
   },
   {
     h: "5 · Content and ownership",
