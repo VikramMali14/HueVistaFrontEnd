@@ -62,14 +62,14 @@ export default function GalleryPage() {
             <Mono>12 plates · curated quarterly</Mono>
           </div>
           <h1 className="display">A library of <i>finished rooms.</i></h1>
-          <Lead className="page-lead">Twelve rooms from ten cities — Belgavi to Hyderabad — each recoloured from a single photograph with shades from the live catalogue. Only the wall changes.</Lead>
+          <Lead className="page-lead">Twelve rooms from ten cities across India, each recoloured from a single photograph with shades from the live catalogue. Only the wall changes.</Lead>
           <GalleryGrid plates={PLATES} />
         </header>
 
         <section style={{ background: "var(--band)", borderTop: "1px solid var(--band-rule)", borderBottom: "1px solid var(--band-rule)", padding: "120px 0", marginTop: 80 }} className="full-bleed">
           <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
             <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
-              <Placeholder tone="oxblood" grain corners tag="AT THE COUNTER" label="A paint counter, Belgavi" style={{ aspectRatio: "5 / 4" }} />
+              <Placeholder tone="oxblood" grain corners tag="AT THE COUNTER" label="A paint counter, India" style={{ aspectRatio: "5 / 4" }} />
               <div>
                 <Eyebrow>At the counter</Eyebrow>
                 <h3 style={{ marginTop: 24, fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(40px, 5vw, 72px)", lineHeight: 1, letterSpacing: "-.015em", color: "var(--ivory)" }}>

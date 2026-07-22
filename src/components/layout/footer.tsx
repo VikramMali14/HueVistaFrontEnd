@@ -30,8 +30,16 @@ export function Footer() {
           </Link>
           <p className="body" style={{ fontSize: 14, maxWidth: "34ch", marginTop: 12, color: "var(--fg-mute)" }}>
             Preview any paint colour on real walls before the can opens.
-            Built in Belgavi, India for paint shops and their customers.
+            Built in India for paint shops and their customers.
           </p>
+          <address style={{ fontStyle: "normal", fontSize: 12.5, lineHeight: 1.6, marginTop: 18, color: "var(--fg-mute)", maxWidth: "34ch" }}>
+            <div style={{ fontWeight: 600, color: "var(--fg-soft)" }}>Sundha Mata Paint House</div>
+            <div>Proprietor: Vikram Mali</div>
+            <div>Mount Road, Manpur, Abu Road,<br />Sirohi, Rajasthan 307026, India</div>
+            <div style={{ marginTop: 6 }}>
+              <a href="mailto:hello@huevista.com" style={{ color: "inherit" }}>hello@huevista.com</a>
+            </div>
+          </address>
         </div>
         {COLUMNS.map((col) => (
           <div className="footer-col" key={col.title}>
@@ -48,10 +56,11 @@ export function Footer() {
       </div>
       <div className="footer-bottom">
         <span className="mono">© 2026 HueVista</span>
-        <span className="mono">Belgavi · India</span>
+        <span className="mono">Abu Road · Rajasthan · India</span>
         <span className="mono" style={{ display: "inline-flex", gap: 8 }}>
           <Link href="/legal/privacy" style={{ color: "inherit" }}>Privacy</Link>·
-          <Link href="/legal/terms" style={{ color: "inherit" }}>Terms</Link>
+          <Link href="/legal/terms" style={{ color: "inherit" }}>Terms</Link>·
+          <Link href="/legal/refunds" style={{ color: "inherit" }}>Refunds</Link>
         </span>
       </div>
     </footer>

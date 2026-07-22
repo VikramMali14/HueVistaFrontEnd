@@ -90,7 +90,7 @@ export function AuthArt({ children }: { children: ReactNode }) {
         </div>
         <div className="corner">
           <span>HueVista</span>
-          <span>Belgavi, India</span>
+          <span>India</span>
         </div>
       </div>
     </aside>

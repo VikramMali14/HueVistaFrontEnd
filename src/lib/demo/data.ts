@@ -319,6 +319,7 @@ export function toSummary(p: ProjectDetail): ProjectSummary {
     status: p.status,
     imageId: p.imageId,
     imageUrl: p.imageUrl,
+    cleanedImageUrl: p.cleanedImageUrl ?? null,
     regionCount: p.regions.length,
     hasShareLink: p.hasShareLink,
     createdAt: p.createdAt,
