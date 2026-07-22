@@ -33,6 +33,10 @@ export function AppNav({ user }: AppNavProps) {
   // below 900px the CSS keeps the nav in normal flow.
   const studioMode = pathname.startsWith("/atelier");
   const [revealed, setRevealed] = useState(false);
+  // Scroll behaviour on the ordinary app pages — matches the public site header:
+  // the bar hides as you scroll down and slides back in as you scroll up. Studio
+  // keeps its own auto-hide overlay, so this is disabled there.
+  const [hidden, setHidden] = useState(false);
   // Debounced reveal/hide so crossing the small gap between the top hotzone and
   // the slid-down bar never flickers the navbar shut mid-move (the reported bug).
   const hideTimer = useRef<number | null>(null);
@@ -103,6 +107,36 @@ export function AppNav({ user }: AppNavProps) {
     };
   }, [open]);
 
+  // Hide-on-scroll-down / reveal-on-scroll-up for the ordinary app pages, the
+  // same feel as the public site header. Skipped in studio mode (its overlay
+  // owns the top edge) and whenever the mobile drawer is open.
+  useEffect(() => {
+    if (studioMode) {
+      setHidden(false);
+      return;
+    }
+    setHidden(false); // never start a page tucked away
+    let lastY = window.scrollY;
+    let ticking = false;
+    const evaluate = () => {
+      ticking = false;
+      const y = window.scrollY;
+      const delta = y - lastY;
+      if (open || y < 80) setHidden(false);        // near the top or menu open → visible
+      else if (delta > 4) setHidden(true);         // scrolling down → tuck up
+      else if (delta < -4) setHidden(false);       // scrolling up → bring it back
+      lastY = y;
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        window.requestAnimationFrame(evaluate);
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [studioMode, open, pathname]);
+
   return (
     <header
       className={studioMode ? `app-header-studio${revealed || open ? " is-revealed" : ""}` : undefined}
@@ -128,7 +162,7 @@ export function AppNav({ user }: AppNavProps) {
         </>
       )}
       <div className="app-header-slide">
-      <div className={`app-nav-inner${wideNav ? " nav-wide" : ""}`}>
+      <div className={`app-nav-inner${wideNav ? " nav-wide" : ""}${hidden ? " is-hidden" : ""}`}>
         <Link href="/dashboard" className="brand-logo" aria-label="HueVista — dashboard">
           <Logo size="sm" inverted ariaLabel={null} />
         </Link>
@@ -212,7 +246,11 @@ export function AppNav({ user }: AppNavProps) {
         /* Floating glassy bar — same surface language as the public card-nav
            (var(--nav-bg) + blur, rounded, --rule-strong border, glass shadow),
            just wider to hold the app tabs. Keeps the navbar in sync everywhere. */
-        .app-nav-inner { background: var(--nav-bg); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%); border: 1px solid var(--rule-strong); border-radius: 18px; box-shadow: 0 16px 40px -22px rgba(0,0,0,.5), inset 0 1px 0 rgba(var(--fg-rgb), .05); padding: 14px 20px; margin: 16px var(--gutter); display: flex; align-items: center; gap: 24px; position: sticky; top: 16px; z-index: 60; flex-wrap: wrap; }
+        .app-nav-inner { background: var(--nav-bg); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%); border: 1px solid var(--rule-strong); border-radius: 18px; box-shadow: 0 16px 40px -22px rgba(0,0,0,.5), inset 0 1px 0 rgba(var(--fg-rgb), .05); padding: 14px 20px; margin: 16px var(--gutter); display: flex; align-items: center; gap: 24px; position: sticky; top: 16px; z-index: 60; flex-wrap: wrap; transition: transform .38s var(--ease); }
+        /* Tucked up out of view when scrolling down past the top of an app page;
+           any upward scroll clears it (mirrors the public .cnav-wrap.is-hidden). */
+        .app-nav-inner.is-hidden { transform: translateY(-160%); }
+        @media (prefers-reduced-motion: reduce) { .app-nav-inner { transition: none; } }
         .app-tabs { display: flex; gap: 8px; margin-left: auto; }
         .app-tab { font: 400 11px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; padding: 12px 16px; color: var(--fg-mute); border: 1px solid transparent; transition: color .25s var(--ease), border-color .25s var(--ease); }
         .app-tab.active, .app-tab:hover { color: var(--fg); border-color: var(--rule-strong); }

@@ -3310,13 +3310,22 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   text-overflow: ellipsis;
 }
 /* Narrow screens: the dock's buttons squeeze the info column until
-   "No colour selected" ellipsizes into "No co…" — wrap instead of clipping. */
+   "No colour selected" ellipsizes into "No co…" — wrap instead of clipping.
+   The stepper/Tips/Apply cluster also drops to its own full-width line so the
+   hint ("Tap any swatch…") keeps the whole row instead of breaking one word
+   per line. */
 @media (max-width: 640px) {
   .hv-studio-dock-name,
   .hv-studio-dock-meta {
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
+  }
+  .hv-studio-dock-row { flex-wrap: wrap; }
+  .hv-studio-dock-btns {
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 2px;
   }
 }
 .hv-studio-dock-btns {
