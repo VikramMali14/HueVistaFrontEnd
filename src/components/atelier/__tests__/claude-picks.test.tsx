@@ -107,6 +107,58 @@ describe("Claude's picks (AI Suggest tab)", () => {
   });
 });
 
+/**
+ * Company filter (AI Suggest tab) — picking a company scopes the locally
+ * generated Room palettes to that brand's shades. Two brands with distinct
+ * name tokens ("Zephyr" = Asian Paints, "Quartz" = Berger) let us assert the
+ * scope purely from the swatch labels the cards render.
+ */
+const TWO_BRAND_SHADES: PaintShade[] = [
+  { code: "AP-1", name: "Blush Zephyr", hex: "#d98c8c", family: "Reds", lrv: 45, brand: "Asian Paints", finishes: [] },
+  { code: "AP-2", name: "Sun Zephyr", hex: "#d9c78c", family: "Yellows", lrv: 62, brand: "Asian Paints", finishes: [] },
+  { code: "AP-3", name: "Leaf Zephyr", hex: "#8cd98c", family: "Greens", lrv: 58, brand: "Asian Paints", finishes: [] },
+  { code: "AP-4", name: "Sky Zephyr", hex: "#8cc7d9", family: "Blues", lrv: 55, brand: "Asian Paints", finishes: [] },
+  { code: "AP-5", name: "Plum Zephyr", hex: "#c78cd9", family: "Purples", lrv: 40, brand: "Asian Paints", finishes: [] },
+  { code: "AP-6", name: "Chalk Zephyr", hex: "#f4f1ea", family: "Whites", lrv: 88, brand: "Asian Paints", finishes: [] },
+  { code: "BG-1", name: "Blush Quartz", hex: "#cf7f7f", family: "Reds", lrv: 42, brand: "Berger", finishes: [] },
+  { code: "BG-2", name: "Sun Quartz", hex: "#cfbf7f", family: "Yellows", lrv: 60, brand: "Berger", finishes: [] },
+  { code: "BG-3", name: "Leaf Quartz", hex: "#7fcf7f", family: "Greens", lrv: 56, brand: "Berger", finishes: [] },
+  { code: "BG-4", name: "Sky Quartz", hex: "#7fbfcf", family: "Blues", lrv: 53, brand: "Berger", finishes: [] },
+  { code: "BG-5", name: "Plum Quartz", hex: "#bf7fcf", family: "Purples", lrv: 38, brand: "Berger", finishes: [] },
+  { code: "BG-6", name: "Chalk Quartz", hex: "#f2eee6", family: "Whites", lrv: 86, brand: "Berger", finishes: [] },
+];
+
+describe("Company filter (AI Suggest tab)", () => {
+  it("scopes the generated Room palettes to the selected company's shades", async () => {
+    const user = userEvent.setup();
+    render(<ShadeGrid onSelect={vi.fn()} shades={TWO_BRAND_SHADES} />);
+
+    await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
+
+    // Both companies are offered as pills; unfiltered, both brands' shades can
+    // surface in the palettes.
+    expect(screen.getByRole("button", { name: "Asian Paints" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Berger" })).toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
+
+    // Pick Berger → every palette swatch is now a Berger ("Quartz") shade.
+    await user.click(screen.getByRole("button", { name: "Berger" }));
+    expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
+
+    // Clearing the filter brings Asian Paints' shades back into the pool.
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
+  });
+
+  it("hides the company filter when the catalogue has a single brand", async () => {
+    const user = userEvent.setup();
+    render(<ShadeGrid onSelect={vi.fn()} shades={SHADES} />);
+    await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
+    expect(screen.queryByRole("button", { name: "Asian Paints" })).not.toBeInTheDocument();
+  });
+});
+
 /** Dispatch a window-level pointer event (the card's drag listeners live on
  *  window); jsdom's MouseEvent lacks pointerId, so it's defined by hand. */
 function firePointer(type: string, opts: { pointerId: number; clientX: number; clientY: number }) {

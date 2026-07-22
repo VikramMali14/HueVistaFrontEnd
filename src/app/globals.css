@@ -3421,6 +3421,12 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: var(--fg-mute);
   margin: 0 0 14px;
 }
+/* Company scope for the generated palettes/pairings on the AI Suggest tab. */
+.hv-ai-company-filter {
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--rule);
+}
 .hv-ai-cards {
   display: flex;
   flex-direction: column;
