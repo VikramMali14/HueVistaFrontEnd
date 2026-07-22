@@ -191,6 +191,14 @@ export const authApi = {
 export const orgApi = {
   mine: (accessToken: string) =>
     serverFetch<OrgResponse[]>("/api/organizations/mine", { accessToken }),
+  // The shop's saved shade-code scheme, for SERVER components (e.g. deciding
+  // whether to show the dashboard code checker). Browser equivalent:
+  // `api.getShadeCodeScheme(orgId)` via the BFF.
+  shadeCodeScheme: (accessToken: string, orgId: string) =>
+    serverFetch<import("./shade-codes").ShadeCodeScheme>(
+      `/api/organizations/${encodeURIComponent(orgId)}/shade-code-scheme`,
+      { accessToken },
+    ),
 };
 
 /**
@@ -312,10 +320,11 @@ export const adminApi = {
     serverFetch<AdminUserRow[]>(`/api/admin/users?q=${encodeURIComponent(q)}&size=20`, {
       accessToken,
     }),
-  // Audit trail — every sensitive action, newest first. Optional exact action filter.
-  listAuditLog: (accessToken: string, action?: string) =>
+  // Audit trail — every sensitive action, newest first. Optional exact action
+  // filter, zero-based page and page size (the backend caps size at 500).
+  listAuditLog: (accessToken: string, action?: string, page = 0, size = 50) =>
     serverFetch<AuditLogRow[]>(
-      `/api/admin/audit?size=50${action ? `&action=${encodeURIComponent(action)}` : ""}`,
+      `/api/admin/audit?page=${Math.max(0, page)}&size=${size}${action ? `&action=${encodeURIComponent(action)}` : ""}`,
       { accessToken },
     ),
   // Shop-account request queue (public /trial form feeds it).

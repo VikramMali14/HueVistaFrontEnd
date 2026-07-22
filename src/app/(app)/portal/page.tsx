@@ -9,6 +9,7 @@ import { PortalSubdomain } from "@/components/app/portal-subdomain";
 import { StoreKioskPanel } from "@/components/app/store-kiosk-panel";
 import { ShopCombos } from "@/components/app/shop-combos";
 import { ShadeCodePanel } from "@/components/app/shade-code-panel";
+import { SectionNav } from "@/components/ui/section-nav";
 import { getCatalogueOrSample } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
@@ -44,7 +45,17 @@ export default async function PortalPage() {
         <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Your white-label<br />customer portal</h1>
         <Lead style={{ marginTop: 24 }}>Issue temporary access codes for your customers. They visualise colours on your subdomain — without seeing shade codes. When they're ready, they "Send to retailer" and you receive the full project.</Lead>
       </header>
-      <section style={{ marginBottom: 56 }}>
+      <SectionNav
+        style={{ marginBottom: 48 }}
+        items={[
+          { id: "active-codes", label: "Active codes", hint: "Issue customer access codes" },
+          { id: "suggested-combos", label: "Suggested combos", hint: "Predefine shade combinations" },
+          { id: "shade-codes", label: "Shade codes", hint: "Your custom code scheme" },
+          { id: "store-kiosk", label: "Store kiosk & wallet", hint: "Public paid link + payouts" },
+          { id: "customers", label: "Customers & projects", hint: "Everyone under your shop" },
+        ]}
+      />
+      <section id="active-codes" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>Active codes</h2>
         <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
           Issue a code and share it with a customer. They enter it at <Mono>huevista.com/redeem</Mono> to start
@@ -52,7 +63,7 @@ export default async function PortalPage() {
         </p>
         <AccessCodes org={shopOrg} />
       </section>
-      <section style={{ marginBottom: 56 }}>
+      <section id="suggested-combos" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
           Suggested combinations
         </h2>
@@ -63,7 +74,7 @@ export default async function PortalPage() {
         </p>
         <ShopCombos shades={shades} org={shopOrg} />
       </section>
-      <section style={{ marginBottom: 56 }}>
+      <section id="shade-codes" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
           Shade codes your customers see
         </h2>
@@ -76,7 +87,7 @@ export default async function PortalPage() {
         </p>
         <ShadeCodePanel shades={shades} org={shopOrg} />
       </section>
-      <section style={{ marginBottom: 56 }}>
+      <section id="store-kiosk" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
           Store kiosk &amp; wallet
         </h2>
@@ -87,7 +98,7 @@ export default async function PortalPage() {
         </p>
         <StoreKioskPanel org={shopOrg} />
       </section>
-      <section style={{ marginBottom: 56 }}>
+      <section id="customers" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
           Customers &amp; projects
         </h2>

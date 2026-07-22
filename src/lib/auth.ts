@@ -636,12 +636,16 @@ export async function adjustSubscriptionAction(
 
 /** ADMIN: the audit trail (latest 50, optional exact-action filter). NULL on any
  *  failure — never an empty list, which would render an outage as "no records". */
-export async function getAuditLog(action?: string): Promise<AuditLogRow[] | null> {
+/** How many audit rows one page holds — shared by the initial server render and
+ *  the client "Load more". */
+export const AUDIT_PAGE_SIZE = 50;
+
+export async function getAuditLog(action?: string, page = 0): Promise<AuditLogRow[] | null> {
   "use server";
   const token = await getAccessToken();
   if (!token) return null;
   try {
-    return await adminApi.listAuditLog(token, action?.trim() || undefined);
+    return await adminApi.listAuditLog(token, action?.trim() || undefined, page, AUDIT_PAGE_SIZE);
   } catch {
     return null;
   }

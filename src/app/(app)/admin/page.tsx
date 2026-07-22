@@ -9,6 +9,7 @@ import { SubscriptionManager } from "@/components/admin/subscription-manager";
 import { UserSearch } from "@/components/admin/user-search";
 import { AuditLog } from "@/components/admin/audit-log";
 import { WalletRedemptions } from "@/components/admin/wallet-redemptions";
+import { SectionNav } from "@/components/ui/section-nav";
 
 export const metadata: Metadata = {
   title: "Admin · Create shop",
@@ -53,9 +54,22 @@ export default async function AdminPage() {
           Mask viewer →
         </Link>
       </p>
+
+      {/* Quick-jump cards — the working sections are a long scroll apart. */}
+      <SectionNav
+        style={{ margin: "28px 0 40px" }}
+        items={[
+          { id: "create-distributor", label: "Create distributor", hint: "Provision a distributor account" },
+          { id: "shop-requests", label: "Shop requests", hint: "Leads from the public form" },
+          { id: "wallet-payouts", label: "Wallet payouts", hint: "Approve kiosk redemptions" },
+          { id: "subscriptions", label: "Subscriptions", hint: "Grant or extend a plan" },
+          { id: "find-user", label: "Find a user", hint: "Look up by name or email" },
+          { id: "audit-trail", label: "Audit trail", hint: "Every sensitive action" },
+        ]}
+      />
       <CreateRetailerForm />
 
-      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+      <section id="create-distributor" style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
           Create a distributor
         </h2>
@@ -67,7 +81,7 @@ export default async function AdminPage() {
         <CreateDistributorForm />
       </section>
 
-      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+      <section id="shop-requests" style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
           Shop requests
         </h2>
@@ -78,7 +92,7 @@ export default async function AdminPage() {
         <ShopLeads initial={leads} updateAction={updateShopLeadStatusAction} />
       </section>
 
-      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+      <section id="wallet-payouts" style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
           Wallet payouts
         </h2>
@@ -89,7 +103,7 @@ export default async function AdminPage() {
         <WalletRedemptions initial={redemptions} decideAction={decideWalletRedemptionAction} />
       </section>
 
-      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+      <section id="subscriptions" style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
           Subscriptions
         </h2>
@@ -105,7 +119,7 @@ export default async function AdminPage() {
         />
       </section>
 
-      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+      <section id="find-user" style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
           Find a user
         </h2>
@@ -115,13 +129,13 @@ export default async function AdminPage() {
         <UserSearch searchAction={searchUsersAction} />
       </section>
 
-      <section style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+      <section id="audit-trail" style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
           Audit trail
         </h2>
         <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch", marginBottom: 24 }}>
           Every sensitive action the platform records — role changes, deletions, password
-          changes, subscription events. Latest fifty, newest first.
+          changes, subscription events. Newest first; filter by action and load more as needed.
         </p>
         <AuditLog initial={audit} refreshAction={getAuditLog} />
       </section>

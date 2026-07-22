@@ -5,6 +5,7 @@ import { LinkButton } from "@/components/ui/button";
 import { AccountVerification } from "@/components/app/account-verification";
 import { CustomerAccessBanner } from "@/components/app/customer-access-banner";
 import { DashboardProjects } from "@/components/app/dashboard-projects";
+import { DashboardCodeChecker } from "@/components/app/dashboard-code-checker";
 import { PlanBanner } from "@/components/app/plan-banner";
 
 export const metadata: Metadata = {
@@ -96,6 +97,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         )}
       </header>
+      {/* Retailers who use a custom shade-code scheme get the debugger up top —
+          read a customer code or find one without opening the portal. */}
+      {!unavailable && (user?.role === "RETAILER" || user?.role === "ADMIN") && <DashboardCodeChecker />}
       <PlanBanner />
       {user?.role === "CUSTOMER" && <CustomerAccessBanner />}
       <AccountVerification user={user} />
