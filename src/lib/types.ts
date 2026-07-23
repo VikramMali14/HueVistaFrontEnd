@@ -1,6 +1,6 @@
 // Must match the backend UserRole enum exactly (auth/model/UserRole.java).
 export type UserRole = "ADMIN" | "DISTRIBUTOR" | "RETAILER" | "PAINTER" | "CUSTOMER";
-export type AuthProvider = "LOCAL" | "GOOGLE";
+export type AuthProvider = "LOCAL" | "GOOGLE" | "ACCESS_CODE";
 
 export interface AuthUser {
   id: string;
@@ -391,8 +391,40 @@ export interface AccessCode {
   expired: boolean;
   usedAt?: string | null;
   createdAt?: string | null;
-  /** Paint companies unlocked for this guest. Empty/absent = all brands. */
+  /** The customer this code was issued to (retailer-entered). */
+  customerName?: string | null;
+  /** Projects the customer may create with this code. */
+  projectQuota?: number;
+  /** Paint companies unlocked for this customer. Empty/absent = all brands. */
   allowedBrands?: string[];
+  /** Individual product ids unlocked, in addition to whole companies. */
+  allowedProductIds?: string[];
+  /** Resolved individual products (present on the issue response, not the list). */
+  assignedProducts?: ShopProduct[];
+}
+
+/**
+ * Result of redeeming a retailer code with no login — the backend auto-provisions a
+ * passwordless CUSTOMER account and returns a full session (backend RedeemAccountResponse).
+ */
+export interface RedeemAccountResult {
+  accessToken: string;
+  refreshToken: string;
+  tokenType?: string;
+  expiresIn: number;
+  user: AuthUser;
+  shopName: string;
+  validDays: number;
+  customerName: string;
+}
+
+/** What a redeemed customer was assigned by their retailer (backend AssignedProductsResponse). */
+export interface AssignedProducts {
+  shopName: string;
+  /** Whole companies unlocked. Empty/absent = no company restriction (all brands). */
+  allowedBrands?: string[];
+  /** Individually unlocked products, resolved to full listings. */
+  products: ShopProduct[];
 }
 
 // --- Retailer-curated shade combinations ("shop picks") ---

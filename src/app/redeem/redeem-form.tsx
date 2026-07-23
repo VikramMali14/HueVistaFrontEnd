@@ -1,17 +1,24 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { api, HttpError } from "@/lib/api";
+import { redeemAccountAction } from "@/lib/auth";
 import { ACCESS_CODE_LENGTH, normalizeAccessCode, validateAccessCode } from "@/lib/validation";
 
+/**
+ * Public, no-login redemption. Entering the code auto-creates the customer's
+ * account (named by the shop) and signs them in — no password, no sign-up. On
+ * success we send them to their dashboard, where their assigned projects and
+ * products are waiting.
+ */
 export function RedeemForm() {
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<"idle" | "redeeming" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
-  const [validDays, setValidDays] = useState<number | null>(null);
+  const [result, setResult] = useState<{ name: string; shopName: string } | null>(null);
 
   async function redeem() {
     const value = normalizeAccessCode(code);
@@ -22,33 +29,32 @@ export function RedeemForm() {
     }
     setStatus("redeeming");
     setError(null);
-    try {
-      const res = await api.redeemAccessCode({ code: value });
-      setValidDays(res.validDays ?? null);
-      setStatus("done");
-    } catch (e) {
-      if (e instanceof HttpError && e.status === 401) {
-        window.location.href = "/sign-in?next=/redeem";
-        return;
-      }
-      setError(e instanceof Error ? e.message : "Could not redeem that code.");
+    const res = await redeemAccountAction(value);
+    if ("error" in res) {
+      setError(res.error);
       setStatus("idle");
+      return;
     }
+    setResult(res);
+    setStatus("done");
   }
 
-  if (status === "done") {
+  if (status === "done" && result) {
     return (
       <div style={{ textAlign: "center", padding: "40px 0" }}>
         <span aria-hidden style={{ fontSize: 44, color: "var(--accent)" }}>✓</span>
         <h1 className="display" style={{ fontSize: "clamp(40px, 5vw, 64px)", margin: "12px 0 16px" }}>
-          You&apos;re all set.
+          Welcome, {result.name.split(" ")[0]}.
         </h1>
-        <Lead style={{ maxWidth: "44ch", margin: "0 auto 28px" }}>
-          Your account is now a customer of this shop{validDays ? `, with ${validDays}-day access and one project included` : ""}.
-          Upload a room photo and start visualising — you pick colours by feel.
+        <Lead style={{ maxWidth: "46ch", margin: "0 auto 28px" }}>
+          You&apos;re signed in{result.shopName ? ` as a customer of ${result.shopName}` : ""}. Your projects and
+          the products your shop picked for you are ready — upload a room photo and start visualising.
         </Lead>
-        {/* Full reload so the app re-renders with the new CUSTOMER role. */}
-        <a className="btn btn-brass" href="/atelier">Open the studio <span className="arr">→</span></a>
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
+          {/* Full reload so the app shell re-renders signed in as the new CUSTOMER. */}
+          <a className="btn btn-brass" href="/dashboard">Go to your dashboard <span className="arr">→</span></a>
+          <a className="btn btn-ghost" href="/assigned-products">See your products <span className="arr">→</span></a>
+        </div>
       </div>
     );
   }
@@ -60,8 +66,8 @@ export function RedeemForm() {
         <h1 className="display" style={{ fontSize: "clamp(40px, 5vw, 72px)", marginTop: 12 }}>
           Have a code from<br /><i>your paint shop?</i>
         </h1>
-        <Lead style={{ marginTop: 20, maxWidth: "48ch" }}>
-          Enter it below to unlock your project. Your shop issues these from their counter.
+        <Lead style={{ marginTop: 20, maxWidth: "52ch" }}>
+          Enter it below — no account, no password. We&apos;ll set you up and sign you straight in.
         </Lead>
       </header>
 
@@ -97,9 +103,11 @@ export function RedeemForm() {
 
       {error && <p className="field-error" role="alert" style={{ marginTop: 16 }}>{error}</p>}
 
-      <p style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 20, maxWidth: "48ch" }}>
-        Redeeming switches this account to a customer of the issuing shop — one project, valid for the
-        code&apos;s window. Retailers don&apos;t need a code.
+      <p style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 20, maxWidth: "52ch" }}>
+        Redeeming creates a customer account in your name and signs you in for the code&apos;s window
+        (10 days). Already signed in as someone else? Redeeming logs you out first. Retailers don&apos;t
+        need a code —{" "}
+        <Link href="/sign-in" style={{ color: "var(--accent-soft)" }}>sign in here</Link>.
       </p>
     </div>
   );

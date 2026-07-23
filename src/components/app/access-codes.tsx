@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useCopied } from "@/hooks/use-copied";
 import { api, HttpError } from "@/lib/api";
-import { PAINT_BRANDS, type AccessCode, type OrgResponse, type ProjectDetail } from "@/lib/types";
+import { PAINT_BRANDS, type AccessCode, type OrgResponse, type ProjectDetail, type ShopProduct } from "@/lib/types";
 
-const VALIDITY = [3, 7, 14] as const;
+const FIXED_VALID_DAYS = 10;
 
 function slugify(name: string): string {
   const base = name
@@ -23,7 +23,10 @@ function slugify(name: string): string {
 
 /**
  * Retailer-facing: create your shop org (once) and issue customer access codes.
- * A walk-in customer redeems a code at /redeem to become a CUSTOMER tied to you.
+ * When you issue a code you name the customer, choose how many projects they get
+ * (charged against your monthly image quota) and which companies / individual
+ * products they may see. The customer redeems it at /redeem with no login — that
+ * auto-creates their account and signs them in.
  *
  * `org` comes from the portal page's single org fetch (null = resolved, no
  * shop yet); when it's undefined (page fetch failed) the component falls back
@@ -38,18 +41,22 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   const [shopName, setShopName] = useState("");
   const [creatingOrg, setCreatingOrg] = useState(false);
 
-  const [validDays, setValidDays] = useState<number>(7);
-  // Paint companies a shop can unlock for a guest — the live list of companies that
-  // actually have shades in the catalogue. Falls back to the well-known brands if
-  // the endpoint is unreachable. Leaving none selected unlocks every company.
+  // The next code's assignment.
+  const [customerName, setCustomerName] = useState("");
+  const [projectQuota, setProjectQuota] = useState(1);
+  // Paint companies a shop can unlock — the live list of companies that actually have
+  // shades in the catalogue. Falls back to the well-known brands if the endpoint is
+  // unreachable. Leaving none selected unlocks every company.
   const [companyOptions, setCompanyOptions] = useState<ReadonlyArray<string>>(PAINT_BRANDS);
-  // Companies to unlock for the next code. Empty = every company (no restriction).
   const [companies, setCompanies] = useState<string[]>([]);
+  // Individual shop products the retailer can single out (in addition to whole companies).
+  const [products, setProducts] = useState<ShopProduct[]>([]);
+  const [productIds, setProductIds] = useState<string[]>([]);
   const [issuing, setIssuing] = useState(false);
   const [justIssued, setJustIssued] = useState<string | null>(null);
   const { copied, copy: copyText } = useCopied();
 
-  // The guest's room per code, fetched on demand ("View room"). The full view —
+  // The customer's room per code, fetched on demand ("View room"). The full view —
   // real shade codes included — which is the whole point of the code loop.
   const [openRoom, setOpenRoom] = useState<string | null>(null);
   const [rooms, setRooms] = useState<Record<string, ProjectDetail | null | "loading" | "error">>({});
@@ -93,7 +100,10 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
             ? orgProp
             : ((await api.listMyOrgs()).find((o) => o.type === "RETAILER") ?? null);
         setOrg(retailer);
-        if (retailer) await loadCodes(retailer.id);
+        if (retailer) {
+          await loadCodes(retailer.id);
+          api.listShopProducts(retailer.id).then(setProducts).catch(() => {});
+        }
       } catch (e) {
         if (e instanceof HttpError && e.status === 401) {
           window.location.href = "/sign-in?next=/portal";
@@ -127,35 +137,48 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
 
   const issue = useCallback(async () => {
     if (!org) return;
+    if (!customerName.trim()) {
+      setError("Enter the customer's name.");
+      return;
+    }
     setIssuing(true);
     setError(null);
     try {
       const code = await api.createAccessCode(org.id, {
-        validDays,
+        customerName: customerName.trim(),
+        projectQuota,
         // Omit when none are picked so the backend treats it as "all companies".
         allowedBrands: companies.length > 0 ? companies : undefined,
+        allowedProductIds: productIds.length > 0 ? productIds : undefined,
       });
       setCodes((prev) => [code, ...prev]);
       setJustIssued(code.code);
+      // Reset the per-customer fields for the next code; keep company/product picks
+      // since a shop often issues several similar codes in a row.
+      setCustomerName("");
+      setProjectQuota(1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not issue a code.");
     } finally {
       setIssuing(false);
     }
-  }, [org, validDays, companies]);
+  }, [org, customerName, projectQuota, companies, productIds]);
 
   const toggleCompany = useCallback((name: string) => {
     setCompanies((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]));
+  }, []);
+
+  const toggleProduct = useCallback((id: string) => {
+    setProductIds((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
   }, []);
 
   const copy = useCallback((code: string) => copyText(code), [copyText]);
 
   // WhatsApp-ready message so the retailer never types the URL and instructions by hand.
   const copyMessage = useCallback((code: string) => {
-    const days = codes.find((c) => c.code === code)?.validDays ?? validDays;
-    const message = `Your HueVista code: ${code}. Open ${window.location.origin}/redeem and enter it to start visualising your room. Valid ${days} days.`;
+    const message = `Your HueVista code: ${code}. Open ${window.location.origin}/redeem and enter it — no sign-up needed. Valid ${FIXED_VALID_DAYS} days.`;
     copyText("whatsapp-message", message);
-  }, [codes, validDays, copyText]);
+  }, [copyText]);
 
   if (loading) {
     return (
@@ -190,39 +213,56 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
     );
   }
 
+  const inputStyle: React.CSSProperties = {
+    padding: "10px 12px",
+    border: "1px solid var(--rule-strong)",
+    background: "var(--surface)",
+    color: "var(--fg)",
+    font: "400 15px/1 var(--sans)",
+  };
+
   return (
     <div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24, border: "1px solid var(--rule)", padding: 20, borderRadius: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <Mono brass>{org.name}</Mono>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Mono>Validity</Mono>
-            {VALIDITY.map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setValidDays(d)}
-                aria-pressed={validDays === d}
-                style={{
-                  padding: "6px 12px",
-                  cursor: "pointer",
-                  background: "transparent",
-                  border: "1px solid " + (validDays === d ? "var(--accent)" : "var(--rule)"),
-                  color: validDays === d ? "var(--accent)" : "var(--fg-mute)",
-                  font: "400 11px/1 var(--mono)",
-                  letterSpacing: ".18em",
-                }}
-              >
-                {d}d
-              </button>
-            ))}
-          </div>
-          <Button onClick={() => void issue()} disabled={issuing}>
-            {issuing ? <><Spinner size={14} color="currentColor" /> Issuing…</> : <>Issue a new code <span className="arr">→</span></>}
-          </Button>
+          <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".16em", color: "var(--fg-mute)" }}>
+            NEW CODE · VALID {FIXED_VALID_DAYS} DAYS
+          </span>
         </div>
 
-        {/* Which paint companies this guest may browse. None selected = all companies. */}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <Mono>Customer name</Mono>
+            <input
+              value={customerName}
+              onChange={(e) => { setCustomerName(e.target.value); setError(null); }}
+              placeholder="e.g. Priya Sharma"
+              aria-label="Customer name"
+              style={{ ...inputStyle, minWidth: 220 }}
+            />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <Mono>Projects</Mono>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={projectQuota}
+              onChange={(e) => setProjectQuota(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+              aria-label="Number of projects"
+              style={{ ...inputStyle, width: 90 }}
+            />
+          </label>
+          <Button onClick={() => void issue()} disabled={issuing || !customerName.trim()}>
+            {issuing ? <><Spinner size={14} color="currentColor" /> Issuing…</> : <>Issue code <span className="arr">→</span></>}
+          </Button>
+          <span style={{ font: "400 12px/1.4 var(--sans)", color: "var(--fg-mute)", maxWidth: "34ch" }}>
+            {projectQuota} project{projectQuota === 1 ? "" : "s"} will be taken from your monthly image quota.
+          </span>
+        </div>
+
+        {/* Which paint companies this customer may browse. None selected = all companies. */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <Mono>Companies</Mono>
           {companyOptions.map((name) => {
@@ -248,9 +288,44 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
             );
           })}
           <span style={{ font: "400 12px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-            {companies.length === 0 ? "All companies" : `${companies.length} selected`}
+            {companies.length === 0 && productIds.length === 0 ? "All companies" : `${companies.length} compan${companies.length === 1 ? "y" : "ies"}`}
           </span>
         </div>
+
+        {/* Individual products — pick specific listings on top of whole companies. */}
+        {products.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <Mono>Products</Mono>
+            {products.map((p) => {
+              const on = productIds.includes(p.id);
+              const label = [p.brandName, p.lineName].filter(Boolean).join(" · ") || "Product";
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => toggleProduct(p.id)}
+                  aria-pressed={on}
+                  style={{
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                    background: on ? "var(--surface-soft)" : "transparent",
+                    border: "1px solid " + (on ? "var(--accent)" : "var(--rule)"),
+                    color: on ? "var(--accent)" : "var(--fg-mute)",
+                    font: "500 12px/1 var(--sans)",
+                    borderRadius: 999,
+                  }}
+                >
+                  {on ? "✓ " : ""}{label}
+                </button>
+              );
+            })}
+            {productIds.length > 0 && (
+              <span style={{ font: "400 12px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+                {productIds.length} selected
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {justIssued && (
@@ -275,8 +350,8 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
         </p>
       ) : (
         <div role="table" aria-label="Access codes" style={{ border: "1px solid var(--rule)" }}>
-          <div role="row" className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr 1fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
-            {["Code", "Validity", "Expires", "Status", "Room"].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
+          <div role="row" className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.3fr 1.2fr 0.8fr 1.1fr 1fr 0.9fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
+            {["Code", "Customer", "Projects", "Expires", "Status", "Room"].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
           </div>
           {codes.map((c, i) => {
             const status = c.used ? "redeemed" : c.expired ? "expired" : "active";
@@ -286,7 +361,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
             const expanded = openRoom === c.id;
             return (
               <div key={c.id}>
-                <div role="row" className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.2fr 1fr 1fr", padding: "18px 20px", borderBottom: last && !expanded ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
+                <div role="row" className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.3fr 1.2fr 0.8fr 1.1fr 1fr 0.9fr", padding: "18px 20px", borderBottom: last && !expanded ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
                   <span role="cell" data-label="Code" style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                     <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{c.code}</span>
                     {status === "active" && (
@@ -295,7 +370,8 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                       </button>
                     )}
                   </span>
-                  <span role="cell" className="mono" data-label="Validity">{c.validDays} days</span>
+                  <span role="cell" data-label="Customer" style={{ font: "400 15px/1.2 var(--sans)", color: "var(--fg-soft)" }}>{c.customerName || "—"}</span>
+                  <span role="cell" className="mono" data-label="Projects">{c.projectQuota ?? 1}</span>
                   <span role="cell" className="mono" data-label="Expires">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</span>
                   <span role="cell" data-label="Status" style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
                   <span role="cell" data-label="Room">

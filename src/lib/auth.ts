@@ -213,6 +213,48 @@ export async function redeemGuestAction(
   }
 }
 
+/**
+ * The primary walk-in flow: redeem a retailer code with NO login. Any existing
+ * session (or guest cookie) is cleared FIRST — redeeming always starts fresh — then
+ * the backend auto-provisions a passwordless CUSTOMER account and returns a full
+ * session, which we persist as cookies so the customer is signed straight in.
+ */
+export async function redeemAccountAction(
+  code: string,
+): Promise<{ name: string; shopName: string } | { error: string }> {
+  "use server";
+  const value = code.trim();
+  if (!value) return { error: "Enter the code from your shop." };
+
+  // Log out whoever is here now (retailer, another customer, a stale guest) before
+  // redeeming, so the code's own account is the only session that survives.
+  await clearSession();
+  const jar = await cookies();
+  jar.delete(config.guestCookie);
+  jar.delete(config.guestBrandsCookie);
+
+  const hdrs = await headers();
+  const clientIp = clientIpFromHeaders(hdrs);
+  try {
+    const res = await guestServerApi.redeemAccount(value, clientIp);
+    await persistSession({
+      accessToken: res.accessToken,
+      refreshToken: res.refreshToken,
+      tokenType: "Bearer",
+      expiresIn: res.expiresIn,
+      user: res.user,
+    });
+    return { name: res.customerName || res.user.name, shopName: res.shopName };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 404) return { error: "That code wasn't found. Check it and try again." };
+      if (err.status === 409 || err.status === 410) return { error: "That code has already been used or expired." };
+      return { error: err.message };
+    }
+    return { error: "Could not redeem that code. Please try again." };
+  }
+}
+
 export async function registerAction(formData: FormData) {
   "use server";
   const firstName = String(formData.get("firstName") ?? "").trim();

@@ -1,31 +1,14 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ACCESS_CODE_ERROR_MESSAGE } from "@/lib/validation";
 import { RedeemForm } from "../redeem-form";
-import { GuestRedeemForm } from "../guest-redeem-form";
-import { api } from "@/lib/api";
-import { redeemGuestAction } from "@/lib/auth";
-
-vi.mock("@/lib/api", () => {
-  class HttpError extends Error {
-    status: number;
-    code?: string;
-    constructor(status: number, message: string) {
-      super(message);
-      this.status = status;
-    }
-  }
-  return {
-    HttpError,
-    api: { redeemAccessCode: vi.fn() },
-  };
-});
+import { redeemAccountAction } from "@/lib/auth";
 
 // `@/lib/auth` is a "use server" module importing next/headers — replace it wholesale.
 vi.mock("@/lib/auth", () => ({
-  redeemGuestAction: vi.fn(),
+  redeemAccountAction: vi.fn(),
 }));
 
 // next/link needs the Next app-router runtime; render a plain anchor instead.
@@ -37,14 +20,13 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-const redeemAccessCode = vi.mocked(api.redeemAccessCode);
-const redeemGuest = vi.mocked(redeemGuestAction);
+const redeemAccount = vi.mocked(redeemAccountAction);
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("RedeemForm (member)", () => {
+describe("RedeemForm (no-login account redemption)", () => {
   it("keeps the Redeem button disabled until the code is a valid 8-character code", async () => {
     const user = userEvent.setup();
     render(<RedeemForm />);
@@ -80,83 +62,32 @@ describe("RedeemForm (member)", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(ACCESS_CODE_ERROR_MESSAGE);
     expect(input).toHaveAttribute("aria-invalid", "true");
-    expect(redeemAccessCode).not.toHaveBeenCalled();
+    expect(redeemAccount).not.toHaveBeenCalled();
   });
 
-  it("redeems a valid 8-character code through the API and shows the success screen", async () => {
+  it("redeems a valid code via the server action and greets the customer by first name", async () => {
     const user = userEvent.setup();
-    redeemAccessCode.mockResolvedValue({ validDays: 7 } as never);
+    redeemAccount.mockResolvedValue({ name: "Priya Sharma", shopName: "Mehta Paint House" } as never);
     render(<RedeemForm />);
 
     await user.type(screen.getByLabelText("Access code"), "7k2nq9px");
     await user.click(screen.getByRole("button", { name: /Redeem/ }));
 
-    expect(await screen.findByRole("heading", { name: /You're all set\./ })).toBeInTheDocument();
-    expect(redeemAccessCode).toHaveBeenCalledTimes(1);
-    expect(redeemAccessCode).toHaveBeenCalledWith({ code: "7K2NQ9PX" });
-  });
-
-  it("shows the API error message when redemption fails", async () => {
-    const user = userEvent.setup();
-    redeemAccessCode.mockRejectedValue(new Error("That code has already been used."));
-    render(<RedeemForm />);
-
-    await user.type(screen.getByLabelText("Access code"), "7K2NQ9PX");
-    await user.click(screen.getByRole("button", { name: /Redeem/ }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("That code has already been used.");
-  });
-});
-
-describe("GuestRedeemForm", () => {
-  it("keeps the Redeem button disabled for an invalid/short code", async () => {
-    const user = userEvent.setup();
-    render(<GuestRedeemForm />);
-
-    const input = screen.getByLabelText("Access code");
-    const button = screen.getByRole("button", { name: /Redeem/ });
-
-    expect(button).toBeDisabled();
-    await user.type(input, "7K2NQ9P");
-    expect(button).toBeDisabled();
-    await user.type(input, "X");
-    expect(button).toBeEnabled();
-  });
-
-  it("shows the validation error for a 7-character code on an Enter submit attempt", async () => {
-    render(<GuestRedeemForm />);
-
-    const input = screen.getByLabelText("Access code");
-    fireEvent.change(input, { target: { value: "7K2NQ9P" } });
-    fireEvent.keyDown(input, { key: "Enter" });
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(ACCESS_CODE_ERROR_MESSAGE);
-    expect(redeemGuest).not.toHaveBeenCalled();
-  });
-
-  it("redeems a valid code via the server action and shows the guest success screen", async () => {
-    const user = userEvent.setup();
-    redeemGuest.mockResolvedValue({ shopName: "Mehta Paint House", validDays: 7 } as never);
-    render(<GuestRedeemForm />);
-
-    await user.type(screen.getByLabelText("Access code"), "7k2nq9px");
-    await user.click(screen.getByRole("button", { name: /Redeem/ }));
-
-    expect(await screen.findByRole("heading", { name: /You're in\./ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Welcome, Priya\./ })).toBeInTheDocument();
     expect(screen.getByText(/Mehta Paint House/)).toBeInTheDocument();
-    expect(redeemGuest).toHaveBeenCalledTimes(1);
-    expect(redeemGuest).toHaveBeenCalledWith("7K2NQ9PX");
+    expect(redeemAccount).toHaveBeenCalledTimes(1);
+    expect(redeemAccount).toHaveBeenCalledWith("7K2NQ9PX");
   });
 
   it("surfaces a server-action error and stays on the form", async () => {
     const user = userEvent.setup();
-    redeemGuest.mockResolvedValue({ error: "That code has expired." } as never);
-    render(<GuestRedeemForm />);
+    redeemAccount.mockResolvedValue({ error: "That code has already been used or expired." } as never);
+    render(<RedeemForm />);
 
     await user.type(screen.getByLabelText("Access code"), "7K2NQ9PX");
     await user.click(screen.getByRole("button", { name: /Redeem/ }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("That code has expired.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("That code has already been used or expired.");
     expect(screen.getByLabelText("Access code")).toBeInTheDocument();
   });
 });

@@ -290,6 +290,10 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   if (path === "api/me/entitlement" && method === "GET") {
     return user.role === "CUSTOMER" ? json(store.entitlement) : json(undefined);
   }
+  if (path === "api/me/assigned-products" && method === "GET") {
+    if (user.role !== "CUSTOMER") return json(undefined, 404);
+    return json({ shopName: "Mehta Paints", allowedBrands: ["Asian Paints", "Berger"], products: [] });
+  }
   // The shop's suggested combinations for whoever is visualising. Single demo
   // tenant: every role (and guests, via the api/guest rewrite above) sees the
   // Mehta Paints combos — mirroring the backend's principal resolution.
