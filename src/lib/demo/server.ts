@@ -193,6 +193,26 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
     return result as T;
   }
 
+  // --- No-login redemption that auto-creates a customer account and signs in ---
+  if (p === "/api/access-codes/redeem-account" && method === "POST") {
+    const { code = "" } = parseBody<{ code?: string }>(init);
+    const want = code.trim().toUpperCase();
+    const match = getStore().accessCodes.find((c) => c.code.toUpperCase() === want);
+    if (!match) throw new HttpError(404, "That code wasn't found.");
+    if (match.expired) throw new HttpError(410, "That code has expired.");
+    const auth = authResponseFor("CUSTOMER");
+    return {
+      accessToken: auth.accessToken,
+      refreshToken: auth.refreshToken,
+      tokenType: "Bearer",
+      expiresIn: auth.expiresIn,
+      user: auth.user,
+      shopName: match.organizationName ?? "Mehta Paints",
+      validDays: match.validDays,
+      customerName: match.customerName ?? auth.user.name,
+    } as T;
+  }
+
   if (p === "/api/projects/claim-guest" && method === "POST") {
     return { linked: 1 } as T;
   }

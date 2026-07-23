@@ -500,6 +500,14 @@ export const guestServerApi = {
       body: JSON.stringify({ code }),
       headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
     }),
+  // No-login redemption: auto-creates a passwordless CUSTOMER account and returns a
+  // full session the caller persists as cookies.
+  redeemAccount: (code: string, clientIp?: string) =>
+    serverFetch<import("./types").RedeemAccountResult>("/api/access-codes/redeem-account", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
   claim: (accessToken: string, guestToken: string) =>
     serverFetch<{ linked: number }>("/api/projects/claim-guest", {
       method: "POST",
@@ -797,11 +805,22 @@ export const api = {
     browserFetch<ProjectDetail | undefined>(
       `api/access-codes/${encodeURIComponent(codeId)}/guest-project`,
     ),
-  createAccessCode: (orgId: string, body: { validDays: number; allowedBrands?: string[] }) =>
+  createAccessCode: (
+    orgId: string,
+    body: {
+      customerName: string;
+      projectQuota: number;
+      allowedBrands?: string[];
+      allowedProductIds?: string[];
+    },
+  ) =>
     browserFetch<AccessCode>(`api/organizations/${encodeURIComponent(orgId)}/access-codes`, {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // Customer: the companies + individual products the retailer unlocked on my code.
+  getAssignedProducts: () =>
+    browserFetch<import("./types").AssignedProducts>("api/me/assigned-products"),
   // --- Retailer: suggested three-shade combinations ("shop picks") ---
   listCombos: (orgId: string) =>
     browserFetch<import("./types").RetailerCombo[]>(

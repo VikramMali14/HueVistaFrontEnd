@@ -21,6 +21,7 @@ vi.mock("@/lib/api", () => {
       createAccessCode: vi.fn(),
       createOrganization: vi.fn(),
       listShadeBrands: vi.fn(),
+      listShopProducts: vi.fn(),
     },
   };
 });
@@ -32,8 +33,10 @@ const CODES: AccessCode[] = [
     id: "ac-1",
     code: "7K2NQ9PX",
     organizationId: "org-1",
-    validDays: 7,
-    expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+    validDays: 10,
+    customerName: "Priya Sharma",
+    projectQuota: 2,
+    expiresAt: new Date(Date.now() + 10 * 86_400_000).toISOString(),
     used: false,
     expired: false,
   },
@@ -41,7 +44,9 @@ const CODES: AccessCode[] = [
     id: "ac-2",
     code: "B4DD00D1",
     organizationId: "org-1",
-    validDays: 3,
+    validDays: 10,
+    customerName: "Ravi Kumar",
+    projectQuota: 1,
     expiresAt: new Date(Date.now() - 86_400_000).toISOString(),
     used: true,
     expired: false,
@@ -52,6 +57,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.listMyOrgs).mockResolvedValue([ORG]);
   vi.mocked(api.listAccessCodes).mockResolvedValue(CODES);
+  vi.mocked(api.listShopProducts).mockResolvedValue([]);
   vi.mocked(api.listShadeBrands).mockResolvedValue([
     { name: "Asian Paints", slug: "asian-paints", shadeCount: 2200 },
     { name: "Birla Opus", slug: "birla-opus", shadeCount: 2322 },
@@ -68,10 +74,10 @@ describe("AccessCodes — accessible table semantics", () => {
     expect(rows).toHaveLength(1 + CODES.length);
 
     const headers = within(rows[0]!).getAllByRole("columnheader");
-    expect(headers.map((h) => h.textContent)).toEqual(["Code", "Validity", "Expires", "Status", "Room"]);
+    expect(headers.map((h) => h.textContent)).toEqual(["Code", "Customer", "Projects", "Expires", "Status", "Room"]);
 
     for (const row of rows.slice(1)) {
-      expect(within(row).getAllByRole("cell")).toHaveLength(5);
+      expect(within(row).getAllByRole("cell")).toHaveLength(6);
     }
   });
 
@@ -82,12 +88,12 @@ describe("AccessCodes — accessible table semantics", () => {
     const rows = within(table).getAllByRole("row");
     const active = within(rows[1]!);
     expect(active.getByText("7K2NQ9PX")).toBeInTheDocument();
-    expect(active.getByText("7 days")).toBeInTheDocument();
+    expect(active.getByText("Priya Sharma")).toBeInTheDocument();
     expect(active.getByText("active")).toBeInTheDocument();
 
     const redeemed = within(rows[2]!);
     expect(redeemed.getByText("B4DD00D1")).toBeInTheDocument();
-    expect(redeemed.getByText("3 days")).toBeInTheDocument();
+    expect(redeemed.getByText("Ravi Kumar")).toBeInTheDocument();
     expect(redeemed.getByText("redeemed")).toBeInTheDocument();
   });
 
