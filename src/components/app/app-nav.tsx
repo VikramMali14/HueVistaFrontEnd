@@ -11,6 +11,7 @@ import type { AuthUser } from "@/lib/types";
 const TABS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/atelier", label: "Studio" },
+  { href: "/assigned-products", label: "My products" },
   { href: "/color-finder", label: "Colour finder" },
   { href: "/network", label: "Network" },
   { href: "/portal", label: "Customer portal" },
@@ -56,6 +57,8 @@ export function AppNav({ user }: AppNavProps) {
     if (t.href === "/network" && (!user || (user.role !== "ADMIN" && user.role !== "DISTRIBUTOR" && user.role !== "RETAILER"))) return false;
     if (t.href === "/portal" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     if (t.href === "/products" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
+    // A customer's assigned-products page — only customers have an access code behind it.
+    if (t.href === "/assigned-products" && (!user || user.role !== "CUSTOMER")) return false;
     // Subscriber-only retailer tools — a customer or distributor clicking them
     // would only be bounced (neither holds a shop subscription).
     if (t.href === "/color-finder" && user && (user.role === "CUSTOMER" || user.role === "DISTRIBUTOR")) return false;
