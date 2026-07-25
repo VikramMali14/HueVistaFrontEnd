@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { isBffPathAllowed } from "@/lib/bff-paths";
 import { clientIpFromHeaders } from "@/lib/client-ip";
 import { config } from "@/lib/config";
 import { getAccessToken } from "@/lib/auth";
@@ -17,51 +18,12 @@ import { isDemoMode } from "@/lib/demo/flag";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED_PREFIXES = [
-  "api/images",
-  "api/projects",
-  // Anonymous guest creator (upload + create one project + recolour), scoped by
-  // the redeemed access code. Authed with the hv_guest token, not the user token.
-  "api/guest",
-  "api/auth/profile",
-  "api/auth/me",
-  // Email/mobile verification (send + confirm OTP). NOT "api/auth" — that would
-  // also expose login/register/refresh/logout through the BFF.
-  "api/auth/verify",
-  // Change password from the account page (requires the current password; the
-  // backend revokes every session on success).
-  "api/auth/change-password",
-  "api/me/entitlement",
-  // The shop's suggested combinations for whoever is visualising (studio AI tab).
-  "api/me/retailer-combos",
-  // The shop's shade-code scheme — the studio encodes displayed codes with it.
-  "api/me/shade-code-scheme",
-  "api/billing/project-credit",
-  "api/billing/subscriptions",
-  "api/billing/plans",
-  // Pay-per-use billing the signed-in retailer drives from the plan page: the
-  // prepaid wallet (balance, top-up, pay-from-wallet), one-off extra-image
-  // purchases, and the colour-board PDF allowance/downloads. Without these the
-  // BFF answers 403 before the request ever reaches the backend.
-  "api/billing/wallet",
-  "api/billing/image-credits",
-  "api/billing/pdf-allowance",
-  "api/billing/pdf-downloads",
-  "api/organizations",
-  "api/access-codes",
-  // Retailer kiosk-link updates (create/list live under api/organizations).
-  "api/store-links",
-  "api/support",
-  "api/paint",
-  // Public read-only brand/shade catalogue — the portal's "restrict code to
-  // brands" picker loads the live brand list through here.
-  "api/shades",
-] as const;
-
 async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;
   const joined = path.join("/");
-  if (!ALLOWED_PREFIXES.some((p) => joined === p || joined.startsWith(`${p}/`))) {
+  // The allow-list lives in @/lib/bff-paths so a test can hold it against every
+  // path the API client actually calls.
+  if (!isBffPathAllowed(joined)) {
     return NextResponse.json({ message: "Forbidden path" }, { status: 403 });
   }
 

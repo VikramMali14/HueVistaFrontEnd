@@ -8,8 +8,11 @@ import { clientIpFromHeaders } from "@/lib/client-ip";
 
 // KEEP IN SYNC with `config.matcher` at the bottom of this file — Next.js
 // requires the matcher to be a static literal, so the same route list exists
-// twice. Adding a protected route means updating BOTH lists.
-const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/products", "/color-finder", "/account", "/admin", "/subscription", "/network"];
+// twice. Adding a protected route means updating BOTH lists. A route missing
+// from either one stops refreshing its access cookie and starts bouncing people
+// to /sign-in; src/lib/__tests__/protected-routes.test.ts checks both against
+// the pages that actually exist under (app).
+const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/products", "/assigned-products", "/color-finder", "/account", "/admin", "/subscription", "/network"];
 // Pages that only make sense for a signed-OUT visitor. A signed-in user landing
 // here is bounced home — they can't register or sign in again without signing
 // out first. The Google OAuth callback at /sign-in/google is deliberately NOT
@@ -186,6 +189,7 @@ export const config = {
     "/portal/:path*",
     "/inbox/:path*",
     "/products/:path*",
+    "/assigned-products/:path*",
     "/color-finder/:path*",
     "/account/:path*",
     "/admin/:path*",

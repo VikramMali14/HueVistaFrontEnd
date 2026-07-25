@@ -6,7 +6,9 @@ import { rgbToHex } from "@/lib/color";
 import { extractPalette } from "@/lib/palette";
 import { IMAGE_ACCEPT, imageFileError, loadImageFromFile, scaleToFit } from "@/lib/image-upload";
 import { useShadeMatch } from "@/hooks/use-shade-match";
+import { useShadeBrands } from "@/hooks/use-shade-brands";
 import { MatchList } from "@/components/catalogue/match-list";
+import { CompanyFilter } from "@/components/catalogue/company-filter";
 import { SHADES } from "@/lib/shades";
 import type { PaintShade } from "@/lib/types";
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
@@ -25,9 +27,18 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
   const [palette, setPalette] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Restrict the match to one paint company ("" = all). The shop only stocks a
+  // few companies, so the nearest shade overall is often one they can't sell.
+  const brands = useShadeBrands(catalogue);
+  const [companySlug, setCompanySlug] = useState("");
+  const company = useMemo(
+    () => brands.find((b) => b.slug === companySlug) ?? null,
+    [brands, companySlug],
+  );
+
   // The shared matching path: backend full-catalogue matcher with the bundled
   // client-side matcher as the offline fallback.
-  const { matches, source: matchSource } = useShadeMatch(picked, catalogue, 6);
+  const { matches, source: matchSource } = useShadeMatch(picked, catalogue, 6, company);
 
   // Draw + analyse runs in an effect *after* the canvas has mounted. The canvas only
   // renders once `hasImage` is true, so drawing straight from the image-load callback
@@ -259,6 +270,14 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
 
           {/* MATCH RESULTS */}
           <div>
+            <div style={{ marginBottom: 16 }}>
+              <CompanyFilter
+                brands={brands}
+                value={companySlug}
+                onChange={setCompanySlug}
+                id="finder-company"
+              />
+            </div>
             {picked ? (
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
@@ -268,7 +287,16 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
                     <div className="finder-hex" style={{ font: "400 22px/1 var(--serif)", color: "var(--fg)", marginTop: 4 }}>{picked}</div>
                   </div>
                 </div>
-                <MatchList matches={matches} offline={matchSource === "offline"} />
+                <MatchList
+                  matches={matches}
+                  offline={matchSource === "offline"}
+                  heading={company ? `Nearest ${company.name} shades` : "Nearest catalogue shades"}
+                />
+                {matches.length === 0 && company && (
+                  <p style={{ font: "400 15px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 12 }}>
+                    Nothing from {company.name} in the catalogue yet — try another company.
+                  </p>
+                )}
               </>
             ) : (
               <div style={{ border: "1px solid var(--rule)", padding: 22, background: "var(--surface-soft)" }}>

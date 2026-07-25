@@ -56,18 +56,19 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   const [justIssued, setJustIssued] = useState<string | null>(null);
   const { copied, copy: copyText } = useCopied();
 
-  // The customer's room per code, fetched on demand ("View room"). The full view —
-  // real shade codes included — which is the whole point of the code loop.
+  // The customer's rooms per code, fetched on demand ("View rooms"). The full view —
+  // real shade codes included — which is the whole point of the code loop. A code can
+  // carry several projects (one image charged per assigned project), so this is a list.
   const [openRoom, setOpenRoom] = useState<string | null>(null);
-  const [rooms, setRooms] = useState<Record<string, ProjectDetail | null | "loading" | "error">>({});
+  const [rooms, setRooms] = useState<Record<string, ProjectDetail[] | "loading" | "error">>({});
 
   const viewRoom = useCallback((codeId: string) => {
     setOpenRoom((cur) => (cur === codeId ? null : codeId));
     setRooms((prev) => {
       if (prev[codeId] !== undefined && prev[codeId] !== "error") return prev;
       api
-        .getGuestProjectForCode(codeId)
-        .then((d) => setRooms((p) => ({ ...p, [codeId]: d ?? null })))
+        .listProjectsForCode(codeId)
+        .then((d) => setRooms((p) => ({ ...p, [codeId]: d ?? [] })))
         .catch(() => setRooms((p) => ({ ...p, [codeId]: "error" })));
       return { ...prev, [codeId]: "loading" };
     });
@@ -351,7 +352,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
       ) : (
         <div role="table" aria-label="Access codes" style={{ border: "1px solid var(--rule)" }}>
           <div role="row" className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.3fr 1.2fr 0.8fr 1.1fr 1fr 0.9fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
-            {["Code", "Customer", "Projects", "Expires", "Status", "Room"].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
+            {["Code", "Customer", "Projects", "Expires", "Status", "Rooms"].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
           </div>
           {codes.map((c, i) => {
             const status = c.used ? "redeemed" : c.expired ? "expired" : "active";
@@ -371,10 +372,14 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                     )}
                   </span>
                   <span role="cell" data-label="Customer" style={{ font: "400 15px/1.2 var(--sans)", color: "var(--fg-soft)" }}>{c.customerName || "—"}</span>
-                  <span role="cell" className="mono" data-label="Projects">{c.projectQuota ?? 1}</span>
+                  {/* Used vs assigned — the shop paid an image per assigned project,
+                      so the quota has to be seen counting down as rooms are created. */}
+                  <span role="cell" className="mono" data-label="Projects">
+                    {c.projectsUsed ?? 0} / {c.projectQuota ?? 1}
+                  </span>
                   <span role="cell" className="mono" data-label="Expires">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</span>
                   <span role="cell" data-label="Status" style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
-                  <span role="cell" data-label="Room">
+                  <span role="cell" data-label="Rooms">
                     {c.used ? (
                       <button
                         type="button"
@@ -382,7 +387,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                         aria-expanded={expanded}
                         style={{ background: "transparent", border: "1px solid var(--rule-strong)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--fg-soft)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
                       >
-                        {expanded ? "Hide" : "View room"}
+                        {expanded ? "Hide" : "View rooms"}
                       </button>
                     ) : (
                       <span className="mono" style={{ color: "var(--fg-mute-deep)" }}>—</span>
@@ -393,41 +398,45 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                   <div style={{ padding: "16px 20px 20px", background: "var(--surface-soft)", borderBottom: last ? "none" : "1px solid var(--rule)" }}>
                     {room === "loading" && (
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 10, font: "300 15px/1 var(--serif)", color: "var(--fg-mute)" }}>
-                        <Spinner size={14} /> Loading the customer&apos;s room…
+                        <Spinner size={14} /> Loading the customer&apos;s rooms…
                       </span>
                     )}
                     {room === "error" && (
-                      <p className="field-error" role="alert" style={{ margin: 0 }}>Could not load the customer&apos;s room. Try again.</p>
+                      <p className="field-error" role="alert" style={{ margin: 0 }}>Could not load the customer&apos;s rooms. Try again.</p>
                     )}
-                    {room === null && (
+                    {Array.isArray(room) && room.length === 0 && (
                       <p style={{ margin: 0, font: "300 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
                         No room yet — the customer hasn&apos;t started a project with this code.
                       </p>
                     )}
-                    {room && room !== "loading" && room !== "error" && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
-                          <span style={{ font: "500 17px/1.2 var(--serif)", color: "var(--fg)" }}>{room.name}</span>
-                          {room.sentToShopAt && (
-                            <span style={{ font: "500 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 999, padding: "5px 10px" }}>
-                              ✓ Sent by customer
-                            </span>
-                          )}
-                        </div>
-                        {room.regions.filter((r) => r.appliedHexCode).length === 0 ? (
-                          <p style={{ margin: 0, font: "300 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>No colours applied yet.</p>
-                        ) : (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            {room.regions.filter((r) => r.appliedHexCode).map((r) => (
-                              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                <span aria-hidden style={{ width: 26, height: 26, background: r.appliedHexCode!, border: "1px solid var(--rule-strong)", borderRadius: 4, flexShrink: 0 }} />
-                                <span style={{ font: "400 15px/1.2 var(--serif)", color: "var(--fg)", minWidth: 110 }}>{r.label || "Wall"}</span>
-                                {/* The shop view — the REAL shade code the guest never saw. */}
-                                <Mono>{r.appliedShadeCode || r.appliedHexCode}</Mono>
+                    {Array.isArray(room) && room.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                        {room.map((project) => (
+                          <div key={project.id} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
+                              <span style={{ font: "500 17px/1.2 var(--serif)", color: "var(--fg)" }}>{project.name}</span>
+                              {project.sentToShopAt && (
+                                <span style={{ font: "500 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 999, padding: "5px 10px" }}>
+                                  ✓ Sent by customer
+                                </span>
+                              )}
+                            </div>
+                            {project.regions.filter((r) => r.appliedHexCode).length === 0 ? (
+                              <p style={{ margin: 0, font: "300 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>No colours applied yet.</p>
+                            ) : (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                {project.regions.filter((r) => r.appliedHexCode).map((r) => (
+                                  <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                    <span aria-hidden style={{ width: 26, height: 26, background: r.appliedHexCode!, border: "1px solid var(--rule-strong)", borderRadius: 4, flexShrink: 0 }} />
+                                    <span style={{ font: "400 15px/1.2 var(--serif)", color: "var(--fg)", minWidth: 110 }}>{r.label || "Wall"}</span>
+                                    {/* The shop view — the REAL shade code the guest never saw. */}
+                                    <Mono>{r.appliedShadeCode || r.appliedHexCode}</Mono>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            )}
                           </div>
-                        )}
+                        ))}
                       </div>
                     )}
                   </div>
