@@ -53,9 +53,9 @@ describe("demoServerFetch (server-action boundary)", () => {
     ).rejects.toBeInstanceOf(HttpError);
   });
 
-  it("redeems the seeded guest access code MEHTA7", async () => {
-    const res = await demoServerFetch<{ shopName: string; code: string }>("/api/access-codes/redeem-guest", post({ code: "MEHTA7" }));
+  it("redeems the seeded guest access code MEHTA7K2", async () => {
+    const res = await demoServerFetch<{ shopName: string; code: string }>("/api/access-codes/redeem-guest", post({ code: "MEHTA7K2" }));
     expect(res.shopName).toBe("Mehta Paints");
-    expect(res.code).toBe("MEHTA7");
+    expect(res.code).toBe("MEHTA7K2");
   });
 });

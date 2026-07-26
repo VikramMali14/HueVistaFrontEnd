@@ -25,7 +25,7 @@ Shared password for all of them: **`huevista`**
 | `admin@huevista.in`      | ADMIN    | Everything above **plus** Inbox (support) and Admin (provision shops). |
 | `anjali@example.in`      | CUSTOMER | Dashboard, Studio, redeem a code. Email left unverified so the "Secure your account" OTP card is demoable. |
 
-A guest access code you can redeem at **/redeem** (no account): **`MEHTA7`**.
+A guest access code you can redeem at **/redeem** (no account): **`MEHTA7K2`**.
 
 ## What's populated
 
