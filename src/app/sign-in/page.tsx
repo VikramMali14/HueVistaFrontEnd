@@ -59,6 +59,12 @@ export default async function SignInPage({ searchParams }: PageProps) {
               <>New to HueVista? <Link href="/join">Create a free account.</Link></>
             )}
           </p>
+          {/* Customers who redeemed a shop code have no password — this form can
+              never let them back in. Anything that bounces them here (an expired
+              access cookie, a dead phone) would strand them without this way out. */}
+          <p className="auth-foot" style={{ marginTop: 12 }}>
+            Have a code from your paint shop? <Link href="/redeem">Redeem it — no password needed.</Link>
+          </p>
         </section>
       </div>
 

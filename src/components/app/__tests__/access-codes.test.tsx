@@ -36,6 +36,8 @@ const CODES: AccessCode[] = [
     validDays: 10,
     customerName: "Priya Sharma",
     projectQuota: 2,
+    projectsUsed: 1,
+    projectsRemaining: 1,
     expiresAt: new Date(Date.now() + 10 * 86_400_000).toISOString(),
     used: false,
     expired: false,
@@ -74,7 +76,7 @@ describe("AccessCodes — accessible table semantics", () => {
     expect(rows).toHaveLength(1 + CODES.length);
 
     const headers = within(rows[0]!).getAllByRole("columnheader");
-    expect(headers.map((h) => h.textContent)).toEqual(["Code", "Customer", "Projects", "Expires", "Status", "Room"]);
+    expect(headers.map((h) => h.textContent)).toEqual(["Code", "Customer", "Projects", "Expires", "Status", "Rooms"]);
 
     for (const row of rows.slice(1)) {
       expect(within(row).getAllByRole("cell")).toHaveLength(6);
@@ -95,6 +97,16 @@ describe("AccessCodes — accessible table semantics", () => {
     expect(redeemed.getByText("B4DD00D1")).toBeInTheDocument();
     expect(redeemed.getByText("Ravi Kumar")).toBeInTheDocument();
     expect(redeemed.getByText("redeemed")).toBeInTheDocument();
+  });
+
+  it("shows the assigned project quota counting down as rooms are created", async () => {
+    render(<AccessCodes />);
+    const table = await screen.findByRole("table", { name: "Access codes" });
+    const rows = within(table).getAllByRole("row");
+
+    // Priya has used 1 of her 2 assigned projects; Ravi has used none of his 1.
+    expect(within(rows[1]!).getByText("1 / 2")).toBeInTheDocument();
+    expect(within(rows[2]!).getByText("0 / 1")).toBeInTheDocument();
   });
 
   it("shows the empty state instead of a table when no codes exist", async () => {

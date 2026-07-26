@@ -403,7 +403,8 @@ describe("Visualizer — confirm before processing", () => {
       fireEvent.click(retry);
     });
     expect(api.uploadImage).toHaveBeenCalledTimes(2);
-    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", undefined);
+    // Same contract as the first attempt: non-admins send the mask-mode choice.
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", { maskMode: "AUTO" });
   });
 
   it("hides the admin clean-image toggle from non-admins and shows it to admins", async () => {

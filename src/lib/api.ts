@@ -805,6 +805,12 @@ export const api = {
     browserFetch<ProjectDetail | undefined>(
       `api/access-codes/${encodeURIComponent(codeId)}/guest-project`,
     ),
+  // Every room created against a code, newest first. A retailer-assigned code can
+  // carry several projects, so the shop needs the whole list — not just the first.
+  listProjectsForCode: (codeId: string) =>
+    browserFetch<ProjectDetail[]>(
+      `api/access-codes/${encodeURIComponent(codeId)}/projects`,
+    ),
   createAccessCode: (
     orgId: string,
     body: {

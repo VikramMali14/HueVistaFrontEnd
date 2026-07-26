@@ -550,6 +550,11 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
     const project = store.projects[0];
     return json(project ? liveResponse(project) : undefined);
   }
+  // Every room a code produced (portal "View rooms"). Single demo tenant: the
+  // seeded projects stand in for whatever the code's customer created.
+  if (seg[0] === "api" && seg[1] === "access-codes" && seg[3] === "projects" && method === "GET") {
+    return json(store.projects.map(liveResponse));
+  }
 
   // ---------- Support ----------
   if (path === "api/support/conversations" && method === "GET") {

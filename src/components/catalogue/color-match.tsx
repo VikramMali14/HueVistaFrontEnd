@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { useShadeMatch } from "@/hooks/use-shade-match";
+import { useShadeBrands } from "@/hooks/use-shade-brands";
 import { MatchList } from "@/components/catalogue/match-list";
+import { CompanyFilter } from "@/components/catalogue/company-filter";
 import { SHADES } from "@/lib/shades";
 import type { PaintShade } from "@/lib/types";
 
@@ -18,7 +20,16 @@ export function ColorMatch({ shades }: { shades?: ReadonlyArray<PaintShade> }) {
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { matches, source, loading } = useShadeMatch(submitted, catalogue, 5);
+  // Restrict the match to one paint company ("" = all) — the shade a shop can
+  // actually mix beats the nearest shade from a company they don't carry.
+  const brands = useShadeBrands(catalogue);
+  const [companySlug, setCompanySlug] = useState("");
+  const company = useMemo(
+    () => brands.find((b) => b.slug === companySlug) ?? null,
+    [brands, companySlug],
+  );
+
+  const { matches, source, loading } = useShadeMatch(submitted, catalogue, 5, company);
 
   function findNearest() {
     setError(null);
@@ -53,6 +64,12 @@ export function ColorMatch({ shades }: { shades?: ReadonlyArray<PaintShade> }) {
           spellCheck={false}
           style={{ width: 130, padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", fontFamily: "var(--mono)" }}
         />
+        <CompanyFilter
+          brands={brands}
+          value={companySlug}
+          onChange={setCompanySlug}
+          id="match-company"
+        />
         <button type="submit" className="btn" disabled={loading}>
           {loading ? "Matching…" : "Find nearest"} <span className="arr">→</span>
         </button>
@@ -64,12 +81,20 @@ export function ColorMatch({ shades }: { shades?: ReadonlyArray<PaintShade> }) {
       )}
       {submitted && !loading && (
         <div style={{ marginTop: 24, maxWidth: 560 }}>
-          <MatchList matches={matches} offline={source === "offline"} />
+          <MatchList
+            matches={matches}
+            offline={source === "offline"}
+            heading={company ? `Nearest ${company.name} shades` : "Nearest catalogue shades"}
+          />
         </div>
       )}
       {submitted && !loading && matches.length === 0 && (
         <p style={{ marginTop: 16, color: "var(--fg-mute)" }}>
-          <Mono>No shades in the catalogue yet — seed the backend first.</Mono>
+          <Mono>
+            {company
+              ? `No ${company.name} shades in the catalogue yet — try another company.`
+              : "No shades in the catalogue yet — seed the backend first."}
+          </Mono>
         </p>
       )}
     </div>

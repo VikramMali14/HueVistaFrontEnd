@@ -84,15 +84,23 @@ export function CustomerAccessBanner() {
     ? Math.max(0, Math.ceil((new Date(ent.accessExpiresAt).getTime() - now) / 86_400_000))
     : null;
 
+  // Show the deduction, not just the remainder: "1 of 3 projects used" tells the
+  // customer their shop assigned three and one is gone, which a bare "2 left" doesn't.
+  const used = ent.projectsCreated;
+  const allowance = ent.projectAllowance;
+  const noneLeft = ent.projectsRemaining <= 0;
+
   return (
-    <div style={bannerStyle(false)}>
+    <div style={bannerStyle(noneLeft)}>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <Mono brass>Shop access</Mono>
         <span style={{ font: "400 15px/1 var(--sans)", color: "var(--fg-soft)" }}>
-          {ent.projectsRemaining} project{ent.projectsRemaining === 1 ? "" : "s"} left
+          {used} of {allowance} project{allowance === 1 ? "" : "s"} used
+          {noneLeft ? "" : ` · ${ent.projectsRemaining} left`}
           {daysLeft !== null ? ` · ${daysLeft} day${daysLeft === 1 ? "" : "s"} of access` : ""}
         </span>
       </span>
+      {noneLeft && redeemLink}
     </div>
   );
 }

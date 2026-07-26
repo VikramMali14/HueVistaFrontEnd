@@ -395,6 +395,10 @@ export interface AccessCode {
   customerName?: string | null;
   /** Projects the customer may create with this code. */
   projectQuota?: number;
+  /** Rooms actually created against this code so far. */
+  projectsUsed?: number;
+  /** What is left of `projectQuota` after `projectsUsed`. */
+  projectsRemaining?: number;
   /** Paint companies unlocked for this customer. Empty/absent = all brands. */
   allowedBrands?: string[];
   /** Individual product ids unlocked, in addition to whole companies. */
