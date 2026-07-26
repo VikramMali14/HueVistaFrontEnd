@@ -833,15 +833,20 @@ export async function previewDataResetAction(): Promise<{ result?: DataResetResu
  * ADMIN: wipe every account, shop, project, subscription and payment on the platform.
  * The paint catalogue (companies, product lines, shades) is kept, as is your own admin
  * account — so you stay signed in. Destructive and irreversible.
+ *
+ * `deleteImageFiles` also empties the image store (S3 bucket or upload directory). Those
+ * files are unreachable once the rows naming them are gone, but unlike the rows they
+ * cannot be brought back by a database snapshot — hence the separate choice.
  */
 export async function resetPlatformDataAction(
   confirmation: string,
+  deleteImageFiles: boolean,
 ): Promise<{ result?: DataResetResult; error?: string }> {
   "use server";
   const token = await getAccessToken();
   if (!token) return { error: "Your session expired — please sign in again." };
   try {
-    return { result: await adminApi.resetPlatformData(token, confirmation) };
+    return { result: await adminApi.resetPlatformData(token, confirmation, deleteImageFiles) };
   } catch (err) {
     if (err instanceof HttpError) {
       if (err.status === 403) return { error: "Admin access is required." };

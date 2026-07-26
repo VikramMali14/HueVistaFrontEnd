@@ -22,7 +22,10 @@ const HEADLINE_TABLES: Array<[string, string]> = [
 
 type Props = {
   previewAction: () => Promise<{ result?: DataResetResult; error?: string }>;
-  resetAction: (confirmation: string) => Promise<{ result?: DataResetResult; error?: string }>;
+  resetAction: (
+    confirmation: string,
+    deleteImageFiles: boolean,
+  ) => Promise<{ result?: DataResetResult; error?: string }>;
 };
 
 /**
@@ -36,6 +39,7 @@ type Props = {
  */
 export function ResetPlatformData({ previewAction, resetAction }: Props) {
   const [confirm, setConfirm] = useState("");
+  const [deleteFiles, setDeleteFiles] = useState(true);
   const [preview, setPreview] = useState<DataResetResult | null>(null);
   const [done, setDone] = useState<DataResetResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +64,7 @@ export function ResetPlatformData({ previewAction, resetAction }: Props) {
     if (!armed) return;
     startTransition(async () => {
       setError(null);
-      const res = await resetAction(CONFIRM_PHRASE);
+      const res = await resetAction(CONFIRM_PHRASE, deleteFiles);
       if (res.error || !res.result) {
         setError(res.error ?? "Reset failed.");
         return;
@@ -109,10 +113,31 @@ export function ResetPlatformData({ previewAction, resetAction }: Props) {
         product lines and shades — is kept, and so is your own admin account, so you stay signed in.
         This cannot be undone: take a database snapshot first.
       </p>
-      <p style={{ font: "400 13px/1.6 var(--serif)", color: "var(--fg-mute)", maxWidth: "62ch", margin: "10px 0 0" }}>
-        Uploaded image files are stored outside the database and are not removed by this — clear
-        the image bucket separately.
-      </p>
+      {preview && !done && (
+        <label
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "flex-start",
+            margin: "20px 0 0",
+            maxWidth: "62ch",
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={deleteFiles}
+            onChange={(e) => setDeleteFiles(e.target.checked)}
+            style={{ marginTop: 3, width: 16, height: 16, accentColor: "var(--danger, #c0392b)" }}
+          />
+          <span style={{ font: "400 14px/1.6 var(--serif)", color: "var(--fg-soft)" }}>
+            <strong style={{ color: "var(--fg)" }}>Also delete the uploaded image files.</strong>{" "}
+            Every photo and mask in the image store. They become unreachable anyway once the rows
+            naming them are gone, so leaving this off just means paying to keep files nothing can
+            read — but note a database snapshot can restore the rows and cannot restore these.
+          </span>
+        </label>
+      )}
 
       {!done && (
         <div style={{ marginTop: 22 }}>
@@ -240,7 +265,13 @@ export function ResetPlatformData({ previewAction, resetAction }: Props) {
           </p>
           <p style={{ font: "400 13px/1.5 var(--serif)", color: "var(--fg-mute)", margin: "6px 0 0" }}>
             {done.totalDeleted.toLocaleString()} row{done.totalDeleted === 1 ? "" : "s"} removed from{" "}
-            {done.clearedTables.length} tables. Catalogue kept:{" "}
+            {done.clearedTables.length} tables
+            {done.deletedImageFiles > 0
+              ? `, plus ${done.deletedImageFiles.toLocaleString()} image file${
+                  done.deletedImageFiles === 1 ? "" : "s"
+                }`
+              : ""}
+            . Catalogue kept:{" "}
             {Object.entries(done.preservedTables)
               .map(([table, n]) => `${n.toLocaleString()} ${table.replace(/_/g, " ")}`)
               .join(" · ")}

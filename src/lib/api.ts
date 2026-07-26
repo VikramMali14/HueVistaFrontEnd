@@ -320,12 +320,13 @@ export const adminApi = {
   previewDataReset: (accessToken: string) =>
     serverFetch<DataResetResult>("/api/admin/data-reset", { accessToken }),
   // Wipe every account, shop, project and payment. Keeps the paint catalogue and the
-  // calling admin's own account. Requires the exact confirmation phrase.
-  resetPlatformData: (accessToken: string, confirmation: string) =>
+  // calling admin's own account. Requires the exact confirmation phrase. `deleteImageFiles`
+  // additionally empties the image store, which no snapshot can undo.
+  resetPlatformData: (accessToken: string, confirmation: string, deleteImageFiles: boolean) =>
     serverFetch<DataResetResult>("/api/admin/data-reset", {
       method: "POST",
       accessToken,
-      body: JSON.stringify({ confirmation }),
+      body: JSON.stringify({ confirmation, deleteImageFiles }),
     }),
   // User lookup for the admin console (case-insensitive name/email substring).
   searchUsers: (accessToken: string, q: string) =>
@@ -511,6 +512,8 @@ export interface DataResetResult {
   preservedTables: Record<string, number>;
   deletedRows: Record<string, number>;
   totalDeleted: number;
+  /** Image files removed from the store. Always 0 on a preview. */
+  deletedImageFiles: number;
 }
 
 /** Result of wiping the whole shade catalog. */
