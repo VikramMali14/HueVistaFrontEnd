@@ -119,9 +119,9 @@ export const DEMO_CUSTOMERS: CustomerEntitlement[] = [
 ];
 
 export const DEMO_ACCESS_CODES: AccessCode[] = [
-  { id: "ac_01", code: "MEHTA7", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 7, expiresAt: "2026-07-01T00:00:00+05:30", used: false, expired: false, allowedBrands: ["Asian Paints", "Berger"], createdAt: "2026-06-24T09:00:00+05:30" },
-  { id: "ac_02", code: "MEHTA14", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 14, expiresAt: "2026-07-08T00:00:00+05:30", used: true, expired: false, usedAt: "2026-06-20T13:00:00+05:30", createdAt: "2026-06-06T10:00:00+05:30" },
-  { id: "ac_03", code: "MEHTA3", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 3, expiresAt: "2026-05-01T00:00:00+05:30", used: false, expired: true, createdAt: "2026-04-28T08:00:00+05:30" },
+  { id: "ac_01", code: "MEHTA7K2", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 7, expiresAt: "2026-07-01T00:00:00+05:30", used: false, expired: false, allowedBrands: ["Asian Paints", "Berger"], createdAt: "2026-06-24T09:00:00+05:30" },
+  { id: "ac_02", code: "MEHTA9QP", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 14, expiresAt: "2026-07-08T00:00:00+05:30", used: true, expired: false, usedAt: "2026-06-20T13:00:00+05:30", createdAt: "2026-06-06T10:00:00+05:30" },
+  { id: "ac_03", code: "MEHTA3XR", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 3, expiresAt: "2026-05-01T00:00:00+05:30", used: false, expired: true, createdAt: "2026-04-28T08:00:00+05:30" },
 ];
 
 // --- The shop's suggested three-shade combinations ("shop picks") ---
