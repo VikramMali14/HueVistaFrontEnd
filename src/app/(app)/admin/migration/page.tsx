@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { previewDataResetAction, requireRole, resetPlatformDataAction } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
+import { ResetPlatformData } from "@/components/admin/reset-platform-data";
 
 export const metadata: Metadata = {
   title: "Admin · Maintenance & migration",
@@ -26,7 +27,8 @@ export default async function AdminMigrationPage() {
       </h1>
       <Lead style={{ maxWidth: "56ch" }}>
         One-off data passes over the whole platform. These run against the admin API with your
-        signed-in session — no tokens to copy, no shell required. Each pass is safe to re-run.
+        signed-in session — no tokens to copy, no shell required. The maintenance passes are safe
+        to re-run; anything in a red danger zone is not.
       </Lead>
 
       <section style={{ marginTop: 64, borderTop: "1px solid var(--rule)", paddingTop: 40 }}>
@@ -40,6 +42,21 @@ export default async function AdminMigrationPage() {
         <Link href="/admin/shades" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Go to shade importer →
         </Link>
+      </section>
+
+      <section style={{ marginTop: 64, borderTop: "1px solid var(--rule)", paddingTop: 40 }}>
+        <h2 className="display" style={{ fontSize: "clamp(24px, 3.2vw, 34px)", marginBottom: 8 }}>
+          Start fresh
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch", marginBottom: 16 }}>
+          Clear the platform of every account, shop and project while keeping the paint catalogue —
+          for going live after a pilot, or clearing out test data. Unlike the passes above, this one
+          is <strong>not</strong> safe to re-run casually: it is irreversible.
+        </p>
+        <ResetPlatformData
+          previewAction={previewDataResetAction}
+          resetAction={resetPlatformDataAction}
+        />
       </section>
     </div>
   );

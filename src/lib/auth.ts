@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, networkApi, HttpError } from "./api";
-import type { AdminUserRow, AuditLogRow, DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
+import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import type { AuthResponse, AuthUser, NetworkReport, RetailerBrandOption, SubscriptionSummary, WalletRedemption } from "./types";
@@ -807,6 +807,47 @@ export async function deleteAllShadesAction(): Promise<{ result?: DeleteAllShade
       return { error: err.message };
     }
     return { error: "Delete failed. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: what a platform reset would clear and keep, with live row counts. Read-only,
+ * so the confirmation screen can show real numbers before anything is destroyed.
+ */
+export async function previewDataResetAction(): Promise<{ result?: DataResetResult; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { result: await adminApi.previewDataReset(token) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Could not read the current data. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: wipe every account, shop, project, subscription and payment on the platform.
+ * The paint catalogue (companies, product lines, shades) is kept, as is your own admin
+ * account — so you stay signed in. Destructive and irreversible.
+ */
+export async function resetPlatformDataAction(
+  confirmation: string,
+): Promise<{ result?: DataResetResult; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { result: await adminApi.resetPlatformData(token, confirmation) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Reset failed. Please try again." };
   }
 }
 

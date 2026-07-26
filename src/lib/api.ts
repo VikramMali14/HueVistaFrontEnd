@@ -315,6 +315,18 @@ export const adminApi = {
       method: "DELETE",
       accessToken,
     }),
+  // What a platform reset would clear and what it would keep, with live row counts.
+  // Read-only — used to put real numbers on the confirmation screen.
+  previewDataReset: (accessToken: string) =>
+    serverFetch<DataResetResult>("/api/admin/data-reset", { accessToken }),
+  // Wipe every account, shop, project and payment. Keeps the paint catalogue and the
+  // calling admin's own account. Requires the exact confirmation phrase.
+  resetPlatformData: (accessToken: string, confirmation: string) =>
+    serverFetch<DataResetResult>("/api/admin/data-reset", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({ confirmation }),
+    }),
   // User lookup for the admin console (case-insensitive name/email substring).
   searchUsers: (accessToken: string, q: string) =>
     serverFetch<AdminUserRow[]>(`/api/admin/users?q=${encodeURIComponent(q)}&size=20`, {
@@ -487,6 +499,18 @@ export interface ShadeUploadResult {
   total: number;
   inserted: number;
   skipped: number;
+}
+
+/**
+ * A platform data reset — either previewed or actually carried out. `deletedRows` and
+ * `preservedTables` only list tables that hold rows, so an untouched platform reports
+ * an empty object rather than three dozen zeroes.
+ */
+export interface DataResetResult {
+  clearedTables: string[];
+  preservedTables: Record<string, number>;
+  deletedRows: Record<string, number>;
+  totalDeleted: number;
 }
 
 /** Result of wiping the whole shade catalog. */
