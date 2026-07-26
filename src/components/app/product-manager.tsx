@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { ALL, FilterBar, facetOptionsFrom, matchesQuery } from "@/components/ui/filter-bar";
 import { api, HttpError } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
 import type {
@@ -111,6 +112,13 @@ export function ProductManager() {
   const [org, setOrg] = useState<OrgResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Filters over the shop's saved listings (distinct from the brand/line pickers
+  // above, which drive creating a new product).
+  const [listQuery, setListQuery] = useState("");
+  const [listCompany, setListCompany] = useState(ALL);
+  const [listCategory, setListCategory] = useState(ALL);
+  const [listTier, setListTier] = useState(ALL);
 
   const [brands, setBrands] = useState<PaintBrand[]>([]);
   const [brandId, setBrandId] = useState<number | null>(null);
@@ -322,6 +330,19 @@ export function ProductManager() {
   const checkedLines = useMemo(() => lines.filter((l) => drafts[l.id]), [lines, drafts]);
   const editingList = useMemo(() => products.filter((p) => editing[p.id]), [products, editing]);
 
+  const listCompanyOptions = useMemo(() => facetOptionsFrom(products, (p) => p.brandName), [products]);
+
+  const visibleProducts = useMemo(
+    () =>
+      products.filter((p) => {
+        if (listCompany !== ALL && p.brandName !== listCompany) return false;
+        if (listCategory !== ALL && p.category !== listCategory) return false;
+        if (listTier !== ALL && p.qualityTier !== listTier) return false;
+        return matchesQuery(listQuery, p.brandName, p.lineName, p.finish, p.packSize);
+      }),
+    [products, listQuery, listCompany, listCategory, listTier],
+  );
+
   if (loading) {
     return <div style={{ display: "inline-flex", gap: 10, alignItems: "center", color: "var(--fg-mute)" }}><Spinner size={14} color="var(--accent)" /> <Mono>Loading…</Mono></div>;
   }
@@ -464,17 +485,62 @@ export function ProductManager() {
         {products.length === 0 ? (
           <p style={{ font: "400 16px/1.5 var(--sans)", color: "var(--fg-mute)" }}>No products yet. Build one above.</p>
         ) : (
-          <div className="r-cols-md-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-            {products.map((p) => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                editing={!!editing[p.id]}
-                onEdit={() => startEdit(p)}
-                onDelete={() => void removeProduct(p.id)}
-              />
-            ))}
-          </div>
+          <>
+            <FilterBar
+              query={listQuery}
+              onQueryChange={setListQuery}
+              searchPlaceholder="Search company, line or finish"
+              facets={[
+                {
+                  id: "company",
+                  label: "Company",
+                  value: listCompany,
+                  onChange: setListCompany,
+                  allLabel: "All companies",
+                  options: listCompanyOptions,
+                },
+                {
+                  id: "category",
+                  label: "Use",
+                  value: listCategory,
+                  onChange: setListCategory,
+                  allLabel: "Interior + exterior",
+                  options: [
+                    { value: "INTERIOR", label: "Interior" },
+                    { value: "EXTERIOR", label: "Exterior" },
+                  ],
+                },
+                {
+                  id: "tier",
+                  label: "Quality",
+                  value: listTier,
+                  onChange: setListTier,
+                  allLabel: "All tiers",
+                  options: TIERS.map((t) => ({ value: t, label: tierLabel(t) })),
+                },
+              ]}
+              shown={visibleProducts.length}
+              total={products.length}
+              noun="product"
+            />
+            {visibleProducts.length === 0 ? (
+              <p style={{ font: "400 16px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
+                No product matches these filters.
+              </p>
+            ) : (
+              <div className="r-cols-md-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+                {visibleProducts.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    product={p}
+                    editing={!!editing[p.id]}
+                    onEdit={() => startEdit(p)}
+                    onDelete={() => void removeProduct(p.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>
