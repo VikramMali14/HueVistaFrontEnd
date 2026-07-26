@@ -38,6 +38,8 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   const [org, setOrg] = useState<OrgResponse | null>(null);
   const [codes, setCodes] = useState<AccessCode[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState<string | null>(null);
 
   const [shopName, setShopName] = useState("");
   const [creatingOrg, setCreatingOrg] = useState(false);
@@ -69,7 +71,23 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [companyFilter, setCompanyFilter] = useState(ALL);
 
-  const codeStatus = (c: AccessCode) => (c.used ? "redeemed" : c.expired ? "expired" : "active");
+  async function revoke(c: AccessCode) {
+    if (!org) return;
+    setError(null);
+    setRevoking(c.id);
+    try {
+      const updated = await api.revokeAccessCode(org.id, c.id);
+      setCodes((prev) => prev.map((x) => (x.id === c.id ? updated : x)));
+      setConfirmRevoke(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not cancel that code. Please try again.");
+    } finally {
+      setRevoking(null);
+    }
+  }
+
+  const codeStatus = (c: AccessCode) =>
+    c.used ? "redeemed" : c.revoked ? "cancelled" : c.expired ? "expired" : "active";
 
   const codeCompanyOptions = useMemo(
     () => facetOptionsFrom(codes, (c) => c.allowedBrands ?? []),
@@ -393,6 +411,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                 { value: "active", label: "Active", count: codes.filter((c) => codeStatus(c) === "active").length },
                 { value: "redeemed", label: "Redeemed", count: codes.filter((c) => codeStatus(c) === "redeemed").length },
                 { value: "expired", label: "Expired", count: codes.filter((c) => codeStatus(c) === "expired").length },
+                { value: "cancelled", label: "Cancelled", count: codes.filter((c) => codeStatus(c) === "cancelled").length },
               ],
             },
             {
@@ -414,8 +433,8 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
           </p>
         ) : (
         <div role="table" aria-label="Access codes" style={{ border: "1px solid var(--rule)" }}>
-          <div role="row" className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.3fr 1.2fr 0.8fr 1.1fr 1fr 0.9fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
-            {["Code", "Customer", "Projects", "Expires", "Status", "Rooms"].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
+          <div role="row" className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.3fr 1.2fr 0.8fr 1.1fr 1fr 0.9fr 0.9fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
+            {["Code", "Customer", "Projects", "Expires", "Status", "Rooms", ""].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
           </div>
           {visibleCodes.map((c, i) => {
             const status = codeStatus(c);
@@ -425,7 +444,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
             const expanded = openRoom === c.id;
             return (
               <div key={c.id}>
-                <div role="row" className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.3fr 1.2fr 0.8fr 1.1fr 1fr 0.9fr", padding: "18px 20px", borderBottom: last && !expanded ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
+                <div role="row" className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.3fr 1.2fr 0.8fr 1.1fr 1fr 0.9fr 0.9fr", padding: "18px 20px", borderBottom: last && !expanded ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
                   <span role="cell" data-label="Code" style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                     <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{c.code}</span>
                     {status === "active" && (
@@ -452,6 +471,43 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                       >
                         {expanded ? "Hide" : "View rooms"}
                       </button>
+                    ) : (
+                      <span className="mono" style={{ color: "var(--fg-mute-deep)" }}>—</span>
+                    )}
+                  </span>
+                  {/* Cancelling an unredeemed code hands its held image credits straight
+                      back to the shop's quota. A redeemed code is deliberately NOT
+                      cancellable — the customer may already have rooms under it. */}
+                  <span role="cell" data-label="">
+                    {c.editable ?? (!c.used && !c.revoked) ? (
+                      confirmRevoke === c.id ? (
+                        <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            onClick={() => revoke(c)}
+                            disabled={revoking === c.id}
+                            style={{ background: "transparent", border: "1px solid var(--terracotta)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--terracotta)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+                          >
+                            {revoking === c.id ? "…" : "Confirm"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmRevoke(null)}
+                            style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+                          >
+                            Keep
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRevoke(c.id)}
+                          title="Cancel this code and return its project quota"
+                          style={{ background: "transparent", border: "1px solid var(--rule-strong)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--fg-soft)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+                        >
+                          Cancel
+                        </button>
+                      )
                     ) : (
                       <span className="mono" style={{ color: "var(--fg-mute-deep)" }}>—</span>
                     )}

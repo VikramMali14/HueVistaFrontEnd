@@ -71,8 +71,28 @@ function fmtLimit(n?: number): string {
   return n >= UNLIMITED_FLOOR ? "unlimited" : n.toLocaleString("en-IN");
 }
 
+/** Still inside the period the customer paid for. */
+function withinPaidPeriod(s: SubscriptionSummary | null): boolean {
+  return s?.currentPeriodEnd != null && new Date(s.currentPeriodEnd).getTime() > Date.now();
+}
+
+/**
+ * Whether this subscription currently grants access — ACTIVE, or CANCELLED but still
+ * inside its paid period. Mirrors the backend's entitlement gate exactly, so the panel
+ * can never show "active till period end" while every feature answers 402.
+ */
+function entitles(s: SubscriptionSummary | null): boolean {
+  if (!s) return false;
+  return s.status === "ACTIVE" || (s.status === "CANCELLED" && withinPaidPeriod(s));
+}
+
 function statusLabel(s: SubscriptionSummary): { text: string; color: string } {
   if (s.status === "ACTIVE") {
+    if (s.cancelAtPeriodEnd) {
+      return s.trial
+        ? { text: "Free trial · won't renew", color: "var(--accent)" }
+        : { text: "Active · ends at period close", color: "var(--accent)" };
+    }
     return s.trial
       ? { text: "Free trial", color: "var(--accent)" }
       : { text: "Active", color: "var(--accent)" };
@@ -80,12 +100,12 @@ function statusLabel(s: SubscriptionSummary): { text: string; color: string } {
   if (s.status === "EXPIRED") return { text: "Ended", color: "var(--terracotta)" };
   if (s.status === "HALTED") return { text: "Payment failed", color: "var(--terracotta)" };
   if (s.status === "CANCELLED") {
-    // A cancelled plan stays usable to the end of the paid period — a bare
-    // "Cancelled" read as if access had already ended.
-    const stillInPaidPeriod =
-      s.cancelAtPeriodEnd && s.currentPeriodEnd && new Date(s.currentPeriodEnd).getTime() > Date.now();
-    return stillInPaidPeriod
-      ? { text: "Cancelled · active till period end", color: "var(--fg-mute)" }
+    // A cancelled plan stays usable to the end of the paid period — a bare "Cancelled"
+    // read as if access had already ended. The backend gate matches on the SAME
+    // condition (period end, not the cancelAtPeriodEnd flag), so what this says and what
+    // the API allows can't drift apart.
+    return withinPaidPeriod(s)
+      ? { text: "Cancelled · active till period end", color: "var(--accent)" }
       : { text: "Cancelled", color: "var(--fg-mute)" };
   }
   if (s.status === "CREATED") return { text: "Awaiting payment", color: "var(--fg-mute)" };
@@ -129,6 +149,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
   const [sub, setSub] = useState(initialSubscription);
   const [busyPlan, setBusyPlan] = useState<PurchasablePlan | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [buyingImage, setBuyingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,10 +180,16 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
     if (fresh) setSub(fresh);
   }
 
-  const active = sub?.status === "ACTIVE";
+  // A CANCELLED plan still entitles until the period it was paid for actually elapses —
+  // this mirrors the backend gate exactly, so the panel can never claim access the API
+  // will refuse (or hide access the customer still has).
+  const active = entitles(sub);
   const ended = sub != null && !active;
-  // A paid ACTIVE plan can only be changed by an upgrade; trials can buy anything.
-  const activePaid = active && !sub?.trial;
+  // Winding down: still usable, but not renewing. It no longer blocks buying a plan.
+  const windingDown = active && !!sub?.cancelAtPeriodEnd;
+  // A paid plan that is still renewing can only be changed by an upgrade; a trial, or one
+  // already set to end, can buy anything.
+  const activePaid = active && !sub?.trial && !windingDown;
   const currentRank = activePaid && sub ? (PLAN_RANK[sub.plan] ?? -1) : -1;
 
   async function buy(plan: PurchasablePlan) {
@@ -273,15 +300,33 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
       setSub(res);
       setConfirmCancel(false);
       setNotice(
-        res.status === "ACTIVE"
-          ? "Your plan will end at the close of the current billing period."
-          : "Your subscription has been ended.",
+        res.trial
+          ? "Your trial won't renew. You keep every remaining day of it."
+          : "Your plan will end at the close of the current billing period — everything keeps working until then.",
       );
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not cancel. Please try again.");
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function resume() {
+    setError(null);
+    setNotice(null);
+    setResuming(true);
+    try {
+      const res = await api.resumeSubscription();
+      setSub(res);
+      setNotice("Your plan will keep renewing.");
+      router.refresh();
+    } catch (e) {
+      // Razorpay can't un-cancel a paid plan, so the backend answers with what to do
+      // instead (subscribe again; the current period is unaffected). Surface it as-is.
+      setError(e instanceof Error ? e.message : "Could not resume. Please try again.");
+    } finally {
+      setResuming(false);
     }
   }
 
@@ -433,16 +478,22 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
               </div>
             )}
 
-            {active && !sub.trial && (
+            {active && (
               <div style={{ marginTop: 24, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                {!confirmCancel ? (
+                {windingDown ? (
+                  <button type="button" onClick={resume} disabled={resuming} style={buttonStyle}>
+                    {resuming ? "Resuming…" : "Keep my plan running"}
+                  </button>
+                ) : !confirmCancel ? (
                   <button type="button" onClick={() => setConfirmCancel(true)} style={buttonStyle}>
-                    Cancel subscription
+                    {sub.trial ? "Cancel trial" : "Cancel subscription"}
                   </button>
                 ) : (
                   <>
                     <span style={{ font: "400 14px/1.4 var(--sans)", color: "var(--fg-soft)" }}>
-                      End your plan at the close of this billing period?
+                      {sub.trial
+                        ? "Stop your trial from renewing? You keep every remaining day of it."
+                        : "End your plan at the close of this billing period? Everything keeps working until then."}
                     </span>
                     <button
                       type="button"
@@ -457,9 +508,11 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                     </button>
                   </>
                 )}
-                {sub.cancelAtPeriodEnd && (
+                {windingDown && (
                   <span style={{ font: "400 13px/1 var(--mono)", color: "var(--fg-mute)" }}>
-                    Ends at period close — no further charges.
+                    {sub.currentPeriodEnd
+                      ? `Full access until ${fmtDate(sub.currentPeriodEnd)} — no further charges.`
+                      : "Ends at period close — no further charges."}
                   </span>
                 )}
               </div>

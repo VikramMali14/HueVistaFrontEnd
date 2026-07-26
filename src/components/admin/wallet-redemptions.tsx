@@ -14,6 +14,11 @@ interface WalletRedemptionsProps {
     approve: boolean,
     note?: string,
   ) => Promise<{ redemption?: WalletRedemption; error?: string }>;
+  /** Undo an approval whose transfer never landed. Requires a reason. */
+  reverseAction: (
+    redemptionId: string,
+    note: string,
+  ) => Promise<{ redemption?: WalletRedemption; error?: string }>;
 }
 
 /**
@@ -21,11 +26,15 @@ interface WalletRedemptionsProps {
  * the UPI id to pay. Approve ONLY after actually sending the money — approval
  * records the payout as settled; reject returns the amount to the shop's wallet.
  */
-export function WalletRedemptions({ initial, decideAction }: WalletRedemptionsProps) {
+export function WalletRedemptions({ initial, decideAction, reverseAction }: WalletRedemptionsProps) {
   const [rows, setRows] = useState(initial ?? []);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Approving moves real money and cannot be undone by re-approving, so it takes a
+  // deliberate second click rather than firing on the first.
+  const [confirmApprove, setConfirmApprove] = useState<string | null>(null);
+  const [reversing, setReversing] = useState<string | null>(null);
 
   if (initial === null) {
     return (
@@ -46,6 +55,27 @@ export function WalletRedemptions({ initial, decideAction }: WalletRedemptionsPr
       }
       if (res.redemption) {
         setRows((prev) => prev.map((r) => (r.id === id ? res.redemption! : r)));
+        setConfirmApprove(null);
+      }
+    });
+  }
+
+  function reverse(id: string) {
+    const note = notes[id]?.trim();
+    if (!note) {
+      setError("Say why the payout is being reversed — the shop is told this reason.");
+      return;
+    }
+    startTransition(async () => {
+      setError(null);
+      const res = await reverseAction(id, note);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      if (res.redemption) {
+        setRows((prev) => prev.map((r) => (r.id === id ? res.redemption! : r)));
+        setReversing(null);
       }
     });
   }
@@ -117,7 +147,11 @@ export function WalletRedemptions({ initial, decideAction }: WalletRedemptionsPr
                 <button
                   key={label}
                   type="button"
-                  onClick={() => decide(r.id, approve)}
+                  onClick={() =>
+                    approve && confirmApprove !== r.id
+                      ? setConfirmApprove(r.id)
+                      : decide(r.id, approve)
+                  }
                   disabled={pending}
                   style={{
                     background: "transparent",
@@ -131,9 +165,85 @@ export function WalletRedemptions({ initial, decideAction }: WalletRedemptionsPr
                     textTransform: "uppercase",
                   }}
                 >
-                  {label}
+                  {approve && confirmApprove === r.id
+                    ? `Confirm — ${formatRupees(r.amountPaise)} sent to ${r.upiId}`
+                    : label}
                 </button>
               ))}
+            </span>
+          )}
+          {r.status === "APPROVED" && (
+            <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {reversing === r.id ? (
+                <>
+                  <input
+                    value={notes[r.id] ?? ""}
+                    onChange={(e) => setNotes((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                    placeholder="Why is it being reversed?"
+                    aria-label="Reversal reason"
+                    style={{
+                      padding: "6px 10px",
+                      border: "1px solid var(--rule-strong)",
+                      background: "var(--surface)",
+                      color: "var(--fg)",
+                      font: "400 13px/1 var(--sans)",
+                      width: 200,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => reverse(r.id)}
+                    disabled={pending}
+                    style={{
+                      background: "transparent",
+                      border: "1px solid var(--terracotta)",
+                      borderRadius: 6,
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      color: "var(--terracotta)",
+                      font: "400 10px/1 var(--mono)",
+                      letterSpacing: ".18em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Confirm reversal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReversing(null)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--fg-mute)",
+                      font: "400 10px/1 var(--mono)",
+                      letterSpacing: ".18em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Keep
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setReversing(r.id)}
+                  title="The transfer bounced or the approval was a mistake — return the amount to the shop"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid var(--rule-strong)",
+                    borderRadius: 6,
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    color: "var(--fg-mute)",
+                    font: "400 10px/1 var(--mono)",
+                    letterSpacing: ".18em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Reverse
+                </button>
+              )}
             </span>
           )}
           {r.adminNote && (
