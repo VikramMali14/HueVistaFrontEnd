@@ -644,6 +644,26 @@ export async function decideWalletRedemptionAction(
   }
 }
 
+/**
+ * ADMIN: reverse a payout that was approved but never actually reached the shop.
+ * Approving used to be terminal, so a bounced UPI transfer could only be undone with
+ * hand-written SQL while the shop's balance stayed short.
+ */
+export async function reverseWalletRedemptionAction(
+  redemptionId: string,
+  note: string,
+): Promise<{ redemption?: WalletRedemption; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { redemption: await adminApi.reverseWalletRedemption(token, redemptionId, note) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not reverse the payout. Please try again." };
+  }
+}
+
 /** ADMIN: find users by name or email (top 20 matches, newest first). */
 export async function searchUsersAction(
   q: string,

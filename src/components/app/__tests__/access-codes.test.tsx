@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { AccessCode, OrgResponse } from "@/lib/types";
 import { AccessCodes } from "../access-codes";
 import { api } from "@/lib/api";
@@ -22,6 +23,7 @@ vi.mock("@/lib/api", () => {
       createOrganization: vi.fn(),
       listShadeBrands: vi.fn(),
       listShopProducts: vi.fn(),
+      revokeAccessCode: vi.fn(),
     },
   };
 });
@@ -76,10 +78,11 @@ describe("AccessCodes — accessible table semantics", () => {
     expect(rows).toHaveLength(1 + CODES.length);
 
     const headers = within(rows[0]!).getAllByRole("columnheader");
-    expect(headers.map((h) => h.textContent)).toEqual(["Code", "Customer", "Projects", "Expires", "Status", "Rooms"]);
+    // The trailing empty header is the per-row actions column (cancel an unredeemed code).
+    expect(headers.map((h) => h.textContent)).toEqual(["Code", "Customer", "Projects", "Expires", "Status", "Rooms", ""]);
 
     for (const row of rows.slice(1)) {
-      expect(within(row).getAllByRole("cell")).toHaveLength(6);
+      expect(within(row).getAllByRole("cell")).toHaveLength(7);
     }
   });
 
@@ -115,5 +118,45 @@ describe("AccessCodes — accessible table semantics", () => {
 
     expect(await screen.findByText(/No codes yet\./)).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+});
+
+describe("AccessCodes — cancelling an unredeemed code", () => {
+  it("returns the held quota only after a confirmation, and never offers it on a redeemed code", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.revokeAccessCode).mockResolvedValue({ ...CODES[0]!, revoked: true, editable: false });
+
+    render(<AccessCodes />);
+    const table = await screen.findByRole("table", { name: "Access codes" });
+    const rows = within(table).getAllByRole("row");
+
+    // The redeemed code has no cancel affordance: the customer may already have rooms
+    // under it, so pulling access after the fact would strand them at the counter.
+    expect(within(rows[2]!).queryByRole("button", { name: /cancel/i })).toBeNull();
+
+    // Cancelling releases image credits back to the shop, so it takes two clicks.
+    await user.click(within(rows[1]!).getByRole("button", { name: /cancel/i }));
+    expect(api.revokeAccessCode).not.toHaveBeenCalled();
+
+    await user.click(within(rows[1]!).getByRole("button", { name: /confirm/i }));
+    expect(api.revokeAccessCode).toHaveBeenCalledWith("org-1", "ac-1");
+
+    const refreshed = within(await screen.findByRole("table", { name: "Access codes" })).getAllByRole("row");
+    expect(within(refreshed[1]!).getByText("cancelled")).toBeInTheDocument();
+  });
+
+  it("surfaces a refusal from the server instead of pretending the code was cancelled", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.revokeAccessCode).mockRejectedValue(new Error("This code has already been redeemed."));
+
+    render(<AccessCodes />);
+    const table = await screen.findByRole("table", { name: "Access codes" });
+    const rows = within(table).getAllByRole("row");
+
+    await user.click(within(rows[1]!).getByRole("button", { name: /cancel/i }));
+    await user.click(within(rows[1]!).getByRole("button", { name: /confirm/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("already been redeemed");
+    expect(within(rows[1]!).getByText("active")).toBeInTheDocument();
   });
 });

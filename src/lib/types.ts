@@ -403,6 +403,11 @@ export interface AccessCode {
   allowedBrands?: string[];
   /** Individual product ids unlocked, in addition to whole companies. */
   allowedProductIds?: string[];
+  /** Cancelled by the shop before anyone redeemed it — its held quota is already back. */
+  revoked?: boolean;
+  revokedAt?: string | null;
+  /** Still cancellable/editable: nobody has redeemed it and it hasn't been cancelled. */
+  editable?: boolean;
   /** Resolved individual products (present on the issue response, not the list). */
   assignedProducts?: ShopProduct[];
 }

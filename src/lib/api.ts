@@ -347,6 +347,13 @@ export const adminApi = {
       `/api/admin/wallet/redemptions/${encodeURIComponent(redemptionId)}/decision`,
       { method: "POST", accessToken, body: JSON.stringify({ approve, note }) },
     ),
+  // Undo an approval whose UPI transfer never landed (wrong id, bounced, misclick).
+  // The amount goes back into the shop's balance; a reason is required.
+  reverseWalletRedemption: (accessToken: string, redemptionId: string, note: string) =>
+    serverFetch<import("./types").WalletRedemption>(
+      `/api/admin/wallet/redemptions/${encodeURIComponent(redemptionId)}/reverse`,
+      { method: "POST", accessToken, body: JSON.stringify({ note }) },
+    ),
   // A user's active (or most recent) subscription. 404 (HttpError) when they have none.
   getUserSubscription: (accessToken: string, userId: string) =>
     serverFetch<import("./types").SubscriptionSummary>(
@@ -658,9 +665,17 @@ export const api = {
   // Every subscription the account has held, newest first (the /subscription page's history list).
   getSubscriptionHistory: () =>
     browserFetch<import("./types").SubscriptionSummary[]>("api/billing/subscriptions"),
-  // Cancel at period end (paid) / end immediately (trial or admin-granted plan).
+  // Cancel at period end. Access — including a free trial's remaining days — continues
+  // in full until then; only the renewal stops.
   cancelSubscription: () =>
     browserFetch<import("./types").SubscriptionSummary>("api/billing/subscriptions/cancel", {
+      method: "POST",
+    }),
+  // Undo a scheduled cancellation. Works for a trial or an admin-granted plan; for a paid
+  // plan already cancelled at Razorpay the backend explains that the gateway can't
+  // un-cancel and the customer should subscribe again (the current period is unaffected).
+  resumeSubscription: () =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/subscriptions/resume", {
       method: "POST",
     }),
   // All plan options with pricing + AI/PDF limits (drives the plan cards).
@@ -824,6 +839,29 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // Cancel a code nobody has redeemed yet — its held image credits go straight back to
+  // the shop's monthly quota, so fixing a mistyped code no longer costs the quota twice.
+  revokeAccessCode: (orgId: string, codeId: string) =>
+    browserFetch<AccessCode>(
+      `api/organizations/${encodeURIComponent(orgId)}/access-codes/${encodeURIComponent(codeId)}`,
+      { method: "DELETE" },
+    ),
+  // Amend a not-yet-redeemed code. The assigned project count is fixed once issued (it is
+  // backed by held image credits) — cancel and re-issue to change it.
+  updateAccessCode: (
+    orgId: string,
+    codeId: string,
+    body: {
+      customerName: string;
+      projectQuota: number;
+      allowedBrands?: string[];
+      allowedProductIds?: string[];
+    },
+  ) =>
+    browserFetch<AccessCode>(
+      `api/organizations/${encodeURIComponent(orgId)}/access-codes/${encodeURIComponent(codeId)}`,
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
   // Customer: the companies + individual products the retailer unlocked on my code.
   getAssignedProducts: () =>
     browserFetch<import("./types").AssignedProducts>("api/me/assigned-products"),

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { adjustSubscriptionAction, decideWalletRedemptionAction, getAuditLog, getShopLeads, getUserSubscriptionAction, getWalletRedemptions, grantSubscriptionAction, requireRole, searchUsersAction, updateShopLeadStatusAction } from "@/lib/auth";
+import { adjustSubscriptionAction, decideWalletRedemptionAction, reverseWalletRedemptionAction, getAuditLog, getShopLeads, getUserSubscriptionAction, getWalletRedemptions, grantSubscriptionAction, requireRole, searchUsersAction, updateShopLeadStatusAction } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { CreateRetailerForm } from "@/components/admin/create-retailer-form";
 import { CreateDistributorForm } from "@/components/admin/create-distributor-form";
@@ -99,7 +99,11 @@ export default async function AdminPage() {
           Retailers&rsquo; kiosk-earnings redemption requests. Send the money to the UPI id first,
           then mark it approved; rejecting returns the amount to the shop&rsquo;s wallet.
         </p>
-        <WalletRedemptions initial={redemptions} decideAction={decideWalletRedemptionAction} />
+        <WalletRedemptions
+          initial={redemptions}
+          decideAction={decideWalletRedemptionAction}
+          reverseAction={reverseWalletRedemptionAction}
+        />
       </section>
 
       <section id="subscriptions" style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
