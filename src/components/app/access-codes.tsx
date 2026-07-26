@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { ALL, FilterBar, facetOptionsFrom, matchesQuery } from "@/components/ui/filter-bar";
 import { useCopied } from "@/hooks/use-copied";
 import { api, HttpError } from "@/lib/api";
 import { PAINT_BRANDS, type AccessCode, type OrgResponse, type ProjectDetail, type ShopProduct } from "@/lib/types";
@@ -61,6 +62,32 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   // carry several projects (one image charged per assigned project), so this is a list.
   const [openRoom, setOpenRoom] = useState<string | null>(null);
   const [rooms, setRooms] = useState<Record<string, ProjectDetail[] | "loading" | "error">>({});
+
+  // Issued-code filters. A busy shop accumulates hundreds of codes, so the
+  // history is only usable with a search and status/company facets over it.
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState(ALL);
+  const [companyFilter, setCompanyFilter] = useState(ALL);
+
+  const codeStatus = (c: AccessCode) => (c.used ? "redeemed" : c.expired ? "expired" : "active");
+
+  const codeCompanyOptions = useMemo(
+    () => facetOptionsFrom(codes, (c) => c.allowedBrands ?? []),
+    [codes],
+  );
+
+  const visibleCodes = useMemo(
+    () =>
+      codes.filter((c) => {
+        if (statusFilter !== ALL && codeStatus(c) !== statusFilter) return false;
+        const brands = c.allowedBrands ?? [];
+        // No restriction on the code means every company is unlocked, so such a
+        // code belongs under any company the shop filters by.
+        if (companyFilter !== ALL && brands.length > 0 && !brands.includes(companyFilter)) return false;
+        return matchesQuery(query, c.code, c.customerName, brands.join(" "));
+      }),
+    [codes, query, statusFilter, companyFilter],
+  );
 
   const viewRoom = useCallback((codeId: string) => {
     setOpenRoom((cur) => (cur === codeId ? null : codeId));
@@ -350,14 +377,50 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
           No codes yet. Issue one above and share it with a customer.
         </p>
       ) : (
+        <>
+        <FilterBar
+          query={query}
+          onQueryChange={setQuery}
+          searchPlaceholder="Search code or customer"
+          facets={[
+            {
+              id: "status",
+              label: "Status",
+              value: statusFilter,
+              onChange: setStatusFilter,
+              allLabel: "Any status",
+              options: [
+                { value: "active", label: "Active", count: codes.filter((c) => codeStatus(c) === "active").length },
+                { value: "redeemed", label: "Redeemed", count: codes.filter((c) => codeStatus(c) === "redeemed").length },
+                { value: "expired", label: "Expired", count: codes.filter((c) => codeStatus(c) === "expired").length },
+              ],
+            },
+            {
+              id: "company",
+              label: "Company",
+              value: companyFilter,
+              onChange: setCompanyFilter,
+              allLabel: "All companies",
+              options: codeCompanyOptions,
+            },
+          ]}
+          shown={visibleCodes.length}
+          total={codes.length}
+          noun="code"
+        />
+        {visibleCodes.length === 0 ? (
+          <p style={{ font: "400 17px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
+            No code matches these filters.
+          </p>
+        ) : (
         <div role="table" aria-label="Access codes" style={{ border: "1px solid var(--rule)" }}>
           <div role="row" className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.3fr 1.2fr 0.8fr 1.1fr 1fr 0.9fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
             {["Code", "Customer", "Projects", "Expires", "Status", "Rooms"].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
           </div>
-          {codes.map((c, i) => {
-            const status = c.used ? "redeemed" : c.expired ? "expired" : "active";
+          {visibleCodes.map((c, i) => {
+            const status = codeStatus(c);
             const statusColor = status === "active" ? "var(--accent)" : "var(--fg-mute-deep)";
-            const last = i === codes.length - 1;
+            const last = i === visibleCodes.length - 1;
             const room = rooms[c.id];
             const expanded = openRoom === c.id;
             return (
@@ -445,6 +508,8 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
             );
           })}
         </div>
+        )}
+        </>
       )}
     </div>
   );

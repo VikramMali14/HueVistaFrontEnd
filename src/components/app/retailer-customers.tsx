@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, HttpError } from "@/lib/api";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { ALL, FilterBar, matchesQuery } from "@/components/ui/filter-bar";
 import type { CustomerEntitlement, OrgResponse } from "@/lib/types";
 
 function formatAccessLeft(iso?: string | null): string {
@@ -36,6 +37,23 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [grantingId, setGrantingId] = useState<string | null>(null);
+
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState(ALL);
+  const [usage, setUsage] = useState(ALL);
+
+  const visible = useMemo(
+    () =>
+      rows.filter((c) => {
+        if (status === "active" && c.expired) return false;
+        if (status === "expired" && !c.expired) return false;
+        const remaining = c.projectsRemaining ?? c.projectAllowance - c.projectsCreated;
+        if (usage === "left" && remaining <= 0) return false;
+        if (usage === "used-up" && remaining > 0) return false;
+        return matchesQuery(query, c.customerName, c.customerEmail);
+      }),
+    [rows, query, status, usage],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,6 +133,44 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
   }
 
   return (
+    <>
+    <FilterBar
+      query={query}
+      onQueryChange={setQuery}
+      searchPlaceholder="Search customer or e-mail"
+      facets={[
+        {
+          id: "status",
+          label: "Access",
+          value: status,
+          onChange: setStatus,
+          allLabel: "Any access",
+          options: [
+            { value: "active", label: "Active", count: rows.filter((c) => !c.expired).length },
+            { value: "expired", label: "Expired", count: rows.filter((c) => c.expired).length },
+          ],
+        },
+        {
+          id: "usage",
+          label: "Projects",
+          value: usage,
+          onChange: setUsage,
+          allLabel: "Any usage",
+          options: [
+            { value: "left", label: "Slots left" },
+            { value: "used-up", label: "Fully used" },
+          ],
+        },
+      ]}
+      shown={visible.length}
+      total={rows.length}
+      noun="customer"
+    />
+    {visible.length === 0 ? (
+      <p style={{ font: "400 18px/1.6 var(--sans)", color: "var(--fg-soft)" }}>
+        No customer matches these filters.
+      </p>
+    ) : (
     <div role="table" aria-label="Customers" style={{ border: "1px solid var(--rule)" }}>
       <div
         role="row"
@@ -134,7 +190,7 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
           </span>
         ))}
       </div>
-      {rows.map((c, i) => (
+      {visible.map((c, i) => (
         <div
           key={c.customerId}
           role="row"
@@ -143,7 +199,7 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
             display: "grid",
             gridTemplateColumns: "1.8fr 1fr 1fr 1.1fr",
             padding: "18px 24px",
-            borderBottom: i === rows.length - 1 ? "none" : "1px solid var(--rule)",
+            borderBottom: i === visible.length - 1 ? "none" : "1px solid var(--rule)",
             alignItems: "center",
             gap: 12,
           }}
@@ -180,5 +236,7 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
         </div>
       ))}
     </div>
+    )}
+    </>
   );
 }

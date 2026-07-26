@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
+import { ALL, FilterBar, facetOptionsFrom, matchesQuery } from "@/components/ui/filter-bar";
 import { api } from "@/lib/api";
 import type { AssignedProducts, ShopProduct } from "@/lib/types";
 
@@ -25,6 +26,28 @@ export function AssignedProductsView() {
       cancelled = true;
     };
   }, []);
+
+  const [query, setQuery] = useState("");
+  const [company, setCompany] = useState(ALL);
+
+  // Hooks run before the early returns below, so derive from a possibly-unloaded
+  // `data` rather than reading it after the guards.
+  const allProducts = useMemo(
+    () => (data && data !== "error" ? data.products ?? [] : []),
+    [data],
+  );
+  const companyOptions = useMemo(
+    () => facetOptionsFrom(allProducts, (p) => p.brandName),
+    [allProducts],
+  );
+  const visibleProducts = useMemo(
+    () =>
+      allProducts.filter((p) => {
+        if (company !== ALL && p.brandName !== company) return false;
+        return matchesQuery(query, p.brandName, p.lineName, p.finish);
+      }),
+    [allProducts, query, company],
+  );
 
   if (data === undefined) {
     return (
@@ -95,18 +118,43 @@ export function AssignedProductsView() {
       {products.length > 0 && (
         <section>
           <Mono brass>Products</Mono>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-              gap: 16,
-              marginTop: 14,
-            }}
-          >
-            {products.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
+          <div style={{ marginTop: 14 }}>
+            <FilterBar
+              query={query}
+              onQueryChange={setQuery}
+              searchPlaceholder="Search product or finish"
+              facets={[
+                {
+                  id: "company",
+                  label: "Company",
+                  value: company,
+                  onChange: setCompany,
+                  allLabel: "All companies",
+                  options: companyOptions,
+                },
+              ]}
+              shown={visibleProducts.length}
+              total={products.length}
+              noun="product"
+            />
           </div>
+          {visibleProducts.length === 0 ? (
+            <p style={{ font: "400 15px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
+              No product matches these filters.
+            </p>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {visibleProducts.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          )}
         </section>
       )}
 
