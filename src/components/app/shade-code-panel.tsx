@@ -14,7 +14,7 @@ import {
 } from "@/lib/shade-codes";
 import type { OrgResponse, PaintShade } from "@/lib/types";
 
-const EMPTY: ShadeCodeScheme = { prefix: "", infix: "", suffix: "" };
+const EMPTY: ShadeCodeScheme = { prefix: "", infix: "", suffix: "", showNames: true };
 
 /**
  * Retailer-facing: the shop's shade-code scheme. ONE pattern — prefix, a pair
@@ -55,10 +55,14 @@ export function ShadeCodePanel({ shades, org: orgProp }: { shades: ReadonlyArray
     })();
   }, [orgProp]);
 
+  const showNames = draft.showNames !== false;
   const dirty =
-    draft.prefix !== saved.prefix || draft.infix !== saved.infix || draft.suffix !== saved.suffix;
+    draft.prefix !== saved.prefix ||
+    draft.infix !== saved.infix ||
+    draft.suffix !== saved.suffix ||
+    showNames !== (saved.showNames !== false);
 
-  const setPart = (part: keyof ShadeCodeScheme, value: string) => {
+  const setPart = (part: keyof typeof SCHEME_LIMITS, value: string) => {
     setDraft((prev) => ({ ...prev, [part]: normalizeSchemePart(value, SCHEME_LIMITS[part]) }));
     setNotice(null);
     setError(null);
@@ -72,7 +76,16 @@ export function ShadeCodePanel({ shades, org: orgProp }: { shades: ReadonlyArray
       const scheme = await api.updateShadeCodeScheme(org.id, draft);
       setSaved(scheme);
       setDraft(scheme);
-      setNotice(hasScheme(scheme) ? "Scheme saved — customers now see the coded numbers." : "Scheme cleared — customers see no codes.");
+      // Read before the narrowing: hasScheme is a type guard, so its else branch
+      // narrows `scheme` to never and the flag is unreachable from inside it.
+      const namesHidden = scheme.showNames === false;
+      setNotice(
+        hasScheme(scheme)
+          ? `Saved — everyone under your shop now sees your coded numbers${namesHidden ? ", with paint names hidden" : ""}.`
+          : namesHidden
+            ? "Pattern cleared — real codes show, paint names stay hidden."
+            : "Pattern cleared — real codes and names show as they are.",
+      );
     } catch (e) {
       if (e instanceof HttpError) setError(e.message);
       else setError("Could not save the scheme. Please try again.");
@@ -127,6 +140,32 @@ export function ShadeCodePanel({ shades, org: orgProp }: { shades: ReadonlyArray
             onChange={(v) => setPart("suffix", v)}
           />
         </div>
+
+        {/* Names are the other half of the same decision: a shop that replaces the
+            manufacturer's numbering with its own usually does not want the manufacturer's
+            product name printed beside it, because the customer can search that in
+            seconds. Kept as its own switch — it applies with or without a pattern. */}
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={!showNames}
+            onChange={(e) => {
+              setDraft((prev) => ({ ...prev, showNames: !e.target.checked }));
+              setNotice(null);
+              setError(null);
+            }}
+            style={{ marginTop: 4 }}
+          />
+          <span>
+            <span style={{ font: "500 15px/1.3 var(--sans)", color: "var(--fg)" }}>
+              Hide paint names
+            </span>
+            <span style={{ display: "block", font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)", marginTop: 2 }}>
+              Names disappear everywhere a colour is shown — studio, PDF boards, share
+              links and the kiosk. Your code becomes the only handle on a shade.
+            </span>
+          </span>
+        </label>
 
         {/* Live example of the rule on a real code. */}
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>

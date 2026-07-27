@@ -282,6 +282,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // the colour handlers can refuse before touching the canvas: letting the paint land
   // locally and only failing on the autosave shows the user a colour that isn't saved
   // and won't be there next time.
+  // The shop hides paint names everywhere a colour appears — studio, dock, PDF board.
+  const [hideNames, setHideNames] = useState(false);
   const [viewOnly, setViewOnly] = useState(false);
   const [viewOnlyReason, setViewOnlyReason] = useState<string | null>(null);
   const [reopenPaise, setReopenPaise] = useState(0);
@@ -429,11 +431,20 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // The shade-code scheme only changes what GUESTS see, so only guests fetch it.
   // Best-effort: on failure codes just stay hidden, exactly as without a scheme.
   useEffect(() => {
-    if (!guest) return;
     let cancelled = false;
+    // Everyone under the shop, not only guests. A shop that builds its own numbering is
+    // replacing the manufacturer's, so its staff, its painters and its customers all have
+    // to be reading the same codes the counter reads — fetching this for guests alone
+    // meant the one pattern the shop defined appeared on exactly one screen.
+    // One endpoint for everyone: it resolves the shop from whoever is asking — the
+    // caller's own org, their retailer's, or the shop that issued their guest code.
     api.getMyShadeCodeScheme()
       .then((scheme) => {
-        if (!cancelled && hasScheme(scheme)) setCodeScheme(scheme);
+        if (cancelled) return;
+        if (hasScheme(scheme)) setCodeScheme(scheme);
+        // showNames is a shop-wide switch, independent of whether a pattern is set:
+        // a shop can hide paint names without running its own codes.
+        setHideNames(scheme?.showNames === false);
       })
       .catch(() => {});
     return () => {
@@ -441,11 +452,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     };
   }, [guest]);
 
-  // Guests with a scheme see encoded codes wherever a signed-in user sees real ones.
+  // With a scheme, encoded codes replace the manufacturer's everywhere they appear.
   const encodeCode = useMemo(
     () => (codeScheme ? (code: string) => encodeShadeCode(codeScheme, code) : undefined),
     [codeScheme],
   );
+
+  // Raw codes are withheld from guests always, and from everyone once the shop has a
+  // pattern — `encodeCode` then supplies what is shown in their place.
+  const hideRawCodes = guest || Boolean(codeScheme);
 
   useEffect(() => {
     if (saveStatus !== "saved") {
@@ -1445,12 +1460,14 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setPdfNotice("Could not capture this image — please try again.");
       return;
     }
+    // The board leaves the shop, so it follows the shop's own presentation exactly:
+    // its codes where it has a pattern, and no paint name where it hides names. A PDF
+    // that still printed "Asian Paints Ivory Mist" would undo the whole scheme in the
+    // one artefact the customer walks out with.
     const shades = painted.map((r) => ({
       label: r.label,
-      name: r.shade?.name ?? "Custom colour",
-      // Guests never see real shade codes — with a shop scheme the PDF carries
-      // the encoded code (the counter decodes it); without one, no code at all.
-      code: guest
+      name: hideNames ? "" : (r.shade?.name ?? "Custom colour"),
+      code: hideRawCodes
         ? r.shade && encodeCode
           ? encodeCode(r.shade.code)
           : undefined
@@ -1459,7 +1476,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }));
     setPdfPages((prev) => [...prev, { jpegDataUrl: jpeg, shades }]);
     setPdfNotice(null);
-  }, [imageUrl, regions, pdfPages.length, maxPdfPages, guest, encodeCode]);
+  }, [imageUrl, regions, pdfPages.length, maxPdfPages, hideRawCodes, hideNames, encodeCode]);
 
   const removePdfPage = useCallback((index: number) => {
     setPdfPages((prev) => prev.filter((_, i) => i !== index));
@@ -2306,7 +2323,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             regions={regionLites}
             onApplyToRegion={applyShadeTo}
             onKeepOriginal={onKeepOriginalActive}
-            hideCodes={guest}
+            hideCodes={hideRawCodes}
+            hideNames={hideNames}
             encodeCode={encodeCode}
             onSelectRegion={(id) => setActiveRegion(id)}
             onAddWall={() => {

@@ -69,6 +69,10 @@ interface ShadeGridProps {
   onApplyToRegion?: (regionId: string, shade: PaintShade) => void;
   /** Guest mode: hide real shade codes (guests pick by colour; the shop reads codes). */
   hideCodes?: boolean;
+  /** The shop hides paint names: swatches, tooltips and the dock show the colour and
+   *  its code only. Usually paired with a code scheme — printing the manufacturer's
+   *  name beside the shop's own number gives away exactly what the number hides. */
+  hideNames?: boolean;
   /** With hideCodes: show this shop-scheme encoding of the code instead of nothing,
    *  so the counter reads the shade straight off the guest's screen. */
   encodeCode?: (code: string) => string;
@@ -121,6 +125,7 @@ export function ShadeGrid({
   regions,
   onApplyToRegion,
   hideCodes = false,
+  hideNames = false,
   encodeCode,
   onSelectRegion,
   onAddWall,
@@ -388,7 +393,7 @@ export function ShadeGrid({
             {shown.length === 0 ? (
               <p className="hv-studio-empty">No shades match. Clear the search, family or depth filter.</p>
             ) : section === "top50" ? (
-              <SwatchGrid shades={top} selected={selected} onSelect={onSelect} hideCodes={hideCodes} encodeCode={encodeCode} />
+              <SwatchGrid shades={top} selected={selected} onSelect={onSelect} hideCodes={hideCodes} hideNames={hideNames} encodeCode={encodeCode} />
             ) : (
               <div className="hv-studio-by-company">
                 {byCompany.map(({ brand, list }) => (
@@ -401,6 +406,7 @@ export function ShadeGrid({
                     selected={selected}
                     onSelect={onSelect}
                     hideCodes={hideCodes}
+        hideNames={hideNames}
                     encodeCode={encodeCode}
                   />
                 ))}
@@ -418,6 +424,7 @@ export function ShadeGrid({
             onApplyToRegion={onApplyToRegion}
             baseHex={baseHex}
             hideCodes={hideCodes}
+        hideNames={hideNames}
             encodeCode={encodeCode}
             onFetchAiPalettes={onFetchAiPalettes}
             shopCombos={shopCombos}
@@ -433,6 +440,7 @@ export function ShadeGrid({
             activeRegionLabel={activeRegionLabel}
             initialHex={customSeed}
             hideCodes={hideCodes}
+        hideNames={hideNames}
             encodeCode={encodeCode}
           />
         )}
@@ -456,6 +464,7 @@ export function ShadeGrid({
         canKeepOriginal={activeApplied}
         activeRegionLabel={activeRegionLabel}
         hideCodes={hideCodes}
+        hideNames={hideNames}
         encodeCode={encodeCode}
         clashNote={clashNote}
         recentShades={recentShades}
@@ -472,15 +481,21 @@ function SwatchGrid({
   selected,
   onSelect,
   hideCodes = false,
+  hideNames = false,
   encodeCode,
 }: {
   shades: ReadonlyArray<PaintShade>;
   selected?: string;
   onSelect: (shade: PaintShade) => void;
   hideCodes?: boolean;
+  hideNames?: boolean;
   encodeCode?: (code: string) => string;
 }) {
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
+  // With names hidden the code becomes the colour's only handle, so it stands in for
+  // the name rather than leaving the swatch with no label at all.
+  const nameLabel = (s: { name: string; code: string }) =>
+    hideNames ? (codeLabel(s.code) ?? "") : s.name;
   return (
     <div className="hv-studio-swatches">
       {shades.map((s) => (
@@ -488,13 +503,13 @@ function SwatchGrid({
           key={s.code}
           type="button"
           onClick={() => onSelect(s)}
-          title={codeLabel(s.code) ? `${s.name} · ${codeLabel(s.code)}` : s.name}
-          aria-label={codeLabel(s.code) ? `${s.name}, code ${codeLabel(s.code)}` : s.name}
+          title={hideNames ? (codeLabel(s.code) ?? "Colour") : codeLabel(s.code) ? `${s.name} · ${codeLabel(s.code)}` : s.name}
+          aria-label={hideNames ? `Colour ${codeLabel(s.code) ?? s.hex}` : codeLabel(s.code) ? `${s.name}, code ${codeLabel(s.code)}` : s.name}
           className={`hv-studio-swatch ${selected === s.code ? "is-selected" : ""}`}
         >
           <span className="hv-studio-swatch-color" style={{ background: s.hex }} />
           <span className="hv-studio-swatch-label">
-            {s.name}
+            {nameLabel(s)}
           </span>
         </button>
       ))}
@@ -515,6 +530,7 @@ const CompanySection = memo(function CompanySection({
   selected,
   onSelect,
   hideCodes,
+  hideNames,
   encodeCode,
 }: {
   brand: string;
@@ -524,6 +540,7 @@ const CompanySection = memo(function CompanySection({
   selected?: string;
   onSelect: (shade: PaintShade) => void;
   hideCodes?: boolean;
+  hideNames?: boolean;
   encodeCode?: (code: string) => string;
 }) {
   const slice = useMemo(
@@ -536,7 +553,7 @@ const CompanySection = memo(function CompanySection({
         <span>{brand}</span>
         <Mono>{slice.length < list.length ? `${slice.length} of ${list.length}` : list.length}</Mono>
       </div>
-      <SwatchGrid shades={slice} selected={selected} onSelect={onSelect} hideCodes={hideCodes} encodeCode={encodeCode} />
+      <SwatchGrid shades={slice} selected={selected} onSelect={onSelect} hideCodes={hideCodes} hideNames={hideNames} encodeCode={encodeCode} />
       {slice.length < list.length && (
         <button
           type="button"
@@ -567,6 +584,7 @@ function SelectionDock({
   canKeepOriginal = false,
   activeRegionLabel,
   hideCodes = false,
+  hideNames = false,
   encodeCode,
   clashNote,
   recentShades,
@@ -586,6 +604,7 @@ function SelectionDock({
   canKeepOriginal?: boolean;
   activeRegionLabel?: string;
   hideCodes?: boolean;
+  hideNames?: boolean;
   encodeCode?: (code: string) => string;
   clashNote?: string | null;
   recentShades?: ReadonlyArray<PaintShade>;
@@ -631,17 +650,21 @@ function SelectionDock({
   const canOpenTips = Boolean(shade) || Boolean(clashNote);
 
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
+  // With names hidden the code becomes the colour's only handle, so it stands in for
+  // the name rather than leaving the swatch with no label at all.
+  const nameLabel = (s: { name: string; code: string }) =>
+    hideNames ? (codeLabel(s.code) ?? "") : s.name;
 
   const altChip = (s: PaintShade) => (
     <button
       key={s.code}
       type="button"
       onClick={() => onSelectShade(s)}
-      title={codeLabel(s.code) ? `${s.name} · ${codeLabel(s.code)}` : s.name}
+      title={hideNames ? (codeLabel(s.code) ?? "Colour") : codeLabel(s.code) ? `${s.name} · ${codeLabel(s.code)}` : s.name}
       className="hv-studio-chip"
     >
       <span aria-hidden className="hv-studio-chip-dot" style={{ background: s.hex }} />
-      {s.name}
+      {nameLabel(s)}
     </button>
   );
 
@@ -690,7 +713,7 @@ function SelectionDock({
           {shade && fadeRisky && (
             <div className="hv-studio-note" role="note">
               <p>
-                Deep {hideCodes ? "shades like this" : `shades like ${shade.name}`} fade faster in
+                Deep {hideCodes || hideNames ? "shades like this" : `shades like ${shade.name}`} fade faster in
                 strong Indian sun on outside walls.{fadeAlts.length > 0 ? " Nearby colours that hold up longer:" : ""}
               </p>
               {fadeAlts.length > 0 && (
@@ -714,7 +737,7 @@ function SelectionDock({
                 {pairing.trim && (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 7, font: "400 12px/1.2 var(--sans)", color: "var(--fg-soft)" }}>
                     <span aria-hidden style={{ width: 16, height: 16, borderRadius: 4, background: pairing.trim.hex, border: "1px solid var(--rule-strong)" }} />
-                    Trim: {pairing.trim.name}{codeLabel(pairing.trim.code) ? ` · ${codeLabel(pairing.trim.code)}` : ""}
+                    Trim: {nameLabel(pairing.trim)}{!hideNames && codeLabel(pairing.trim.code) ? ` · ${codeLabel(pairing.trim.code)}` : ""}
                   </span>
                 )}
               </div>
@@ -730,10 +753,11 @@ function SelectionDock({
           style={shade ? { background: shade.hex } : undefined}
         />
         <div className="hv-studio-dock-info" aria-live="polite">
-          <span className="hv-studio-dock-name">{shade ? shade.name : "No colour selected"}</span>
+          <span className="hv-studio-dock-name">{shade ? (nameLabel(shade) || "Colour") : "No colour selected"}</span>
           <span className="hv-studio-dock-meta">
             {shade
-              ? [codeLabel(shade.code), shade.brand].filter(Boolean).join(" · ") || shade.family
+              ? [codeLabel(shade.code), hideNames ? null : shade.brand].filter(Boolean).join(" · ")
+                || (hideNames ? "" : shade.family)
               : "Tap any swatch — it paints the active wall"}
           </span>
         </div>
@@ -844,6 +868,7 @@ function PaletteTrioCard({
   onSelect,
   onApplyCombo,
   codeLabel,
+  nameLabel,
   applyAllTitle,
 }: {
   title: ReactNode;
@@ -852,6 +877,8 @@ function PaletteTrioCard({
   onSelect: (shade: PaintShade) => void;
   onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
   codeLabel: (code: string) => string | null;
+  /** The colour's display name — empty when the shop hides paint names. */
+  nameLabel: (shade: { name: string; code: string }) => string;
   applyAllTitle: string;
 }) {
   // order[slot] = index into `trio` of the colour currently in that role slot.
@@ -956,12 +983,12 @@ function PaletteTrioCard({
                 }
                 onSelect(s);
               }}
-              title={`${s.name}${code ? ` · ${code}` : ""} — tap for the active wall, drag onto another role to swap`}
-              aria-label={`${PALETTE_ROLES[slot]}: ${s.name}${code ? ` (${code})` : ""}. Tap to apply to the active wall, drag onto another role to swap.`}
+              title={`${nameLabel(s) || "Colour"}${code ? ` · ${code}` : ""} — tap for the active wall, drag onto another role to swap`}
+              aria-label={`${PALETTE_ROLES[slot]}: ${nameLabel(s) || "colour"}${code ? ` (${code})` : ""}. Tap to apply to the active wall, drag onto another role to swap.`}
             >
               <span aria-hidden className="hv-ai-swatch-color" style={{ background: s.hex }} />
               <span className="hv-ai-swatch-role">{PALETTE_ROLES[slot]}</span>
-              <span className="hv-ai-swatch-name">{s.name}</span>
+              <span className="hv-ai-swatch-name">{nameLabel(s)}</span>
               {code && <span className="hv-ai-swatch-code">{code}</span>}
             </button>
           );
@@ -993,6 +1020,7 @@ function AISuggestPanel({
   onApplyToRegion,
   baseHex,
   hideCodes = false,
+  hideNames = false,
   encodeCode,
   onFetchAiPalettes,
   shopCombos,
@@ -1006,6 +1034,7 @@ function AISuggestPanel({
   /** Colour already on the active wall — anchors every palette when present. */
   baseHex?: string;
   hideCodes?: boolean;
+  hideNames?: boolean;
   encodeCode?: (code: string) => string;
   /** Claude palettes for THIS photo (1 AI preview per ask); hidden when absent. */
   onFetchAiPalettes?: () => Promise<AiRecommendationResponse>;
@@ -1032,6 +1061,10 @@ function AISuggestPanel({
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
 
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
+  // With names hidden the code becomes the colour's only handle, so it stands in for
+  // the name rather than leaving the swatch with no label at all.
+  const nameLabel = (s: { name: string; code: string }) =>
+    hideNames ? (codeLabel(s.code) ?? "") : s.name;
 
   // Distinct paint companies in the (already brand-scoped for guests) catalogue.
   const availableBrands = useMemo(
@@ -1140,6 +1173,7 @@ function AISuggestPanel({
           onSelect={onSelect}
           onApplyCombo={applyCombo}
           hideCodes={hideCodes}
+        hideNames={hideNames}
           encodeCode={encodeCode}
         />
       )}
@@ -1151,6 +1185,7 @@ function AISuggestPanel({
           onSelect={onSelect}
           onApplyCombo={applyCombo}
           hideCodes={hideCodes}
+        hideNames={hideNames}
           encodeCode={encodeCode}
         />
       )}
@@ -1212,6 +1247,7 @@ function AISuggestPanel({
                 onSelect={onSelect}
                 onApplyCombo={applyCombo}
                 codeLabel={codeLabel}
+                nameLabel={nameLabel}
                 applyAllTitle="Apply the whole palette — main, accent and trim — across the room"
               />
             ))}
@@ -1227,6 +1263,7 @@ function AISuggestPanel({
           catalogue={scopedCatalogue}
           onApplyToRegion={onApplyToRegion!}
           hideCodes={hideCodes}
+        hideNames={hideNames}
           encodeCode={encodeCode}
         />
       )}
@@ -1248,6 +1285,7 @@ function ClaudePicksSection({
   onSelect,
   onApplyCombo,
   hideCodes = false,
+  hideNames = false,
   encodeCode,
 }: {
   fetchPalettes: () => Promise<AiRecommendationResponse>;
@@ -1255,9 +1293,14 @@ function ClaudePicksSection({
   onSelect: (shade: PaintShade) => void;
   onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
   hideCodes?: boolean;
+  hideNames?: boolean;
   encodeCode?: (code: string) => string;
 }) {
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
+  // With names hidden the code becomes the colour's only handle, so it stands in for
+  // the name rather than leaving the swatch with no label at all.
+  const nameLabel = (s: { name: string; code: string }) =>
+    hideNames ? (codeLabel(s.code) ?? "") : s.name;
   const [loading, setLoading] = useState(false);
   const [combos, setCombos] = useState<AiColorCombo[] | null>(null);
   const [error, setError] = useState<{ message: string; quota: boolean } | null>(null);
@@ -1363,6 +1406,7 @@ function ClaudePicksSection({
               onSelect={onSelect}
               onApplyCombo={onApplyCombo}
               codeLabel={codeLabel}
+                nameLabel={nameLabel}
               applyAllTitle="Apply the whole palette — main, accent and trim — across the room"
             />
           ))}
@@ -1387,6 +1431,7 @@ function ShopPicksSection({
   onSelect,
   onApplyCombo,
   hideCodes = false,
+  hideNames = false,
   encodeCode,
 }: {
   combos: ReadonlyArray<RetailerCombo>;
@@ -1395,9 +1440,14 @@ function ShopPicksSection({
   onSelect: (shade: PaintShade) => void;
   onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
   hideCodes?: boolean;
+  hideNames?: boolean;
   encodeCode?: (code: string) => string;
 }) {
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
+  // With names hidden the code becomes the colour's only handle, so it stands in for
+  // the name rather than leaving the swatch with no label at all.
+  const nameLabel = (s: { name: string; code: string }) =>
+    hideNames ? (codeLabel(s.code) ?? "") : s.name;
   // Prefer the real catalogue entry for a code (correct LRV/finishes drive the
   // dock tips); fall back to a shade built from the combo so it still applies
   // even if the catalogue was re-imported since the retailer saved it.
@@ -1446,6 +1496,7 @@ function ShopPicksSection({
             onSelect={onSelect}
             onApplyCombo={onApplyCombo}
             codeLabel={codeLabel}
+                nameLabel={nameLabel}
             applyAllTitle="Apply the whole combination — main, accent and trim — across the room"
           />
         ))}

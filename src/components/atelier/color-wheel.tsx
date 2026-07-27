@@ -191,6 +191,7 @@ export function CustomMatchPanel({
   initialHex,
   hideCodes = false,
   encodeCode,
+  hideNames = false,
 }: {
   onSelect: (shade: PaintShade) => void;
   /** Apply the picked colour exactly, without snapping to a catalogue shade. */
@@ -203,8 +204,12 @@ export function CustomMatchPanel({
   hideCodes?: boolean;
   /** With hideCodes: show this shop-scheme encoding of the code instead of nothing. */
   encodeCode?: (code: string) => string;
+  /** The shop hides paint names — the code stands in as the colour's only handle. */
+  hideNames?: boolean;
 }) {
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
+  const nameLabel = (s: { name: string; code: string }) =>
+    hideNames ? (codeLabel(s.code) ?? "") : s.name;
   const seed = initialHex && HEX_RE.test(initialHex) ? initialHex : "#7C9CBF";
   const [hex, setHex] = useState(seed);
   const [text, setText] = useState(seed);
@@ -345,8 +350,12 @@ export function CustomMatchPanel({
                 key={shade.code}
                 type="button"
                 onClick={() => onSelect(shade)}
-                title={codeLabel(shade.code) ? `${shade.name} · ${codeLabel(shade.code)} · ${closenessRating(deltaE)}` : `${shade.name} · ${shade.brand}`}
-                aria-label={codeLabel(shade.code) ? `Apply ${shade.name}, code ${codeLabel(shade.code)}` : `Apply ${shade.name}`}
+                title={hideNames
+                  ? `${nameLabel(shade)} · ${closenessRating(deltaE)}`
+                  : codeLabel(shade.code) ? `${shade.name} · ${codeLabel(shade.code)} · ${closenessRating(deltaE)}` : `${shade.name} · ${shade.brand}`}
+                aria-label={hideNames
+                  ? `Apply ${nameLabel(shade) || "this colour"}`
+                  : codeLabel(shade.code) ? `Apply ${shade.name}, code ${codeLabel(shade.code)}` : `Apply ${shade.name}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -381,7 +390,7 @@ export function CustomMatchPanel({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {shade.name}
+                    {nameLabel(shade)}
                   </span>
                   <Mono>
                     {codeLabel(shade.code) ? `${shade.brand} · ${codeLabel(shade.code)}` : shade.brand}

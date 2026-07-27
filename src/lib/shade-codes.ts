@@ -7,9 +7,11 @@
  *     customer code = PREFIX + code[0..2] + PAIR + code[2..] + SUFFIX
  *
  * e.g. shade L124 with prefix "AB", pair "XY", suffix "CD" → ABL1XY24CD.
- * Guests visualising under the shop see the encoded codes, so the counter can
- * read the real shade straight off the customer's screen or PDF — and the
- * portal's decoder does the reverse without opening any project.
+ * EVERYONE under the shop sees the encoded codes — staff, painters, entitled
+ * customers and guests alike — because the pattern replaces the manufacturer's
+ * numbering rather than masking it for outsiders. The counter reads the real shade
+ * straight off the customer's screen or PDF, and the portal's decoder does the
+ * reverse without opening any project.
  */
 
 export interface ShadeCodeScheme {
@@ -19,6 +21,13 @@ export interface ShadeCodeScheme {
   infix: string;
   /** Up to 4 characters placed after the shade code. */
   suffix: string;
+  /**
+   * Whether paint NAMES are shown anywhere under this shop. Independent of the
+   * pattern — a shop can hide "Asian Paints Ivory Mist" without running its own
+   * codes, and hiding names is usually the point of running them. Absent means
+   * yes, which is the default everywhere.
+   */
+  showNames?: boolean;
 }
 
 export const SCHEME_LIMITS = { prefix: 4, infix: 2, suffix: 4 } as const;

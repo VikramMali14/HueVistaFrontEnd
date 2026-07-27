@@ -62,6 +62,15 @@ vi.mock("@/lib/api", () => {
         purchasedImageCredits: 0,
       })),
       getAiRecommendations: vi.fn(),
+      // The shop's display settings load on mount for EVERYONE now, not just guests —
+      // a shop's own code pattern has to reach its own staff. Default to no pattern and
+      // names shown, i.e. the plain manufacturer codes these tests assert on.
+      getMyShadeCodeScheme: vi.fn(async () => ({
+        prefix: "",
+        infix: "",
+        suffix: "",
+        showNames: true,
+      })),
       // Shop picks load best-effort on mount; default to none so the effect is a no-op.
       getRetailerCombos: vi.fn(async () => []),
       // PDF tray quota loads best-effort on mount.
