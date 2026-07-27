@@ -389,6 +389,28 @@ export interface CustomerEntitlement {
   updatedAt?: string;
 }
 
+/**
+ * One recorded act of a shop giving projects away (backend ProjectGrantResponse).
+ *
+ * Every granted project reserves an image credit against the shop's plan, so grants are
+ * recorded rather than just applied — that is what makes them reversible.
+ */
+export interface ProjectGrant {
+  id: string;
+  /** Exactly one is set: the grant went to a customer, or onto a code. */
+  customerUserId?: string | null;
+  accessCodeId?: string | null;
+  projects: number;
+  createdAt?: string | null;
+  revokedAt?: string | null;
+  /**
+   * Whether "take back" would succeed right now. False once the customer has used the
+   * projects, and false after the billing period that funded the grant has renewed —
+   * releasing those images into a new period would mint quota the old one paid for.
+   */
+  revocable: boolean;
+}
+
 /** Minimal organization shape (backend OrgResponse). */
 export interface OrgResponse {
   id: string;

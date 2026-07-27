@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { CustomerEntitlement, OrgResponse } from "@/lib/types";
 import { RetailerCustomers } from "../retailer-customers";
 import { api } from "@/lib/api";
@@ -19,6 +20,10 @@ vi.mock("@/lib/api", () => {
       listMyOrgs: vi.fn(),
       listCustomers: vi.fn(),
       grantProject: vi.fn(),
+      // Loaded alongside the customers so a row knows whether it has anything to take
+      // back. Best-effort in the component, so default to "nothing granted".
+      listProjectGrants: vi.fn(async () => []),
+      revokeProjectGrant: vi.fn(),
     },
   };
 });
@@ -102,5 +107,44 @@ describe("RetailerCustomers — accessible table semantics", () => {
 
     expect(await screen.findByText("No customers have redeemed an access code yet.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Take-back only appears when there is genuinely something to take back. A grant the
+   * customer has used, or one funded by a billing period that has since renewed, comes
+   * back from the server already marked not-revocable — so the button never offers an
+   * action that would be refused.
+   */
+  it("offers take-back only for a grant that is still revocable", async () => {
+    vi.mocked(api.listProjectGrants).mockResolvedValue([
+      { id: "g-1", customerUserId: "c-1", projects: 1, revocable: true },
+      { id: "g-2", customerUserId: "c-2", projects: 1, revocable: false },
+    ]);
+    render(<RetailerCustomers />);
+
+    const table = await screen.findByRole("table", { name: "Customers" });
+    const rows = within(table).getAllByRole("row");
+    expect(within(rows[1]!).getByRole("button", { name: "Take back" })).toBeEnabled();
+    expect(within(rows[2]!).queryByRole("button", { name: "Take back" })).not.toBeInTheDocument();
+  });
+
+  it("returns the grant and refreshes both lists", async () => {
+    vi.mocked(api.listProjectGrants).mockResolvedValue([
+      { id: "g-1", customerUserId: "c-1", projects: 1, revocable: true },
+    ]);
+    vi.mocked(api.revokeProjectGrant).mockResolvedValue({
+      id: "g-1", customerUserId: "c-1", projects: 1, revocable: false, revokedAt: "2026-07-27T00:00:00Z",
+    });
+    render(<RetailerCustomers />);
+
+    const table = await screen.findByRole("table", { name: "Customers" });
+    const rows = within(table).getAllByRole("row");
+    await userEvent.click(within(rows[1]!).getByRole("button", { name: "Take back" }));
+
+    expect(api.revokeProjectGrant).toHaveBeenCalledWith("org-1", "g-1");
+    // Both the allowance and the offer have to be re-read: the allowance dropped, and
+    // there may be nothing left to take back.
+    expect(api.listCustomers).toHaveBeenCalledTimes(2);
+    expect(api.listProjectGrants).toHaveBeenCalledTimes(2);
   });
 });
