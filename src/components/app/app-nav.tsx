@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import type { AuthUser } from "@/lib/types";
+import { canUsePath } from "@/lib/features";
+import type { AuthUser, MyAccess } from "@/lib/types";
 
 const TABS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -23,9 +24,15 @@ const TABS = [
 
 interface AppNavProps {
   user: AuthUser | null;
+  /**
+   * The shop's brand + page grant from its distributor. Null when it couldn't be
+   * loaded, which `canUsePath` treats as unrestricted — a backend hiccup shouldn't
+   * strip a shop's tabs.
+   */
+  access?: MyAccess | null;
 }
 
-export function AppNav({ user }: AppNavProps) {
+export function AppNav({ user, access = null }: AppNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   // Studio mode: the workspace owns the whole viewport, so the navbar becomes
@@ -67,6 +74,10 @@ export function AppNav({ user }: AppNavProps) {
     if (t.href === "/subscription" && user && (user.role === "CUSTOMER" || user.role === "DISTRIBUTOR")) return false;
     if (t.href === "/inbox" && (!user || user.role !== "ADMIN")) return false;
     if (t.href === "/admin" && (!user || user.role !== "ADMIN")) return false;
+    // Last: the shop's own distributor may have switched this page off. Applied
+    // after the role rules so it can only ever REMOVE a tab the role allows —
+    // a grant can't hand a customer the admin console.
+    if (!canUsePath(access, t.href)) return false;
     return true;
   });
 

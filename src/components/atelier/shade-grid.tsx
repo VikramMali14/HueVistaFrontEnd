@@ -16,7 +16,7 @@ import {
 } from "@/lib/color-science";
 import { UndertoneTag } from "@/components/catalogue/undertone-tag";
 import { generatePalettes } from "@/lib/palettes";
-import { mapToPaintShade } from "@/lib/catalogue";
+import { mapToPaintShade } from "@/lib/shade-mapping";
 import { HttpError } from "@/lib/http-error";
 import { CustomMatchPanel } from "./color-wheel";
 import { CoordinateSuggestions, type RegionLite } from "./coordinate-suggestions";

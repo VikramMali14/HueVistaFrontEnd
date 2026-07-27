@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { getCurrentUserResult } from "@/lib/auth";
+import { FEATURE_LABELS } from "@/lib/features";
+import type { AppFeatureKey } from "@/lib/types";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { LinkButton } from "@/components/ui/button";
 import { AccountVerification } from "@/components/app/account-verification";
@@ -14,11 +16,11 @@ export const metadata: Metadata = {
 };
 
 interface DashboardPageProps {
-  searchParams: Promise<{ denied?: string; subscribed?: string }>;
+  searchParams: Promise<{ denied?: string; page?: string; subscribed?: string }>;
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const [{ denied, subscribed }, { user, unavailable }] = await Promise.all([searchParams, getCurrentUserResult()]);
+  const [{ denied, page, subscribed }, { user, unavailable }] = await Promise.all([searchParams, getCurrentUserResult()]);
   // The audience is India-only, so IST is the right clock for the greeting.
   const h = Number(new Intl.DateTimeFormat("en-IN", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Kolkata" }).format(new Date()));
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
@@ -38,6 +40,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           }}
         >
           That page is reserved for retailers and administrators. We brought you back to your dashboard.
+        </div>
+      )}
+      {denied === "feature" && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: 24,
+            padding: "12px 16px",
+            border: "1px solid var(--rule-strong)",
+            background: "var(--surface-soft)",
+            color: "var(--fg)",
+            font: "300 16px/1.4 var(--serif)",
+            borderRadius: "var(--radius)",
+          }}
+        >
+          {/* Naming the distributor matters: this is the one denial the shop
+              cannot resolve themselves, and without saying so it reads as a bug. */}
+          {featureLabel(page)} isn&apos;t switched on for your shop. Ask your distributor to enable it.
         </div>
       )}
       {subscribed === "1" && (
@@ -106,4 +126,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <DashboardProjects />
     </>
   );
+}
+
+/**
+ * Human name for the page a shop was just bounced off, from the ?page= key.
+ * Falls back to a generic phrase so an unknown or tampered key still reads as a
+ * sentence rather than printing the raw parameter back at the user.
+ */
+function featureLabel(key: string | undefined): string {
+  const label = key ? FEATURE_LABELS[key as AppFeatureKey] : undefined;
+  return label ? `"${label}"` : "That page";
 }

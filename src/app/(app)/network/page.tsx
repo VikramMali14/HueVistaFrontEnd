@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getNetworkReport, requireRole } from "@/lib/auth";
+import { getNetworkReport, requireFeature, requireRole } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { NetworkCreateRetailerForm } from "@/components/network/create-retailer-form";
 import { CreatePainterForm } from "@/components/network/create-painter-form";
@@ -27,6 +27,9 @@ export const metadata: Metadata = {
  */
 export default async function NetworkPage() {
   const user = await requireRole(["ADMIN", "DISTRIBUTOR", "RETAILER"]);
+  // Grantable for shops only — requireFeature is a no-op for admins and
+  // distributors, who are never restricted.
+  await requireFeature("NETWORK");
   const report = await getNetworkReport();
 
   return (

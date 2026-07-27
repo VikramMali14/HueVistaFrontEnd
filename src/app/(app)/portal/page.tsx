@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getAccessToken, requireRole } from "@/lib/auth";
+import { getAccessToken, requireFeature, requireRole } from "@/lib/auth";
 import { orgApi } from "@/lib/api";
 import type { OrgResponse } from "@/lib/types";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
@@ -20,6 +20,8 @@ export const metadata: Metadata = {
 export default async function PortalPage() {
   // The portal is a retailer/admin-only feature; deny shoppers and distributors.
   await requireRole(["RETAILER", "ADMIN"]);
+  // …and a distributor may have switched it off for this particular shop.
+  await requireFeature("CUSTOMER_PORTAL");
   // Live catalogue for the combo builder's shade search (bundled sample on failure).
   const shades = await getCatalogueOrSample();
   // The user's orgs, fetched ONCE for the whole page — every section used to

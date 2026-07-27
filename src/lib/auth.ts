@@ -6,7 +6,8 @@ import { adminApi, authApi, billingApi, guestServerApi, networkApi, HttpError } 
 import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
-import type { AuthResponse, AuthUser, NetworkReport, RetailerBrandOption, SubscriptionSummary, WalletRedemption } from "./types";
+import { canUseFeature } from "./features";
+import type { AppFeatureKey, AuthResponse, AuthUser, MyAccess, NetworkReport, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary, WalletRedemption } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -466,6 +467,17 @@ export async function createNetworkRetailerAction(
   const shopName = str("shopName");
   if (!name || !email || !shopName) return { error: "Owner name, email and shop name are required." };
   if (password.length < 8) return { error: "Set an initial password of at least eight characters." };
+  // Access the distributor granted on the form. Absent fields mean "unrestricted",
+  // which is what the form submits when its "everything" toggles are left on — so a
+  // distributor who ignores the access section still gets today's behaviour.
+  const brandsUnrestricted = formData.get("brandsUnrestricted") !== "off";
+  const featuresUnrestricted = formData.get("featuresUnrestricted") !== "off";
+  const brandIds = formData
+    .getAll("brandIds")
+    .map((v) => Number(v))
+    .filter((n) => Number.isFinite(n));
+  const features = formData.getAll("features").map((v) => String(v));
+
   try {
     await networkApi.createRetailer(token, {
       name,
@@ -476,6 +488,10 @@ export async function createNetworkRetailerAction(
       state: str("state"),
       phone: str("phone"),
       tier: str("tier"),
+      brandsUnrestricted,
+      brandIds: brandsUnrestricted ? [] : brandIds,
+      featuresUnrestricted,
+      features: featuresUnrestricted ? [] : features,
     });
     return { ok: true };
   } catch (err) {
@@ -552,24 +568,89 @@ export async function getRetailerBrandsAction(
 }
 
 /**
- * DISTRIBUTOR (or ADMIN): replace a shop's brand selection wholesale. An empty
- * list clears every restriction (the shop reverts to all brands).
+ * DISTRIBUTOR (or ADMIN): replace a shop's brand selection wholesale.
+ *
+ * `unrestricted` is the caller's explicit "give them everything" — it is NOT the
+ * same as passing no brand ids, which really does revoke every company.
  */
 export async function setRetailerBrandsAction(
   retailerOrgId: string,
   brandIds: number[],
+  unrestricted: boolean,
 ): Promise<{ options?: RetailerBrandOption[]; error?: string }> {
   "use server";
   const token = await getAccessToken();
   if (!token) return { error: "Your session expired — please sign in again." };
   try {
-    return { options: await networkApi.setRetailerBrands(token, retailerOrgId, brandIds) };
+    return { options: await networkApi.setRetailerBrands(token, retailerOrgId, brandIds, unrestricted) };
   } catch (err) {
     if (err instanceof HttpError) {
       if (err.status === 403) return { error: "You can only manage shops in your own network." };
       return { error: err.message };
     }
     return { error: "Could not save the brand selection. Please try again." };
+  }
+}
+
+/**
+ * DISTRIBUTOR (or ADMIN): the brands and pages available to grant, nothing assigned.
+ *
+ * Feeds the shop-creation form's checklists. Returns empty lists on failure so the
+ * form still renders and creates an (unrestricted) shop — losing the ability to
+ * narrow access is a far better failure than not being able to create a shop.
+ */
+export async function getGrantableAccessAction(): Promise<{
+  brands: RetailerBrandOption[];
+  features: RetailerFeatureOption[];
+}> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { brands: [], features: [] };
+  try {
+    return await networkApi.grantable(token);
+  } catch {
+    return { brands: [], features: [] };
+  }
+}
+
+/** DISTRIBUTOR (or ADMIN): every grantable page for a shop, with its current state. */
+export async function getRetailerFeaturesAction(
+  retailerOrgId: string,
+): Promise<{ options?: RetailerFeatureOption[]; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { options: await networkApi.retailerFeatures(token, retailerOrgId) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "You can only manage shops in your own network." };
+      return { error: err.message };
+    }
+    return { error: "Could not load this shop's pages. Please try again." };
+  }
+}
+
+/**
+ * DISTRIBUTOR (or ADMIN): replace a shop's page selection wholesale. Same
+ * three-state contract as {@link setRetailerBrandsAction}.
+ */
+export async function setRetailerFeaturesAction(
+  retailerOrgId: string,
+  features: string[],
+  unrestricted: boolean,
+): Promise<{ options?: RetailerFeatureOption[]; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { options: await networkApi.setRetailerFeatures(token, retailerOrgId, features, unrestricted) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "You can only manage shops in your own network." };
+      return { error: err.message };
+    }
+    return { error: "Could not save the page selection. Please try again." };
   }
 }
 
@@ -892,6 +973,41 @@ export async function requireActiveSubscription(): Promise<void> {
   // The in-app subscription page shows why access is paused AND the renew
   // buttons — a better landing than the public pricing pitch.
   redirect("/subscription?need=subscription");
+}
+
+/**
+ * The signed-in caller's brand + page allowances, or null when there is no session
+ * (or the backend can't be reached).
+ *
+ * A null result must be read as "don't know", never as "denied": the callers below
+ * deliberately fail OPEN on it. A backend hiccup should not lock a paying shop out
+ * of pages its distributor granted — the backend enforces the same rules on every
+ * endpoint behind these pages, so the worst case of failing open is a nav tab that
+ * leads to a 403, not actual unauthorised access.
+ */
+export async function getMyAccess(): Promise<MyAccess | null> {
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    return await networkApi.myAccess(token);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Server-side page guard for a distributor-grantable page. Use inside server
+ * components alongside the existing role/subscription guards.
+ *
+ * A shop that lands here without the grant goes to its dashboard with a hint,
+ * rather than to sign-in — they are correctly signed in, they just don't have
+ * this page, and only their distributor can change that.
+ */
+export async function requireFeature(feature: AppFeatureKey): Promise<void> {
+  const access = await getMyAccess();
+  if (!canUseFeature(access, feature)) {
+    redirect(`/dashboard?denied=feature&page=${encodeURIComponent(feature)}`);
+  }
 }
 
 /**
