@@ -52,7 +52,7 @@ export function DemoCredentials() {
           <button
             key={acc.email}
             type="button"
-            onClick={() => fill(acc.email)}
+            onClick={() => fill(acc.email ?? "")}
             style={{
               textAlign: "left",
               display: "flex",

@@ -22,7 +22,10 @@ type Phase = "idle" | "sending" | "code" | "confirming";
 export function AccountVerification({ user }: { user: AuthUser | null }) {
   const [emailVerified, setEmailVerified] = useState(Boolean(user?.emailVerified));
 
-  if (!user || emailVerified) return null;
+  // An access-code account has no address to verify — the backend withholds the
+  // synthetic one — so prompting them to "secure your account" would be asking for
+  // something they cannot give, on a panel they cannot dismiss.
+  if (!user || emailVerified || !user.email) return null;
 
   return (
     <section
@@ -44,7 +47,7 @@ export function AccountVerification({ user }: { user: AuthUser | null }) {
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <EmailRow email={user.email} verified={emailVerified} onVerified={() => setEmailVerified(true)} />
+        <EmailRow email={user.email ?? ""} verified={emailVerified} onVerified={() => setEmailVerified(true)} />
       </div>
     </section>
   );

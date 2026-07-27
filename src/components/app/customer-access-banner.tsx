@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
+import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import type { CustomerEntitlement } from "@/lib/types";
+import type { CustomerEntitlement, ProjectPurchaseOptions } from "@/lib/types";
 
 const bannerStyle = (highlight: boolean): React.CSSProperties => ({
   display: "flex",
@@ -36,6 +37,9 @@ const redeemLink = (
 export function CustomerAccessBanner() {
   // undefined = loading, null = no entitlement, "error" = fetch failed (render nothing)
   const [ent, setEnt] = useState<CustomerEntitlement | null | "error" | undefined>(undefined);
+  const [options, setOptions] = useState<ProjectPurchaseOptions | null>(null);
+  const [buying, setBuying] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null);
   // Mount-time clock for the days-left maths — render stays pure.
   const [now] = useState(() => Date.now());
 
@@ -45,23 +49,64 @@ export function CustomerAccessBanner() {
       .getMyEntitlement()
       .then((e) => !cancelled && setEnt(e ?? null))
       .catch(() => !cancelled && setEnt("error"));
+    // Prices are advisory here; a failure just means the banner names no figure.
+    api
+      .getProjectPurchaseOptions()
+      .then((o) => !cancelled && setOptions(o))
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
 
+  async function buyProject() {
+    setBuying(true);
+    setBuyError(null);
+    try {
+      const { buyExtraProject } = await import("@/lib/payments");
+      const paid = await buyExtraProject();
+      if (paid) setOptions(await api.getProjectPurchaseOptions());
+    } catch (e) {
+      setBuyError(e instanceof Error ? e.message : "Could not start the payment.");
+    } finally {
+      setBuying(false);
+    }
+  }
+
   if (ent === undefined || ent === "error") return null;
 
+  // No entitlement at all: this account signed up on its own rather than being
+  // onboarded by a shop. There are two honest routes open to them — a code from a
+  // paint shop, or buying a project outright — and offering only the first strands
+  // anyone who doesn't have a shop to walk into.
   if (ent === null) {
+    const price = options ? `₹${Math.round(options.projectPricePaise / 100)}` : null;
+    const credits = options?.availableCredits ?? 0;
     return (
       <div style={bannerStyle(false)}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <Mono brass>Shop access</Mono>
+          <Mono brass>No subscription</Mono>
           <span style={{ font: "400 15px/1.3 var(--sans)", color: "var(--fg-soft)" }}>
-            The studio unlocks with an access code from your paint shop — ask at the counter.
+            {credits > 0
+              ? `${credits} project${credits === 1 ? "" : "s"} paid for and ready — start one whenever you like.`
+              : price
+                ? `Each project is ${price} and stays open for ${options!.validDays} days. Have a code from your paint shop? Redeem it instead.`
+                : "Buy a project to start, or redeem a code from your paint shop."}
           </span>
+          {buyError && (
+            <span className="field-error" role="alert" style={{ flexBasis: "100%" }}>
+              {buyError}
+            </span>
+          )}
         </span>
-        {redeemLink}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          {credits === 0 && (
+            <Button size="sm" variant="ghost" disabled={buying} onClick={() => void buyProject()}>
+              {buying ? "Opening…" : price ? `Buy a project · ${price}` : "Buy a project"}
+            </Button>
+          )}
+          {redeemLink}
+        </span>
       </div>
     );
   }

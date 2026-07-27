@@ -177,6 +177,11 @@ export function AccountDetails({ user: initial }: { user: AuthUser }) {
           )}
         </dd>
 
+        {/* Hidden entirely for an account opened with a shop's access code: it has no
+            e-mail, only one synthesised from the code, and showing that would tell the
+            customer their room is filed under an address they have never seen. */}
+        {user.email && (
+        <>
         <dt style={label}>Email</dt>
         <dd style={{ ...value, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span>{user.email}</span>
@@ -216,6 +221,8 @@ export function AccountDetails({ user: initial }: { user: AuthUser }) {
             </span>
           )}
         </dd>
+        </>
+        )}
 
         <dt style={label}>Mobile</dt>
         <dd style={{ ...value, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>

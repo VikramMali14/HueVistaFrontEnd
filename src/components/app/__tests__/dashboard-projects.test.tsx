@@ -1,0 +1,112 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { ProjectSummary } from "@/lib/types";
+import { DashboardProjects } from "../dashboard-projects";
+import { api } from "@/lib/api";
+
+vi.mock("@/lib/api", () => {
+  class HttpError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  }
+  return { HttpError, api: { listProjects: vi.fn() } };
+});
+
+const OWN: ProjectSummary = {
+  id: "p-own",
+  name: "My showroom wall",
+  status: "SEGMENTED",
+  imageId: "img-1",
+  imageUrl: "/img-1.jpg",
+  regionCount: 3,
+  source: "OWN",
+  updatedAt: "2026-07-20T10:00:00Z",
+};
+
+const CUSTOMER: ProjectSummary = {
+  id: "p-cust",
+  name: "Priya's living room",
+  status: "SEGMENTED",
+  imageId: "img-2",
+  imageUrl: "/img-2.jpg",
+  regionCount: 2,
+  source: "CUSTOMER",
+  customerName: "Priya Sharma",
+  accessCode: "7K2NQ9PX",
+  accessCodeId: "ac-1",
+  readOnly: true,
+  updatedAt: "2026-07-21T10:00:00Z",
+};
+
+describe("DashboardProjects — separating a shop's work from its customers'", () => {
+  beforeEach(() => {
+    vi.mocked(api.listProjects).mockReset();
+  });
+
+  it("names the customer and their code on a customer room", async () => {
+    vi.mocked(api.listProjects).mockResolvedValue([OWN, CUSTOMER]);
+    render(<DashboardProjects />);
+
+    expect(await screen.findByText("Priya's living room")).toBeInTheDocument();
+    // Whose room it is has to be visible on the card — a shop dashboard now carries
+    // both kinds, and an unlabelled card is one that gets opened by mistake.
+    expect(screen.getByText(/Priya Sharma/)).toBeInTheDocument();
+    expect(screen.getByText(/7K2NQ9PX/)).toBeInTheDocument();
+  });
+
+  it("filters between the shop's own rooms and its customers'", async () => {
+    vi.mocked(api.listProjects).mockResolvedValue([OWN, CUSTOMER]);
+    render(<DashboardProjects />);
+
+    expect(await screen.findByText("My showroom wall")).toBeInTheDocument();
+    expect(screen.getByText("Priya's living room")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /My rooms/ }));
+    expect(screen.getByText("My showroom wall")).toBeInTheDocument();
+    expect(screen.queryByText("Priya's living room")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Customer rooms/ }));
+    expect(screen.queryByText("My showroom wall")).not.toBeInTheDocument();
+    expect(screen.getByText("Priya's living room")).toBeInTheDocument();
+  });
+
+  /**
+   * A control whose only effect is to empty the page is worse than no control. A shop
+   * that has never issued a code has nothing to separate.
+   */
+  it("hides the filter entirely when there are no customer rooms", async () => {
+    vi.mocked(api.listProjects).mockResolvedValue([OWN]);
+    render(<DashboardProjects />);
+
+    expect(await screen.findByText("My showroom wall")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Customer rooms/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Filter rooms" })).not.toBeInTheDocument();
+  });
+
+  /**
+   * A customer's room belongs to the session the customer is holding. Opening it in the
+   * studio would show a live palette over something the shop cannot save, so the card
+   * points at the shop's portal view of that code instead.
+   */
+  it("sends a customer room to the portal, not the studio", async () => {
+    vi.mocked(api.listProjects).mockResolvedValue([CUSTOMER]);
+    render(<DashboardProjects />);
+
+    const link = await screen.findByRole("link", { name: "Priya's living room" });
+    expect(link).toHaveAttribute("href", "/portal?code=ac-1");
+  });
+
+  it("marks a lapsed room of the shop's own as view-only", async () => {
+    vi.mocked(api.listProjects).mockResolvedValue([
+      { ...OWN, readOnly: true, accessExpiresAt: "2026-07-01T00:00:00Z" },
+    ]);
+    render(<DashboardProjects />);
+
+    expect(await screen.findByText(/View only/)).toBeInTheDocument();
+  });
+});

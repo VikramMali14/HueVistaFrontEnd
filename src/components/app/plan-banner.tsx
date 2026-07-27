@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
+import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import type { SubscriptionSummary } from "@/lib/types";
+import type { ProjectPurchaseOptions, SubscriptionSummary } from "@/lib/types";
 
 const UNLIMITED = 2147483647; // Integer.MAX_VALUE (Enterprise)
 
@@ -35,6 +36,9 @@ const subscribeLink = (
  */
 export function PlanBanner() {
   const [sub, setSub] = useState<SubscriptionSummary | null | undefined>(undefined);
+  const [options, setOptions] = useState<ProjectPurchaseOptions | null>(null);
+  const [buying, setBuying] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null);
   // Mount-time clock for the days-left maths — render stays pure.
   const [now] = useState(() => Date.now());
 
@@ -44,24 +48,67 @@ export function PlanBanner() {
       .getCurrentSubscription()
       .then((s) => !cancelled && setSub(s))
       .catch(() => !cancelled && setSub(null)); // 404 = no subscription
+    // Prices are advisory here; a failure just means the banner names no figure.
+    api
+      .getProjectPurchaseOptions()
+      .then((o) => !cancelled && setOptions(o))
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
 
+  async function buyProject() {
+    setBuying(true);
+    setBuyError(null);
+    try {
+      const { buyExtraProject } = await import("@/lib/payments");
+      const paid = await buyExtraProject();
+      if (paid) setOptions(await api.getProjectPurchaseOptions());
+    } catch (e) {
+      setBuyError(e instanceof Error ? e.message : "Could not start the payment.");
+    } finally {
+      setBuying(false);
+    }
+  }
+
   if (!sub) return null;
 
   if (sub.status === "EXPIRED" || sub.status === "COMPLETED" || sub.status === "HALTED") {
     const halted = sub.status === "HALTED";
+    const price = options ? `₹${Math.round(options.projectPricePaise / 100)}` : null;
+    const credits = options?.availableCredits ?? 0;
     return (
       <div style={bannerStyle(true)}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <Mono brass>{halted ? "Payment issue" : "Trial ended"}</Mono>
-          <span style={{ font: "400 15px/1 var(--sans)", color: "var(--fg-soft)" }}>
-            Image processing is paused. Subscribe to keep working.
+          {/* What is actually true when a plan ends: nothing disappears. Every room is
+              still on the dashboard and still opens showing the colours last applied —
+              what stops is changing them. Saying "paused" without that made shops think
+              their work was gone. */}
+          <span style={{ font: "400 15px/1.3 var(--sans)", color: "var(--fg-soft)" }}>
+            Your projects are view-only — you can still open them and see the colours you
+            last applied.{" "}
+            {credits > 0
+              ? `${credits} project${credits === 1 ? "" : "s"} paid for and ready to start.`
+              : price
+                ? `Subscribe to keep working, or buy a single project for ${price} (open ${options!.validDays} days).`
+                : "Subscribe to keep working."}
           </span>
+          {buyError && (
+            <span className="field-error" role="alert" style={{ flexBasis: "100%" }}>
+              {buyError}
+            </span>
+          )}
         </span>
-        {subscribeLink}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          {credits === 0 && price && (
+            <Button size="sm" variant="ghost" disabled={buying} onClick={() => void buyProject()}>
+              {buying ? "Opening…" : `Buy a project · ${price}`}
+            </Button>
+          )}
+          {subscribeLink}
+        </span>
       </div>
     );
   }

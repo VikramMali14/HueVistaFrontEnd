@@ -5,7 +5,13 @@ export type AuthProvider = "LOCAL" | "GOOGLE" | "ACCESS_CODE";
 export interface AuthUser {
   id: string;
   name: string;
-  email: string;
+  /**
+   * Absent for an account opened with a shop's access code. Those accounts are
+   * passwordless and have no real address — only one synthesised from the code —
+   * so the backend withholds it rather than presenting a machine identifier as the
+   * customer's own e-mail. Anything rendering this must handle it being missing.
+   */
+  email?: string | null;
   picture?: string | null;
   provider: AuthProvider;
   role: UserRole;
@@ -279,7 +285,22 @@ export interface ProjectDetail {
   sentToShopAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  /** Look but don't touch: the colours last applied still render, every write is
+   *  refused. Set when the subscription has ended, or when a bought project's own
+   *  validity has run out. The studio disables the palette on this rather than
+   *  letting the user paint and then fail on autosave. */
+  readOnly?: boolean;
+  /** Why, in a sentence fit to show. Absent when the project is fully open. */
+  readOnlyReason?: string | null;
+  /** When this project's paid validity ends. Absent when it has no window of its
+   *  own (covered by a plan or a shop's code) or while that window is paused. */
+  accessExpiresAt?: string | null;
+  /** What reopening a lapsed project costs, in paise. */
+  reopenPricePaise?: number;
 }
+
+/** Where a dashboard room came from, seen from the reader's side. */
+export type ProjectSource = "OWN" | "CUSTOMER";
 
 export interface ProjectSummary {
   id: string;
@@ -294,6 +315,18 @@ export interface ProjectSummary {
   hasShareLink?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  /** "OWN" — the reader created it; "CUSTOMER" — one of their customers did, under a
+   *  code this shop issued. The dashboard filter runs on exactly this. */
+  source?: ProjectSource;
+  /** For a CUSTOMER room: the name the shop typed when it issued the code. */
+  customerName?: string | null;
+  /** For a CUSTOMER room: the code it was created under, and that code's id. */
+  accessCode?: string | null;
+  accessCodeId?: string | null;
+  /** Look-but-don't-touch (subscription lapsed, or this room's validity ran out). */
+  readOnly?: boolean;
+  /** When this room's paid validity ends; absent when it has no window of its own. */
+  accessExpiresAt?: string | null;
 }
 
 export interface RegionColorUpdate {
@@ -344,7 +377,9 @@ export interface AiRecommendationResponse {
 export interface CustomerEntitlement {
   customerId: string;
   customerName: string;
-  customerEmail: string;
+  /** Absent for an account provisioned from an access code — its stored address is
+   *  synthesised from the code, so there is nothing real to show. */
+  customerEmail?: string | null;
   retailerOrgId?: string | null;
   accessExpiresAt?: string | null;
   expired: boolean;
@@ -466,6 +501,48 @@ export interface AccessCode {
   editable?: boolean;
   /** Resolved individual products (present on the issue response, not the list). */
   assignedProducts?: ShopProduct[];
+  /** When the shop last pushed this code's expiry out, and how often they have. Each
+   *  extension resets the window to a fresh 10 days, so a code never carries more
+   *  than 10 days ahead however many times it is renewed. */
+  extendedAt?: string | null;
+  extensionCount?: number;
+  /** Whether the shop may still top this code up (add projects, add 10 days). Unlike
+   *  `editable` this survives redemption — topping up a code the customer is actively
+   *  using is the whole point. False once the code is cancelled. */
+  topUpAllowed?: boolean;
+}
+
+/**
+ * What buying a project costs this account, and what it buys
+ * (backend ProjectPurchaseOptionsResponse).
+ *
+ * Both prices are sent, not just today's: a shop should learn the lapsed price BEFORE
+ * their plan ends, not from a repriced checkout afterwards.
+ */
+export interface ProjectPurchaseOptions {
+  subscribed: boolean;
+  /** What one more project costs right now, in paise. */
+  projectPricePaise: number;
+  /** That price with a live plan, and without one. */
+  subscribedProjectPricePaise: number;
+  unsubscribedProjectPricePaise: number;
+  /** What another window on a lapsed project costs, in paise. */
+  reopenPricePaise: number;
+  /** Days of access a purchase (or a reopen) opens. */
+  validDays: number;
+  currency: string;
+  /** Projects already paid for and not yet created. */
+  availableCredits: number;
+}
+
+/** The outcome of paying to reopen a lapsed project (backend ProjectReopenResponse). */
+export interface ProjectReopenResult {
+  projectId: string;
+  accessExpiresAt?: string | null;
+  /** True while a live subscription is holding the window — the paid days are banked. */
+  paused: boolean;
+  amountPaise: number;
+  daysAdded: number;
 }
 
 /**
@@ -523,11 +600,23 @@ export interface StoreLink {
   slug: string;
   organizationId: string;
   organizationName?: string;
+  /** The price the retailer typed. What a customer is actually charged is
+   *  `effectivePricePaise` — the two differ once the platform base rises. */
   pricePaise: number;
   currency: string;
   validDays: number;
   active: boolean;
   createdAt?: string | null;
+  /** Whether the shop's plan is live right now. */
+  subscriptionActive?: boolean;
+  /** The platform's cut per order today, and that cut at each end. The kiosk never
+   *  closes when a plan ends — only the base rises, and the customer-facing price
+   *  rises with it if the shop priced below it. */
+  platformBasePaise?: number;
+  platformBaseSubscribedPaise?: number;
+  platformBaseLapsedPaise?: number;
+  /** What a walk-in is actually charged: the shop's price or the base, whichever is higher. */
+  effectivePricePaise?: number;
 }
 
 /** What an anonymous kiosk visitor sees for a store link (backend StorePublicInfoResponse). */

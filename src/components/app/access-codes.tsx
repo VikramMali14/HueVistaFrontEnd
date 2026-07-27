@@ -40,6 +40,9 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
+  // Top-ups on a code the customer already holds. Keyed by code id so two rows can
+  // never share a spinner, and so the busy state survives the list re-rendering.
+  const [toppingUp, setToppingUp] = useState<string | null>(null);
 
   const [shopName, setShopName] = useState("");
   const [creatingOrg, setCreatingOrg] = useState(false);
@@ -86,6 +89,44 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
     }
   }
 
+  /**
+   * Add another project to a code the customer is already using — the "one more room"
+   * moment at the counter, without making them type a second code. Needs a live plan:
+   * each project reserves an image credit against the shop's monthly quota.
+   */
+  async function addProject(c: AccessCode) {
+    if (!org) return;
+    setError(null);
+    setToppingUp(c.id);
+    try {
+      const updated = await api.grantAccessCodeProjects(org.id, c.id, 1);
+      setCodes((prev) => prev.map((x) => (x.id === c.id ? updated : x)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not add a project to that code.");
+    } finally {
+      setToppingUp(null);
+    }
+  }
+
+  /**
+   * Give a code another 10 days. Resets the window rather than stacking on it, so a
+   * code never carries more than the 10 days the customer was promised — however many
+   * times it is renewed. Free; only the deadline moves.
+   */
+  async function addDays(c: AccessCode) {
+    if (!org) return;
+    setError(null);
+    setToppingUp(c.id);
+    try {
+      const updated = await api.extendAccessCode(org.id, c.id);
+      setCodes((prev) => prev.map((x) => (x.id === c.id ? updated : x)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not extend that code.");
+    } finally {
+      setToppingUp(null);
+    }
+  }
+
   const codeStatus = (c: AccessCode) =>
     c.used ? "redeemed" : c.revoked ? "cancelled" : c.expired ? "expired" : "active";
 
@@ -126,6 +167,26 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
       setError(e instanceof Error ? e.message : "Could not load codes.");
     }
   }, []);
+
+  /**
+   * Deep link from the dashboard: a customer's room there links here with the code it
+   * was created under, so landing on the portal opens that code's rooms and scrolls to
+   * them rather than dropping the shop at the top of a long list to hunt for it.
+   *
+   * Read from `window.location` rather than useSearchParams so the component needs no
+   * Suspense boundary around it — it is already client-only, and this runs once after
+   * the codes have arrived.
+   */
+  useEffect(() => {
+    if (codes.length === 0 || openRoom !== null) return;
+    const wanted = new URLSearchParams(window.location.search).get("code");
+    if (!wanted || !codes.some((c) => c.id === wanted)) return;
+    viewRoom(wanted);
+    document.getElementById("active-codes")?.scrollIntoView({ block: "start" });
+    // Runs on the first load of the code list only: openRoom in the guard makes a
+    // second pass a no-op, and the shop closing the row must not reopen it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codes]);
 
   useEffect(() => {
     api
@@ -433,8 +494,8 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
           </p>
         ) : (
         <div role="table" aria-label="Access codes" style={{ border: "1px solid var(--rule)" }}>
-          <div role="row" className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.3fr 1.2fr 0.8fr 1.1fr 1fr 0.9fr 0.9fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
-            {["Code", "Customer", "Projects", "Expires", "Status", "Rooms", ""].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
+          <div role="row" className="hv-cust-row hv-cust-head" style={{ display: "grid", gridTemplateColumns: "1.2fr 1.1fr 0.7fr 1fr 0.9fr 0.8fr 1.4fr", padding: "16px 20px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
+            {["Code", "Customer", "Projects", "Expires", "Status", "Rooms", "Actions"].map((h) => <span key={h} role="columnheader"><Mono>{h}</Mono></span>)}
           </div>
           {visibleCodes.map((c, i) => {
             const status = codeStatus(c);
@@ -444,7 +505,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
             const expanded = openRoom === c.id;
             return (
               <div key={c.id}>
-                <div role="row" className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.3fr 1.2fr 0.8fr 1.1fr 1fr 0.9fr 0.9fr", padding: "18px 20px", borderBottom: last && !expanded ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
+                <div role="row" className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.2fr 1.1fr 0.7fr 1fr 0.9fr 0.8fr 1.4fr", padding: "18px 20px", borderBottom: last && !expanded ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
                   <span role="cell" data-label="Code" style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                     <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{c.code}</span>
                     {status === "active" && (
@@ -475,10 +536,33 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                       <span className="mono" style={{ color: "var(--fg-mute-deep)" }}>—</span>
                     )}
                   </span>
-                  {/* Cancelling an unredeemed code hands its held image credits straight
-                      back to the shop's quota. A redeemed code is deliberately NOT
-                      cancellable — the customer may already have rooms under it. */}
-                  <span role="cell" data-label="">
+                  {/* Two different things live here. Topping up works on a code the
+                      customer is ALREADY using — that is the point of it. Cancelling only
+                      works before redemption, because pulling a code back afterwards
+                      strands someone mid-visit at the counter. */}
+                  <span role="cell" data-label="Actions" style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    {(c.topUpAllowed ?? !c.revoked) && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void addProject(c)}
+                          disabled={toppingUp === c.id}
+                          title="Add one more project to this code (uses one image credit)"
+                          className="hv-code-action"
+                        >
+                          {toppingUp === c.id ? "…" : "+ Project"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void addDays(c)}
+                          disabled={toppingUp === c.id}
+                          title="Give this code a fresh 10 days — free, the projects are already paid for"
+                          className="hv-code-action"
+                        >
+                          {toppingUp === c.id ? "…" : "+ 10 days"}
+                        </button>
+                      </>
+                    )}
                     {c.editable ?? (!c.used && !c.revoked) ? (
                       confirmRevoke === c.id ? (
                         <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -508,7 +592,9 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                           Cancel
                         </button>
                       )
-                    ) : (
+                    ) : null}
+                    {/* Nothing at all is possible only for a cancelled code. */}
+                    {!(c.topUpAllowed ?? !c.revoked) && !(c.editable ?? (!c.used && !c.revoked)) && (
                       <span className="mono" style={{ color: "var(--fg-mute-deep)" }}>—</span>
                     )}
                   </span>

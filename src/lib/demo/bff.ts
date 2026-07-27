@@ -51,6 +51,30 @@ async function readJson(req: NextRequest): Promise<Record<string, unknown>> {
   }
 }
 
+// Project pricing the demo quotes. Mirrors the server defaults: cheaper with a live
+// plan, the standalone price without one, a small fee to reopen a lapsed project.
+const PROJECT_SUBSCRIBED_PAISE = 5000;
+const PROJECT_UNSUBSCRIBED_PAISE = 9900;
+const PROJECT_REOPEN_PAISE = 900;
+const PROJECT_VALID_DAYS = 30;
+/** A shop-issued code is always good for 10 days, and an extension resets it to 10. */
+const ACCESS_CODE_VALID_DAYS = 10;
+
+function projectPurchaseOptions(): import("../types").ProjectPurchaseOptions {
+  const store = getStore();
+  const subscribed = store.subscription.status === "ACTIVE";
+  return {
+    subscribed,
+    projectPricePaise: subscribed ? PROJECT_SUBSCRIBED_PAISE : PROJECT_UNSUBSCRIBED_PAISE,
+    subscribedProjectPricePaise: PROJECT_SUBSCRIBED_PAISE,
+    unsubscribedProjectPricePaise: PROJECT_UNSUBSCRIBED_PAISE,
+    reopenPricePaise: PROJECT_REOPEN_PAISE,
+    validDays: PROJECT_VALID_DAYS,
+    currency: "INR",
+    availableCredits: store.projectCredits,
+  };
+}
+
 const verificationStatus = (channel: "EMAIL" | "PHONE", destination: string): VerificationStatus => ({
   channel,
   destination,
@@ -127,7 +151,7 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   // ---------- Auth (via BFF) + verification OTP ----------
   if (path === "api/auth/profile" && method === "GET") return json(user);
   if (path === "api/auth/verify/email/send" && method === "POST") {
-    return json(verificationStatus("EMAIL", maskEmail(user.email)));
+    return json(verificationStatus("EMAIL", maskEmail(user.email ?? "")));
   }
   if (path === "api/auth/verify/email/confirm" && method === "POST") {
     return json({ ...user, emailVerified: true });
@@ -304,14 +328,43 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   if (path === "api/me/shade-code-scheme" && method === "GET") {
     return json(store.codeScheme);
   }
+  // Buying a project. The demo shop is on a live plan, so the subscribed price
+  // applies; both figures are reported so the panel can name the other one too.
+  if (path === "api/billing/project-credit/options" && method === "GET") {
+    return json(projectPurchaseOptions());
+  }
   if (path === "api/billing/project-credit/order" && method === "POST") {
-    const order: ProjectCreditOrder = { orderId: nextId("order"), amount: 9900, currency: "INR", razorpayKeyId: "rzp_test_demo" };
+    const order: ProjectCreditOrder = {
+      orderId: nextId("order"),
+      amount: projectPurchaseOptions().projectPricePaise,
+      currency: "INR",
+      razorpayKeyId: "rzp_test_demo",
+    };
     return json(order);
   }
   if (path === "api/billing/project-credit/verify" && method === "POST") {
+    store.projectCredits += 1;
     store.entitlement.projectAllowance += 1;
     store.entitlement.projectsRemaining += 1;
-    return json(store.entitlement);
+    return json(projectPurchaseOptions());
+  }
+  if (seg[3] === "reopen" && seg[5] === "order" && method === "POST") {
+    const order: ProjectCreditOrder = {
+      orderId: nextId("order"),
+      amount: PROJECT_REOPEN_PAISE,
+      currency: "INR",
+      razorpayKeyId: "rzp_test_demo",
+    };
+    return json(order);
+  }
+  if (path === "api/billing/project-credit/reopen/verify" && method === "POST") {
+    return json({
+      projectId: store.projects[0]?.id ?? "proj_demo",
+      accessExpiresAt: new Date(Date.now() + PROJECT_VALID_DAYS * 86_400_000).toISOString(),
+      paused: false,
+      amountPaise: PROJECT_REOPEN_PAISE,
+      daysAdded: PROJECT_VALID_DAYS,
+    });
   }
 
   // ---------- Paint catalogue (shop-managed) ----------
@@ -465,6 +518,26 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
         createdAt: nowIso(),
       };
       store.accessCodes.unshift(code);
+      return json(code);
+    }
+    // Topping up a code the customer already holds: more projects, or another 10 days.
+    if (seg[4] === "access-codes" && seg[6] === "projects" && method === "POST") {
+      const body = await readJson(req);
+      const code = store.accessCodes.find((c) => c.id === seg[5]);
+      if (!code) return json({ message: "Access code not found" }, 404);
+      const added = Number(body.projects ?? 1);
+      code.projectQuota = (code.projectQuota ?? 1) + added;
+      code.projectsRemaining = (code.projectsRemaining ?? code.projectQuota) + added;
+      return json(code);
+    }
+    if (seg[4] === "access-codes" && seg[6] === "extend" && method === "POST") {
+      const code = store.accessCodes.find((c) => c.id === seg[5]);
+      if (!code) return json({ message: "Access code not found" }, 404);
+      code.validDays = ACCESS_CODE_VALID_DAYS;
+      code.expiresAt = new Date(Date.now() + ACCESS_CODE_VALID_DAYS * 86_400_000).toISOString();
+      code.expired = false;
+      code.extendedAt = nowIso();
+      code.extensionCount = (code.extensionCount ?? 0) + 1;
       return json(code);
     }
     if (tail === "customers" && method === "GET") return json(store.customers);

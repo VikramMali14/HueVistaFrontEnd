@@ -13,6 +13,14 @@ import type { ProjectSummary } from "@/lib/types";
 const INITIAL_VISIBLE = 11;
 const LOAD_STEP = 8;
 
+/** " · ended 3 Aug" — only when there is a date worth naming. */
+function expiryNote(accessExpiresAt: string | null | undefined): string {
+  if (!accessExpiresAt) return "";
+  const when = new Date(accessExpiresAt);
+  if (Number.isNaN(when.getTime())) return "";
+  return ` · ended ${when.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`;
+}
+
 function statusLabel(s: ProjectSummary["status"]): string {
   switch (s) {
     case "SEGMENTED":
@@ -30,6 +38,21 @@ interface ProjectsGridProps {
   /** null while the dashboard's single projects fetch is in flight. */
   projects: ProjectSummary[] | null;
   error: string | null;
+}
+
+/**
+ * Where a card's title goes.
+ *
+ * A customer's room is not the shop's to paint in — it belongs to the session the
+ * customer is holding — so it opens in the shop's portal view of that code, where the
+ * real shade codes are readable, rather than in the studio where the palette would look
+ * live and every save would come back 404.
+ */
+function projectHref(p: ProjectSummary): string {
+  if (p.source === "CUSTOMER" && p.accessCodeId) {
+    return `/portal?code=${encodeURIComponent(p.accessCodeId)}`;
+  }
+  return `/atelier?project=${encodeURIComponent(p.id)}`;
 }
 
 /**
@@ -106,7 +129,8 @@ export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
         {shown?.map((p) => {
           const thumb = resolveMediaUrl(p.imageUrl);
           const cleaned = p.cleanedImageUrl ? resolveMediaUrl(p.cleanedImageUrl) : null;
-          const href = `/atelier?project=${encodeURIComponent(p.id)}`;
+          const href = projectHref(p);
+          const isCustomerRoom = p.source === "CUSTOMER";
           return (
             <article key={p.id}>
               <div className="hv-proj-thumb" style={{ aspectRatio: "4 / 5", border: "1px solid var(--rule)", borderRadius: "var(--radius)", overflow: "hidden", background: "var(--surface)" }}>
@@ -125,6 +149,22 @@ export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
                 <Link href={href} style={{ textDecoration: "none", color: "inherit" }}>
                   <h3 className="hv-proj-title">{p.name}</h3>
                 </Link>
+                {/* Whose room this is, said plainly. On a shop dashboard the same grid
+                    now carries their work and their customers', and a card that doesn't
+                    say which is a card that gets opened by mistake. */}
+                {isCustomerRoom && (
+                  <div style={{ marginTop: 6 }}>
+                    <Mono brass>
+                      {p.customerName ? p.customerName : "Customer"}
+                      {p.accessCode ? ` · ${p.accessCode}` : ""}
+                    </Mono>
+                  </div>
+                )}
+                {!isCustomerRoom && p.readOnly && (
+                  <div style={{ marginTop: 6 }}>
+                    <Mono>View only{expiryNote(p.accessExpiresAt)}</Mono>
+                  </div>
+                )}
                 <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                   <Mono>
                     {p.regionCount} region{p.regionCount === 1 ? "" : "s"}

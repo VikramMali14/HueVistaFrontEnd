@@ -291,11 +291,29 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
                       {savingLink === link.id ? "Saving…" : "Save price"}
                     </Button>
                   )}
-                  <Mono>You earn {formatRupees(Math.max(0, link.pricePaise - STORE_MIN_PRICE_PAISE))} per customer · codes valid {link.validDays}d</Mono>
+                  <Mono>You earn {formatRupees(Math.max(0, (link.effectivePricePaise ?? link.pricePaise) - (link.platformBasePaise ?? STORE_MIN_PRICE_PAISE)))} per customer · codes valid {link.validDays}d</Mono>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => void toggleActive(link)} disabled={savingLink === link.id}>
                     {link.active ? "Pause" : "Resume"}
                   </button>
                 </div>
+                {/* The kiosk never closes when a plan ends — a customer at the counter
+                    must always be able to pay and start. What rises is the platform's
+                    cut, and the customer-facing price with it if the shop priced below
+                    the new base. Said before it happens, and plainly after. */}
+                {link.subscriptionActive === false ? (
+                  <p style={{ font: "400 13px/1.5 var(--sans)", color: "var(--terracotta)", margin: 0 }}>
+                    Your subscription has ended, so the base is{" "}
+                    {formatRupees(link.platformBaseLapsedPaise ?? 0)} and this kiosk now charges{" "}
+                    {formatRupees(link.effectivePricePaise ?? link.pricePaise)} per customer. The kiosk
+                    stays open — renew your plan to bring the base back to{" "}
+                    {formatRupees(link.platformBaseSubscribedPaise ?? STORE_MIN_PRICE_PAISE)}.
+                  </p>
+                ) : link.platformBaseLapsedPaise ? (
+                  <p style={{ font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)", margin: 0 }}>
+                    If your subscription ends the kiosk stays open, but the base rises to{" "}
+                    {formatRupees(link.platformBaseLapsedPaise)} per customer.
+                  </p>
+                ) : null}
               </div>
             ))}
             <p style={{ font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)", margin: 0 }}>
