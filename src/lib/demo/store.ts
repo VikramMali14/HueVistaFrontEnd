@@ -53,6 +53,8 @@ export interface DemoStore {
   inbox: SupportConversationSummary[];
   subscription: SubscriptionSummary;
   entitlement: CustomerEntitlement;
+  /** Projects paid for and not yet created — the demo's ProjectCredit ledger. */
+  projectCredits: number;
   storeLinks: StoreLink[];
   wallet: WalletSummary;
   /** The shop's shade-code scheme (customer codes derive from this one pattern). */
@@ -81,6 +83,7 @@ function seed(): DemoStore {
     inbox: clone(DEMO_INBOX),
     subscription: clone(DEMO_SUBSCRIPTION),
     entitlement: clone(DEMO_ENTITLEMENT),
+    projectCredits: 0,
     storeLinks: clone(DEMO_STORE_LINKS),
     wallet: clone(DEMO_WALLET),
     // Mehta Paints reads shade L124 as MPL1K24 at the counter.

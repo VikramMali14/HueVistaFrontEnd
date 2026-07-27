@@ -206,7 +206,10 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
         >
           <div role="cell" className="hv-cust-lead">
             <div style={{ font: "400 18px/1.2 var(--sans)", color: "var(--fg)" }}>{c.customerName}</div>
-            <Mono>{c.customerEmail}</Mono>
+            {/* A customer onboarded by an access code has no real address — the backend
+                withholds the synthetic one rather than presenting a machine identifier
+                as somewhere the shop could write. The name they typed is the identity. */}
+            {c.customerEmail && <Mono>{c.customerEmail}</Mono>}
           </div>
           <span role="cell" className="mono" data-label="Projects">
             {c.projectsCreated} / {c.projectAllowance}

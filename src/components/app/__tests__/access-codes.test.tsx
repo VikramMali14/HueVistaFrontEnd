@@ -78,8 +78,9 @@ describe("AccessCodes — accessible table semantics", () => {
     expect(rows).toHaveLength(1 + CODES.length);
 
     const headers = within(rows[0]!).getAllByRole("columnheader");
-    // The trailing empty header is the per-row actions column (cancel an unredeemed code).
-    expect(headers.map((h) => h.textContent)).toEqual(["Code", "Customer", "Projects", "Expires", "Status", "Rooms", ""]);
+    // The last column carries the per-row controls: top up a code the customer already
+    // holds (+ Project / + 10 days), and cancel one nobody has redeemed.
+    expect(headers.map((h) => h.textContent)).toEqual(["Code", "Customer", "Projects", "Expires", "Status", "Rooms", "Actions"]);
 
     for (const row of rows.slice(1)) {
       expect(within(row).getAllByRole("cell")).toHaveLength(7);

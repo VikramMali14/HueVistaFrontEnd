@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { LoaderOverlay } from "@/components/ui/loader-overlay";
 import { Spinner } from "@/components/ui/spinner";
 import { type PipelineStage } from "./pipeline-bar";
@@ -231,6 +231,9 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";
 
+/** How long a share link stays live — the same 10 days a walk-in access code gets. */
+const SHARE_VALID_DAYS = 10;
+
 export function Visualizer({ projectId: openProjectId, shades, initialName, guest = false, isAdmin = false }: VisualizerProps) {
   // Guest mode swaps the CRUD calls to the access-code-scoped endpoints. Signatures
   // match the user `api`, so the rest of the flow is identical. User-only calls
@@ -273,6 +276,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string | null>(initialName ?? null);
   const [projectRoom, setProjectRoom] = useState<string | null>(null);
+  // View-only: the subscription has ended, or this project's own paid validity ran
+  // out. The room and the colours last applied to it still render exactly as they
+  // were — what stops is CHANGING them. Held here rather than derived per-render so
+  // the colour handlers can refuse before touching the canvas: letting the paint land
+  // locally and only failing on the autosave shows the user a colour that isn't saved
+  // and won't be there next time.
+  const [viewOnly, setViewOnly] = useState(false);
+  const [viewOnlyReason, setViewOnlyReason] = useState<string | null>(null);
+  const [reopenPaise, setReopenPaise] = useState(0);
+  const [reopening, setReopening] = useState(false);
   const [segmenting, setSegmenting] = useState(false);
   const [masksReady, setMasksReady] = useState(false);
   // Guest AI is billed to the shop; when the shop is out of credits we silently
@@ -626,6 +639,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       if (detail.name) setProjectName(detail.name);
       if (detail.roomType) setProjectRoom(detail.roomType);
       if (detail.sentToShopAt) setSentToShop(true);
+      setViewOnly(Boolean(detail.readOnly));
+      setViewOnlyReason(detail.readOnlyReason ?? null);
+      setReopenPaise(detail.reopenPricePaise ?? 0);
       // MANUAL-mode projects arrive SEGMENTED with zero auto regions — the
       // cleaned canvas is the deliverable and the user marks walls by hand.
       setManualMaskProject(detail.maskMode === "MANUAL");
@@ -1032,6 +1048,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // a coordinate suggestion targets). Persists when the region exists on the backend.
   const applyShadeTo = useCallback(
     (regionId: string, shade: PaintShade) => {
+      if (viewOnly) return;
       let updatedBackendId: number | undefined;
       setRegions((prev) =>
         prev.map((r) => {
@@ -1058,7 +1075,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         });
       }
     },
-    [projectId, updateRegionColorsCall, runSave],
+    [projectId, updateRegionColorsCall, runSave, viewOnly],
   );
 
   const onSelectShade = useCallback(
@@ -1069,6 +1086,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // Apply a custom-picked colour EXACTLY (no catalogue shade) to the active region.
   const onApplyCustom = useCallback(
     (hex: string) => {
+      if (viewOnly) return;
       let updatedBackendId: number | undefined;
       setRegions((prev) =>
         prev.map((r) => {
@@ -1090,7 +1108,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         });
       }
     },
-    [activeRegion, projectId, updateRegionColorsCall, runSave],
+    [activeRegion, projectId, updateRegionColorsCall, runSave, viewOnly],
   );
 
   // "Keep original" — strip any colour from a region so it renders unpainted
@@ -1099,6 +1117,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // reopened project remembers the wall was left bare on purpose.
   const clearRegionColor = useCallback(
     (regionId: string) => {
+      if (viewOnly) return;
       let updatedBackendId: number | undefined;
       let didClear = false;
       setRegions((prev) =>
@@ -1122,13 +1141,38 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         });
       }
     },
-    [projectId, updateRegionColorsCall, runSave],
+    [projectId, updateRegionColorsCall, runSave, viewOnly],
   );
 
   const onKeepOriginalActive = useCallback(
     () => clearRegionColor(activeRegion),
     [clearRegionColor, activeRegion],
   );
+
+  /**
+   * Pay to give this project another validity window.
+   *
+   * Reloads the project on success rather than flipping `viewOnly` locally: the server
+   * owns whether a window is open (and may have PAUSED the fresh one behind a
+   * subscription that came back), so trusting the payment alone would be guessing at
+   * state we can simply ask for.
+   */
+  const handleReopen = useCallback(async () => {
+    if (!projectId || reopening) return;
+    setReopening(true);
+    setError(null);
+    try {
+      const { reopenProject } = await import("@/lib/payments");
+      const paid = await reopenProject(projectId);
+      if (!paid) return; // dismissed the Checkout modal — nothing to say
+      const refreshed = await getProjectCall(projectId);
+      await applyProjectDetail(refreshed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reopen this project.");
+    } finally {
+      setReopening(false);
+    }
+  }, [projectId, reopening, getProjectCall, applyProjectDetail]);
 
   // Re-run every failed save; any that fails again re-queues itself via runSave.
   const retrySave = useCallback(() => {
@@ -1295,12 +1339,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   );
 
   // Generate a public, code-hidden share link for this project and copy it.
+  //
+  // 10 days, matching a walk-in access code: a share link lets whoever holds it repaint
+  // the room, so it hands out the same thing a code does and should not outlive one.
   const handleShare = useCallback(async () => {
     if (!projectId) return;
     setSharing(true);
     setError(null);
     try {
-      const res = await api.generateShareLink(projectId, 7);
+      const res = await api.generateShareLink(projectId, SHARE_VALID_DAYS);
       const url = `${window.location.origin}/share/${res.shareToken}`;
       setShareUrl(url);
       try {
@@ -1693,6 +1740,43 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           </Button>
         </div>
       </div>
+
+      {/* View-only: the room and its last colours are all still here — what has ended
+          is the ability to change them. Stated once, above the canvas, with the one
+          action that actually fixes it, rather than as a failure on every swatch. */}
+      {viewOnly && (
+        <div className="hv-viewonly-bar" role="status">
+          <span className="hv-viewonly-text">
+            {viewOnlyReason ??
+              "This project is view-only — you can still see the colours that were last applied."}
+          </span>
+          <span className="hv-viewonly-actions">
+            {reopenPaise > 0 && projectId && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={reopening}
+                onClick={() => void handleReopen()}
+              >
+                {reopening ? "Opening…" : `Reopen for ₹${Math.round(reopenPaise / 100)}`}
+              </Button>
+            )}
+            <LinkButton href="/subscription" size="sm" variant="ghost">
+              See plans <span className="arr">→</span>
+            </LinkButton>
+          </span>
+          <style>{`
+            .hv-viewonly-bar {
+              display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+              gap: 12px; padding: 12px 20px;
+              border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+              background: var(--surface-soft);
+            }
+            .hv-viewonly-text { font: 400 14px/1.4 var(--sans); color: var(--fg); }
+            .hv-viewonly-actions { display: inline-flex; align-items: center; gap: 8px; }
+          `}</style>
+        </div>
+      )}
 
       <div className="hv-studio-body">
         <div className="hv-studio-canvas-wrap">

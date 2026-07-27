@@ -231,13 +231,54 @@ export async function buyExtraImage(prefill?: { name?: string; email?: string })
 }
 
 /**
- * Full one-time purchase of a single extra project:
+ * Full one-time purchase of a single project:
  *   create order -> open Razorpay Checkout -> verify on the server -> credit applied.
  * Resolves `true` when a project credit was added, `false` if the user dismisses
  * the modal, and throws on a real error (network / verification).
+ *
+ * The amount is never passed from here — the server prices the order from the
+ * account's subscription state and re-checks it at verify. A price the browser could
+ * name is a price the browser could choose.
  */
 export async function buyExtraProject(prefill?: { name?: string; email?: string }): Promise<boolean> {
   const order = await api.createProjectCreditOrder();
+  return runCheckout(order, "One project", prefill, (resp) =>
+    api.verifyProjectCredit({
+      orderId: resp.razorpay_order_id,
+      paymentId: resp.razorpay_payment_id,
+      signature: resp.razorpay_signature,
+    }),
+  );
+}
+
+/**
+ * Pay to reopen a project whose validity has run out, adding another window.
+ * Resolves `true` on success, `false` if the user dismisses the modal.
+ *
+ * The project reopened is the one recorded on the ORDER, not one this call names —
+ * the signature proves a payment happened, not what it was for.
+ */
+export async function reopenProject(
+  projectId: string,
+  prefill?: { name?: string; email?: string },
+): Promise<boolean> {
+  const order = await api.createProjectReopenOrder(projectId);
+  return runCheckout(order, "Reopen project", prefill, (resp) =>
+    api.verifyProjectReopen({
+      orderId: resp.razorpay_order_id,
+      paymentId: resp.razorpay_payment_id,
+      signature: resp.razorpay_signature,
+    }),
+  );
+}
+
+/** Shared Checkout open + verify for the one-time project payments. */
+async function runCheckout(
+  order: { orderId: string; amount: number; currency: string; razorpayKeyId: string },
+  description: string,
+  prefill: { name?: string; email?: string } | undefined,
+  verify: (resp: CheckoutSuccess) => Promise<unknown>,
+): Promise<boolean> {
   await loadCheckout();
   if (!window.Razorpay) throw new Error("Payment library unavailable.");
 
@@ -248,16 +289,12 @@ export async function buyExtraProject(prefill?: { name?: string; email?: string 
       currency: order.currency,
       order_id: order.orderId,
       name: "HueVista",
-      description: "One extra project",
+      description,
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
       theme: { color: "#7c5cff" },
       handler: async (resp: CheckoutSuccess) => {
         try {
-          await api.verifyProjectCredit({
-            orderId: resp.razorpay_order_id,
-            paymentId: resp.razorpay_payment_id,
-            signature: resp.razorpay_signature,
-          });
+          await verify(resp);
           resolve(true);
         } catch (e) {
           reject(e instanceof Error ? e : new Error("Payment verification failed."));

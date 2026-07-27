@@ -692,8 +692,10 @@ export const api = {
       { method: "POST" },
     ),
   // `brands` limits which paint companies the share viewer may repaint with
-  // (omit / empty = every brand).
-  generateShareLink: (projectId: string, days = 7, brands?: string[]) =>
+  // (omit / empty = every brand). A share link hands its holder the ability to
+  // repaint, exactly like a walk-in access code — so it gets the same 10-day
+  // ceiling, and 10 days is the default.
+  generateShareLink: (projectId: string, days = 10, brands?: string[]) =>
     browserFetch<import("./types").ShareLink>(
       `api/projects/${encodeURIComponent(projectId)}/share?days=${days}` +
         (brands && brands.length > 0 ? `&brands=${encodeURIComponent(brands.join(","))}` : ""),
@@ -774,11 +776,29 @@ export const api = {
     }),
   // --- Customer project entitlement (allowance + day-validity) ---
   getMyEntitlement: () => browserFetch<CustomerEntitlement | null>("api/me/entitlement"),
-  // One-time purchase of an extra project (Razorpay): order -> Checkout -> verify.
+  // --- Buying a project outright ---
+  // What it costs this account today, what it costs at the other end of a
+  // subscription, what a reopen costs, and how many paid-for projects are waiting.
+  getProjectPurchaseOptions: () =>
+    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/project-credit/options"),
+  // One-time purchase of a project (Razorpay): order -> Checkout -> verify. The price
+  // is decided server-side from subscription state, so nothing is passed here.
   createProjectCreditOrder: () =>
     browserFetch<ProjectCreditOrder>("api/billing/project-credit/order", { method: "POST" }),
   verifyProjectCredit: (body: { orderId: string; paymentId: string; signature: string }) =>
-    browserFetch<CustomerEntitlement>("api/billing/project-credit/verify", {
+    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/project-credit/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  // Reopen a project whose validity ran out: another window for a small fee. The
+  // project is named on the ORDER, so verify takes only the payment triple.
+  createProjectReopenOrder: (projectId: string) =>
+    browserFetch<ProjectCreditOrder>(
+      `api/billing/project-credit/reopen/${encodeURIComponent(projectId)}/order`,
+      { method: "POST" },
+    ),
+  verifyProjectReopen: (body: { orderId: string; paymentId: string; signature: string }) =>
+    browserFetch<import("./types").ProjectReopenResult>("api/billing/project-credit/reopen/verify", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -917,6 +937,24 @@ export const api = {
     browserFetch<AccessCode>(
       `api/organizations/${encodeURIComponent(orgId)}/access-codes/${encodeURIComponent(codeId)}`,
       { method: "DELETE" },
+    ),
+  // Top up a code the customer already HOLDS with more projects, so a "one more room"
+  // at the counter doesn't mean a second set of digits to type. Works on redeemed
+  // codes — that is the point. Each added project reserves an image credit, so the
+  // shop needs a live plan (402 SUBSCRIPTION_REQUIRED without one).
+  grantAccessCodeProjects: (orgId: string, codeId: string, projects: number) =>
+    browserFetch<AccessCode>(
+      `api/organizations/${encodeURIComponent(orgId)}/access-codes/${encodeURIComponent(codeId)}/projects`,
+      { method: "POST", body: JSON.stringify({ projects }) },
+    ),
+  // Give a code another 10 days, and move the customer's access window with it.
+  // Resets the window rather than adding to it, so a code never carries more than the
+  // 10 days it promised however often it is renewed. Free — the projects were already
+  // paid for — but still needs a live plan.
+  extendAccessCode: (orgId: string, codeId: string) =>
+    browserFetch<AccessCode>(
+      `api/organizations/${encodeURIComponent(orgId)}/access-codes/${encodeURIComponent(codeId)}/extend`,
+      { method: "POST" },
     ),
   // Amend a not-yet-redeemed code. The assigned project count is fixed once issued (it is
   // backed by held image credits) — cancel and re-issue to change it.

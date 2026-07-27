@@ -717,6 +717,25 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
 /* ----- High-density displays: keep canvas crisp ----- */
 canvas { image-rendering: -webkit-optimize-contrast; }
 
+/* Row actions on the shop's code table: top up a code the customer already holds
+   (+ Project / + 10 days) sitting beside Cancel. Same weight as the other small
+   controls in that table, so the row reads as one set of choices. */
+.hv-code-action {
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--fg-soft);
+  font: 400 9.5px/1 var(--mono, ui-monospace);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: border-color .2s var(--ease), color .2s var(--ease);
+}
+.hv-code-action:hover:not(:disabled) { border-color: var(--accent); color: var(--fg); }
+.hv-code-action:disabled { opacity: .5; cursor: default; }
+
 /* ----- Portal "Active codes" + "Customers" tables → card list on phones ----- */
 @media (max-width: 640px) {
   .hv-portal-row.hv-portal-head,
