@@ -600,23 +600,15 @@ export interface StoreLink {
   slug: string;
   organizationId: string;
   organizationName?: string;
-  /** The price the retailer typed. What a customer is actually charged is
-   *  `effectivePricePaise` — the two differ once the platform base rises. */
+  /** What a walk-in pays. The platform keeps `platformBasePaise`; the rest is the shop's. */
   pricePaise: number;
   currency: string;
   validDays: number;
   active: boolean;
   createdAt?: string | null;
-  /** Whether the shop's plan is live right now. */
-  subscriptionActive?: boolean;
-  /** The platform's cut per order today, and that cut at each end. The kiosk never
-   *  closes when a plan ends — only the base rises, and the customer-facing price
-   *  rises with it if the shop priced below it. */
+  /** The platform's flat cut per kiosk order — the same whatever the shop's plan
+   *  is doing. A printed kiosk price must not move because of the shop's billing. */
   platformBasePaise?: number;
-  platformBaseSubscribedPaise?: number;
-  platformBaseLapsedPaise?: number;
-  /** What a walk-in is actually charged: the shop's price or the base, whichever is higher. */
-  effectivePricePaise?: number;
 }
 
 /** What an anonymous kiosk visitor sees for a store link (backend StorePublicInfoResponse). */
