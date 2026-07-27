@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getCurrentUser, requireAccessToken } from "@/lib/auth";
+import { getCurrentUser, requireAccessToken, requireFeature } from "@/lib/auth";
 import { entitlementApi } from "@/lib/api";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Visualizer } from "@/components/atelier/visualizer";
@@ -67,6 +67,12 @@ export default async function AtelierPage({
 }) {
   // Gate the route — the BFF proxy will pick up the cookie itself; we don't pass the token.
   const token = await requireAccessToken();
+  // A shop's distributor may not have included the studio in what they sold.
+  // Checked before the customer gate below so a restricted SHOP is bounced to
+  // its dashboard rather than shown a "redeem your code" screen meant for
+  // customers — requireFeature is a no-op for every non-retailer, customers
+  // included, so the two guards don't overlap.
+  await requireFeature("STUDIO");
   const user = await getCurrentUser();
   const gate = await customerGate(user, token);
   if (gate) {

@@ -5,6 +5,7 @@ import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { RevealMount } from "@/components/ui/reveal-mount";
 import { getCatalogueOrSample } from "@/lib/catalogue";
+import { requireFeature } from "@/lib/auth";
 import { CatalogueToolbar } from "@/components/catalogue/catalogue-toolbar";
 
 export const metadata: Metadata = {
@@ -13,7 +14,14 @@ export const metadata: Metadata = {
 };
 
 export default async function CataloguePage() {
-  // Live catalogue from the backend; falls back to the bundled sample if it's unreachable.
+  // This page is PUBLIC and stays that way: with no session there is no access to
+  // load, so requireFeature admits every anonymous visitor. It only bites for a
+  // signed-in shop whose distributor switched the catalogue off.
+  await requireFeature("CATALOGUE");
+  // Live catalogue from the backend; falls back to the bundled sample if it's
+  // unreachable. For a signed-in shop this is already narrowed to the paint
+  // companies its distributor assigned, so the counts below describe THEIR
+  // catalogue, not the whole platform's.
   const shades = await getCatalogueOrSample();
   const brands = Array.from(new Set(shades.map((s) => s.brand))).sort((a, b) => a.localeCompare(b));
   const brandLine = brands.length === 1 ? brands[0]! : `${brands.length} companies`;

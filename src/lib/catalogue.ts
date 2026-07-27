@@ -1,104 +1,13 @@
-import { hexToLab } from "./color";
-import { chroma, labHue } from "./color-science";
+import { cookies } from "next/headers";
 import { config } from "./config";
 import { isDemoMode } from "./demo/flag";
 import { SHADES } from "./shades";
-import type { ColorFamily, PaintShade } from "./types";
+import { mapToPaintShade, type BackendShade } from "./shade-mapping";
+import type { PaintShade } from "./types";
 
-/** Subset of the backend ShadeResponse the catalogue uses. */
-interface BackendShade {
-  shadeCode?: string;
-  name?: string;
-  hexCode?: string;
-  shadeFamily?: string | null;
-  brandName?: string | null;
-  lrv?: number | string | null;
-  finishRecommendations?: string[] | null;
-}
-
-function titleCase(s: string): string {
-  return s.replace(/\S+/g, (w) => w[0]!.toUpperCase() + w.slice(1).toLowerCase());
-}
-
-/**
- * Family filters are built from whatever the shades table actually holds, so a
- * shade keeps its brand's own family name (tidied to title case) — "off whites"
- * stays "Off Whites" rather than being squashed into a fixed bucket. Only a
- * shade with no family at all gets one derived from its colour, so it still
- * lands under a sensible filter pill.
- */
-function normalizeFamily(raw: string | null | undefined, hex: string): string {
-  const t = (raw ?? "").trim();
-  return t.length > 0 ? titleCase(t) : familyFromColor(hex);
-}
-
-/** Canonical family for a colour, from CIELAB lightness / chroma / hue bands. */
-function familyFromColor(hex: string): ColorFamily {
-  const lab = hexToLab(hex);
-  const c = chroma(lab);
-  if (lab.L >= 85 && c < 12) return "Whites";
-  if (c < 6) return "Greys";
-  if (c < 12) return "Neutrals";
-  const h = labHue(lab);
-  if (h < 45) return "Reds";
-  if (h < 75) return lab.L < 45 ? "Browns" : "Earths";
-  if (h < 115) return "Yellows";
-  if (h < 180) return "Greens";
-  if (h < 315) return "Blues";
-  return "Reds";
-}
-
-/**
- * Keep whatever company name the backend sent — the catalogue is multi-brand and
- * new companies arrive via the admin shade upload, so there is no fixed list to
- * normalise against. Only a missing name falls back to "Asian Paints".
- */
-function normalizeBrand(raw: string | null | undefined): PaintShade["brand"] {
-  const b = (raw ?? "").trim();
-  return b.length > 0 ? b : "Asian Paints";
-}
-
-/** Common spellings mapped to the display name the Indian market uses. */
-const FINISH_ALIASES: Record<string, string> = { matte: "Matt" };
-
-/**
- * Keep whatever finishes the shades table recommends (tidied + deduped) — the
- * finish filter is built from these, so nothing is squashed into a fixed list.
- * No data means no finishes; we don't invent a default.
- */
-function normalizeFinishes(raw: string[] | null | undefined): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const r of raw ?? []) {
-    const t = String(r).trim();
-    if (!t) continue;
-    const label = FINISH_ALIASES[t.toLowerCase()] ?? titleCase(t);
-    if (seen.has(label)) continue;
-    seen.add(label);
-    out.push(label);
-  }
-  return out;
-}
-
-function normalizeHex(raw: string | null | undefined): string {
-  const h = (raw ?? "").trim();
-  if (!h) return "#cccccc";
-  return h.startsWith("#") ? h : `#${h}`;
-}
-
-export function mapToPaintShade(b: BackendShade): PaintShade {
-  const lrvNum = typeof b.lrv === "number" ? b.lrv : Number(b.lrv);
-  const hex = normalizeHex(b.hexCode);
-  return {
-    code: b.shadeCode ?? "—",
-    name: b.name ?? "Unnamed",
-    hex,
-    family: normalizeFamily(b.shadeFamily, hex),
-    lrv: Number.isFinite(lrvNum) ? Math.round(lrvNum) : 50,
-    brand: normalizeBrand(b.brandName),
-    finishes: normalizeFinishes(b.finishRecommendations),
-  };
-}
+// SERVER-ONLY. This module reads the session cookie to serve each shop its own
+// catalogue, so it must not be imported from a client component. The pure
+// row → PaintShade mapping lives in ./shade-mapping, which client code uses.
 
 /**
  * Fetch the live catalogue from the backend (server-side, public endpoint). Throws on
@@ -118,10 +27,54 @@ export async function fetchCatalogue(): Promise<PaintShade[]> {
 }
 
 /**
+ * The catalogue as the signed-in caller is allowed to see it — a shop gets only the
+ * paint companies its distributor assigned it.
+ *
+ * Deliberately NOT cached: the response varies per caller, so a shared `revalidate`
+ * entry would hand one shop's restricted catalogue to the next. The public
+ * `fetchCatalogue` above keeps its hour-long cache precisely because it is the same
+ * for everyone.
+ *
+ * Throws like its public sibling so the caller can fall back.
+ */
+async function fetchMyCatalogue(accessToken: string): Promise<PaintShade[]> {
+  const res = await fetch(`${config.internalApiOrigin}/api/shades/mine`, {
+    headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`catalogue fetch failed: ${res.status}`);
+  const data = (await res.json()) as BackendShade[];
+  return data.map(mapToPaintShade);
+}
+
+/**
  * The live catalogue, falling back to the bundled sample when the backend is
  * unreachable or empty — the standard way every page loads its shades.
+ *
+ * When there's a session this asks for the caller's OWN catalogue, so a shop set up
+ * for one paint company never sees a shade it can't sell. Signed-out visitors (and
+ * every non-retailer) get the full public catalogue, unchanged.
+ *
+ * The empty-result fallback to bundled samples is skipped for a restricted shop:
+ * "no shades" is a legitimate answer there — a distributor may have granted them
+ * nothing yet — and quietly substituting a sample catalogue would show a shop
+ * companies it was explicitly not given.
  */
 export async function getCatalogueOrSample(): Promise<PaintShade[]> {
+  if (!isDemoMode()) {
+    // READ-ONLY, like getAccessToken() in auth.ts — token refresh happens in
+    // middleware, where cookies are writable. Read here rather than importing
+    // auth.ts so this module doesn't pull a "use server" graph into pages.
+    const token = (await cookies()).get(config.accessCookie)?.value ?? null;
+    if (token) {
+      try {
+        return await fetchMyCatalogue(token);
+      } catch {
+        // Fall through to the public catalogue below — a failure here is a
+        // backend problem, not a verdict about what this shop may see.
+      }
+    }
+  }
   try {
     const live = await fetchCatalogue();
     return live.length > 0 ? live : [...SHADES];

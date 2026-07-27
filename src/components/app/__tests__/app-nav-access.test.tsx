@@ -1,0 +1,100 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import type { AuthUser, MyAccess } from "@/lib/types";
+import { AppNav } from "../app-nav";
+
+vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard" }));
+vi.mock("@/components/auth/logout-button", () => ({
+  LogoutButton: () => <button type="button">Sign out</button>,
+}));
+
+/**
+ * The nav is where the role rules and the distributor's page grant meet. The grant
+ * must only ever SUBTRACT from what the role allows — it is a distributor deciding
+ * what they sold a shop, not a second way to hand out privileges.
+ */
+
+const retailer: AuthUser = {
+  id: "u1",
+  name: "Priya",
+  email: "shop@example.com",
+  provider: "LOCAL",
+  role: "RETAILER",
+};
+
+function access(over: Partial<MyAccess> = {}): MyAccess {
+  return {
+    role: "RETAILER",
+    orgId: "org-1",
+    orgName: "Mehta Paint House",
+    brandsRestricted: false,
+    allowedBrands: [],
+    featuresRestricted: false,
+    allowedFeatures: [],
+    allowedPaths: [],
+    ...over,
+  };
+}
+
+/** Tab labels currently rendered (the desktop and drawer lists are duplicates). */
+function tabs(): string[] {
+  return Array.from(new Set(screen.getAllByRole("link").map((a) => a.textContent ?? "")));
+}
+
+describe("AppNav page grant", () => {
+  it("shows an unrestricted shop its full set of tabs", () => {
+    render(<AppNav user={retailer} access={access()} />);
+    expect(tabs()).toEqual(expect.arrayContaining(["Studio", "Colour finder", "Customer portal", "Products"]));
+  });
+
+  it("hides the pages a distributor switched off", () => {
+    render(
+      <AppNav
+        user={retailer}
+        access={access({ featuresRestricted: true, allowedFeatures: ["CUSTOMER_PORTAL"] })}
+      />,
+    );
+    const shown = tabs();
+    expect(shown).toContain("Customer portal");
+    expect(shown).not.toContain("Studio");
+    expect(shown).not.toContain("Colour finder");
+    expect(shown).not.toContain("Products");
+  });
+
+  it("keeps the dashboard and plan reachable even with everything revoked", () => {
+    // These are never grantable: a shop that cannot open its billing page could
+    // never fix a lapsed subscription without an admin.
+    render(
+      <AppNav user={retailer} access={access({ featuresRestricted: true, allowedFeatures: [] })} />,
+    );
+    const shown = tabs();
+    expect(shown).toContain("Dashboard");
+    expect(shown).toContain("Plan");
+  });
+
+  it("never lets a grant add a tab the role forbids", () => {
+    const customer: AuthUser = { ...retailer, role: "CUSTOMER" };
+    render(
+      <AppNav
+        user={customer}
+        access={access({
+          role: "CUSTOMER",
+          featuresRestricted: true,
+          // A grant naming pages a customer may never see.
+          allowedFeatures: ["STUDIO", "PRODUCTS", "CUSTOMER_PORTAL", "NETWORK"],
+        })}
+      />,
+    );
+    const shown = tabs();
+    expect(shown).not.toContain("Products");
+    expect(shown).not.toContain("Customer portal");
+    expect(shown).not.toContain("Network");
+    expect(shown).not.toContain("Admin");
+  });
+
+  it("falls open when the grant could not be loaded", () => {
+    render(<AppNav user={retailer} access={null} />);
+    expect(tabs()).toEqual(expect.arrayContaining(["Studio", "Colour finder"]));
+  });
+});

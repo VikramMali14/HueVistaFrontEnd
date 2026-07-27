@@ -33,8 +33,17 @@ export interface NetworkNode {
   painterCount: number;
   codesIssued: number;
   codesRedeemed: number;
-  /** Paint brands a distributor granted this shop (RETAILER nodes). Empty = all brands. */
+  /**
+   * Paint brands a distributor granted this shop (RETAILER nodes). Read it with
+   * `brandsRestricted` — an empty list means "all brands" when the shop is
+   * unrestricted and "no brands at all" when it isn't, and the list alone can't
+   * tell those apart.
+   */
   assignedBrands?: string[] | null;
+  brandsRestricted?: boolean;
+  /** Labels of the pages the distributor switched on. Same reading rule as above. */
+  assignedFeatures?: string[] | null;
+  featuresRestricted?: boolean;
   children: NetworkNode[];
 }
 
@@ -44,6 +53,53 @@ export interface RetailerBrandOption {
   name: string;
   slug: string;
   assigned: boolean;
+}
+
+/**
+ * A page a distributor can switch on for a shop (backend `AppFeature`).
+ *
+ * Only genuinely optional pages appear here. The dashboard, account settings and
+ * plan page are never restrictable — a shop locked out of its own billing page
+ * could never fix a lapsed subscription.
+ */
+export type AppFeatureKey =
+  | "STUDIO"
+  | "COLOR_FINDER"
+  | "CATALOGUE"
+  | "PRODUCTS"
+  | "CUSTOMER_PORTAL"
+  | "NETWORK";
+
+/** One assignable page for a shop, with whether it's currently switched on. */
+export interface RetailerFeatureOption {
+  key: AppFeatureKey;
+  label: string;
+  /** The route this option gates, e.g. "/color-finder". */
+  path: string;
+  description: string;
+  assigned: boolean;
+}
+
+/**
+ * What the signed-in caller may see — drives the nav tabs and the page guards.
+ *
+ * Both allowances are three-state, because two states can't say what's needed:
+ * not restricted at all, restricted to a list, or restricted to nothing. Read
+ * each `allowed*` list only when its `*Restricted` flag is true.
+ *
+ * Non-retailers always come back unrestricted; this is a distributor→shop
+ * constraint and never applies upward.
+ */
+export interface MyAccess {
+  role: UserRole;
+  orgId?: string | null;
+  orgName?: string | null;
+  brandsRestricted: boolean;
+  allowedBrands: string[];
+  featuresRestricted: boolean;
+  allowedFeatures: AppFeatureKey[];
+  /** Routes for `allowedFeatures`, so the frontend needn't hardcode the mapping. */
+  allowedPaths: string[];
 }
 
 /** Role-scoped network report (backend NetworkReportResponse). */

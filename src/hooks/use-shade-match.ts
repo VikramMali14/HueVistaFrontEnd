@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { deltaE, hexToLab, nearestShades } from "@/lib/color";
-import { mapToPaintShade } from "@/lib/catalogue";
+import { mapToPaintShade } from "@/lib/shade-mapping";
 import type { PaintShade } from "@/lib/types";
 
 export interface ShadeMatch {

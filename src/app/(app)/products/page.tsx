@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireRole } from "@/lib/auth";
+import { requireFeature, requireRole } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { ProductManager } from "@/components/app/product-manager";
 
@@ -9,8 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default async function ProductsPage() {
-  // Retailer/admin only.
+  // Retailer/admin only, and only if the shop's distributor left this page on.
   await requireRole(["RETAILER", "ADMIN"]);
+  await requireFeature("PRODUCTS");
   return (
     <div>
       <header style={{ marginBottom: 32 }}>

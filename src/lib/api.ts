@@ -415,6 +415,13 @@ export const networkApi = {
       state?: string;
       phone?: string;
       tier?: string;
+      // Access granted as part of setting the shop up. Both default to
+      // unrestricted on the backend, so omitting them creates a shop with the
+      // run of the whole product — the behaviour before this existed.
+      brandIds?: number[];
+      brandsUnrestricted?: boolean;
+      features?: string[];
+      featuresUnrestricted?: boolean;
     },
   ) =>
     serverFetch<{ id: string; name: string; email: string; role: string }>("/api/hierarchy/retailers", {
@@ -439,11 +446,49 @@ export const networkApi = {
       { accessToken },
     ),
   // DISTRIBUTOR (or ADMIN): replace a shop's brand selection wholesale.
-  setRetailerBrands: (accessToken: string, retailerOrgId: string, brandIds: number[]) =>
+  //
+  // `unrestricted` is NOT optional in practice: the backend treats an empty
+  // brandIds as a real revoke-everything, so omitting the flag (as this used to)
+  // made "give them the whole catalogue" unreachable from the UI and silently
+  // turned it into "give them nothing".
+  setRetailerBrands: (
+    accessToken: string,
+    retailerOrgId: string,
+    brandIds: number[],
+    unrestricted: boolean,
+  ) =>
     serverFetch<import("./types").RetailerBrandOption[]>(
       `/api/hierarchy/retailers/${encodeURIComponent(retailerOrgId)}/brands`,
-      { method: "PUT", accessToken, body: JSON.stringify({ brandIds }) },
+      { method: "PUT", accessToken, body: JSON.stringify({ brandIds, unrestricted }) },
     ),
+  // DISTRIBUTOR (or ADMIN): every grantable page with a flag for whether this shop has it.
+  retailerFeatures: (accessToken: string, retailerOrgId: string) =>
+    serverFetch<import("./types").RetailerFeatureOption[]>(
+      `/api/hierarchy/retailers/${encodeURIComponent(retailerOrgId)}/features`,
+      { accessToken },
+    ),
+  // DISTRIBUTOR (or ADMIN): replace a shop's page selection wholesale. Same
+  // three-state contract as setRetailerBrands above.
+  setRetailerFeatures: (
+    accessToken: string,
+    retailerOrgId: string,
+    features: string[],
+    unrestricted: boolean,
+  ) =>
+    serverFetch<import("./types").RetailerFeatureOption[]>(
+      `/api/hierarchy/retailers/${encodeURIComponent(retailerOrgId)}/features`,
+      { method: "PUT", accessToken, body: JSON.stringify({ features, unrestricted }) },
+    ),
+  // The caller's own brand + page allowances — what the nav and page guards read.
+  myAccess: (accessToken: string) =>
+    serverFetch<import("./types").MyAccess>("/api/hierarchy/my-access", { accessToken }),
+  // Everything a distributor could grant, with nothing assigned — the shop-creation
+  // form's checklists, which have no shop to read a selection off yet.
+  grantable: (accessToken: string) =>
+    serverFetch<{
+      brands: import("./types").RetailerBrandOption[];
+      features: import("./types").RetailerFeatureOption[];
+    }>("/api/hierarchy/grantable", { accessToken }),
 };
 
 /** A user as the admin console sees them (backend AdminUserResponse). */
