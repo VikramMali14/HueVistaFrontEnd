@@ -27,8 +27,9 @@ export async function fetchCatalogue(): Promise<PaintShade[]> {
 }
 
 /**
- * The catalogue as the signed-in caller is allowed to see it — a shop gets only the
- * paint companies its distributor assigned it.
+ * The catalogue as the caller is allowed to see it — a shop gets only the paint
+ * companies its distributor assigned it, and a customer or guest only the ones their
+ * shop unlocked on the access code they redeemed.
  *
  * Deliberately NOT cached: the response varies per caller, so a shared `revalidate`
  * entry would hand one shop's restricted catalogue to the next. The public
@@ -65,7 +66,13 @@ export async function getCatalogueOrSample(): Promise<PaintShade[]> {
     // READ-ONLY, like getAccessToken() in auth.ts — token refresh happens in
     // middleware, where cookies are writable. Read here rather than importing
     // auth.ts so this module doesn't pull a "use server" graph into pages.
-    const token = (await cookies()).get(config.accessCookie)?.value ?? null;
+    const jar = await cookies();
+    // A guest has no user session, only the token their access code minted. Sending it
+    // matters: the backend narrows the catalogue to the companies that code unlocks, so
+    // the guest studio is served a restricted list rather than being handed everything
+    // and asked to filter itself.
+    const token =
+      jar.get(config.accessCookie)?.value ?? jar.get(config.guestCookie)?.value ?? null;
     if (token) {
       try {
         return await fetchMyCatalogue(token);

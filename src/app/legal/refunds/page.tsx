@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { contact } from "@/lib/config";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
@@ -39,7 +40,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "8 · How to reach us",
-    p: "For any cancellation, billing or refund question, use the in-app support chat or write to hello@huevista.com with your account and payment details. We reply within one business day.",
+    p: `For any cancellation, billing or refund question, use the in-app support chat or write to ${contact.billing} with your account and payment details. We reply within one business day.`,
   },
 ];
 

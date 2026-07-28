@@ -11,17 +11,6 @@ export const metadata: Metadata = {
   description: "Visualise your room as a guest — no account needed.",
 };
 
-/** Reads the JSON brand-array from the guest brands cookie; [] on anything malformed. */
-function parseAllowedBrands(raw: string | undefined): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((b): b is string => typeof b === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
 /**
  * Guest creator. Requires an active guest session (redeemed shop code → hv_guest
  * cookie); otherwise we send them to redeem. The Visualizer runs in `guest` mode:
@@ -32,19 +21,16 @@ export default async function StudioPage() {
   const jar = await cookies();
   if (!jar.get(config.guestCookie)?.value) redirect("/redeem");
 
-  let shades = await getCatalogueOrSample();
-
-  // The shop can restrict which paint companies this guest may browse (chosen at
-  // code-issue time, stored in a sibling cookie). Limit the studio's shades to
-  // those brands; an empty/absent cookie means no restriction. We keep the full
-  // set if the filter would empty it, so a stale brand name never leaves a guest
-  // with nothing to paint.
-  const allowedBrands = parseAllowedBrands(jar.get(config.guestBrandsCookie)?.value);
-  if (allowedBrands.length > 0) {
-    const allowed = new Set(allowedBrands);
-    const scoped = shades.filter((s) => allowed.has(s.brand));
-    if (scoped.length > 0) shades = scoped;
-  }
+  // Already narrowed to the companies this guest's code unlocks: getCatalogueOrSample
+  // sends the guest token, and the backend resolves the restriction from the code.
+  //
+  // This used to be done HERE instead, by filtering against a hv_guest_brands cookie —
+  // which is to say it was not done at all. The cookie sits in the guest's own browser,
+  // so deleting it lifted the restriction; and the filter deliberately fell open
+  // ("keep the full set if it would empty") so one renamed company silently returned the
+  // whole catalogue. The cookie is still written, but only so the picker can label what
+  // the shop chose — it is no longer what decides.
+  const shades = await getCatalogueOrSample();
 
   return (
     <>

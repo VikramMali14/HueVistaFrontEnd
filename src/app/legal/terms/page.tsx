@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { contact } from "@/lib/config";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
@@ -43,7 +44,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "9 · Contact",
-    p: "Questions about these terms? Reach us through the in-app support chat, or write to hello@huevista.com.",
+    p: `Questions about these terms? Reach us through the in-app support chat, or write to ${contact.support}.`,
   },
 ];
 
