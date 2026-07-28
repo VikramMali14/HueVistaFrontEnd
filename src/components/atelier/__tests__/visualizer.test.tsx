@@ -68,14 +68,36 @@ vi.mock("@/lib/api", () => {
       // The gate quotes a real price, so the studio asks what buying costs on mount.
       getProjectPurchaseOptions: vi.fn(async () => ({
         subscribed: true,
-        projectPricePaise: 5000,
-        subscribedProjectPricePaise: 5000,
-        unsubscribedProjectPricePaise: 9900,
-        reopenPricePaise: 900,
+        projectPricePoints: 80,
+        reopenPricePoints: 9,
+        pointsBalance: 0,
         validDays: 30,
-        currency: "INR",
         availableCredits: 0,
       })),
+      // The out-of-quota prompts quote point prices, so the studio reads the list on
+      // mount. 403s for a customer account, which is why the component tolerates a
+      // rejection here.
+      getRewardPoints: vi.fn(async () => ({
+        balance: 0,
+        pointsPerSale: 30,
+        rupeesPerPoint: 1,
+        minPurchase: 100,
+        maxPurchase: 100000,
+        validityDays: 365,
+        expiryWarningDays: 10,
+        imagePrice: 40,
+        autoMaskPrice: 20,
+        projectPrice: 80,
+        reopenPrice: 9,
+        nextExpiringPoints: null,
+        nextExpiryAt: null,
+        lots: [],
+        recentActivity: [],
+      })),
+      pointsPayImageCredit: vi.fn(),
+      pointsPayAutoMaskCredit: vi.fn(),
+      pointsPayProjectCredit: vi.fn(),
+      pointsPayProjectReopen: vi.fn(),
       requestMoreProjects: vi.fn(),
       getMyShadeCodeScheme: vi.fn(async () => ({
         prefix: "",

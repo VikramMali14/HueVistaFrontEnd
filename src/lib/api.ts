@@ -22,7 +22,6 @@ import type {
   PaintBrand,
   PaintLine,
   ProductCategory,
-  ProjectCreditOrder,
   QualityTier,
   ShopProduct,
   ProjectDetail,
@@ -763,79 +762,28 @@ export const api = {
   // paid for by the shop, which can add one in a click.
   requestMoreProjects: () =>
     browserFetch<void>("api/me/request-more-projects", { method: "POST" }),
-  // --- Buying a project outright ---
-  // What it costs this account today, what it costs at the other end of a
-  // subscription, what a reopen costs, and how many paid-for projects are waiting.
+  // --- Buying a project (with points) ---
+  // What a project and a reopen cost in points, the balance to weigh them against, and
+  // how many paid-for projects are waiting.
   getProjectPurchaseOptions: () =>
-    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/project-credit/options"),
-  // One-time purchase of a project (Razorpay): order -> Checkout -> verify. The price
-  // is decided server-side from subscription state, so nothing is passed here.
-  createProjectCreditOrder: () =>
-    browserFetch<ProjectCreditOrder>("api/billing/project-credit/order", { method: "POST" }),
-  verifyProjectCredit: (body: { orderId: string; paymentId: string; signature: string }) =>
-    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/project-credit/verify", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-  // Reopen a project whose validity ran out: another window for a small fee. The
-  // project is named on the ORDER, so verify takes only the payment triple.
-  createProjectReopenOrder: (projectId: string) =>
-    browserFetch<ProjectCreditOrder>(
-      `api/billing/project-credit/reopen/${encodeURIComponent(projectId)}/order`,
-      { method: "POST" },
-    ),
-  verifyProjectReopen: (body: { orderId: string; paymentId: string; signature: string }) =>
-    browserFetch<import("./types").ProjectReopenResult>("api/billing/project-credit/reopen/verify", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-  // --- Pay-per-image overage (retailer buys one extra image after the monthly quota) ---
-  // One-time purchase at Rs. 50: order -> Checkout -> verify. Verify returns
-  // the refreshed subscription with the credited image included in the remaining count.
-  createImageCreditOrder: () =>
-    browserFetch<ProjectCreditOrder>("api/billing/image-credits/order", { method: "POST" }),
-  verifyImageCredit: (body: { orderId: string; paymentId: string; signature: string }) =>
-    browserFetch<import("./types").SubscriptionSummary>("api/billing/image-credits/verify", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-  // --- Prepaid billing wallet (top up once, spend on extra images / auto-masks) ---
-  getBillingWallet: () =>
-    browserFetch<import("./types").BillingWalletSummary>("api/billing/wallet"),
-  createWalletTopUpOrder: (amountPaise: number) =>
-    browserFetch<ProjectCreditOrder>("api/billing/wallet/topup/order", {
-      method: "POST",
-      body: JSON.stringify({ amountPaise }),
-    }),
-  verifyWalletTopUp: (body: { orderId: string; paymentId: string; signature: string }) =>
-    browserFetch<import("./types").BillingWalletSummary>("api/billing/wallet/topup/verify", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-  // Atomic wallet debits: ₹50 buys one extra image, ₹25 one extra AI auto-mask.
-  // Both 402 with a clear message when the balance is short.
-  walletPayImageCredit: () =>
-    browserFetch<import("./types").SubscriptionSummary>("api/billing/wallet/pay/image-credit", {
-      method: "POST",
-    }),
-  walletPayAutoMaskCredit: () =>
-    browserFetch<import("./types").SubscriptionSummary>("api/billing/wallet/pay/auto-mask-credit", {
-      method: "POST",
-    }),
-  // Projects bought from the prepaid RUPEE balance, priced server-side (₹50 with a
-  // plan, ₹99 without; ₹9 to reopen) — the browser never names an amount.
-  walletPayProjectCredit: () =>
-    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/wallet/pay/project-credit", {
-      method: "POST",
-    }),
-  walletPayProjectReopen: (projectId: string) =>
-    browserFetch<import("./types").ProjectReopenResult>(
-      `api/billing/wallet/pay/project-reopen/${encodeURIComponent(projectId)}`,
-      { method: "POST" },
-    ),
-  // --- Reward points: own balance, own prices, one-year expiry (retailers only) ---
+    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/points/project-options"),
+  // --- Points: the only balance. Earned at the kiosk or bought at ₹1 each, spent on
+  // everything chargeable besides a plan, expiring a year after they arrive.
+  // Retailers only — a customer account gets 403 from all of these.
   getRewardPoints: () =>
     browserFetch<import("./types").RewardPointsSummary>("api/billing/points"),
+  // Buying: only the COUNT travels. The amount is priced server-side from it, so the
+  // browser can never name its own price.
+  createPointsOrder: (points: number) =>
+    browserFetch<import("./types").PointsOrder>("api/billing/points/order", {
+      method: "POST",
+      body: JSON.stringify({ points }),
+    }),
+  verifyPointsPurchase: (body: { orderId: string; paymentId: string; signature: string }) =>
+    browserFetch<import("./types").RewardPointsSummary>("api/billing/points/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   pointsPayImageCredit: () =>
     browserFetch<import("./types").SubscriptionSummary>("api/billing/points/pay/image-credit", {
       method: "POST",

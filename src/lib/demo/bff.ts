@@ -12,7 +12,6 @@ import type {
   PaintBrand,
   PaintLine,
   ProductCategory,
-  ProjectCreditOrder,
   ProjectDetail,
   QualityTier,
   RegionColorUpdate,
@@ -50,11 +49,10 @@ async function readJson(req: NextRequest): Promise<Record<string, unknown>> {
   }
 }
 
-// Project pricing the demo quotes. Mirrors the server defaults: cheaper with a live
-// plan, the standalone price without one, a small fee to reopen a lapsed project.
-const PROJECT_SUBSCRIBED_PAISE = 5000;
-const PROJECT_UNSUBSCRIBED_PAISE = 9900;
-const PROJECT_REOPEN_PAISE = 900;
+// Point prices the demo quotes. Mirrors the server defaults — flat, and the same
+// whatever the plan is doing.
+const POINTS_PROJECT = 80;
+const POINTS_REOPEN = 9;
 const PROJECT_VALID_DAYS = 30;
 /** A shop-issued code is always good for 10 days, and an extension resets it to 10. */
 const ACCESS_CODE_VALID_DAYS = 10;
@@ -64,12 +62,10 @@ function projectPurchaseOptions(): import("../types").ProjectPurchaseOptions {
   const subscribed = store.subscription.status === "ACTIVE";
   return {
     subscribed,
-    projectPricePaise: subscribed ? PROJECT_SUBSCRIBED_PAISE : PROJECT_UNSUBSCRIBED_PAISE,
-    subscribedProjectPricePaise: PROJECT_SUBSCRIBED_PAISE,
-    unsubscribedProjectPricePaise: PROJECT_UNSUBSCRIBED_PAISE,
-    reopenPricePaise: PROJECT_REOPEN_PAISE,
+    projectPricePoints: POINTS_PROJECT,
+    reopenPricePoints: POINTS_REOPEN,
+    pointsBalance: store.wallet.pointsBalance,
     validDays: PROJECT_VALID_DAYS,
-    currency: "INR",
     availableCredits: store.projectCredits,
   };
 }
@@ -327,43 +323,19 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   if (path === "api/me/shade-code-scheme" && method === "GET") {
     return json(store.codeScheme);
   }
-  // Buying a project. The demo shop is on a live plan, so the subscribed price
-  // applies; both figures are reported so the panel can name the other one too.
-  if (path === "api/billing/project-credit/options" && method === "GET") {
+  // Points are the only balance: buy them, spend them. No per-item checkout.
+  if (path === "api/billing/points/project-options" && method === "GET") {
     return json(projectPurchaseOptions());
   }
-  if (path === "api/billing/project-credit/order" && method === "POST") {
-    const order: ProjectCreditOrder = {
-      orderId: nextId("order"),
-      amount: projectPurchaseOptions().projectPricePaise,
-      currency: "INR",
-      razorpayKeyId: "rzp_test_demo",
-    };
-    return json(order);
-  }
-  if (path === "api/billing/project-credit/verify" && method === "POST") {
+  if (path === "api/billing/points/pay/project-credit" && method === "POST") {
+    if (store.wallet.pointsBalance < POINTS_PROJECT) {
+      return json({ message: `Not enough points (${store.wallet.pointsBalance} available, ${POINTS_PROJECT} needed).` }, 402);
+    }
+    store.wallet.pointsBalance -= POINTS_PROJECT;
     store.projectCredits += 1;
     store.entitlement.projectAllowance += 1;
     store.entitlement.projectsRemaining += 1;
     return json(projectPurchaseOptions());
-  }
-  if (seg[3] === "reopen" && seg[5] === "order" && method === "POST") {
-    const order: ProjectCreditOrder = {
-      orderId: nextId("order"),
-      amount: PROJECT_REOPEN_PAISE,
-      currency: "INR",
-      razorpayKeyId: "rzp_test_demo",
-    };
-    return json(order);
-  }
-  if (path === "api/billing/project-credit/reopen/verify" && method === "POST") {
-    return json({
-      projectId: store.projects[0]?.id ?? "proj_demo",
-      accessExpiresAt: new Date(Date.now() + PROJECT_VALID_DAYS * 86_400_000).toISOString(),
-      paused: false,
-      amountPaise: PROJECT_REOPEN_PAISE,
-      daysAdded: PROJECT_VALID_DAYS,
-    });
   }
 
   // ---------- Paint catalogue (shop-managed) ----------

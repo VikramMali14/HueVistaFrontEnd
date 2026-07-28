@@ -300,7 +300,7 @@ export interface ProjectDetail {
    *  own (covered by a plan or a shop's code) or while that window is paused. */
   accessExpiresAt?: string | null;
   /** What reopening a lapsed project costs, in paise. */
-  reopenPricePaise?: number;
+  reopenPricePoints?: number;
 }
 
 /** Where a dashboard room came from, seen from the reader's side. */
@@ -547,16 +547,14 @@ export interface AccessCode {
  */
 export interface ProjectPurchaseOptions {
   subscribed: boolean;
-  /** What one more project costs right now, in paise. */
-  projectPricePaise: number;
-  /** That price with a live plan, and without one. */
-  subscribedProjectPricePaise: number;
-  unsubscribedProjectPricePaise: number;
-  /** What another window on a lapsed project costs, in paise. */
-  reopenPricePaise: number;
+  /** What one project costs, in points. Flat — it does not move with a plan. */
+  projectPricePoints: number;
+  /** What another window on a lapsed project costs, in points. */
+  reopenPricePoints: number;
+  /** Spendable balance, so the caller can say whether it is enough. */
+  pointsBalance: number;
   /** Days of access a purchase (or a reopen) opens. */
   validDays: number;
-  currency: string;
   /** Projects already paid for and not yet created. */
   availableCredits: number;
 }
@@ -567,9 +565,8 @@ export interface ProjectReopenResult {
   accessExpiresAt?: string | null;
   /** True while a live subscription is holding the window — the paid days are banked. */
   paused: boolean;
-  amountPaise: number;
-  /** Points spent instead, when the reopen was paid from the reward balance. */
-  pointsSpent?: number;
+  /** Points the reopen cost. */
+  pointsSpent: number;
   daysAdded: number;
 }
 
@@ -710,7 +707,11 @@ export interface RewardPointsSummary {
   /** Spendable now — live batches less any refund shortfall still being earned back. */
   balance: number;
   pointsPerSale: number;
-  /** How long a batch lasts from the day it is earned. */
+  /** What buying costs: rupees per point, and the bounds on one purchase. */
+  rupeesPerPoint: number;
+  minPurchase: number;
+  maxPurchase: number;
+  /** How long a batch lasts from the day it arrives — earned or bought alike. */
   validityDays: number;
   /** How many days before expiry the warning email goes out. */
   expiryWarningDays: number;
@@ -729,6 +730,7 @@ export interface RewardPointsSummary {
     points: number;
     type:
       | "KIOSK_EARNED"
+      | "PURCHASED"
       | "KIOSK_REVERSED"
       | "EXPIRED"
       | "SPENT_ON_IMAGE"
@@ -805,35 +807,6 @@ export interface PlanOption {
   autoMaskOveragePriceWithTaxInPaise: number;
 }
 
-/** One movement on the prepaid billing wallet (positive = top-up, negative = purchase). */
-export interface BillingWalletTransaction {
-  id: string;
-  type:
-    | "TOPUP"
-    | "EXTRA_IMAGE"
-    | "EXTRA_AUTO_MASK"
-    | "PROJECT_CREDIT"
-    | "PROJECT_REOPEN"
-    | "REFUND";
-  amountPaise: number;
-  createdAt: string;
-}
-
-/**
- * The prepaid billing wallet (GET /api/billing/wallet): RUPEES added by Razorpay top-up
- * and spent at rupee prices on overage, projects and reopens. Never withdrawable.
- *
- * Reward points are a separate ledger ({@link RewardPointsSummary}) with its own prices
- * and a one-year expiry — the two are shown side by side, never merged.
- */
-export interface BillingWalletSummary {
-  balancePaise: number;
-  currency: string;
-  imageCreditPricePaise: number;
-  autoMaskCreditPricePaise: number;
-  transactions: BillingWalletTransaction[];
-}
-
 /** Colour-board PDF allowance (backend PdfAllowanceResponse) — resolved against
  *  whichever plan pays for the caller (own plan, or the issuing shop's). */
 export interface PdfAllowance {
@@ -844,10 +817,13 @@ export interface PdfAllowance {
   unlimited: boolean;
 }
 
-/** Razorpay order details returned by the backend to open Checkout for a one-time project purchase. */
-export interface ProjectCreditOrder {
+/** Razorpay order details returned by the backend to open Checkout for a points purchase. */
+export interface PointsOrder {
   orderId: string;
-  amount: number; // in paise
+  /** Points this order buys. */
+  points: number;
+  /** What it costs, in paise — priced server-side from the count. */
+  amount: number;
   currency: string;
   razorpayKeyId: string;
 }
