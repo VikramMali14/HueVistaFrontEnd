@@ -65,6 +65,18 @@ vi.mock("@/lib/api", () => {
       // The shop's display settings load on mount for EVERYONE now, not just guests —
       // a shop's own code pattern has to reach its own staff. Default to no pattern and
       // names shown, i.e. the plain manufacturer codes these tests assert on.
+      // The gate quotes a real price, so the studio asks what buying costs on mount.
+      getProjectPurchaseOptions: vi.fn(async () => ({
+        subscribed: true,
+        projectPricePaise: 5000,
+        subscribedProjectPricePaise: 5000,
+        unsubscribedProjectPricePaise: 9900,
+        reopenPricePaise: 900,
+        validDays: 30,
+        currency: "INR",
+        availableCredits: 0,
+      })),
+      requestMoreProjects: vi.fn(),
       getMyShadeCodeScheme: vi.fn(async () => ({
         prefix: "",
         infix: "",

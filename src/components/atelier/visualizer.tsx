@@ -295,6 +295,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [guestAiUnavailable, setGuestAiUnavailable] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [limitReached, setLimitReached] = useState(false);
+  // A customer a SHOP onboarded has run out. Their projects were assigned and paid for
+  // by that shop, which can add another in one click — so this gate asks the shop rather
+  // than selling them one, which would take money for something the shop already owns.
+  const [askRetailer, setAskRetailer] = useState(false);
+  const [asking, setAsking] = useState<"idle" | "sending" | "sent">("idle");
+  // What buying costs THIS account, so the gate quotes a real figure rather than a
+  // hardcoded one that drifts from configuration. Best-effort: absent just means the
+  // button says "Buy a project" with no price.
+  const [purchaseOptions, setPurchaseOptions] =
+    useState<import("@/lib/types").ProjectPurchaseOptions | null>(null);
   const [accessExpired, setAccessExpired] = useState(false);
   // Retailer funnel gates (distinct from the customer entitlement ones above):
   // verification required before the first project, and "subscribe to a plan".
@@ -438,6 +448,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     // meant the one pattern the shop defined appeared on exactly one screen.
     // One endpoint for everyone: it resolves the shop from whoever is asking — the
     // caller's own org, their retailer's, or the shop that issued their guest code.
+    if (!guest) {
+      api.getProjectPurchaseOptions()
+        .then((o) => !cancelled && setPurchaseOptions(o))
+        .catch(() => {});
+    }
     api.getMyShadeCodeScheme()
       .then((scheme) => {
         if (cancelled) return;
@@ -451,6 +466,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       cancelled = true;
     };
   }, [guest]);
+
+  const projectPrice = purchaseOptions
+    ? Math.round(purchaseOptions.projectPricePaise / 100)
+    : null;
 
   // With a scheme, encoded codes replace the manufacturer's everywhere they appear.
   const encodeCode = useMemo(
@@ -798,6 +817,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           if (err.code === "SUBSCRIPTION_REQUIRED") setNeedSubscription(true);
           else if (err.code === "IMAGE_LIMIT_REACHED") setImageLimitReached(true);
           else if (err.code === "AUTO_MASK_UNAVAILABLE") setAutoMaskBlocked(true);
+          else if (err.code === "ASK_RETAILER") setAskRetailer(true);
           else setLimitReached(true);
           setError(err.message);
         } else if (err instanceof HttpError && err.status === 403) {
@@ -951,6 +971,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         if (err.code === "SUBSCRIPTION_REQUIRED") setNeedSubscription(true);
         else if (err.code === "IMAGE_LIMIT_REACHED") setImageLimitReached(true);
         else if (err.code === "AUTO_MASK_UNAVAILABLE") setAutoMaskBlocked(true);
+        else if (err.code === "ASK_RETAILER") setAskRetailer(true);
         else setLimitReached(true);
         setError(err.message);
       } else {
@@ -1163,6 +1184,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     () => clearRegionColor(activeRegion),
     [clearRegionColor, activeRegion],
   );
+
+  /**
+   * Tell the shop this customer needs another project.
+   *
+   * The whole reason the sale is refused here: the shop assigned these projects and its
+   * quota paid for them, so the app carries a message to a counter the customer can also
+   * walk back to. Stays on "sent" rather than resetting — a second identical mail helps
+   * nobody, and the customer needs to see that the first one went.
+   */
+  const handleAskRetailer = useCallback(async () => {
+    if (asking !== "idle") return;
+    setAsking("sending");
+    try {
+      await api.requestMoreProjects();
+      setAsking("sent");
+    } catch (err) {
+      setAsking("idle");
+      setError(err instanceof Error ? err.message : "Could not reach your shop just now.");
+    }
+  }, [asking]);
 
   /**
    * Pay to give this project another validity window.
@@ -1600,7 +1641,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // failures…) need their own surface — the DropZone one is gone by then.
   const showCanvasError = Boolean(
     error && imageUrl && !uploading && !segmenting &&
-    !limitReached && !accessExpired && !needVerification && !needSubscription &&
+    !limitReached && !askRetailer && !accessExpired && !needVerification && !needSubscription &&
     !imageLimitReached && !autoMaskBlocked,
   );
 
@@ -2176,7 +2217,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               </div>
             )}
             <LoaderOverlay show={uploading || segmenting} label={overlayLabel} hint={overlayHint} />
-            {(limitReached || accessExpired || needVerification || needSubscription || imageLimitReached || autoMaskBlocked) && (
+            {(limitReached || askRetailer || accessExpired || needVerification || needSubscription || imageLimitReached || autoMaskBlocked) && (
               <div
                 style={{
                   position: "absolute",
@@ -2202,7 +2243,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   <Mono brass>
                     {needVerification
                       ? "Verify your account"
-                      : needSubscription
+                      : askRetailer
+                        ? "Ask your shop for another"
+                        : needSubscription
                         ? "Subscribe to continue"
                         : accessExpired
                           ? "Access ended"
@@ -2216,6 +2259,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     {error ||
                       (needVerification
                         ? "Verify your email and mobile number before creating your project."
+                        : askRetailer
+                        ? "You've used the projects on your code. Your shop can add another."
                         : needSubscription
                           ? "Your free trial includes one project. Subscribe to a plan to create more."
                           : accessExpired
@@ -2286,6 +2331,37 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       </a>
                     </div>
                   )}
+                  {askRetailer && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
+                      <Button
+                        variant="brass"
+                        disabled={asking !== "idle"}
+                        onClick={() => void handleAskRetailer()}
+                      >
+                        {asking === "sending" ? (
+                          <>
+                            <Spinner size={14} color="currentColor" />
+                            <span>Sending…</span>
+                          </>
+                        ) : asking === "sent" ? (
+                          "Sent — your shop has been told ✓"
+                        ) : (
+                          <>
+                            Ask my shop for another project <span className="arr">→</span>
+                          </>
+                        )}
+                      </Button>
+                      <Mono>
+                        {asking === "sent"
+                          ? "They can add it from their counter — refresh once they have."
+                          : "They can add one in a click, from the counter."}
+                      </Mono>
+                    </div>
+                  )}
+                  {/* An account with no shop behind it. Two honest routes, side by side:
+                      pay for a project, or redeem a code if they have walked into a paint
+                      shop since. Offering only the first strands anyone holding a code;
+                      offering only the second strands anyone who has no shop to visit. */}
                   {limitReached && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
                       <Button variant="brass" onClick={() => void handleBuyAndRetry()} disabled={buying}>
@@ -2296,11 +2372,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                           </>
                         ) : (
                           <>
-                            Buy another project <span className="arr">→</span>
+                            Buy a project{projectPrice ? ` · ₹${projectPrice}` : ""} <span className="arr">→</span>
                           </>
                         )}
                       </Button>
-                      <Mono>or ask your retailer to add one</Mono>
+                      <a className="btn" href="/redeem">
+                        Redeem a shop code <span className="arr">→</span>
+                      </a>
+                      <Mono>
+                        {purchaseOptions
+                          ? `A bought project stays open for ${purchaseOptions.validDays} days.`
+                          : "Or ask a paint shop for an access code."}
+                      </Mono>
                     </div>
                   )}
                 </div>

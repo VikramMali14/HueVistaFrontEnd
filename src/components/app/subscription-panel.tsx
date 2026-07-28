@@ -395,7 +395,15 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
             {active && (
               <div
                 className="r-cols-md-1"
-                style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24, marginTop: 24 }}
+                // Auto-fit rather than three fixed columns: the usage bars have labels of
+                // very different lengths, and a hard 1fr 1fr 1fr squeezed them into two
+                // wrapped lines at every width between the md breakpoint and full desktop.
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: 24,
+                  marginTop: 24,
+                }}
               >
                 <div>
                   <span style={fieldLabel}>Images this cycle (incl. AI clean-up)</span>

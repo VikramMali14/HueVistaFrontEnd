@@ -776,6 +776,11 @@ export const api = {
     }),
   // --- Customer project entitlement (allowance + day-validity) ---
   getMyEntitlement: () => browserFetch<CustomerEntitlement | null>("api/me/entitlement"),
+  // A shop-onboarded customer asking their shop to add another project. This is what
+  // they get instead of a Checkout button: the projects on their code were assigned and
+  // paid for by the shop, which can add one in a click.
+  requestMoreProjects: () =>
+    browserFetch<void>("api/me/request-more-projects", { method: "POST" }),
   // --- Buying a project outright ---
   // What it costs this account today, what it costs at the other end of a
   // subscription, what a reopen costs, and how many paid-for projects are waiting.

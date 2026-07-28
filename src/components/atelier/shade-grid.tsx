@@ -1424,6 +1424,13 @@ function ClaudePicksSection({
  * works exactly like the other suggestion cards: tap a swatch for the active
  * wall, or "Apply all" to dress the whole room.
  */
+/**
+ * Most of a shop's combinations shown per scope. Five is a shortlist; beyond that the
+ * section stops reading as "our picks" and starts reading as a catalogue the customer
+ * has to get past.
+ */
+const MAX_COMBOS_PER_SCOPE = 5;
+
 function ShopPicksSection({
   combos,
   outdoor = false,
@@ -1464,18 +1471,43 @@ function ShopPicksSection({
     [byCode],
   );
 
+  const [open, setOpen] = useState(true);
+
   const wanted = outdoor ? "EXTERIOR" : "INTERIOR";
-  const sorted = useMemo(
-    () => [...combos].sort((a, b) => Number(b.scope === wanted) - Number(a.scope === wanted)),
-    [combos, wanted],
-  );
+  /**
+   * At most five per scope, the matching scope first.
+   *
+   * A shop with thirty saved combinations turned this section into a wall of cards the
+   * customer scrolled past to reach anything else — the picks stopped being picks. Five
+   * is a shortlist. Capping per SCOPE rather than overall matters: a shop heavy on
+   * interior combos would otherwise push every exterior one off an outdoor photo, which
+   * is exactly the photo those were saved for.
+   */
+  const sorted = useMemo(() => {
+    const take = (scope: string) => combos.filter((c) => c.scope === scope).slice(0, MAX_COMBOS_PER_SCOPE);
+    const other = wanted === "EXTERIOR" ? "INTERIOR" : "EXTERIOR";
+    return [...take(wanted), ...take(other)];
+  }, [combos, wanted]);
   const shopName = combos[0]?.organizationName;
 
   return (
     <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: "1px solid var(--rule)" }}>
       <div className="hv-ai-head">
         <Mono brass>{shopName ? `${shopName} recommends` : "Your shop recommends"}</Mono>
+        {/* Open by default — these are the shop's own recommendations and the reason the
+            tab exists. Collapsible because a customer who has chosen already wants the
+            catalogue back, not a scroll past cards they have finished with. */}
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? "Hide" : `Show ${sorted.length}`}
+        </button>
       </div>
+      {!open ? null : (
+      <>
       <p className="hv-ai-intro">
         Combinations your paint shop put together — tap a shade for the active wall, drag a
         colour onto another role to swap them, or apply all three across the room.
@@ -1501,6 +1533,8 @@ function ShopPicksSection({
           />
         ))}
       </div>
+      </>
+      )}
     </div>
   );
 }
