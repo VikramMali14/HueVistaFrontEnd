@@ -389,6 +389,28 @@ export interface CustomerEntitlement {
   updatedAt?: string;
 }
 
+/**
+ * One recorded act of a shop giving projects away (backend ProjectGrantResponse).
+ *
+ * Every granted project reserves an image credit against the shop's plan, so grants are
+ * recorded rather than just applied — that is what makes them reversible.
+ */
+export interface ProjectGrant {
+  id: string;
+  /** Exactly one is set: the grant went to a customer, or onto a code. */
+  customerUserId?: string | null;
+  accessCodeId?: string | null;
+  projects: number;
+  createdAt?: string | null;
+  revokedAt?: string | null;
+  /**
+   * Whether "take back" would succeed right now. False once the customer has used the
+   * projects, and false after the billing period that funded the grant has renewed —
+   * releasing those images into a new period would mint quota the old one paid for.
+   */
+  revocable: boolean;
+}
+
 /** Minimal organization shape (backend OrgResponse). */
 export interface OrgResponse {
   id: string;
@@ -600,23 +622,15 @@ export interface StoreLink {
   slug: string;
   organizationId: string;
   organizationName?: string;
-  /** The price the retailer typed. What a customer is actually charged is
-   *  `effectivePricePaise` — the two differ once the platform base rises. */
+  /** What a walk-in pays. The platform keeps `platformBasePaise`; the rest is the shop's. */
   pricePaise: number;
   currency: string;
   validDays: number;
   active: boolean;
   createdAt?: string | null;
-  /** Whether the shop's plan is live right now. */
-  subscriptionActive?: boolean;
-  /** The platform's cut per order today, and that cut at each end. The kiosk never
-   *  closes when a plan ends — only the base rises, and the customer-facing price
-   *  rises with it if the shop priced below it. */
+  /** The platform's flat cut per kiosk order — the same whatever the shop's plan
+   *  is doing. A printed kiosk price must not move because of the shop's billing. */
   platformBasePaise?: number;
-  platformBaseSubscribedPaise?: number;
-  platformBaseLapsedPaise?: number;
-  /** What a walk-in is actually charged: the shop's price or the base, whichever is higher. */
-  effectivePricePaise?: number;
 }
 
 /** What an anonymous kiosk visitor sees for a store link (backend StorePublicInfoResponse). */

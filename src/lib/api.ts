@@ -776,6 +776,11 @@ export const api = {
     }),
   // --- Customer project entitlement (allowance + day-validity) ---
   getMyEntitlement: () => browserFetch<CustomerEntitlement | null>("api/me/entitlement"),
+  // A shop-onboarded customer asking their shop to add another project. This is what
+  // they get instead of a Checkout button: the projects on their code were assigned and
+  // paid for by the shop, which can add one in a click.
+  requestMoreProjects: () =>
+    browserFetch<void>("api/me/request-more-projects", { method: "POST" }),
   // --- Buying a project outright ---
   // What it costs this account today, what it costs at the other end of a
   // subscription, what a reopen costs, and how many paid-for projects are waiting.
@@ -1071,10 +1076,24 @@ export const api = {
     }),
   listCustomers: (orgId: string) =>
     browserFetch<CustomerEntitlement[]>(`api/organizations/${encodeURIComponent(orgId)}/customers`),
-  grantProject: (orgId: string, customerId: string) =>
+  // Each granted project reserves one image credit against the shop's plan — exactly
+  // like issuing a code — so this needs a live subscription (402 without one).
+  grantProject: (orgId: string, customerId: string, projects = 1) =>
     browserFetch<CustomerEntitlement>(
       `api/organizations/${encodeURIComponent(orgId)}/customers/${encodeURIComponent(customerId)}/grant-project`,
-      { method: "POST" },
+      { method: "POST", body: JSON.stringify({ projects }) },
+    ),
+  // Everything this shop has given away, each flagged with whether it can still come back.
+  listProjectGrants: (orgId: string) =>
+    browserFetch<import("./types").ProjectGrant[]>(
+      `api/organizations/${encodeURIComponent(orgId)}/project-grants`,
+    ),
+  // Take a grant back: returns the reserved images to the shop's quota. Refused once the
+  // customer has used the projects, and refused after the funding period has renewed.
+  revokeProjectGrant: (orgId: string, grantId: string) =>
+    browserFetch<import("./types").ProjectGrant>(
+      `api/organizations/${encodeURIComponent(orgId)}/project-grants/${encodeURIComponent(grantId)}`,
+      { method: "DELETE" },
     ),
 };
 

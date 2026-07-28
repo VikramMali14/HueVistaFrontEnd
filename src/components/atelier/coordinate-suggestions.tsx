@@ -33,6 +33,7 @@ export function CoordinateSuggestions({
   onApplyToRegion,
   hideCodes = false,
   encodeCode,
+  hideNames = false,
 }: {
   baseHex: string;
   activeRegionId: string;
@@ -43,8 +44,12 @@ export function CoordinateSuggestions({
   hideCodes?: boolean;
   /** With hideCodes: show this shop-scheme encoding of the code instead of nothing. */
   encodeCode?: (code: string) => string;
+  /** The shop hides paint names — the code stands in as the colour's only handle. */
+  hideNames?: boolean;
 }) {
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
+  const nameLabel = (s: { name: string; code: string }) =>
+    hideNames ? (codeLabel(s.code) ?? "") : s.name;
 
   const groups = useMemo(() => {
     // Start by excluding colours already placed on a wall, then grow the exclude
@@ -113,8 +118,10 @@ export function CoordinateSuggestions({
                   key={s.code}
                   type="button"
                   onClick={() => onApplyToRegion(region.id, s)}
-                  title={codeLabel(s.code) ? `${s.name} · ${codeLabel(s.code)} → ${region.label}` : `${s.name} → ${region.label}`}
-                  aria-label={`Apply ${s.name} to ${region.label}`}
+                  title={hideNames
+                    ? `${nameLabel(s)} → ${region.label}`
+                    : codeLabel(s.code) ? `${s.name} · ${codeLabel(s.code)} → ${region.label}` : `${s.name} → ${region.label}`}
+                  aria-label={`Apply ${nameLabel(s) || "this colour"} to ${region.label}`}
                   style={{
                     flex: 1,
                     minWidth: 0,
@@ -146,7 +153,7 @@ export function CoordinateSuggestions({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {codeLabel(s.code) ?? s.name}
+                    {codeLabel(s.code) ?? nameLabel(s)}
                   </span>
                 </button>
               ))}

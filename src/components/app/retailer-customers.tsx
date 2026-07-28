@@ -6,7 +6,7 @@ import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ALL, FilterBar, matchesQuery } from "@/components/ui/filter-bar";
-import type { CustomerEntitlement, OrgResponse } from "@/lib/types";
+import type { CustomerEntitlement, OrgResponse, ProjectGrant } from "@/lib/types";
 
 function formatAccessLeft(iso?: string | null): string {
   if (!iso) return "—";
@@ -37,6 +37,9 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [grantingId, setGrantingId] = useState<string | null>(null);
+  // What this shop has given away, so a row can offer "take back" only when there is
+  // genuinely something to take back. Best-effort: a failure just hides the action.
+  const [grants, setGrants] = useState<ProjectGrant[]>([]);
 
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState(ALL);
@@ -73,6 +76,8 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
       }
       setOrgId(retailer.id);
       setRows(await api.listCustomers(retailer.id));
+      // Best-effort: without it the rows simply never offer "take back".
+      setGrants(await api.listProjectGrants(retailer.id).catch(() => []));
     } catch (err) {
       setError(err instanceof HttpError ? err.message : "Could not load customers.");
     } finally {
@@ -92,13 +97,48 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
       try {
         const updated = await api.grantProject(orgId, customerId);
         setRows((prev) => prev.map((r) => (r.customerId === customerId ? updated : r)));
+        setGrants(await api.listProjectGrants(orgId).catch(() => grants));
       } catch (err) {
+        // Granting now costs an image credit, so a lapsed plan or a spent quota is a
+        // real refusal rather than a bug — the backend's message says which.
         setError(err instanceof Error ? err.message : "Could not grant a project.");
       } finally {
         setGrantingId(null);
       }
     },
-    [orgId],
+    [orgId, grants],
+  );
+
+  /**
+   * Take back the most recent still-revocable grant for this customer.
+   *
+   * The shop thinks in customers, not ledger rows — "I gave Priya one too many" — so the
+   * row action reverses their last undoable grant to that person rather than making them
+   * pick from a list. Anything used, or funded by a billing period that has since
+   * renewed, is not offered at all.
+   */
+  const takeBack = useCallback(
+    async (customerId: string) => {
+      if (!orgId) return;
+      const grant = grants.find((g) => g.customerUserId === customerId && g.revocable);
+      if (!grant) return;
+      setGrantingId(customerId);
+      setError(null);
+      try {
+        await api.revokeProjectGrant(orgId, grant.id);
+        const [customers, refreshed] = await Promise.all([
+          api.listCustomers(orgId),
+          api.listProjectGrants(orgId),
+        ]);
+        setRows(customers);
+        setGrants(refreshed);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not take that grant back.");
+      } finally {
+        setGrantingId(null);
+      }
+    },
+    [orgId, grants],
   );
 
   if (loading) {
@@ -227,14 +267,30 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
             {c.expired ? "expired" : formatAccessLeft(c.accessExpiresAt)}
           </span>
           <div role="cell" className="hv-cust-action" style={{ justifySelf: "end" }}>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={c.expired || grantingId === c.customerId}
-              onClick={() => void grant(c.customerId)}
-            >
-              {grantingId === c.customerId ? "Adding…" : "+ Grant project"}
-            </Button>
+            <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={c.expired || grantingId === c.customerId}
+                onClick={() => void grant(c.customerId)}
+                title="Adds one project, and reserves one image credit from your plan"
+              >
+                {grantingId === c.customerId ? "Adding…" : "+ Grant project"}
+              </Button>
+              {/* Only offered while something is genuinely undoable: unused, and funded
+                  by a billing period that has not renewed since. */}
+              {grants.some((g) => g.customerUserId === c.customerId && g.revocable) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={grantingId === c.customerId}
+                  onClick={() => void takeBack(c.customerId)}
+                  title="Returns the unused project and its image credit to your quota"
+                >
+                  Take back
+                </Button>
+              )}
+            </span>
           </div>
         </div>
       ))}

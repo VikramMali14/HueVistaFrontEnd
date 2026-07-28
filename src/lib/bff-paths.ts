@@ -23,6 +23,8 @@ export const BFF_ALLOWED_PREFIXES = [
   // backend revokes every session on success).
   "api/auth/change-password",
   "api/me/entitlement",
+  // A shop-onboarded customer asking their shop to add another project.
+  "api/me/request-more-projects",
   // The companies + individual products the shop unlocked on the customer's code.
   "api/me/assigned-products",
   // The shop's suggested combinations for whoever is visualising (studio AI tab).
