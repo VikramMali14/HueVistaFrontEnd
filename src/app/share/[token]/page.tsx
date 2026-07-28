@@ -123,6 +123,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             anchored={Boolean(project.cleanedImageUrl)}
             brands={brands}
             apiOrigin={config.apiOrigin}
+            scheme={project.shadeCodeScheme}
           />
         ) : (
           <Mono>Preview unavailable</Mono>
