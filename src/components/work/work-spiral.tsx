@@ -162,7 +162,7 @@ export function WorkSpiral() {
               >
                 <span className="hv-work-card-tag">Your room next</span>
                 <span className="hv-work-card-title">See your walls before you paint them</span>
-                <span className="hv-work-card-meta">14 days free · no card · full catalogue</span>
+                <span className="hv-work-card-meta">7 days free · no card · full catalogue</span>
               </Link>
             </div>
             <div className="hv-work-head">
@@ -202,7 +202,7 @@ export function WorkSpiral() {
                 <span className="hv-work-row-num">+</span>
                 <span className="hv-work-row-swatch" style={{ background: "#b89968" }} aria-hidden />
                 <span className="hv-work-row-title">Your room next — start a free trial</span>
-                <span className="hv-work-row-code">14 days free</span>
+                <span className="hv-work-row-code">7 days free</span>
                 <span className="hv-work-row-loc">no card needed</span>
                 <span className="hv-work-row-arr" aria-hidden>→</span>
               </Link>

@@ -16,15 +16,15 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "2 · When access starts",
-    p: "Access is granted immediately on successful payment — typically within a few seconds, and in all cases within a few minutes. A subscription becomes active as soon as the payment is confirmed. Extra images, AI auto-masks, projects and project reopens are added to your account the moment the payment clears, and are usable straight away.",
+    p: "Access is granted immediately on successful payment — typically within a few seconds, and in all cases within a few minutes. A subscription becomes active as soon as the payment is confirmed. Points bought are credited the moment the payment clears and are spendable straight away; extra images, AI auto-masks, projects and reopens are added to your account the instant the points are spent.",
   },
   {
     h: "3 · In-store kiosk purchases",
     p: "When a walk-in customer pays at a shop's kiosk link, their access code and visualisation session are issued on the same screen as soon as the payment succeeds. Nothing is emailed, posted or collected later. If the connection drops between payment and the code appearing, reloading the page re-issues the same code — the purchase is never lost.",
   },
   {
-    h: "4 · Reward points",
-    p: "Reward points earned by a shop from kiosk sales are credited to the shop's account at the moment the sale is verified. They are usable immediately and expire one year from the day they are earned.",
+    h: "4 · Points",
+    p: "Points bought are credited as soon as the payment is verified. Points earned from a kiosk sale are credited the moment that sale is verified. Both are usable immediately and expire one year from the day they are credited.",
   },
   {
     h: "5 · If something does not arrive",

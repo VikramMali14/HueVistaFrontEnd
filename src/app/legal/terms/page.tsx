@@ -28,7 +28,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "5 · In-store kiosk and reward points",
-    p: "A paint shop may publish a public kiosk link. A customer who pays there is buying a visualisation from HueVista at a price HueVista sets; the shop does not set that price and receives no share of the payment. Shops instead earn reward points on those sales. Points are a loyalty benefit granted at no charge: they have no cash value, cannot be bought, sold, transferred, redeemed for money or withdrawn, and are available to shop accounts only. They are spent on HueVista services at a published price list stated in points, they expire one year from the day they are earned, and we may vary the earn rate, the price list or the expiry period with reasonable notice. Points earned on a payment that is later refunded are withdrawn.",
+    p: "A paint shop may publish a public kiosk link. A customer who pays there is buying a visualisation from HueVista at a price HueVista sets; the shop does not set that price and receives no share of the payment. Shops instead earn reward points on those sales. Points may also be bought at the published rate. However they arrive, they are service credit and not money: they have no cash value, cannot be sold, transferred, redeemed for money or withdrawn, and are available to shop accounts only. They are the only means of paying for extra images, AI auto-masks, projects and reopens, at a published price list stated in points; they expire one year from the day they are credited, and we may vary the earn rate, the purchase rate, the price list or the expiry period with reasonable notice. Points earned on a payment that is later refunded are withdrawn.",
   },
   {
     h: "6 · Content and ownership",

@@ -86,7 +86,7 @@ export default async function PricingPage() {
   const isCustomer = user?.role === "CUSTOMER";
   return (
     <>
-      <Marquee items={["Pricing · For retailers, not consumers", "14-day trial · no card · we set you up", "10,000+ shades across five brands"]} />
+      <Marquee items={["Pricing · For retailers, not consumers", "7-day trial · no card · we set you up", "10,000+ shades across five brands"]} />
       <SiteHeader />
       <main>
         <RevealMount />

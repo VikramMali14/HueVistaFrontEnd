@@ -12,7 +12,7 @@ export function Closing() {
           <LinkButton href="/trial" variant="brass" size="lg">Bring it to your counter <span className="arr">→</span></LinkButton>
           <LinkButton href="/method" variant="ghost" size="lg">See how it works <span className="arr">→</span></LinkButton>
         </div>
-        <Mono>14-day trial · no card · we set you up</Mono>
+        <Mono>7-day trial · no card · we set you up</Mono>
       </div>
     </section>
   );
