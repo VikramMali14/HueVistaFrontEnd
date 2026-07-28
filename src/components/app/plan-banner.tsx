@@ -62,11 +62,11 @@ export function PlanBanner() {
     setBuying(true);
     setBuyError(null);
     try {
-      const { buyExtraProject } = await import("@/lib/payments");
-      const paid = await buyExtraProject();
-      if (paid) setOptions(await api.getProjectPurchaseOptions());
+      // Points, not a checkout — the money was paid when the points were bought or
+      // earned, so this is a balance debit that either succeeds or 402s.
+      setOptions(await api.pointsPayProjectCredit());
     } catch (e) {
-      setBuyError(e instanceof Error ? e.message : "Could not start the payment.");
+      setBuyError(e instanceof Error ? e.message : "Could not spend your points.");
     } finally {
       setBuying(false);
     }
@@ -76,7 +76,7 @@ export function PlanBanner() {
 
   if (sub.status === "EXPIRED" || sub.status === "COMPLETED" || sub.status === "HALTED") {
     const halted = sub.status === "HALTED";
-    const price = options ? `₹${Math.round(options.projectPricePaise / 100)}` : null;
+    const price = options ? `${options.projectPricePoints} points` : null;
     const credits = options?.availableCredits ?? 0;
     return (
       <div style={bannerStyle(true)}>

@@ -43,7 +43,7 @@ export function ShopLeadForm({ action }: ShopLeadFormProps) {
         </h2>
         <p style={{ font: "300 18px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "46ch", margin: "0 auto" }}>
           We&apos;ll call you within a working day to set up your shop account —
-          your login, your organisation, and a 14-day trial, ready to use at the counter.
+          your login, your organisation, and a 7-day trial, ready to use at the counter.
         </p>
       </div>
     );
@@ -115,7 +115,7 @@ export function ShopLeadForm({ action }: ShopLeadFormProps) {
           ))}
         </div>
         <p style={{ marginTop: 20, fontFamily: "var(--serif)", fontSize: 17, color: "var(--fg-mute)" }}>
-          Nothing is charged now. Every new shop starts with a 14-day trial — we set it up with you.
+          Nothing is charged now. Every new shop starts with a 7-day trial — we set it up with you.
         </p>
       </Step>
       <Step num="III." title={<>A word, <i>if you&apos;d like.</i></>}>

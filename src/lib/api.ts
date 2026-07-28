@@ -22,7 +22,6 @@ import type {
   PaintBrand,
   PaintLine,
   ProductCategory,
-  ProjectCreditOrder,
   QualityTier,
   ShopProduct,
   ProjectDetail,
@@ -349,24 +348,6 @@ export const adminApi = {
       accessToken,
       body: JSON.stringify({ status }),
     }),
-  // Wallet payout queue: the manual "redeem to UPI" requests retailers file.
-  listWalletRedemptions: (accessToken: string, status?: string) =>
-    serverFetch<import("./types").WalletRedemption[]>(
-      `/api/admin/wallet/redemptions${status ? `?status=${encodeURIComponent(status)}` : ""}`,
-      { accessToken },
-    ),
-  decideWalletRedemption: (accessToken: string, redemptionId: string, approve: boolean, note?: string) =>
-    serverFetch<import("./types").WalletRedemption>(
-      `/api/admin/wallet/redemptions/${encodeURIComponent(redemptionId)}/decision`,
-      { method: "POST", accessToken, body: JSON.stringify({ approve, note }) },
-    ),
-  // Undo an approval whose UPI transfer never landed (wrong id, bounced, misclick).
-  // The amount goes back into the shop's balance; a reason is required.
-  reverseWalletRedemption: (accessToken: string, redemptionId: string, note: string) =>
-    serverFetch<import("./types").WalletRedemption>(
-      `/api/admin/wallet/redemptions/${encodeURIComponent(redemptionId)}/reverse`,
-      { method: "POST", accessToken, body: JSON.stringify({ note }) },
-    ),
   // A user's active (or most recent) subscription. 404 (HttpError) when they have none.
   getUserSubscription: (accessToken: string, userId: string) =>
     serverFetch<import("./types").SubscriptionSummary>(
@@ -781,65 +762,45 @@ export const api = {
   // paid for by the shop, which can add one in a click.
   requestMoreProjects: () =>
     browserFetch<void>("api/me/request-more-projects", { method: "POST" }),
-  // --- Buying a project outright ---
-  // What it costs this account today, what it costs at the other end of a
-  // subscription, what a reopen costs, and how many paid-for projects are waiting.
+  // --- Buying a project (with points) ---
+  // What a project and a reopen cost in points, the balance to weigh them against, and
+  // how many paid-for projects are waiting.
   getProjectPurchaseOptions: () =>
-    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/project-credit/options"),
-  // One-time purchase of a project (Razorpay): order -> Checkout -> verify. The price
-  // is decided server-side from subscription state, so nothing is passed here.
-  createProjectCreditOrder: () =>
-    browserFetch<ProjectCreditOrder>("api/billing/project-credit/order", { method: "POST" }),
-  verifyProjectCredit: (body: { orderId: string; paymentId: string; signature: string }) =>
-    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/project-credit/verify", {
+    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/points/project-options"),
+  // --- Points: the only balance. Earned at the kiosk or bought at ₹1 each, spent on
+  // everything chargeable besides a plan, expiring a year after they arrive.
+  // Retailers only — a customer account gets 403 from all of these.
+  getRewardPoints: () =>
+    browserFetch<import("./types").RewardPointsSummary>("api/billing/points"),
+  // Buying: only the COUNT travels. The amount is priced server-side from it, so the
+  // browser can never name its own price.
+  createPointsOrder: (points: number) =>
+    browserFetch<import("./types").PointsOrder>("api/billing/points/order", {
+      method: "POST",
+      body: JSON.stringify({ points }),
+    }),
+  verifyPointsPurchase: (body: { orderId: string; paymentId: string; signature: string }) =>
+    browserFetch<import("./types").RewardPointsSummary>("api/billing/points/verify", {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  // Reopen a project whose validity ran out: another window for a small fee. The
-  // project is named on the ORDER, so verify takes only the payment triple.
-  createProjectReopenOrder: (projectId: string) =>
-    browserFetch<ProjectCreditOrder>(
-      `api/billing/project-credit/reopen/${encodeURIComponent(projectId)}/order`,
+  pointsPayImageCredit: () =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/points/pay/image-credit", {
+      method: "POST",
+    }),
+  pointsPayAutoMaskCredit: () =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/points/pay/auto-mask-credit", {
+      method: "POST",
+    }),
+  pointsPayProjectCredit: () =>
+    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/points/pay/project-credit", {
+      method: "POST",
+    }),
+  pointsPayProjectReopen: (projectId: string) =>
+    browserFetch<import("./types").ProjectReopenResult>(
+      `api/billing/points/pay/project-reopen/${encodeURIComponent(projectId)}`,
       { method: "POST" },
     ),
-  verifyProjectReopen: (body: { orderId: string; paymentId: string; signature: string }) =>
-    browserFetch<import("./types").ProjectReopenResult>("api/billing/project-credit/reopen/verify", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-  // --- Pay-per-image overage (retailer buys one extra image after the monthly quota) ---
-  // One-time purchase at Rs. 50: order -> Checkout -> verify. Verify returns
-  // the refreshed subscription with the credited image included in the remaining count.
-  createImageCreditOrder: () =>
-    browserFetch<ProjectCreditOrder>("api/billing/image-credits/order", { method: "POST" }),
-  verifyImageCredit: (body: { orderId: string; paymentId: string; signature: string }) =>
-    browserFetch<import("./types").SubscriptionSummary>("api/billing/image-credits/verify", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-  // --- Prepaid billing wallet (top up once, spend on extra images / auto-masks) ---
-  getBillingWallet: () =>
-    browserFetch<import("./types").BillingWalletSummary>("api/billing/wallet"),
-  createWalletTopUpOrder: (amountPaise: number) =>
-    browserFetch<ProjectCreditOrder>("api/billing/wallet/topup/order", {
-      method: "POST",
-      body: JSON.stringify({ amountPaise }),
-    }),
-  verifyWalletTopUp: (body: { orderId: string; paymentId: string; signature: string }) =>
-    browserFetch<import("./types").BillingWalletSummary>("api/billing/wallet/topup/verify", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-  // Atomic wallet debits: ₹50 buys one extra image, ₹25 one extra AI auto-mask.
-  // Both 402 with a clear message when the balance is short.
-  walletPayImageCredit: () =>
-    browserFetch<import("./types").SubscriptionSummary>("api/billing/wallet/pay/image-credit", {
-      method: "POST",
-    }),
-  walletPayAutoMaskCredit: () =>
-    browserFetch<import("./types").SubscriptionSummary>("api/billing/wallet/pay/auto-mask-credit", {
-      method: "POST",
-    }),
   // Companies that actually have shades in the catalogue (name + slug + count).
   listShadeBrands: () =>
     browserFetch<import("./types").ShadeBrandSummary[]>("api/shades/brands"),
@@ -1021,12 +982,12 @@ export const api = {
     browserFetch<import("./types").StoreLink[]>(
       `api/organizations/${encodeURIComponent(orgId)}/store-links`,
     ),
-  createStoreLink: (orgId: string, body: { pricePaise: number; validDays?: number }) =>
+  createStoreLink: (orgId: string, body: { validDays?: number }) =>
     browserFetch<import("./types").StoreLink>(
       `api/organizations/${encodeURIComponent(orgId)}/store-links`,
       { method: "POST", body: JSON.stringify(body) },
     ),
-  updateStoreLink: (linkId: string, body: { pricePaise?: number; validDays?: number; active?: boolean }) =>
+  updateStoreLink: (linkId: string, body: { validDays?: number; active?: boolean }) =>
     browserFetch<import("./types").StoreLink>(
       `api/store-links/${encodeURIComponent(linkId)}`,
       { method: "PATCH", body: JSON.stringify(body) },
@@ -1034,11 +995,6 @@ export const api = {
   getWallet: (orgId: string) =>
     browserFetch<import("./types").WalletSummary>(
       `api/organizations/${encodeURIComponent(orgId)}/wallet`,
-    ),
-  requestWalletRedemption: (orgId: string, body: { amountPaise: number; upiId: string }) =>
-    browserFetch<import("./types").WalletRedemption>(
-      `api/organizations/${encodeURIComponent(orgId)}/wallet/redemptions`,
-      { method: "POST", body: JSON.stringify(body) },
     ),
   // --- Customer: redeem a retailer's code (flips this account to CUSTOMER) ---
   redeemAccessCode: (body: { code: string }) =>

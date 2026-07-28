@@ -31,15 +31,15 @@ export const BFF_ALLOWED_PREFIXES = [
   "api/me/retailer-combos",
   // The shop's shade-code scheme — the studio encodes displayed codes with it.
   "api/me/shade-code-scheme",
-  "api/billing/project-credit",
   "api/billing/subscriptions",
   "api/billing/plans",
-  // Pay-per-use billing the signed-in retailer drives from the plan page: the
-  // prepaid wallet (balance, top-up, pay-from-wallet), one-off extra-image
-  // purchases, and the colour-board PDF allowance/downloads. Without these the
-  // BFF answers 403 before the request ever reaches the backend.
-  "api/billing/wallet",
-  "api/billing/image-credits",
+  // Pay-per-use billing the signed-in retailer drives from the plan page, plus the
+  // colour-board PDF allowance/downloads. Without these the BFF answers 403 before
+  // the request ever reaches the backend.
+  // Points: the only balance. Buying, spending, expiry — and the project-options
+  // quote. The wallet and per-item image/project prefixes went with the ledgers
+  // behind them; nothing routes there any more.
+  "api/billing/points",
   "api/billing/pdf-allowance",
   "api/billing/pdf-downloads",
   "api/organizations",

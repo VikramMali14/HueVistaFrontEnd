@@ -37,4 +37,26 @@ export const contact = {
   support: "support@huevista.org",
   /** Cancellations, refunds, invoices, anything about money. */
   billing: "payments@huevista.org",
+  /** Display form, for anything a human reads. */
+  phone: "+91 63784 82381",
+  /** Dialable form, for tel: links. */
+  phoneE164: "+916378482381",
+  /** Hours the phone is actually answered — don't publish a number without them. */
+  phoneHours: "Monday to Saturday, 10:00–19:00 IST",
+  /**
+   * The registered business. Payment processors and the Contact Us page both need the
+   * legal entity, not just the brand, and it must match the KYC filing exactly.
+   */
+  legalName: "Vikram Mali",
+  entityType: "Sole proprietorship trading as HueVista",
+  addressLines: [
+    "HueVista",
+    "Proprietor: Vikram Mali",
+    "Mount Road, Manpur, Abu Road",
+    "Sirohi, Rajasthan 307026",
+    "India",
+  ],
+  /** One-line form, for prose that can't take a block. */
+  addressInline:
+    "Mount Road, Manpur, Abu Road, Sirohi, Rajasthan 307026, India",
 } as const;

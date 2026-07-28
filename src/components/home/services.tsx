@@ -5,7 +5,7 @@ const SERVICES = [
   {
     kicker: "Pricing",
     title: "One plan, priced for shops",
-    desc: "14-day trial — no card, we set you up. Everything included, built for the counter.",
+    desc: "7-day trial — no card, we set you up. Everything included, built for the counter.",
     tone: "terracotta",
     href: "/pricing",
   },

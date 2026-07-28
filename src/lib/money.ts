@@ -1,18 +1,20 @@
 /**
  * Money helpers for the in-store kiosk feature. All backend amounts are paise;
  * all retailer-facing inputs are rupees.
+ *
+ * Reward points are NOT money and do not share the paise unit: they are whole points
+ * bought at their own price list, so they get their own formatter.
  */
-
-/** The platform base kept from every kiosk payment — also the price floor. */
-export const STORE_MIN_PRICE_PAISE = 5000;
-
-/** Smallest wallet payout a retailer may request. */
-export const MIN_REDEMPTION_PAISE = 5000;
 
 /** "₹79" / "₹79.50" from paise. */
 export function formatRupees(paise: number): string {
   const rupees = paise / 100;
   return `₹${Number.isInteger(rupees) ? rupees.toLocaleString("en-IN") : rupees.toFixed(2)}`;
+}
+
+/** "30 points" / "1 point". Points are whole units, never a rupee amount. */
+export function formatPoints(points: number): string {
+  return `${points.toLocaleString("en-IN")} point${points === 1 ? "" : "s"}`;
 }
 
 /**
@@ -24,14 +26,4 @@ export function parseRupeesToPaise(value: string): number | null {
   if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return null;
   const paise = Math.round(parseFloat(cleaned) * 100);
   return paise > 0 ? paise : null;
-}
-
-/** Error message (or null) for a kiosk price the retailer wants to charge. */
-export function validateStorePrice(value: string): string | null {
-  const paise = parseRupeesToPaise(value);
-  if (paise === null) return "Enter a price in rupees, e.g. 79.";
-  if (paise < STORE_MIN_PRICE_PAISE) {
-    return `The minimum price is ${formatRupees(STORE_MIN_PRICE_PAISE)} per image.`;
-  }
-  return null;
 }

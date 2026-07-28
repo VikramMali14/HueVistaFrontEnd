@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { HttpError } from "@/lib/http-error";
-import { buyExtraImage, subscribeToPlan, topUpWallet } from "@/lib/payments";
-import type { BillingWalletSummary, PlanOption, PurchasablePlan, SubscriptionSummary } from "@/lib/types";
+import { buyPoints, subscribeToPlan } from "@/lib/payments";
+import type { PlanOption, PurchasablePlan, RewardPointsSummary, SubscriptionSummary } from "@/lib/types";
 
 interface SubscriptionPanelProps {
   initialSubscription: SubscriptionSummary | null;
@@ -24,14 +24,28 @@ const PLAN_RANK: Record<string, number> = { STARTER: 0, PROFESSIONAL: 1, BUSINES
 const paise = (p: number) =>
   "₹" + (p / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
-const TXN_LABEL: Record<string, string> = {
-  TOPUP: "Wallet top-up",
-  EXTRA_IMAGE: "Extra image",
-  EXTRA_AUTO_MASK: "Extra AI auto-mask",
+const POINTS_LABEL: Record<string, string> = {
+  KIOSK_EARNED: "Kiosk sale",
+  KIOSK_REVERSED: "Kiosk sale refunded",
+  EXPIRED: "Expired unused",
+  SPENT_ON_IMAGE: "Extra image",
+  SPENT_ON_AUTO_MASK: "Extra AI auto-mask",
+  SPENT_ON_PROJECT: "Project",
+  SPENT_ON_PROJECT_REOPEN: "Project reopened",
 };
 
-/** Quick top-up choices, in paise. */
-const TOPUP_PRESETS = [19900, 49900, 99900] as const;
+/** "3 August 2027" — points expiry is a date the shop should be able to act on. */
+const fmtExpiry = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+
+/** Whole days from now until an expiry date, floored at 0. */
+function daysUntil(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / 86_400_000));
+}
+
+/** Quick purchase choices, in POINTS (one rupee each). */
+const POINT_PRESETS = [100, 500, 1000] as const;
 
 const card: React.CSSProperties = {
   border: "1px solid var(--rule-strong)",
@@ -151,34 +165,24 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
   const [cancelling, setCancelling] = useState(false);
   const [resuming, setResuming] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
-  const [buyingImage, setBuyingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  // Prepaid billing wallet — loaded client-side; null while loading / on failure
-  // (the section renders a quiet fallback either way).
-  const [wallet, setWallet] = useState<BillingWalletSummary | null>(null);
   const [toppingUp, setToppingUp] = useState(false);
   const [customTopUp, setCustomTopUp] = useState("");
-  const [walletPaying, setWalletPaying] = useState<"image" | "mask" | null>(null);
+  // Reward points — a separate ledger with its own prices and a one-year expiry.
+  const [points, setPoints] = useState<RewardPointsSummary | null>(null);
+  const [pointsPaying, setPointsPaying] = useState<"image" | "mask" | "project" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    api.getBillingWallet()
-      .then((w) => !cancelled && setWallet(w))
-      .catch(() => undefined);
+    // 403 for a non-retailer (points are shop-side), so a failure here is normal.
+    api.getRewardPoints()
+      .then((p) => !cancelled && setPoints(p))
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
-
-  async function refreshWalletAndSub() {
-    const [w, fresh] = await Promise.all([
-      api.getBillingWallet().catch(() => null),
-      api.getCurrentSubscription().catch(() => null),
-    ]);
-    if (w) setWallet(w);
-    if (fresh) setSub(fresh);
-  }
 
   // A CANCELLED plan still entitles until the period it was paid for actually elapses —
   // this mirrors the backend gate exactly, so the panel can never claim access the API
@@ -220,74 +224,51 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
     }
   }
 
-  // Pay-per-image overage: one extra image at ₹50 once the quota is spent.
-  async function buyImage() {
-    setError(null);
-    setNotice(null);
-    setBuyingImage(true);
-    try {
-      const paid = await buyExtraImage();
-      if (paid) {
-        const fresh = await api.getCurrentSubscription().catch(() => null);
-        if (fresh) setSub(fresh);
-        setNotice("Payment received — one extra image has been added to your plan. It never expires.");
-        router.refresh();
-      }
-    } catch (e) {
-      if (e instanceof HttpError && e.status === 401) {
-        window.location.assign(`/sign-in?next=${encodeURIComponent("/subscription")}`);
-        return;
-      }
-      setError(e instanceof Error ? e.message : "Could not start the payment. Please try again.");
-    } finally {
-      setBuyingImage(false);
-    }
-  }
-
-  // Add money to the prepaid wallet through Razorpay Checkout.
-  async function topUp(amountPaise: number) {
+  // Buy points through Razorpay Checkout. Only the COUNT goes to the server, which
+  // prices it — the browser never names an amount.
+  async function purchasePoints(count: number) {
     setError(null);
     setNotice(null);
     setToppingUp(true);
     try {
-      const paid = await topUpWallet(amountPaise);
+      const paid = await buyPoints(count);
       if (paid) {
-        await refreshWalletAndSub();
-        setCustomTopUp("");
-        setNotice("Wallet topped up — the balance is ready to spend on extra images and AI auto-masks.");
+        const fresh = await api.getRewardPoints().catch(() => null);
+        if (fresh) setPoints(fresh);
+        setNotice(`${count.toLocaleString("en-IN")} points added — ready to spend, and good for a year.`);
+        router.refresh();
       }
     } catch (e) {
-      if (e instanceof HttpError && e.status === 401) {
-        window.location.assign(`/sign-in?next=${encodeURIComponent("/subscription")}`);
-        return;
-      }
-      setError(e instanceof Error ? e.message : "Could not start the top-up. Please try again.");
+      setError(e instanceof Error ? e.message : "Could not complete the purchase.");
     } finally {
       setToppingUp(false);
     }
   }
 
-  // Spend the wallet on one extra image / one extra AI auto-mask — no checkout,
-  // just an atomic balance debit on the server.
-  async function walletPay(kind: "image" | "mask") {
+  // Spend reward points. Separate from walletPay because the ledgers are separate:
+  // different prices, different expiry, and a shop can hold one without the other.
+  async function pointsPay(kind: "image" | "mask" | "project") {
     setError(null);
     setNotice(null);
-    setWalletPaying(kind);
+    setPointsPaying(kind);
     try {
-      const fresh = kind === "image"
-        ? await api.walletPayImageCredit()
-        : await api.walletPayAutoMaskCredit();
-      setSub(fresh);
-      const w = await api.getBillingWallet().catch(() => null);
-      if (w) setWallet(w);
-      setNotice(kind === "image"
-        ? "Paid from wallet — one extra image added to your plan."
-        : "Paid from wallet — one extra AI auto-mask added to your plan.");
+      if (kind === "project") {
+        await api.pointsPayProjectCredit();
+      } else {
+        setSub(kind === "image"
+          ? await api.pointsPayImageCredit()
+          : await api.pointsPayAutoMaskCredit());
+      }
+      const fresh = await api.getRewardPoints().catch(() => null);
+      if (fresh) setPoints(fresh);
+      setNotice(kind === "image" ? "Paid with points — one extra image added to your plan."
+        : kind === "mask" ? "Paid with points — one extra AI auto-mask added to your plan."
+        : "Paid with points — one project added. Start it from your projects list.");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Wallet payment failed. Please try again.");
+      setError(e instanceof Error ? e.message : "Could not spend your points. Please try again.");
     } finally {
-      setWalletPaying(null);
+      setPointsPaying(null);
     }
   }
 
@@ -444,44 +425,33 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
               </div>
             )}
 
-            {active && sub.aiGenerationsLimit < UNLIMITED_FLOOR && (
+            {active && sub.aiGenerationsLimit < UNLIMITED_FLOOR && points != null && (
               <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                {wallet != null && wallet.balancePaise >= wallet.imageCreditPricePaise && (
+                {points.balance >= points.imagePrice && (
                   <button
                     type="button"
-                    onClick={() => void walletPay("image")}
-                    disabled={walletPaying !== null || buyingImage}
+                    onClick={() => void pointsPay("image")}
+                    disabled={pointsPaying !== null}
                     style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
                   >
-                    {walletPaying === "image"
-                      ? "Paying…"
-                      : `1 extra image from wallet — ${paise(wallet.imageCreditPricePaise)}`}
+                    {pointsPaying === "image" ? "Paying…" : `1 extra image — ${points.imagePrice} pts`}
                   </button>
                 )}
-                {wallet != null
-                  && (sub.autoMasksLimit ?? 0) < UNLIMITED_FLOOR
-                  && wallet.balancePaise >= wallet.autoMaskCreditPricePaise && (
+                {(sub.autoMasksLimit ?? 0) < UNLIMITED_FLOOR
+                  && points.balance >= points.autoMaskPrice && (
                   <button
                     type="button"
-                    onClick={() => void walletPay("mask")}
-                    disabled={walletPaying !== null || buyingImage}
+                    onClick={() => void pointsPay("mask")}
+                    disabled={pointsPaying !== null}
                     style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
                   >
-                    {walletPaying === "mask"
-                      ? "Paying…"
-                      : `1 extra AI auto-mask from wallet — ${paise(wallet.autoMaskCreditPricePaise)}`}
+                    {pointsPaying === "mask" ? "Paying…" : `1 extra AI auto-mask — ${points.autoMaskPrice} pts`}
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => void buyImage()}
-                  disabled={buyingImage || walletPaying !== null}
-                  style={{ ...buttonStyle, borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }}
-                >
-                  {buyingImage ? "Opening payment…" : "Buy 1 extra image — ₹50"}
-                </button>
                 <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-                  Out of allowance mid-cycle? Extras never expire.
+                  {points.balance < points.autoMaskPrice
+                    ? `Out of allowance? Buy points below — an extra image is ${points.imagePrice}.`
+                    : "Out of allowance mid-cycle? Extras never expire."}
                 </span>
               </div>
             )}
@@ -529,40 +499,47 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
         )}
       </section>
 
-      {/* Prepaid wallet: top up once, spend on extra images / AI auto-masks */}
-      {active && (
+      {/* Points — the only balance. Earned at the kiosk or bought here, spent on
+          everything chargeable besides the plan itself. Always rendered when the account
+          can hold points at all: a zero balance is exactly the state that needs the
+          purchase controls in front of it, and a lapsed shop still buys projects here. */}
+      {points != null && (
         <section style={card}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "8px 16px" }}>
-            <h2 style={{ font: "600 20px/1.2 var(--serif)", color: "var(--fg)", margin: 0 }}>Wallet</h2>
+            <h2 style={{ font: "600 20px/1.2 var(--serif)", color: "var(--fg)", margin: 0 }}>Points</h2>
             <span style={{ font: "600 18px/1 var(--mono)", color: "var(--accent)" }}>
-              {wallet ? paise(wallet.balancePaise) : "—"}
+              {points.balance.toLocaleString("en-IN")}
             </span>
             <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-              Prepaid balance for pay-per-use: extra image {wallet ? paise(wallet.imageCreditPricePaise) : "₹50"},
-              extra AI auto-mask {wallet ? paise(wallet.autoMaskCreditPricePaise) : "₹25"}.
+              Earned {points.pointsPerSale} per kiosk sale, or bought below at{" "}
+              {points.rupeesPerPoint === 1 ? "₹1 each" : `₹${points.rupeesPerPoint} each`}. Buys:
+              extra image {points.imagePrice} pts, AI auto-mask {points.autoMaskPrice} pts,
+              project {points.projectPrice} pts, reopen {points.reopenPrice} pts.
             </span>
           </div>
 
+          {/* Buying. The count is what travels; the server prices it. */}
           <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            {TOPUP_PRESETS.map((p) => (
+            {POINT_PRESETS.map((n) => (
               <button
-                key={p}
+                key={n}
                 type="button"
-                onClick={() => void topUp(p)}
-                disabled={toppingUp}
+                onClick={() => void purchasePoints(n)}
+                disabled={toppingUp || pointsPaying !== null}
                 style={{ ...buttonStyle, borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }}
               >
-                + {paise(p)}
+                + {n.toLocaleString("en-IN")} pts · {paise(n * points.rupeesPerPoint * 100)}
               </button>
             ))}
             <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
               <input
                 type="number"
                 inputMode="numeric"
-                min={100}
+                min={points.minPurchase}
+                max={points.maxPurchase}
                 step={50}
-                placeholder="Custom ₹"
-                aria-label="Custom top-up amount in rupees"
+                placeholder="Points"
+                aria-label="How many points to buy"
                 value={customTopUp}
                 onChange={(e) => setCustomTopUp(e.target.value)}
                 style={{
@@ -578,35 +555,106 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
               <button
                 type="button"
                 onClick={() => {
-                  const rupees = Number(customTopUp);
-                  if (!Number.isFinite(rupees) || rupees <= 0) {
-                    setError("Enter a top-up amount in rupees first.");
+                  const count = Number(customTopUp);
+                  if (!Number.isInteger(count) || count <= 0) {
+                    setError("Enter how many points to buy.");
                     return;
                   }
-                  void topUp(Math.round(rupees * 100));
+                  void purchasePoints(count);
                 }}
-                disabled={toppingUp}
+                disabled={toppingUp || pointsPaying !== null}
                 style={buttonStyle}
               >
-                {toppingUp ? "Opening payment…" : "Add money"}
+                {toppingUp ? "Opening payment…" : "Buy points"}
               </button>
             </span>
             <span style={{ font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
-              min ₹100 · UPI / cards / netbanking · balance never expires
+              min {points.minPurchase.toLocaleString("en-IN")} · UPI / cards / netbanking ·
+              valid {points.validityDays} days
             </span>
           </div>
 
-          {wallet && wallet.transactions.length > 0 && (
+          {/* The expiry countdown is the whole reason points are shown as batches. */}
+          {points.nextExpiryAt != null && points.nextExpiringPoints != null && (
+            <p
+              role={daysUntil(points.nextExpiryAt) <= points.expiryWarningDays ? "alert" : undefined}
+              style={{
+                font: "400 13px/1.5 var(--sans)",
+                color: daysUntil(points.nextExpiryAt) <= points.expiryWarningDays
+                  ? "var(--terracotta)" : "var(--fg-mute)",
+                margin: "12px 0 0",
+              }}
+            >
+              {points.nextExpiringPoints.toLocaleString("en-IN")} point
+              {points.nextExpiringPoints === 1 ? "" : "s"} expire on{" "}
+              {fmtExpiry(points.nextExpiryAt)} ({daysUntil(points.nextExpiryAt)} day
+              {daysUntil(points.nextExpiryAt) === 1 ? "" : "s"} away). Points last{" "}
+              {points.validityDays} days from the day you earn them, and spending always
+              uses the oldest first.
+            </p>
+          )}
+
+          <div style={{ marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            {active && points.balance >= points.imagePrice && (
+              <button
+                type="button"
+                onClick={() => void pointsPay("image")}
+                disabled={pointsPaying !== null}
+                style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
+              >
+                {pointsPaying === "image" ? "Paying…" : `1 extra image — ${points.imagePrice} pts`}
+              </button>
+            )}
+            {active
+              && (sub?.autoMasksLimit ?? 0) < UNLIMITED_FLOOR
+              && points.balance >= points.autoMaskPrice && (
+              <button
+                type="button"
+                onClick={() => void pointsPay("mask")}
+                disabled={pointsPaying !== null}
+                style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
+              >
+                {pointsPaying === "mask" ? "Paying…" : `1 extra AI auto-mask — ${points.autoMaskPrice} pts`}
+              </button>
+            )}
+            {/* No plan gate: this is what points are worth between subscriptions. */}
+            {points.balance >= points.projectPrice && (
+              <button
+                type="button"
+                onClick={() => void pointsPay("project")}
+                disabled={pointsPaying !== null}
+                style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
+              >
+                {pointsPaying === "project" ? "Paying…" : `1 project — ${points.projectPrice} pts`}
+              </button>
+            )}
+            {points.balance < points.autoMaskPrice && (
+              <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+                Not enough to spend on anything yet — {points.autoMaskPrice} points is the
+                cheapest thing on the list.
+              </span>
+            )}
+          </div>
+
+          {!active && points.balance >= points.autoMaskPrice && (
+            <p style={{ font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "12px 0 0" }}>
+              Extra images and auto-masks top up a plan&rsquo;s monthly allowance, so they need a
+              live plan. Buying a project doesn&rsquo;t — that works whether or not you&rsquo;re
+              subscribed.
+            </p>
+          )}
+
+          {points.recentActivity.length > 0 && (
             <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 6 }}>
-              <span style={fieldLabel}>Recent activity</span>
-              {wallet.transactions.slice(0, 8).map((t) => (
+              <span style={fieldLabel}>Recent points activity</span>
+              {points.recentActivity.slice(0, 8).map((t) => (
                 <div
                   key={t.id}
                   style={{ display: "flex", gap: 12, alignItems: "baseline", font: "400 13px/1.5 var(--sans)", color: "var(--fg-soft)" }}
                 >
-                  <span style={{ minWidth: 150 }}>{TXN_LABEL[t.type] ?? t.type}</span>
-                  <span style={{ font: "500 13px/1 var(--mono)", color: t.amountPaise >= 0 ? "var(--accent)" : "var(--terracotta)" }}>
-                    {t.amountPaise >= 0 ? "+" : "−"}{paise(Math.abs(t.amountPaise))}
+                  <span style={{ minWidth: 150 }}>{POINTS_LABEL[t.type] ?? t.type}</span>
+                  <span style={{ font: "500 13px/1 var(--mono)", color: t.points >= 0 ? "var(--accent)" : "var(--terracotta)" }}>
+                    {t.points >= 0 ? "+" : "−"}{Math.abs(t.points)} pts
                   </span>
                   <span style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", color: "var(--fg-mute)" }}>
                     {fmtDate(t.createdAt)}
@@ -617,6 +665,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
           )}
         </section>
       )}
+
 
       {/* Plans: upgrade / renew */}
       <section>

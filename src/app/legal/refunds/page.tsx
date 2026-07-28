@@ -6,7 +6,7 @@ import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 
 export const metadata: Metadata = {
   title: "Refund & Cancellation Policy",
-  description: "How subscriptions, wallet credit and pay-per-use charges are cancelled and refunded on HueVista.",
+  description: "How subscriptions and points are cancelled and refunded on HueVista.",
 };
 
 const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
@@ -16,7 +16,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "2 · Free trial",
-    p: "Every new shop starts with a fourteen-day trial. We do not ask for a card to begin, and nothing is charged automatically when the trial ends. There is nothing to refund for a trial — you simply choose whether to subscribe.",
+    p: "Every new shop starts with a seven-day trial. We do not ask for a card to begin, and nothing is charged automatically when the trial ends. There is nothing to refund for a trial — you simply choose whether to subscribe.",
   },
   {
     h: "3 · Subscription cancellation",
@@ -27,20 +27,24 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
     p: "Upgrading to a higher tier starts immediately with a fresh quota, and your previous plan is cancelled automatically so you are never billed twice. To move to a smaller plan, cancel your current one — it stays active until the period ends — and subscribe to the smaller tier after that. Plan changes do not generate a refund.",
   },
   {
-    h: "5 · Wallet credit",
-    p: "Amounts added to your prepaid wallet are usage credit, not a deposit. Wallet credit is used to pay for extra images and auto-masks beyond your monthly allowance. It does not expire, but it is non-refundable and non-withdrawable — it cannot be converted back to cash or transferred.",
+    h: "5 · Points",
+    p: "Points are the only balance on a HueVista account and the only way to pay for extra images, AI auto-masks, projects and project reopens. They arrive two ways: earned free when a customer buys a visualisation through your in-store kiosk link, or bought at the published rate. Both kinds behave identically once credited. Points have no cash value, cannot be transferred to another account, and are not withdrawable or convertible back to money in any circumstance — a purchase of points is a purchase of service credit, not a deposit.",
   },
   {
-    h: "6 · Pay-per-use charges",
-    p: "Extra images and AI auto-masks purchased beyond your plan allowance are consumed on use and do not expire. Once a charge has been applied and the corresponding image or auto-mask has been delivered, it is non-refundable. Where a run fails on our side, the credit for that run is returned to you automatically at no charge.",
+    h: "6 · Points expiry and refunds",
+    p: "Points expire one year from the day they are credited, whether earned or bought. We email you ten days before a batch expires and again on the expiry day itself, and spending always uses the oldest points first so nothing lapses while newer points sit unused. Expired points are not reinstated and are not refundable. A purchase of points is refundable only if the points were never credited — once they are on your account and available to spend, the service has been delivered. Where a kiosk payment is refunded to the customer, the points that sale earned are removed; if they have already been spent, the shortfall is set against points credited later.",
   },
   {
-    h: "7 · Duplicate or erroneous charges",
+    h: "7 · What points buy",
+    p: "Extra images and AI auto-masks bought with points beyond your plan allowance are consumed on use and do not themselves expire once credited to a plan. Once a charge has been applied and the corresponding image or auto-mask has been delivered, it is non-refundable. Where a run fails on our side, the credit for that run is returned to you automatically at no charge.",
+  },
+  {
+    h: "8 · Duplicate or erroneous charges",
     p: "If you believe you have been charged in error — for example a duplicate payment or a charge for a service that was never delivered — write to us within 7 days of the transaction with your payment reference. Verified erroneous charges are refunded to the original payment method, typically within 5–7 business days once approved.",
   },
   {
-    h: "8 · How to reach us",
-    p: `For any cancellation, billing or refund question, use the in-app support chat or write to ${contact.billing} with your account and payment details. We reply within one business day.`,
+    h: "9 · How to reach us",
+    p: `For any cancellation, billing or refund question, use the in-app support chat or write to ${contact.billing} with your account and payment details. We reply within one business day. Postal enquiries: HueVista, Proprietor ${contact.legalName}, ${contact.addressInline}. Phone: ${contact.phone}.`,
   },
 ];
 

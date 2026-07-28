@@ -35,7 +35,6 @@ import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
 import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
-import { buyExtraImage, buyExtraProject } from "@/lib/payments";
 import type {
   PaintShade,
   PdfAllowance,
@@ -286,7 +285,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [hideNames, setHideNames] = useState(false);
   const [viewOnly, setViewOnly] = useState(false);
   const [viewOnlyReason, setViewOnlyReason] = useState<string | null>(null);
-  const [reopenPaise, setReopenPaise] = useState(0);
+  const [reopenPoints, setReopenPoints] = useState(0);
   const [reopening, setReopening] = useState(false);
   const [segmenting, setSegmenting] = useState(false);
   const [masksReady, setMasksReady] = useState(false);
@@ -305,6 +304,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // button says "Buy a project" with no price.
   const [purchaseOptions, setPurchaseOptions] =
     useState<import("@/lib/types").ProjectPurchaseOptions | null>(null);
+  // The point price list, so the out-of-quota prompts quote configuration rather than
+  // a hardcoded number. 403 for a customer account, which is why it is best-effort.
+  const [points, setPoints] =
+    useState<import("@/lib/types").RewardPointsSummary | null>(null);
   const [accessExpired, setAccessExpired] = useState(false);
   // Retailer funnel gates (distinct from the customer entitlement ones above):
   // verification required before the first project, and "subscribe to a plan".
@@ -452,6 +455,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       api.getProjectPurchaseOptions()
         .then((o) => !cancelled && setPurchaseOptions(o))
         .catch(() => {});
+      api.getRewardPoints()
+        .then((pts) => !cancelled && setPoints(pts))
+        .catch(() => {});
     }
     api.getMyShadeCodeScheme()
       .then((scheme) => {
@@ -467,9 +473,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     };
   }, [guest]);
 
-  const projectPrice = purchaseOptions
-    ? Math.round(purchaseOptions.projectPricePaise / 100)
-    : null;
+  const projectPrice = purchaseOptions?.projectPricePoints ?? null;
+  // Quoted on the out-of-quota prompts. Falls back to the shipped defaults when the
+  // points call fails, so a button never reads "Spend  points".
+  const imagePointPrice = points?.imagePrice ?? 40;
+  const autoMaskPointPrice = points?.autoMaskPrice ?? 20;
 
   // With a scheme, encoded codes replace the manufacturer's everywhere they appear.
   const encodeCode = useMemo(
@@ -675,7 +683,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       if (detail.sentToShopAt) setSentToShop(true);
       setViewOnly(Boolean(detail.readOnly));
       setViewOnlyReason(detail.readOnlyReason ?? null);
-      setReopenPaise(detail.reopenPricePaise ?? 0);
+      setReopenPoints(detail.reopenPricePoints ?? 0);
       // MANUAL-mode projects arrive SEGMENTED with zero auto regions — the
       // cleaned canvas is the deliverable and the user marks walls by hand.
       setManualMaskProject(detail.maskMode === "MANUAL");
@@ -987,8 +995,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setError(null);
     setBuying(true);
     try {
-      const purchased = await buyExtraProject();
-      if (!purchased) return; // user dismissed the payment modal
+      // Spent from the point balance — no checkout to dismiss, so this either
+      // succeeds or throws (402 when the balance is short).
+      await api.pointsPayProjectCredit();
       setLimitReached(false);
       if (pendingImageId) {
         await createAndSegment(pendingImageId);
@@ -997,7 +1006,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         // way). Never leave a blank canvas after taking money: back to the
         // picker with a note — the purchased slot stays on the account.
         chooseDifferent();
-        setError("Payment received — your extra project is ready. Add your photo again to continue.");
+        setError("Points spent — your extra project is ready. Add your photo again to continue.");
       }
       // With a pendingFile the confirm box is back on screen — "Continue with
       // this image" re-runs the upload against the freshly bought slot.
@@ -1011,51 +1020,34 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // Retailer pay-per-image overage: buy ONE extra image (₹50) and
   // immediately re-run the blocked segmentation — on the already-created
   // project when there is one, else from the pending upload.
-  const handleBuyImageAndRetry = useCallback(async () => {
-    setError(null);
-    setBuyingImage(true);
-    try {
-      const purchased = await buyExtraImage();
-      if (!purchased) return; // user dismissed the payment modal
-      setImageLimitReached(false);
-      if (projectId) await handleRetrySegmentation();
-      else if (pendingImageId) await createAndSegment(pendingImageId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Payment could not be completed.");
-    } finally {
-      setBuyingImage(false);
-    }
-  }, [projectId, pendingImageId, createAndSegment, handleRetrySegmentation]);
-
-  // Same purchase paid from the prepaid wallet — no checkout, one atomic server
-  // debit. An insufficient balance surfaces the backend's "top up or pay
-  // directly" message in place.
+  // One atomic server debit against the point balance. An insufficient balance
+  // surfaces the backend's "earn more or pay directly" message in place.
   const handleWalletImageAndRetry = useCallback(async () => {
     setError(null);
     setBuyingImage(true);
     try {
-      await api.walletPayImageCredit();
+      await api.pointsPayImageCredit();
       setImageLimitReached(false);
       if (projectId) await handleRetrySegmentation();
       else if (pendingImageId) await createAndSegment(pendingImageId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Wallet payment failed.");
+      setError(err instanceof Error ? err.message : "Could not spend your points.");
     } finally {
       setBuyingImage(false);
     }
   }, [projectId, pendingImageId, createAndSegment, handleRetrySegmentation]);
 
-  // Wallet-paid extra AI auto-mask (₹25): credit it, then force an AUTO
-  // retry — the stale quota state would otherwise steer the retry to MANUAL.
+  // Extra AI auto-mask: credit it, then force an AUTO retry — the stale quota
+  // state would otherwise steer the retry to MANUAL.
   const handleWalletAutoMaskAndRetry = useCallback(async () => {
     setError(null);
     setBuyingImage(true);
     try {
-      await api.walletPayAutoMaskCredit();
+      await api.pointsPayAutoMaskCredit();
       setAutoMaskBlocked(false);
       await handleRetrySegmentation("AUTO");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Wallet payment failed.");
+      setError(err instanceof Error ? err.message : "Could not spend your points.");
     } finally {
       setBuyingImage(false);
     }
@@ -1218,9 +1210,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setReopening(true);
     setError(null);
     try {
-      const { reopenProject } = await import("@/lib/payments");
-      const paid = await reopenProject(projectId);
-      if (!paid) return; // dismissed the Checkout modal — nothing to say
+      await api.pointsPayProjectReopen(projectId);
       const refreshed = await getProjectCall(projectId);
       await applyProjectDetail(refreshed);
     } catch (err) {
@@ -1809,14 +1799,14 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               "This project is view-only — you can still see the colours that were last applied."}
           </span>
           <span className="hv-viewonly-actions">
-            {reopenPaise > 0 && projectId && (
+            {reopenPoints > 0 && projectId && (
               <Button
                 size="sm"
                 variant="ghost"
                 disabled={reopening}
                 onClick={() => void handleReopen()}
               >
-                {reopening ? "Opening…" : `Reopen for ₹${Math.round(reopenPaise / 100)}`}
+                {reopening ? "Reopening…" : `Reopen for ${reopenPoints} points`}
               </Button>
             )}
             <LinkButton href="/subscription" size="sm" variant="ghost">
@@ -2291,18 +2281,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                           </>
                         ) : (
                           <>
-                            Pay ₹50 from wallet <span className="arr">→</span>
+                            Spend {imagePointPrice} points <span className="arr">→</span>
                           </>
                         )}
-                      </Button>
-                      <Button onClick={() => void handleBuyImageAndRetry()} disabled={buyingImage}>
-                        or pay ₹50 by UPI / card <span className="arr">→</span>
                       </Button>
                       <a
                         href="/subscription"
                         style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-soft)" }}
                       >
-                        or top up the wallet / upgrade your plan →
+                        or buy points / upgrade your plan →
                       </a>
                     </div>
                   )}
@@ -2316,7 +2303,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                           </>
                         ) : (
                           <>
-                            Pay ₹25 from wallet & detect walls <span className="arr">→</span>
+                            Spend {autoMaskPointPrice} points &amp; detect walls <span className="arr">→</span>
                           </>
                         )}
                       </Button>

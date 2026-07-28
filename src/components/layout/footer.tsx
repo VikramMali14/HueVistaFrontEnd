@@ -16,7 +16,7 @@ const COLUMNS = [
     links: [
       { href: "/work", label: "Our work" },
       { href: "/journal", label: "Journal" },
-      { href: `mailto:${contact.general}`, label: "Contact" },
+      { href: "/legal/contact", label: "Contact" },
     ],
   },
 ] as const;
@@ -40,6 +40,9 @@ export function Footer() {
             <div style={{ marginTop: 6 }}>
               <a href={`mailto:${contact.general}`} style={{ color: "inherit" }}>{contact.general}</a>
             </div>
+            <div>
+              <a href={`tel:${contact.phoneE164}`} style={{ color: "inherit" }}>{contact.phone}</a>
+            </div>
           </address>
         </div>
         {COLUMNS.map((col) => (
@@ -61,7 +64,9 @@ export function Footer() {
         <span className="mono" style={{ display: "inline-flex", gap: 8 }}>
           <Link href="/legal/privacy" style={{ color: "inherit" }}>Privacy</Link>·
           <Link href="/legal/terms" style={{ color: "inherit" }}>Terms</Link>·
-          <Link href="/legal/refunds" style={{ color: "inherit" }}>Refunds</Link>
+          <Link href="/legal/refunds" style={{ color: "inherit" }}>Refunds</Link>·
+          <Link href="/legal/delivery" style={{ color: "inherit" }}>Delivery</Link>·
+          <Link href="/legal/contact" style={{ color: "inherit" }}>Contact</Link>
         </span>
       </div>
     </footer>

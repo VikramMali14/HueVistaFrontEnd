@@ -300,7 +300,7 @@ export interface ProjectDetail {
    *  own (covered by a plan or a shop's code) or while that window is paused. */
   accessExpiresAt?: string | null;
   /** What reopening a lapsed project costs, in paise. */
-  reopenPricePaise?: number;
+  reopenPricePoints?: number;
 }
 
 /** Where a dashboard room came from, seen from the reader's side. */
@@ -547,16 +547,14 @@ export interface AccessCode {
  */
 export interface ProjectPurchaseOptions {
   subscribed: boolean;
-  /** What one more project costs right now, in paise. */
-  projectPricePaise: number;
-  /** That price with a live plan, and without one. */
-  subscribedProjectPricePaise: number;
-  unsubscribedProjectPricePaise: number;
-  /** What another window on a lapsed project costs, in paise. */
-  reopenPricePaise: number;
+  /** What one project costs, in points. Flat — it does not move with a plan. */
+  projectPricePoints: number;
+  /** What another window on a lapsed project costs, in points. */
+  reopenPricePoints: number;
+  /** Spendable balance, so the caller can say whether it is enough. */
+  pointsBalance: number;
   /** Days of access a purchase (or a reopen) opens. */
   validDays: number;
-  currency: string;
   /** Projects already paid for and not yet created. */
   availableCredits: number;
 }
@@ -567,7 +565,8 @@ export interface ProjectReopenResult {
   accessExpiresAt?: string | null;
   /** True while a live subscription is holding the window — the paid days are banked. */
   paused: boolean;
-  amountPaise: number;
+  /** Points the reopen cost. */
+  pointsSpent: number;
   daysAdded: number;
 }
 
@@ -618,7 +617,7 @@ export interface RetailerCombo {
   createdAt?: string | null;
 }
 
-// --- In-store kiosk (public store links + retailer wallet) ---
+// --- In-store kiosk (public store links + shop reward points) ---
 
 /** A retailer's public kiosk link (backend StoreLinkResponse). */
 export interface StoreLink {
@@ -626,15 +625,14 @@ export interface StoreLink {
   slug: string;
   organizationId: string;
   organizationName?: string;
-  /** What a walk-in pays. The platform keeps `platformBasePaise`; the rest is the shop's. */
+  /** What a walk-in pays. One flat platform price — the shop does not set it. */
   pricePaise: number;
   currency: string;
   validDays: number;
   active: boolean;
   createdAt?: string | null;
-  /** The platform's flat cut per kiosk order — the same whatever the shop's plan
-   *  is doing. A printed kiosk price must not move because of the shop's billing. */
-  platformBasePaise?: number;
+  /** Points the shop earns per sale — its reward, in place of a share of the price. */
+  bonusPoints?: number;
 }
 
 /** What an anonymous kiosk visitor sees for a store link (backend StorePublicInfoResponse). */
@@ -667,36 +665,80 @@ export interface StoreCheckoutResult {
   amountPaise: number;
 }
 
-/** A wallet payout request (backend WalletRedemptionResponse). */
-export interface WalletRedemption {
-  id: string;
-  organizationId: string;
-  organizationName?: string;
-  amountPaise: number;
-  upiId: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  adminNote?: string | null;
-  createdAt?: string | null;
-  decidedAt?: string | null;
-}
-
-/** The retailer's kiosk wallet (backend WalletSummaryResponse). */
+/**
+ * The shop's kiosk statement (backend WalletSummaryResponse): what the link sold and the
+ * reward points those sales earned.
+ *
+ * Points are spending power inside HueVista (1 point = 1 paise), spent through the
+ * billing wallet endpoints. They are never paid out as cash — there is no payout balance
+ * or redemption history here, and there must not be: the kiosk price is collected for
+ * HueVista's own service, so converting points to a bank transfer would make every sale
+ * a collection on the shop's behalf.
+ */
 export interface WalletSummary {
   organizationId: string;
   currency: string;
-  balancePaise: number;
-  lifetimeEarnedPaise: number;
-  pendingRedemptionPaise: number;
-  redeemedPaise: number;
-  platformFeePaise: number;
+  /** Spendable now, from the owner's point ledger. Below the lifetime figure once
+   *  batches have been spent or have expired. */
+  pointsBalance: number;
+  /** Every point this kiosk has ever earned, refunded sales excluded. */
+  lifetimePointsEarned: number;
+  /** What one sale earns the shop right now. */
+  pointsPerSale: number;
+  /** What a walk-in pays right now, in paise. */
+  kioskPricePaise: number;
   recentPayments: Array<{
     id: string;
     amountPaise: number;
-    retailerSharePaise: number;
+    bonusPoints: number;
+    reversed: boolean;
     code?: string | null;
     createdAt?: string | null;
   }>;
-  redemptions: WalletRedemption[];
+}
+
+/**
+ * A shop's reward-point standing (backend RewardPointsSummaryResponse).
+ *
+ * Carries no rupee figure on purpose: points buy at their own prices, and a "worth ₹X"
+ * would invite treating them as cash, which is the one thing they are not.
+ */
+export interface RewardPointsSummary {
+  /** Spendable now — live batches less any refund shortfall still being earned back. */
+  balance: number;
+  pointsPerSale: number;
+  /** What buying costs: rupees per point, and the bounds on one purchase. */
+  rupeesPerPoint: number;
+  minPurchase: number;
+  maxPurchase: number;
+  /** How long a batch lasts from the day it arrives — earned or bought alike. */
+  validityDays: number;
+  /** How many days before expiry the warning email goes out. */
+  expiryWarningDays: number;
+  /** What each purchase costs, in points. */
+  imagePrice: number;
+  autoMaskPrice: number;
+  projectPrice: number;
+  reopenPrice: number;
+  /** The next batch to expire. Null when the shop holds none. */
+  nextExpiringPoints?: number | null;
+  nextExpiryAt?: string | null;
+  /** Every live batch, soonest expiry first. */
+  lots: Array<{ id: string; pointsRemaining: number; expiresAt: string }>;
+  recentActivity: Array<{
+    id: string;
+    points: number;
+    type:
+      | "KIOSK_EARNED"
+      | "PURCHASED"
+      | "KIOSK_REVERSED"
+      | "EXPIRED"
+      | "SPENT_ON_IMAGE"
+      | "SPENT_ON_AUTO_MASK"
+      | "SPENT_ON_PROJECT"
+      | "SPENT_ON_PROJECT_REOPEN";
+    createdAt: string;
+  }>;
 }
 
 /** Current subscription summary (backend SubscriptionResponse). */
@@ -765,24 +807,6 @@ export interface PlanOption {
   autoMaskOveragePriceWithTaxInPaise: number;
 }
 
-/** One movement on the prepaid billing wallet (positive = top-up, negative = purchase). */
-export interface BillingWalletTransaction {
-  id: string;
-  type: "TOPUP" | "EXTRA_IMAGE" | "EXTRA_AUTO_MASK";
-  amountPaise: number;
-  createdAt: string;
-}
-
-/** The prepaid billing wallet (GET /api/billing/wallet): money added by Razorpay
- *  top-up, spent on pay-per-use overage once monthly allowances run out. */
-export interface BillingWalletSummary {
-  balancePaise: number;
-  currency: string;
-  imageCreditPricePaise: number;
-  autoMaskCreditPricePaise: number;
-  transactions: BillingWalletTransaction[];
-}
-
 /** Colour-board PDF allowance (backend PdfAllowanceResponse) — resolved against
  *  whichever plan pays for the caller (own plan, or the issuing shop's). */
 export interface PdfAllowance {
@@ -793,10 +817,13 @@ export interface PdfAllowance {
   unlimited: boolean;
 }
 
-/** Razorpay order details returned by the backend to open Checkout for a one-time project purchase. */
-export interface ProjectCreditOrder {
+/** Razorpay order details returned by the backend to open Checkout for a points purchase. */
+export interface PointsOrder {
   orderId: string;
-  amount: number; // in paise
+  /** Points this order buys. */
+  points: number;
+  /** What it costs, in paise — priced server-side from the count. */
+  amount: number;
   currency: string;
   razorpayKeyId: string;
 }

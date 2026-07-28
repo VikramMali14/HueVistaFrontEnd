@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
-import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import type { CustomerEntitlement, ProjectPurchaseOptions } from "@/lib/types";
 
@@ -38,8 +37,6 @@ export function CustomerAccessBanner() {
   // undefined = loading, null = no entitlement, "error" = fetch failed (render nothing)
   const [ent, setEnt] = useState<CustomerEntitlement | null | "error" | undefined>(undefined);
   const [options, setOptions] = useState<ProjectPurchaseOptions | null>(null);
-  const [buying, setBuying] = useState(false);
-  const [buyError, setBuyError] = useState<string | null>(null);
   // Mount-time clock for the days-left maths — render stays pure.
   const [now] = useState(() => Date.now());
 
@@ -59,52 +56,26 @@ export function CustomerAccessBanner() {
     };
   }, []);
 
-  async function buyProject() {
-    setBuying(true);
-    setBuyError(null);
-    try {
-      const { buyExtraProject } = await import("@/lib/payments");
-      const paid = await buyExtraProject();
-      if (paid) setOptions(await api.getProjectPurchaseOptions());
-    } catch (e) {
-      setBuyError(e instanceof Error ? e.message : "Could not start the payment.");
-    } finally {
-      setBuying(false);
-    }
-  }
-
   if (ent === undefined || ent === "error") return null;
 
   // No entitlement at all: this account signed up on its own rather than being
-  // onboarded by a shop. There are two honest routes open to them — a code from a
-  // paint shop, or buying a project outright — and offering only the first strands
-  // anyone who doesn't have a shop to walk into.
+  // onboarded by a shop. It used to be able to buy a project outright, but everything
+  // chargeable is paid in points now and points are a shop currency — so the honest
+  // routes are a shop's code or a shop's in-store link, and offering a purchase they
+  // would be refused is worse than offering neither.
   if (ent === null) {
-    const price = options ? `₹${Math.round(options.projectPricePaise / 100)}` : null;
     const credits = options?.availableCredits ?? 0;
     return (
       <div style={bannerStyle(false)}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <Mono brass>No subscription</Mono>
+          <Mono brass>No access yet</Mono>
           <span style={{ font: "400 15px/1.3 var(--sans)", color: "var(--fg-soft)" }}>
             {credits > 0
               ? `${credits} project${credits === 1 ? "" : "s"} paid for and ready — start one whenever you like.`
-              : price
-                ? `Each project is ${price} and stays open for ${options!.validDays} days. Have a code from your paint shop? Redeem it instead.`
-                : "Buy a project to start, or redeem a code from your paint shop."}
+              : "Redeem a code from your paint shop to start, or visit their counter link to buy a visualisation there."}
           </span>
-          {buyError && (
-            <span className="field-error" role="alert" style={{ flexBasis: "100%" }}>
-              {buyError}
-            </span>
-          )}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {credits === 0 && (
-            <Button size="sm" variant="ghost" disabled={buying} onClick={() => void buyProject()}>
-              {buying ? "Opening…" : price ? `Buy a project · ${price}` : "Buy a project"}
-            </Button>
-          )}
           {redeemLink}
         </span>
       </div>

@@ -40,7 +40,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "Contact",
-    p: `Privacy questions? Reach us through the in-app support chat, or write to ${contact.support}.`,
+    p: `HueVista is a ${contact.entityType.toLowerCase()}, ${contact.addressInline} — the data controller for the information described here. Privacy questions, or a request to access or delete your data? Reach us through the in-app support chat, write to ${contact.support}, or call ${contact.phone}.`,
   },
 ];
 

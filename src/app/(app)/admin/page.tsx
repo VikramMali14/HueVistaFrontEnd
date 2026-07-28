@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { adjustSubscriptionAction, decideWalletRedemptionAction, reverseWalletRedemptionAction, getAuditLog, getShopLeads, getUserSubscriptionAction, getWalletRedemptions, grantSubscriptionAction, requireRole, searchUsersAction, updateShopLeadStatusAction } from "@/lib/auth";
+import { adjustSubscriptionAction, getAuditLog, getShopLeads, getUserSubscriptionAction, grantSubscriptionAction, requireRole, searchUsersAction, updateShopLeadStatusAction } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { CreateRetailerForm } from "@/components/admin/create-retailer-form";
 import { CreateDistributorForm } from "@/components/admin/create-distributor-form";
@@ -8,7 +8,6 @@ import { ShopLeads } from "@/components/admin/shop-leads";
 import { SubscriptionManager } from "@/components/admin/subscription-manager";
 import { UserSearch } from "@/components/admin/user-search";
 import { AuditLog } from "@/components/admin/audit-log";
-import { WalletRedemptions } from "@/components/admin/wallet-redemptions";
 import { SectionNav } from "@/components/ui/section-nav";
 
 export const metadata: Metadata = {
@@ -22,14 +21,13 @@ export const metadata: Metadata = {
  */
 export default async function AdminPage() {
   await requireRole(["ADMIN"]);
-  const [leads, audit, redemptions] = await Promise.all([
+  const [leads, audit] = await Promise.all([
     getShopLeads(),
     getAuditLog(),
-    getWalletRedemptions(),
   ]);
   return (
-    // Wide enough that the working sections (payout queue, user search, audit
-    // trail) actually use a desktop screen; prose stays readable via its own
+    // Wide enough that the working sections (user search, audit trail) actually
+    // use a desktop screen; prose stays readable via its own
     // 56ch caps. 760px left half the viewport empty and cramped every table.
     <div style={{ maxWidth: 1080 }}>
       <Eyebrow>Admin · shop accounts</Eyebrow>
@@ -60,7 +58,6 @@ export default async function AdminPage() {
         items={[
           { id: "create-distributor", label: "Create distributor", hint: "Provision a distributor account" },
           { id: "shop-requests", label: "Shop requests", hint: "Leads from the public form" },
-          { id: "wallet-payouts", label: "Wallet payouts", hint: "Approve kiosk redemptions" },
           { id: "subscriptions", label: "Subscriptions", hint: "Grant or extend a plan" },
           { id: "find-user", label: "Find a user", hint: "Look up by name or email" },
           { id: "audit-trail", label: "Audit trail", hint: "Every sensitive action" },
@@ -89,21 +86,6 @@ export default async function AdminPage() {
           then mark the lead converted.
         </p>
         <ShopLeads initial={leads} updateAction={updateShopLeadStatusAction} />
-      </section>
-
-      <section id="wallet-payouts" style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
-        <h2 className="display" style={{ fontSize: "clamp(26px, 3.5vw, 40px)", marginBottom: 8 }}>
-          Wallet payouts
-        </h2>
-        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch", marginBottom: 24 }}>
-          Retailers&rsquo; kiosk-earnings redemption requests. Send the money to the UPI id first,
-          then mark it approved; rejecting returns the amount to the shop&rsquo;s wallet.
-        </p>
-        <WalletRedemptions
-          initial={redemptions}
-          decideAction={decideWalletRedemptionAction}
-          reverseAction={reverseWalletRedemptionAction}
-        />
       </section>
 
       <section id="subscriptions" style={{ marginTop: 72, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
