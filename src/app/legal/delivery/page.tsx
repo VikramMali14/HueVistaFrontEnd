@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
+import { contact } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Shipping & Delivery Policy",
@@ -27,7 +28,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "5 · If something does not arrive",
-    p: "If a payment succeeds and the corresponding access, credit or points do not appear on your account, write to payments@huevista.com with your payment reference. We investigate the same business day and either deliver what was bought or refund it in full.",
+    p: `If a payment succeeds and the corresponding access, credit or points do not appear on your account, write to ${contact.billing} with your payment reference. We investigate the same business day and either deliver what was bought or refund it in full.`,
   },
   {
     h: "6 · Service availability",

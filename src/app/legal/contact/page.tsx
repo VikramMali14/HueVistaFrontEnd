@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
+import { contact } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Contact Us",
@@ -41,29 +42,31 @@ export default function ContactPage() {
           <section>
             <span style={label}>Registered business</span>
             <address style={{ ...body, fontStyle: "normal" }}>
-              HueVista
-              <br />
-              Proprietor: Vikram Mali
-              <br />
-              Mount Road, Manpur, Abu Road
-              <br />
-              Sirohi, Rajasthan 307026
-              <br />
-              India
+              {contact.addressLines.map((line, i) => (
+                <span key={line}>
+                  {line}
+                  {i < contact.addressLines.length - 1 && <br />}
+                </span>
+              ))}
             </address>
           </section>
 
           <section>
             <span style={label}>Email</span>
             <p style={body}>
-              General and support —{" "}
-              <a href="mailto:hello@huevista.com" style={{ color: "var(--accent)" }}>
-                hello@huevista.com
+              General enquiries —{" "}
+              <a href={`mailto:${contact.general}`} style={{ color: "var(--accent)" }}>
+                {contact.general}
+              </a>
+              <br />
+              Product help —{" "}
+              <a href={`mailto:${contact.support}`} style={{ color: "var(--accent)" }}>
+                {contact.support}
               </a>
               <br />
               Billing, payments and refunds —{" "}
-              <a href="mailto:payments@huevista.com" style={{ color: "var(--accent)" }}>
-                payments@huevista.com
+              <a href={`mailto:${contact.billing}`} style={{ color: "var(--accent)" }}>
+                {contact.billing}
               </a>
             </p>
           </section>
@@ -71,11 +74,11 @@ export default function ContactPage() {
           <section>
             <span style={label}>Phone</span>
             <p style={body}>
-              <a href="tel:+916378482381" style={{ color: "var(--accent)" }}>
-                +91 63784 82381
+              <a href={`tel:${contact.phoneE164}`} style={{ color: "var(--accent)" }}>
+                {contact.phone}
               </a>
               <br />
-              Monday to Saturday, 10:00–19:00 IST.
+              {contact.phoneHours}.
             </p>
           </section>
 
@@ -92,12 +95,12 @@ export default function ContactPage() {
             <span style={label}>Grievances</span>
             <p style={body}>
               If something has gone wrong and a first reply has not resolved it, write to{" "}
-              <a href="mailto:hello@huevista.com" style={{ color: "var(--accent)" }}>
-                hello@huevista.com
+              <a href={`mailto:${contact.general}`} style={{ color: "var(--accent)" }}>
+                {contact.general}
               </a>{" "}
-              with &ldquo;Grievance&rdquo; in the subject, addressed to Vikram Mali, Proprietor, at
-              the address above. We acknowledge within two business days and aim to resolve within
-              fifteen.
+              with &ldquo;Grievance&rdquo; in the subject, addressed to {contact.legalName},
+              Proprietor, at the address above. We acknowledge within two business days and aim to
+              resolve within fifteen.
             </p>
           </section>
         </div>

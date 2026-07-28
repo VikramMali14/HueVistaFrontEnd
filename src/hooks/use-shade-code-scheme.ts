@@ -20,6 +20,9 @@ import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-co
  * ask.
  */
 let inFlight: Promise<ShadeCodeScheme | null> | null = null;
+/** Whose answer `inFlight` holds. `null` is a signed-out visitor, which is a real key. */
+let cachedFor: string | null = null;
+let hasCached = false;
 
 function fetchScheme(): Promise<ShadeCodeScheme | null> {
   if (!inFlight) {
@@ -33,6 +36,28 @@ function fetchScheme(): Promise<ShadeCodeScheme | null> {
 
 /** Reset between tests / after a sign-out, so the next reader asks again. */
 export function resetShadeCodeSchemeCache() {
+  inFlight = null;
+  cachedFor = null;
+  hasCached = false;
+}
+
+/**
+ * Tell the cache whose session is current, clearing it when that changes.
+ *
+ * The cache lives at module scope and nothing was invalidating it. `resetShadeCodeSchemeCache`
+ * existed but had no callers, and signing out is a server action that ends in a soft
+ * navigation — the router cache clears, module state does not. So the pattern fetched
+ * under one account survived into the next: sign out of shop A, sign in as shop B in the
+ * same tab, and B's swatches rendered with A's prefix and A's `showNames`. For a shop
+ * that hides paint names to run its own numbering, that surfaced another shop's names on
+ * every colour.
+ *
+ * Called from the app shell, which is the only place that knows the current account.
+ */
+export function syncShadeCodeSchemeIdentity(userId: string | null) {
+  if (hasCached && cachedFor === userId) return;
+  hasCached = true;
+  cachedFor = userId;
   inFlight = null;
 }
 

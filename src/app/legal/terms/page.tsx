@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { contact } from "@/lib/config";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
@@ -51,7 +52,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "11 · Contact",
-    p: "HueVista is a sole proprietorship of Vikram Mali, Mount Road, Manpur, Abu Road, Sirohi, Rajasthan 307026, India. Questions about these terms? Reach us through the in-app support chat, write to hello@huevista.com, or call +91 63784 82381.",
+    p: `HueVista is a ${contact.entityType.toLowerCase()}, ${contact.addressInline}. Questions about these terms? Reach us through the in-app support chat, write to ${contact.support}, or call ${contact.phone}.`,
   },
 ];
 

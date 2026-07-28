@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { contact } from "@/lib/config";
 
 const COLUMNS = [
   {
@@ -37,10 +38,10 @@ export function Footer() {
             <div>Proprietor: Vikram Mali</div>
             <div>Mount Road, Manpur, Abu Road,<br />Sirohi, Rajasthan 307026, India</div>
             <div style={{ marginTop: 6 }}>
-              <a href="mailto:hello@huevista.com" style={{ color: "inherit" }}>hello@huevista.com</a>
+              <a href={`mailto:${contact.general}`} style={{ color: "inherit" }}>{contact.general}</a>
             </div>
             <div>
-              <a href="tel:+916378482381" style={{ color: "inherit" }}>+91 63784 82381</a>
+              <a href={`tel:${contact.phoneE164}`} style={{ color: "inherit" }}>{contact.phone}</a>
             </div>
           </address>
         </div>

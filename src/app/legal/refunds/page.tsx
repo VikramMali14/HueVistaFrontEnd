@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { contact } from "@/lib/config";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
@@ -43,7 +44,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "9 · How to reach us",
-    p: "For any cancellation, billing or refund question, use the in-app support chat or write to payments@huevista.com with your account and payment details. We reply within one business day. Postal enquiries: HueVista, Proprietor Vikram Mali, Mount Road, Manpur, Abu Road, Sirohi, Rajasthan 307026, India. Phone: +91 63784 82381.",
+    p: `For any cancellation, billing or refund question, use the in-app support chat or write to ${contact.billing} with your account and payment details. We reply within one business day. Postal enquiries: HueVista, Proprietor ${contact.legalName}, ${contact.addressInline}. Phone: ${contact.phone}.`,
   },
 ];
 
