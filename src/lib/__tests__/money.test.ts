@@ -1,11 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  MIN_REDEMPTION_PAISE,
-  STORE_MIN_PRICE_PAISE,
-  formatRupees,
-  parseRupeesToPaise,
-  validateStorePrice,
-} from "../money";
+import { formatPoints, formatRupees, parseRupeesToPaise } from "../money";
 
 describe("formatRupees", () => {
   it("formats whole rupees without decimals", () => {
@@ -46,28 +40,21 @@ describe("parseRupeesToPaise", () => {
   });
 });
 
-describe("validateStorePrice", () => {
-  it("accepts the minimum price exactly", () => {
-    expect(validateStorePrice("50")).toBeNull();
-    expect(STORE_MIN_PRICE_PAISE).toBe(5000);
+describe("formatPoints", () => {
+  it("reads a paise balance as whole points — 1 point = ₹1", () => {
+    expect(formatPoints(3900)).toBe("39 points");
+    expect(formatPoints(11_700)).toBe("117 points");
   });
 
-  it("accepts the suggested ₹79", () => {
-    expect(validateStorePrice("79")).toBeNull();
+  it("singularises one point", () => {
+    expect(formatPoints(100)).toBe("1 point");
   });
 
-  it("rejects prices under the ₹50 platform base", () => {
-    expect(validateStorePrice("49.99")).toMatch(/minimum price/i);
-    expect(validateStorePrice("10")).toMatch(/minimum price/i);
+  it("groups large balances Indian-style", () => {
+    expect(formatPoints(10_00_000_00)).toBe("10,00,000 points");
   });
 
-  it("rejects unparseable input with a usage hint", () => {
-    expect(validateStorePrice("free")).toMatch(/rupees/i);
-  });
-});
-
-describe("MIN_REDEMPTION_PAISE", () => {
-  it("matches the backend default (₹50)", () => {
-    expect(MIN_REDEMPTION_PAISE).toBe(5000);
+  it("shows nothing earned as zero rather than a blank", () => {
+    expect(formatPoints(0)).toBe("0 points");
   });
 });

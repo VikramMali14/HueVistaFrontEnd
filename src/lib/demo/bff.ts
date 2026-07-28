@@ -25,7 +25,6 @@ import type {
   SupportMessage,
   UploadedImage,
   VerificationStatus,
-  WalletRedemption,
 } from "../types";
 import { SHADES } from "../shades";
 import { demoUserFromToken } from "./accounts";
@@ -546,7 +545,7 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
       if (c) { c.projectAllowance += 1; c.projectsRemaining += 1; c.updatedAt = nowIso(); }
       return json(c ?? store.customers[0]);
     }
-    // --- Public store kiosk links + earnings wallet ---
+    // --- Public store kiosk links + reward points ---
     if (tail === "store-links" && method === "GET") return json(store.storeLinks);
     if (tail === "store-links" && method === "POST") {
       const body = await readJson(req);
@@ -556,7 +555,9 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
         slug: `${org?.slug ?? "shop"}-${nextSeq()}`,
         organizationId: seg[2] ?? "org_demo",
         organizationName: org?.name ?? "Mehta Paints",
-        pricePaise: Number(body.pricePaise ?? 19_900),
+        // Platform-set, not shop-set — the shop earns points, not a share.
+        pricePaise: store.wallet.kioskPricePaise,
+        bonusPointsPaise: store.wallet.pointsPerSalePaise,
         currency: "INR",
         validDays: Number(body.validDays ?? 7),
         active: true,
@@ -566,35 +567,13 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
       return json(link);
     }
     if (tail === "wallet" && method === "GET") return json(store.wallet);
-    if (tail === "wallet/redemptions" && method === "POST") {
-      const body = await readJson(req);
-      const amount = Number(body.amountPaise ?? 0);
-      if (amount > store.wallet.balancePaise) {
-        return json({ message: `Your available balance is ₹${(store.wallet.balancePaise / 100).toFixed(2)} — you can't redeem more than that.` }, 400);
-      }
-      const redemption: WalletRedemption = {
-        id: nextId("wr"),
-        organizationId: seg[2] ?? "org_demo",
-        organizationName: retailerOrg()?.name ?? "Mehta Paints",
-        amountPaise: amount,
-        upiId: String(body.upiId ?? ""),
-        status: "PENDING",
-        createdAt: nowIso(),
-      };
-      // Mirror the backend derivation: a PENDING request holds the funds.
-      store.wallet.redemptions.unshift(redemption);
-      store.wallet.pendingRedemptionPaise += amount;
-      store.wallet.balancePaise -= amount;
-      return json(redemption);
-    }
   }
 
-  // Retailer pauses/reprices an existing kiosk link.
+  // Retailer pauses/resumes an existing kiosk link.
   if (seg[0] === "api" && seg[1] === "store-links" && seg.length === 3 && method === "PATCH") {
     const link = store.storeLinks.find((l) => l.id === seg[2]);
     if (!link) return json({ message: "Store link not found." }, 404);
     const body = await readJson(req);
-    if (body.pricePaise != null) link.pricePaise = Number(body.pricePaise);
     if (body.validDays != null) link.validDays = Number(body.validDays);
     if (typeof body.active === "boolean") link.active = body.active;
     return json(link);

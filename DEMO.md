@@ -35,10 +35,10 @@ A guest access code you can redeem at **/redeem** (no account): **`MEHTA7K2`**.
   photo **recoloured live** (real, aligned masks). Or upload your own photo and
   draw walls with the Mask Studio — recolouring runs entirely in your browser.
 - **Customer portal** — issue access codes (3 seeded), customers list with project
-  usage + "grant project", the shop's kiosk link + earnings wallet (seeded payments,
-  one pending payout).
-- **In-store kiosk** — the public page at **/store/mehta-paints-7a3b** renders with
-  the shop's price; the admin console shows the payout queue.
+  usage + "grant project", the shop's kiosk link + reward points (seeded sales,
+  one refunded).
+- **In-store kiosk** — the public page at **/store/mehta-paints-7a3b** renders at the
+  flat ₹99 platform price; each sale credits the shop 39 points.
 - **Products** — paint brands → lines → shop products (4 seeded); add your own.
 - **Colour finder / Catalogue** — full bundled shade catalogue, photo→shade match.
 - **Account** — profile + email/mobile OTP verification (accepts any 6-digit code).

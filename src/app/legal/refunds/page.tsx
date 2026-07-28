@@ -26,8 +26,8 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
     p: "Upgrading to a higher tier starts immediately with a fresh quota, and your previous plan is cancelled automatically so you are never billed twice. To move to a smaller plan, cancel your current one — it stays active until the period ends — and subscribe to the smaller tier after that. Plan changes do not generate a refund.",
   },
   {
-    h: "5 · Wallet credit",
-    p: "Amounts added to your prepaid wallet are usage credit, not a deposit. Wallet credit is used to pay for extra images and auto-masks beyond your monthly allowance. It does not expire, but it is non-refundable and non-withdrawable — it cannot be converted back to cash or transferred.",
+    h: "5 · Wallet credit and reward points",
+    p: "Amounts added to your prepaid wallet are usage credit, not a deposit. Reward points earned when a customer buys a visualisation through your in-store kiosk link are added to the same balance, at one point per rupee. Both are used to pay for extra images, AI auto-masks and projects. Neither expires, and neither is refundable or withdrawable — they cannot be converted back to cash or transferred. Where a kiosk payment is refunded to the customer, the points that sale earned are removed from your balance.",
   },
   {
     h: "6 · Pay-per-use charges",

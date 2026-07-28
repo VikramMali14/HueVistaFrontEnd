@@ -231,7 +231,7 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
       const info: StorePublicInfo = {
         slug: link.slug,
         shopName: link.organizationName ?? "Mehta Paints",
-        pricePaise: link.pricePaise,
+        pricePaise: getStore().wallet.kioskPricePaise,
         currency: link.currency,
         validDays: link.validDays,
         active: link.active,
@@ -242,7 +242,7 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
     if (storeMatch[2] === "order" && method === "POST") {
       const order: StoreOrder = {
         orderId: nextId("order"),
-        amount: link.pricePaise,
+        amount: getStore().wallet.kioskPricePaise,
         currency: link.currency,
         razorpayKeyId: "rzp_test_demo",
         shopName: link.organizationName ?? "Mehta Paints",
@@ -264,12 +264,13 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
         createdAt: new Date().toISOString(),
       };
       store.accessCodes.unshift(code);
-      const share = Math.max(0, link.pricePaise - store.wallet.platformFeePaise);
-      store.wallet.lifetimeEarnedPaise += share;
-      store.wallet.balancePaise += share;
+      // The sale is HueVista's in full; the shop earns points.
+      const points = store.wallet.pointsPerSalePaise;
+      store.wallet.lifetimePointsEarnedPaise += points;
+      store.wallet.pointsBalancePaise += points;
       store.wallet.recentPayments.unshift({
-        id: nextId("sp"), amountPaise: link.pricePaise, retailerSharePaise: share,
-        code: code.code, createdAt: new Date().toISOString(),
+        id: nextId("sp"), amountPaise: store.wallet.kioskPricePaise, bonusPointsPaise: points,
+        reversed: false, code: code.code, createdAt: new Date().toISOString(),
       });
       const result: StoreCheckoutResult = {
         guestToken: `hvdemo-guest.${code.id}`,
@@ -277,33 +278,10 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
         shopName: link.organizationName ?? "Mehta Paints",
         validDays: link.validDays,
         expiresAt: code.expiresAt!,
-        amountPaise: link.pricePaise,
+        amountPaise: store.wallet.kioskPricePaise,
       };
       return result as T;
     }
-  }
-
-  // --- Admin: the wallet payout queue ---
-  if (p === "/api/admin/wallet/redemptions" && method === "GET") {
-    return getStore().wallet.redemptions as T;
-  }
-  const decisionMatch = p.match(/^\/api\/admin\/wallet\/redemptions\/([^/]+)\/decision$/);
-  if (decisionMatch && method === "POST") {
-    const wallet = getStore().wallet;
-    const redemption = wallet.redemptions.find((r) => r.id === decisionMatch[1]);
-    if (!redemption) throw new HttpError(404, "Redemption not found.");
-    if (redemption.status !== "PENDING") {
-      throw new HttpError(409, `This redemption was already ${redemption.status.toLowerCase()}.`);
-    }
-    const { approve = true, note } = parseBody<{ approve?: boolean; note?: string }>(init);
-    redemption.status = approve ? "APPROVED" : "REJECTED";
-    redemption.decidedAt = new Date().toISOString();
-    if (note) redemption.adminNote = note;
-    // Mirror the backend derivation: approval spends the held funds; rejection returns them.
-    wallet.pendingRedemptionPaise -= redemption.amountPaise;
-    if (approve) wallet.redeemedPaise += redemption.amountPaise;
-    else wallet.balancePaise += redemption.amountPaise;
-    return redemption as T;
   }
 
   // --- Hierarchy: network report ---

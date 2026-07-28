@@ -349,24 +349,6 @@ export const adminApi = {
       accessToken,
       body: JSON.stringify({ status }),
     }),
-  // Wallet payout queue: the manual "redeem to UPI" requests retailers file.
-  listWalletRedemptions: (accessToken: string, status?: string) =>
-    serverFetch<import("./types").WalletRedemption[]>(
-      `/api/admin/wallet/redemptions${status ? `?status=${encodeURIComponent(status)}` : ""}`,
-      { accessToken },
-    ),
-  decideWalletRedemption: (accessToken: string, redemptionId: string, approve: boolean, note?: string) =>
-    serverFetch<import("./types").WalletRedemption>(
-      `/api/admin/wallet/redemptions/${encodeURIComponent(redemptionId)}/decision`,
-      { method: "POST", accessToken, body: JSON.stringify({ approve, note }) },
-    ),
-  // Undo an approval whose UPI transfer never landed (wrong id, bounced, misclick).
-  // The amount goes back into the shop's balance; a reason is required.
-  reverseWalletRedemption: (accessToken: string, redemptionId: string, note: string) =>
-    serverFetch<import("./types").WalletRedemption>(
-      `/api/admin/wallet/redemptions/${encodeURIComponent(redemptionId)}/reverse`,
-      { method: "POST", accessToken, body: JSON.stringify({ note }) },
-    ),
   // A user's active (or most recent) subscription. 404 (HttpError) when they have none.
   getUserSubscription: (accessToken: string, userId: string) =>
     serverFetch<import("./types").SubscriptionSummary>(
@@ -840,6 +822,18 @@ export const api = {
     browserFetch<import("./types").SubscriptionSummary>("api/billing/wallet/pay/auto-mask-credit", {
       method: "POST",
     }),
+  // The redemptions that give kiosk points their value to a shop with no plan: overage
+  // needs a plan to overage on, projects don't. Priced server-side (₹50 with a plan,
+  // ₹99 without; ₹9 to reopen) — the browser never names an amount.
+  walletPayProjectCredit: () =>
+    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/wallet/pay/project-credit", {
+      method: "POST",
+    }),
+  walletPayProjectReopen: (projectId: string) =>
+    browserFetch<import("./types").ProjectReopenResult>(
+      `api/billing/wallet/pay/project-reopen/${encodeURIComponent(projectId)}`,
+      { method: "POST" },
+    ),
   // Companies that actually have shades in the catalogue (name + slug + count).
   listShadeBrands: () =>
     browserFetch<import("./types").ShadeBrandSummary[]>("api/shades/brands"),
@@ -1021,12 +1015,12 @@ export const api = {
     browserFetch<import("./types").StoreLink[]>(
       `api/organizations/${encodeURIComponent(orgId)}/store-links`,
     ),
-  createStoreLink: (orgId: string, body: { pricePaise: number; validDays?: number }) =>
+  createStoreLink: (orgId: string, body: { validDays?: number }) =>
     browserFetch<import("./types").StoreLink>(
       `api/organizations/${encodeURIComponent(orgId)}/store-links`,
       { method: "POST", body: JSON.stringify(body) },
     ),
-  updateStoreLink: (linkId: string, body: { pricePaise?: number; validDays?: number; active?: boolean }) =>
+  updateStoreLink: (linkId: string, body: { validDays?: number; active?: boolean }) =>
     browserFetch<import("./types").StoreLink>(
       `api/store-links/${encodeURIComponent(linkId)}`,
       { method: "PATCH", body: JSON.stringify(body) },
@@ -1034,11 +1028,6 @@ export const api = {
   getWallet: (orgId: string) =>
     browserFetch<import("./types").WalletSummary>(
       `api/organizations/${encodeURIComponent(orgId)}/wallet`,
-    ),
-  requestWalletRedemption: (orgId: string, body: { amountPaise: number; upiId: string }) =>
-    browserFetch<import("./types").WalletRedemption>(
-      `api/organizations/${encodeURIComponent(orgId)}/wallet/redemptions`,
-      { method: "POST", body: JSON.stringify(body) },
     ),
   // --- Customer: redeem a retailer's code (flips this account to CUSTOMER) ---
   redeemAccessCode: (body: { code: string }) =>

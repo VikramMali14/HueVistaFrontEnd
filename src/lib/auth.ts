@@ -7,7 +7,7 @@ import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult,
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import { canUseFeature } from "./features";
-import type { AppFeatureKey, AuthResponse, AuthUser, MyAccess, NetworkReport, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary, WalletRedemption } from "./types";
+import type { AppFeatureKey, AuthResponse, AuthUser, MyAccess, NetworkReport, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -697,54 +697,6 @@ export async function updateShopLeadStatusAction(
 /** ADMIN: the wallet payout queue (all requests, newest first). NULL on any
  *  failure — this is a money queue, and an expired session or backend outage
  *  must never read as "the queue is clear". */
-export async function getWalletRedemptions(): Promise<WalletRedemption[] | null> {
-  "use server";
-  const token = await getAccessToken();
-  if (!token) return null;
-  try {
-    return await adminApi.listWalletRedemptions(token);
-  } catch {
-    return null;
-  }
-}
-
-/** ADMIN: settle a payout request — approve (after paying the UPI id) or reject. */
-export async function decideWalletRedemptionAction(
-  redemptionId: string,
-  approve: boolean,
-  note?: string,
-): Promise<{ redemption?: WalletRedemption; error?: string }> {
-  "use server";
-  const token = await getAccessToken();
-  if (!token) return { error: "Your session expired — please sign in again." };
-  try {
-    return { redemption: await adminApi.decideWalletRedemption(token, redemptionId, approve, note) };
-  } catch (err) {
-    if (err instanceof HttpError) return { error: err.message };
-    return { error: "Could not update the redemption. Please try again." };
-  }
-}
-
-/**
- * ADMIN: reverse a payout that was approved but never actually reached the shop.
- * Approving used to be terminal, so a bounced UPI transfer could only be undone with
- * hand-written SQL while the shop's balance stayed short.
- */
-export async function reverseWalletRedemptionAction(
-  redemptionId: string,
-  note: string,
-): Promise<{ redemption?: WalletRedemption; error?: string }> {
-  "use server";
-  const token = await getAccessToken();
-  if (!token) return { error: "Your session expired — please sign in again." };
-  try {
-    return { redemption: await adminApi.reverseWalletRedemption(token, redemptionId, note) };
-  } catch (err) {
-    if (err instanceof HttpError) return { error: err.message };
-    return { error: "Could not reverse the payout. Please try again." };
-  }
-}
-
 /** ADMIN: find users by name or email (top 20 matches, newest first). */
 export async function searchUsersAction(
   q: string,

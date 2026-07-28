@@ -618,7 +618,7 @@ export interface RetailerCombo {
   createdAt?: string | null;
 }
 
-// --- In-store kiosk (public store links + retailer wallet) ---
+// --- In-store kiosk (public store links + shop reward points) ---
 
 /** A retailer's public kiosk link (backend StoreLinkResponse). */
 export interface StoreLink {
@@ -626,15 +626,14 @@ export interface StoreLink {
   slug: string;
   organizationId: string;
   organizationName?: string;
-  /** What a walk-in pays. The platform keeps `platformBasePaise`; the rest is the shop's. */
+  /** What a walk-in pays. One flat platform price — the shop does not set it. */
   pricePaise: number;
   currency: string;
   validDays: number;
   active: boolean;
   createdAt?: string | null;
-  /** The platform's flat cut per kiosk order — the same whatever the shop's plan
-   *  is doing. A printed kiosk price must not move because of the shop's billing. */
-  platformBasePaise?: number;
+  /** Points the shop earns per sale — its reward, in place of a share of the price. */
+  bonusPointsPaise?: number;
 }
 
 /** What an anonymous kiosk visitor sees for a store link (backend StorePublicInfoResponse). */
@@ -667,36 +666,35 @@ export interface StoreCheckoutResult {
   amountPaise: number;
 }
 
-/** A wallet payout request (backend WalletRedemptionResponse). */
-export interface WalletRedemption {
-  id: string;
-  organizationId: string;
-  organizationName?: string;
-  amountPaise: number;
-  upiId: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  adminNote?: string | null;
-  createdAt?: string | null;
-  decidedAt?: string | null;
-}
-
-/** The retailer's kiosk wallet (backend WalletSummaryResponse). */
+/**
+ * The shop's kiosk statement (backend WalletSummaryResponse): what the link sold and the
+ * reward points those sales earned.
+ *
+ * Points are spending power inside HueVista (1 point = 1 paise), spent through the
+ * billing wallet endpoints. They are never paid out as cash — there is no payout balance
+ * or redemption history here, and there must not be: the kiosk price is collected for
+ * HueVista's own service, so converting points to a bank transfer would make every sale
+ * a collection on the shop's behalf.
+ */
 export interface WalletSummary {
   organizationId: string;
   currency: string;
-  balancePaise: number;
-  lifetimeEarnedPaise: number;
-  pendingRedemptionPaise: number;
-  redeemedPaise: number;
-  platformFeePaise: number;
+  /** Spendable now. Read from the owner's billing wallet, so it includes any top-up too. */
+  pointsBalancePaise: number;
+  /** Every point this kiosk has ever earned, refunded sales excluded. */
+  lifetimePointsEarnedPaise: number;
+  /** What one sale earns the shop right now. */
+  pointsPerSalePaise: number;
+  /** What a walk-in pays right now. */
+  kioskPricePaise: number;
   recentPayments: Array<{
     id: string;
     amountPaise: number;
-    retailerSharePaise: number;
+    bonusPointsPaise: number;
+    reversed: boolean;
     code?: string | null;
     createdAt?: string | null;
   }>;
-  redemptions: WalletRedemption[];
 }
 
 /** Current subscription summary (backend SubscriptionResponse). */
@@ -768,13 +766,24 @@ export interface PlanOption {
 /** One movement on the prepaid billing wallet (positive = top-up, negative = purchase). */
 export interface BillingWalletTransaction {
   id: string;
-  type: "TOPUP" | "EXTRA_IMAGE" | "EXTRA_AUTO_MASK";
+  type:
+    | "TOPUP"
+    | "KIOSK_BONUS"
+    | "KIOSK_BONUS_REVERSAL"
+    | "EXTRA_IMAGE"
+    | "EXTRA_AUTO_MASK"
+    | "PROJECT_CREDIT"
+    | "PROJECT_REOPEN"
+    | "REFUND";
   amountPaise: number;
   createdAt: string;
 }
 
-/** The prepaid billing wallet (GET /api/billing/wallet): money added by Razorpay
- *  top-up, spent on pay-per-use overage once monthly allowances run out. */
+/**
+ * The prepaid billing wallet (GET /api/billing/wallet) — also the shop's reward-point
+ * balance, deliberately the same pot. Filled by Razorpay top-up or by kiosk sales, and
+ * spent on pay-per-use overage, whole projects and project reopens. Never withdrawable.
+ */
 export interface BillingWalletSummary {
   balancePaise: number;
   currency: string;
