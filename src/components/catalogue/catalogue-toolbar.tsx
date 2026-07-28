@@ -2,6 +2,8 @@
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
+import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
+import { matchesQuery } from "@/components/atelier/shade-grid";
 import { useCopied } from "@/hooks/use-copied";
 import { hexToHsv } from "@/lib/color";
 import { PAINT_BRANDS, type PaintShade } from "@/lib/types";
@@ -102,6 +104,10 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [openId, setOpenId] = useState<string | null>(null);
   const { copied, copy: copyCode } = useCopied();
+  // Under a shop's own numbering these swatches read the way that shop's swatches
+  // read everywhere else. A signed-out visitor is under no shop, so the public
+  // catalogue is unchanged for them.
+  const { patterned, showNames, codeOf, nameOf } = useShadeLabels();
   // Counter tools: comparison queue, fan-deck strip, hold-to-wall.
   const [compareCodes, setCompareCodes] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -163,10 +169,13 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
       if (brand !== ALL_BRANDS && s.brand !== brand) return false;
       if (finish !== "All" && !s.finishes.includes(finish)) return false;
       if (s.lrv < range.min || s.lrv > range.max) return false;
-      if (!q) return true;
-      return s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.hex.toLowerCase().includes(q);
+      return matchesQuery(s, q, {
+        hideCodes: patterned,
+        hideNames: !showNames,
+        encodeCode: patterned ? codeOf : undefined,
+      });
     });
-  }, [shades, deferredQuery, family, brand, finish, lrv]);
+  }, [shades, deferredQuery, family, brand, finish, lrv, patterned, showNames, codeOf]);
 
   const sorted = useMemo(() => {
     if (sortBy === "hue") {
@@ -281,17 +290,17 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
               <div key={s.code} className="hv-shade-card">
                 <button
                   type="button"
-                  onClick={() => copyCode(s.code)}
-                  aria-label={`${s.name}, ${s.code}. Copy shade code.`}
+                  onClick={() => copyCode(codeOf(s.code))}
+                  aria-label={`${nameOf(s)}, ${codeOf(s.code)}. Copy shade code.`}
                   style={{ display: "block", width: "100%", padding: 0, background: "transparent", border: "none", textAlign: "left", cursor: "pointer" }}
                 >
                   <div className="hv-shade-swatch" style={{ aspectRatio: "1 / 1.1", position: "relative", background: s.hex, overflow: "hidden", boxShadow: "0 1px 0 rgba(255,255,255,.06) inset, 0 20px 40px -20px rgba(0,0,0,.6)" }}>
-                    <span style={{ position: "absolute", top: 14, right: 14, font: "400 14px/1 var(--serif)", color: ink }}>{s.code.split("-")[1]}</span>
+                    <span style={{ position: "absolute", top: 14, right: 14, font: "400 14px/1 var(--serif)", color: ink }}>{patterned ? codeOf(s.code) : s.code.split("-")[1]}</span>
                     <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 9px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: inkSoft }}>{s.brand}</span>
                   </div>
                   <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
-                    <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{s.name}</span>
-                    <Mono>{copied === s.code ? `${s.code} · copied` : s.code}</Mono>
+                    <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{nameOf(s)}</span>
+                    <Mono>{copied === codeOf(s.code) ? `${codeOf(s.code)} · copied` : codeOf(s.code)}</Mono>
                   </div>
                 </button>
                 {/* Tool row: compare · strip (the strip's footer holds
@@ -305,7 +314,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
                       className="hv-card-action"
                       onClick={() => toggleCompare(s)}
                       aria-pressed={comparing}
-                      aria-label={comparing ? `Remove ${s.name} from compare` : `Compare ${s.name} with other shades`}
+                      aria-label={comparing ? `Remove ${nameOf(s)} from compare` : `Compare ${nameOf(s)} with other shades`}
                       title={comparing ? "Remove from compare" : compareCodes.length >= COMPARE_MAX ? `Compare is full (${COMPARE_MAX})` : "Add to compare"}
                       style={comparing ? { color: "var(--accent)", borderColor: "var(--accent)" } : undefined}
                     >
@@ -315,7 +324,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
                       type="button"
                       className="hv-card-action"
                       onClick={() => setFanShade(s)}
-                      aria-label={`Open the lighter-to-darker strip around ${s.name}, with a full-screen hold-to-wall view`}
+                      aria-label={`Open the lighter-to-darker strip around ${nameOf(s)}, with a full-screen hold-to-wall view`}
                       title="Shade strip · hold to wall"
                     >
                       ☰

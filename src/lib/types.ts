@@ -281,6 +281,10 @@ export interface ProjectDetail {
   /** Shared/public view only: brand names the retailer opened for the share
    *  viewer's repaint palette. Empty = every brand. */
   sharedBrands?: string[] | null;
+  /** Shared/public view only: how the issuing shop presents a colour — its code
+   *  pattern and whether paint names show. Travels with the project because the
+   *  share viewer has no session to resolve it from. */
+  shadeCodeScheme?: import("./shade-codes").ShadeCodeScheme | null;
   /** When the customer sent the project to the issuing shop; null until then. */
   sentToShopAt?: string | null;
   createdAt?: string;

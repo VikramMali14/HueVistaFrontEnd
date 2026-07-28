@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { lightShift, LIGHT_SHIFT_BADGE, undertoneClash } from "@/lib/color-science";
+import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import { UndertoneTag } from "./undertone-tag";
 import { FullscreenSwatch } from "./fullscreen-swatch";
 import type { PaintShade } from "@/lib/types";
@@ -21,6 +22,8 @@ export function CompareTray({
   onClear: () => void;
   onOpen: () => void;
 }) {
+  // Before the early return — hooks can't hide behind a condition.
+  const { nameOf } = useShadeLabels();
   if (shades.length === 0) return null;
   return (
     <div
@@ -50,8 +53,8 @@ export function CompareTray({
             key={s.code}
             type="button"
             onClick={() => onRemove(s.code)}
-            title={`Remove ${s.name} from compare`}
-            aria-label={`Remove ${s.name} from compare`}
+            title={`Remove ${nameOf(s)} from compare`}
+            aria-label={`Remove ${nameOf(s)} from compare`}
             style={{ width: 30, height: 30, minHeight: 30, borderRadius: 6, background: s.hex, border: "1px solid var(--rule-strong)", cursor: "pointer", padding: 0 }}
           />
         ))}
@@ -90,17 +93,18 @@ export function CompareOverlay({
   hideCodes?: boolean;
 }) {
   const [wall, setWall] = useState<ReadonlyArray<PaintShade> | null>(null);
+  const { showNames, codeOf, nameOf } = useShadeLabels();
 
   // Pairwise undertone check — surface the first fight we find.
   const clashNote = useMemo(() => {
     for (let i = 0; i < shades.length; i++) {
       for (let j = i + 1; j < shades.length; j++) {
         const v = undertoneClash(shades[i]!.hex, shades[j]!.hex);
-        if (v.clash) return `${shades[i]!.name} + ${shades[j]!.name}: ${v.reason}`;
+        if (v.clash) return `${nameOf(shades[i]!)} + ${nameOf(shades[j]!)}: ${v.reason}`;
       }
     }
     return null;
-  }, [shades]);
+  }, [shades, nameOf]);
 
   if (wall) {
     return <FullscreenSwatch shades={wall} onClose={() => setWall(null)} hideCodes={hideCodes} />;
@@ -135,7 +139,7 @@ export function CompareOverlay({
                 type="button"
                 className="hv-compare-swatch"
                 onClick={() => setWall([s])}
-                aria-label={`View ${s.name} full screen`}
+                aria-label={`View ${nameOf(s)} full screen`}
                 style={{ background: s.hex, border: "none", cursor: "pointer", position: "relative" }}
               >
                 <span style={{ position: "absolute", top: 12, left: 12, font: "400 10px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: ink, opacity: 0.8 }}>
@@ -143,8 +147,8 @@ export function CompareOverlay({
                 </span>
               </button>
               <div style={{ padding: "12px 12px 14px", display: "flex", flexDirection: "column", gap: 6, background: "var(--surface)" }}>
-                <span style={{ font: "600 14px/1.25 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span>
-                <Mono>{hideCodes ? s.brand : `${s.code} · ${s.brand}`}</Mono>
+                <span style={{ font: "600 14px/1.25 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis" }}>{nameOf(s)}</span>
+                <Mono>{hideCodes ? s.brand : `${codeOf(s.code)}${showNames ? ` · ${s.brand}` : ""}`}</Mono>
                 <UndertoneTag hex={s.hex} prefix />
                 {shift.score >= LIGHT_SHIFT_BADGE && (
                   <span title="This colour changes noticeably under a warm bulb" style={{ display: "inline-flex", alignItems: "center", gap: 6, font: "400 10px/1 var(--mono)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--fg-mute)" }}>

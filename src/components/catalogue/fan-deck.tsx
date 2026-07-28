@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { fanDeck } from "@/lib/color-science";
+import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import { UndertoneTag } from "./undertone-tag";
 import type { PaintShade } from "@/lib/types";
 
@@ -21,6 +22,8 @@ interface FanDeckProps {
  * exactly how retailers flip a physical shade card at the counter.
  */
 export function FanDeck({ shade, catalogue, onClose, onHoldToWall, hideCodes = false }: FanDeckProps) {
+  // The strip is read at the counter, so it carries the shop's numbering.
+  const { codeOf, nameOf } = useShadeLabels();
   const strip = useMemo(() => fanDeck(shade, catalogue, 9), [shade, catalogue]);
   const [focusCode, setFocusCode] = useState(shade.code);
   const focusIdx = Math.max(0, strip.findIndex((s) => s.code === focusCode));
@@ -44,7 +47,7 @@ export function FanDeck({ shade, catalogue, onClose, onHoldToWall, hideCodes = f
   return (
     <div
       role="dialog"
-      aria-label={`Shade strip around ${shade.name}`}
+      aria-label={`Shade strip around ${nameOf(shade)}`}
       style={{ position: "fixed", inset: 0, zIndex: 180, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}
     >
       <button type="button" aria-label="Close shade strip" onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(8,8,7,.6)", border: "none", cursor: "pointer" }} />
@@ -100,10 +103,10 @@ export function FanDeck({ shade, catalogue, onClose, onHoldToWall, hideCodes = f
                   textAlign: "left",
                 }}
               >
-                <span style={{ font: `${isFocus ? 600 : 500} 14px/1.2 var(--sans)`, color: ink }}>{s.name}</span>
+                <span style={{ font: `${isFocus ? 600 : 500} 14px/1.2 var(--sans)`, color: ink }}>{nameOf(s)}</span>
                 {!hideCodes && (
                   <span style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".14em", color: ink, opacity: 0.85, whiteSpace: "nowrap" }}>
-                    {s.code}
+                    {codeOf(s.code)}
                   </span>
                 )}
               </button>
@@ -113,7 +116,7 @@ export function FanDeck({ shade, catalogue, onClose, onHoldToWall, hideCodes = f
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, rowGap: 10, flexWrap: "wrap", padding: "12px 16px", borderTop: "1px solid var(--rule)", background: "var(--surface-soft)" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-            <span style={{ font: "600 14px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{focused.name}</span>
+            <span style={{ font: "600 14px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nameOf(focused)}</span>
             <UndertoneTag hex={focused.hex} prefix />
           </div>
           {onHoldToWall && (

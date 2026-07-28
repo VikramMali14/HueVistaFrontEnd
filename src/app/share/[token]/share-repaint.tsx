@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import type { RecolorEngine } from "@/lib/recolor-engine";
@@ -29,6 +30,12 @@ interface ShareRepaintProps {
   brands: ReadonlyArray<RepaintBrand>;
   /** Public backend origin the browser can fetch the shade catalogue from. */
   apiOrigin: string;
+  /**
+   * How the issuing shop presents a colour — its code pattern and whether paint
+   * names show. Travels with the shared project because this viewer has no
+   * session to resolve it from. Absent = no shop pattern, names shown.
+   */
+  scheme?: ShadeCodeScheme | null;
 }
 
 interface CatalogShade {
@@ -44,6 +51,8 @@ interface AppliedPaint {
   hex: string;
   shadeName: string | null;
   brandName: string | null;
+  /** The shop's own code for this colour, when the shop runs a pattern. */
+  shopCode: string | null;
 }
 
 // Mirrors the studio's always-on shadow preservation so the repaint looks
@@ -81,7 +90,21 @@ const chipStyle = (active: boolean): React.CSSProperties => ({
  * image or every mask fails, the plain photo (with the retailer's colours when
  * renderable) remains, and the picker hides.
  */
-export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrigin }: ShareRepaintProps) {
+export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrigin, scheme }: ShareRepaintProps) {
+  // The shop's presentation, carried in with the project. A shop that hides paint
+  // names hides them here too — this page is a link forwarded to whoever the
+  // customer likes, so it is the last screen that should still be naming the
+  // paint company's colours. Where the shop runs its own numbering, that code
+  // stands in for the name: it means nothing at another counter, which is the
+  // point of a share link.
+  const showNames = scheme?.showNames !== false;
+  const patterned = hasScheme(scheme ?? undefined);
+  const shopCodeOf = (code?: string | null) =>
+    patterned && code ? encodeShadeCode(scheme!, code) : null;
+  /** How a colour reads here: its name while the shop shows names, its shop code
+   *  where the shop runs one, both when both apply, and nothing when neither. */
+  const labelFor = (name?: string | null, code?: string | null) =>
+    [showNames ? name : null, shopCodeOf(code)].filter(Boolean).join(" · ") || null;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<RecolorEngine | null>(null);
   const baseRef = useRef<HTMLImageElement | null>(null);
@@ -102,7 +125,7 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
   const initialPaints = useMemo(() => {
     const map: Record<number, AppliedPaint | null> = {};
     for (const r of regions) {
-      map[r.id] = r.initialHex ? { hex: r.initialHex, shadeName: null, brandName: null } : null;
+      map[r.id] = r.initialHex ? { hex: r.initialHex, shadeName: null, brandName: null, shopCode: null } : null;
     }
     return map;
   }, [regions]);
@@ -219,7 +242,12 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
     const brandName = shade.brandName ?? brands.find((b) => b.slug === activeBrand)?.name ?? null;
     const next: Record<number, AppliedPaint | null> = {
       ...paints,
-      [selectedId]: { hex: shade.hexCode, shadeName: shade.name ?? null, brandName },
+      [selectedId]: {
+        hex: shade.hexCode,
+        shadeName: shade.name ?? null,
+        brandName,
+        shopCode: shopCodeOf(shade.shadeCode),
+      },
     };
     setPaints(next);
     setShowOriginal(false);
@@ -234,9 +262,14 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
 
   const activeShades = activeBrand ? shadesByBrand[activeBrand] : undefined;
   const q = query.trim().toLowerCase();
-  const visibleShades = (activeShades ?? []).filter(
-    (s) => !q || (s.name ?? "").toLowerCase().includes(q) || (s.shadeFamily ?? "").toLowerCase().includes(q),
-  );
+  // Search what the viewer can read: names while they are shown, and the shop's
+  // own code once it stands in for them.
+  const visibleShades = (activeShades ?? []).filter((s) => {
+    if (!q) return true;
+    if (showNames && (s.name ?? "").toLowerCase().includes(q)) return true;
+    if ((shopCodeOf(s.shadeCode) ?? "").toLowerCase().includes(q)) return true;
+    return (s.shadeFamily ?? "").toLowerCase().includes(q);
+  });
   const changed = paintableIds.some((id) => paints[id] !== initialPaints[id]);
   const paletteRows = regions
     .filter((r) => paints[r.id])
@@ -315,9 +348,9 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
                   {region.label || "Wall"}
                 </span>
                 <span style={{ font: "400 13px/1.2 var(--sans)", color: "var(--fg-mute)" }}>
-                  {paint.shadeName
-                    ? `${paint.shadeName}${paint.brandName ? ` · ${paint.brandName}` : ""}`
-                    : "Retailer's pick"}
+                  {showNames && paint.shadeName
+                    ? [paint.shadeName, paint.brandName, paint.shopCode].filter(Boolean).join(" · ")
+                    : (paint.shopCode ?? "Retailer's pick")}
                 </span>
               </div>
             ))}
@@ -420,8 +453,8 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
                         key={`${s.shadeCode ?? s.name ?? "shade"}-${i}`}
                         type="button"
                         onClick={() => applyShade(s)}
-                        title={s.name ?? undefined}
-                        aria-label={s.name ?? "Colour"}
+                        title={labelFor(s.name, s.shadeCode) ?? undefined}
+                        aria-label={labelFor(s.name, s.shadeCode) ?? "Colour"}
                         style={{
                           aspectRatio: "1 / 1",
                           background: s.hexCode,
@@ -443,8 +476,9 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
             )}
 
             <p style={{ marginTop: 18, font: "400 13px/1.6 var(--serif)", color: "var(--fg-mute)" }}>
-              Shade codes are kept with your retailer — visit them with your favourite look to
-              order the exact colours.
+              {patterned
+                ? "These are your retailer's own colour codes — take your favourite look to them to order the exact paint."
+                : "Shade codes are kept with your retailer — visit them with your favourite look to order the exact colours."}
             </p>
           </>
         )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import type { PaintShade } from "@/lib/types";
 
 interface FullscreenSwatchProps {
@@ -18,6 +19,8 @@ interface FullscreenSwatchProps {
  * tapping the colour leaves.
  */
 export function FullscreenSwatch({ shades, onClose, hideCodes = false }: FullscreenSwatchProps) {
+  // Held against a real wall in a real shop — so it says what that shop says.
+  const { codeOf, nameOf } = useShadeLabels();
   const pair = shades.slice(0, 2);
 
   useEffect(() => {
@@ -60,10 +63,10 @@ export function FullscreenSwatch({ shades, onClose, hideCodes = false }: Fullscr
               color: "rgba(247,247,245,.92)",
             }}
           >
-            <span style={{ font: "600 16px/1.2 var(--sans)" }}>{s.name}</span>
+            <span style={{ font: "600 16px/1.2 var(--sans)" }}>{nameOf(s)}</span>
             {!hideCodes && (
               <span style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", opacity: 0.8 }}>
-                {s.code}
+                {codeOf(s.code)}
               </span>
             )}
           </div>

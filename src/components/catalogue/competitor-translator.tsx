@@ -5,6 +5,7 @@ import { Mono } from "@/components/ui/eyebrow";
 import { nearestShades } from "@/lib/color";
 import { closenessRating } from "@/lib/color-science";
 import { findCompetitorShade, type CompetitorShade } from "@/lib/competitor-shades";
+import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import type { PaintShade } from "@/lib/types";
 
 interface Translation {
@@ -21,6 +22,8 @@ interface Translation {
  * three nearest catalogue shades with an honest closeness rating.
  */
 export function CompetitorTranslator({ shades }: { shades: ReadonlyArray<PaintShade> }) {
+  // Colours read under the shop's own numbering when there is one.
+  const { showNames, codeOf, nameOf } = useShadeLabels();
   const [code, setCode] = useState("");
   const [hex, setHex] = useState("#b46a4a");
   const [unknownCode, setUnknownCode] = useState<string | null>(null);
@@ -36,7 +39,7 @@ export function CompetitorTranslator({ shades }: { shades: ReadonlyArray<PaintSh
     if (!q) return;
     const hit: CompetitorShade | undefined = findCompetitorShade(q);
     if (hit) {
-      translate({ label: `${hit.brand} ${hit.code} · ${hit.name}`, hex: hit.hex, fromSample: true });
+      translate({ label: `${hit.brand} ${codeOf(hit.code)}${showNames ? ` · ${hit.name}` : ""}`, hex: hit.hex, fromSample: true });
     } else {
       setOut(null);
       setUnknownCode(q);
@@ -114,8 +117,8 @@ export function CompetitorTranslator({ shades }: { shades: ReadonlyArray<PaintSh
               return (
                 <div key={r.shade.code} style={{ width: 150 }}>
                   <div style={{ aspectRatio: "1 / 0.8", background: r.shade.hex, border: "1px solid var(--rule-strong)", borderRadius: 6 }} />
-                  <div style={{ marginTop: 8, font: "500 14px/1.25 var(--sans)", color: "var(--fg)" }}>{r.shade.name}</div>
-                  <Mono>{r.shade.code}</Mono>
+                  <div style={{ marginTop: 8, font: "500 14px/1.25 var(--sans)", color: "var(--fg)" }}>{nameOf(r.shade)}</div>
+                  <Mono>{codeOf(r.shade.code)}</Mono>
                   <div
                     style={{
                       marginTop: 6,

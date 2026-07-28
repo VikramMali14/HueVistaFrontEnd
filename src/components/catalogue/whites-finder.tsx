@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { isWhiteShade, whiteTint, WHITE_TINTS, type WhiteTint } from "@/lib/color-science";
 import { FullscreenSwatch } from "./fullscreen-swatch";
+import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import type { PaintShade } from "@/lib/types";
 
 const TINT_LABELS: Record<WhiteTint, string> = {
@@ -20,6 +21,8 @@ const TINT_LABELS: Record<WhiteTint, string> = {
  * them — the only way phone eyes can really tell two whites apart.
  */
 export function WhitesFinder({ shades }: { shades: ReadonlyArray<PaintShade> }) {
+  // Colours read under the shop's own numbering when there is one.
+  const { codeOf, nameOf } = useShadeLabels();
   const [tint, setTint] = useState<WhiteTint | "all">("all");
   const [picked, setPicked] = useState<PaintShade[]>([]);
   const [abOpen, setAbOpen] = useState(false);
@@ -79,7 +82,7 @@ export function WhitesFinder({ shades }: { shades: ReadonlyArray<PaintShade> }) 
               type="button"
               onClick={() => togglePick(s)}
               aria-pressed={sel}
-              aria-label={`${s.name}, ${TINT_LABELS[whiteTint(s.hex)]}. ${sel ? "Remove from" : "Add to"} A/B compare.`}
+              aria-label={`${nameOf(s)}, ${TINT_LABELS[whiteTint(s.hex)]}. ${sel ? "Remove from" : "Add to"} A/B compare.`}
               style={{ display: "block", padding: 0, background: "transparent", border: "none", textAlign: "left", cursor: "pointer" }}
             >
               <div
@@ -100,8 +103,8 @@ export function WhitesFinder({ shades }: { shades: ReadonlyArray<PaintShade> }) 
                 )}
               </div>
               <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
-                <span style={{ font: "500 14px/1.2 var(--sans)", color: "var(--fg)" }}>{s.name}</span>
-                <Mono>{whiteTint(s.hex)} · {s.code}</Mono>
+                <span style={{ font: "500 14px/1.2 var(--sans)", color: "var(--fg)" }}>{nameOf(s)}</span>
+                <Mono>{whiteTint(s.hex)} · {codeOf(s.code)}</Mono>
               </div>
             </button>
           );
@@ -112,7 +115,7 @@ export function WhitesFinder({ shades }: { shades: ReadonlyArray<PaintShade> }) 
         <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6 }}>
             {picked.map((s) => (
-              <span key={s.code} title={s.name} style={{ width: 34, height: 34, borderRadius: 6, background: s.hex, border: "1px solid var(--rule-strong)", display: "inline-block" }} />
+              <span key={s.code} title={nameOf(s)} style={{ width: 34, height: 34, borderRadius: 6, background: s.hex, border: "1px solid var(--rule-strong)", display: "inline-block" }} />
             ))}
           </div>
           <button type="button" className="btn btn-sm" disabled={picked.length < 2} onClick={() => setAbOpen(true)}>

@@ -111,6 +111,35 @@ interface ShadeGridProps {
  * the dock — selected colour, its tips and the recent strip — stays pinned at
  * the bottom, so tapping any swatch anywhere gives feedback in the same spot.
  */
+/**
+ * Does this shade answer the typed query?
+ *
+ * Search has to match what is ON SCREEN. Under a shop's pattern the encoded code
+ * is the only one shown, so matching the manufacturer's alone would make the one
+ * code the user can read the one code that finds nothing. Names are searchable
+ * only while they are visible — matching a name the shop hides would answer
+ * questions about it the shop chose not to answer.
+ *
+ * An empty query matches everything, so the grid is the whole catalogue until
+ * someone types.
+ */
+export function matchesQuery(
+  shade: { name: string; code: string; hex: string },
+  query: string,
+  {
+    hideCodes = false,
+    hideNames = false,
+    encodeCode,
+  }: { hideCodes?: boolean; hideNames?: boolean; encodeCode?: (code: string) => string } = {},
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (encodeCode && encodeCode(shade.code).toLowerCase().includes(q)) return true;
+  if (!hideNames && shade.name.toLowerCase().includes(q)) return true;
+  if (!hideCodes && shade.code.toLowerCase().includes(q)) return true;
+  return shade.hex.toLowerCase().includes(q);
+}
+
 export function ShadeGrid({
   selected,
   onSelect,
@@ -189,10 +218,9 @@ export function ShadeGrid({
       if (family !== "All" && s.family !== family) return false;
       if (tone !== "All" && toneOf(s.lrv) !== tone) return false;
       if (selectedBrands.size > 0 && !selectedBrands.has(s.brand)) return false;
-      if (!q) return true;
-      return s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.hex.toLowerCase().includes(q);
+      return matchesQuery(s, q, { hideCodes, hideNames, encodeCode });
     });
-  }, [catalogue, family, tone, selectedBrands, deferredQuery]);
+  }, [catalogue, family, tone, selectedBrands, deferredQuery, encodeCode, hideCodes, hideNames]);
 
   const top = useMemo(() => shown.slice(0, TOP_N), [shown]);
 
@@ -731,7 +759,7 @@ function SelectionDock({
                 {pairing.ceiling && (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 7, font: "400 12px/1.2 var(--sans)", color: "var(--fg-soft)" }}>
                     <span aria-hidden style={{ width: 16, height: 16, borderRadius: 4, background: pairing.ceiling.hex, border: "1px solid var(--rule-strong)" }} />
-                    Ceiling: {pairing.ceiling.name}{codeLabel(pairing.ceiling.code) ? ` · ${codeLabel(pairing.ceiling.code)}` : ""}
+                    Ceiling: {nameLabel(pairing.ceiling)}{!hideNames && codeLabel(pairing.ceiling.code) ? ` · ${codeLabel(pairing.ceiling.code)}` : ""}
                   </span>
                 )}
                 {pairing.trim && (
@@ -767,8 +795,8 @@ function SelectionDock({
             type="button"
             onClick={() => lighter && onSelectShade(lighter)}
             disabled={!lighter}
-            title={lighter ? `One step lighter: ${lighter.name}` : "No lighter step in this family"}
-            aria-label={lighter ? `Apply one step lighter, ${lighter.name}` : "No lighter step"}
+            title={lighter ? `One step lighter${nameLabel(lighter) ? `: ${nameLabel(lighter)}` : ""}` : "No lighter step in this family"}
+            aria-label={lighter ? `Apply one step lighter${nameLabel(lighter) ? `, ${nameLabel(lighter)}` : ""}` : "No lighter step"}
             className="hv-studio-step"
           >
             ↑
@@ -777,8 +805,8 @@ function SelectionDock({
             type="button"
             onClick={() => darker && onSelectShade(darker)}
             disabled={!darker}
-            title={darker ? `One step darker: ${darker.name}` : "No darker step in this family"}
-            aria-label={darker ? `Apply one step darker, ${darker.name}` : "No darker step"}
+            title={darker ? `One step darker${nameLabel(darker) ? `: ${nameLabel(darker)}` : ""}` : "No darker step in this family"}
+            aria-label={darker ? `Apply one step darker${nameLabel(darker) ? `, ${nameLabel(darker)}` : ""}` : "No darker step"}
             className="hv-studio-step"
           >
             ↓
