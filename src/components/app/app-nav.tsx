@@ -7,6 +7,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { canUsePath } from "@/lib/features";
+import { syncShadeCodeSchemeIdentity } from "@/hooks/use-shade-code-scheme";
 import type { AuthUser, MyAccess } from "@/lib/types";
 
 const TABS = [
@@ -33,6 +34,13 @@ interface AppNavProps {
 }
 
 export function AppNav({ user, access = null }: AppNavProps) {
+  // The shop's shade-code pattern is cached at module scope and nothing was clearing it,
+  // so it survived a sign-out: the next account in the same tab rendered its colours with
+  // the previous shop's numbering (and its "hide paint names" choice). Done during render
+  // rather than in an effect because this bar renders before the page below it, and the
+  // page's swatches must not read the outgoing account's answer first. Idempotent.
+  syncShadeCodeSchemeIdentity(user?.id ?? null);
+
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   // Studio mode: the workspace owns the whole viewport, so the navbar becomes

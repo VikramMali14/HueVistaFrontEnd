@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { contact } from "@/lib/config";
 
 const COLUMNS = [
   {
@@ -15,7 +16,7 @@ const COLUMNS = [
     links: [
       { href: "/work", label: "Our work" },
       { href: "/journal", label: "Journal" },
-      { href: "mailto:hello@huevista.com", label: "Contact" },
+      { href: `mailto:${contact.general}`, label: "Contact" },
     ],
   },
 ] as const;
@@ -37,7 +38,7 @@ export function Footer() {
             <div>Proprietor: Vikram Mali</div>
             <div>Mount Road, Manpur, Abu Road,<br />Sirohi, Rajasthan 307026, India</div>
             <div style={{ marginTop: 6 }}>
-              <a href="mailto:hello@huevista.com" style={{ color: "inherit" }}>hello@huevista.com</a>
+              <a href={`mailto:${contact.general}`} style={{ color: "inherit" }}>{contact.general}</a>
             </div>
           </address>
         </div>

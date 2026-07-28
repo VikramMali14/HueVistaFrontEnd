@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { contact } from "@/lib/config";
 import Link from "next/link";
 import { Marquee } from "@/components/layout/marquee";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -179,7 +180,7 @@ export default async function PricingPage() {
               <p style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", marginTop: 32 }}>
                 If your question isn't here, write to us. We answer within an afternoon.
               </p>
-              <a href="mailto:hello@huevista.com?subject=Shop%20account" className="text-link" style={{ marginTop: 32, display: "inline-block" }}>Write to us &nbsp;→</a>
+              <a href={`mailto:${contact.general}?subject=Shop%20account`} className="text-link" style={{ marginTop: 32, display: "inline-block" }}>Write to us &nbsp;→</a>
             </div>
             <PricingFaq />
           </div>
