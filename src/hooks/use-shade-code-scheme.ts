@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import type { ShadeCodeScheme } from "@/lib/shade-codes";
+import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 
 /**
  * The shop's way of presenting a colour, for any client component that shows one.
@@ -50,4 +50,38 @@ export function useShadeCodeScheme(): ShadeCodeScheme | null {
   }, []);
 
   return scheme;
+}
+
+export interface ShadeLabels {
+  /** True when the shop has a pattern — its codes replace the manufacturer's. */
+  patterned: boolean;
+  /** False when this shop hides paint names wherever a colour is shown. */
+  showNames: boolean;
+  /** The code to print for a real shade code. */
+  codeOf: (code: string) => string;
+  /** The name to print for a shade — its code when names are hidden. */
+  nameOf: (shade: { name: string; code: string }) => string;
+}
+
+/**
+ * How to label a colour on any screen under this shop.
+ *
+ * One place to ask, so a swatch reads the same in the studio, the finder, the
+ * catalogue and a saved board. A signed-out visitor gets the plain catalogue:
+ * they are not under any shop, so there is no pattern to apply and nothing to
+ * hide.
+ */
+export function useShadeLabels(): ShadeLabels {
+  const scheme = useShadeCodeScheme();
+  return useMemo(() => {
+    const patterned = hasScheme(scheme);
+    const showNames = scheme?.showNames !== false;
+    const codeOf = (code: string) => (patterned ? encodeShadeCode(scheme, code) : code);
+    return {
+      patterned,
+      showNames,
+      codeOf,
+      nameOf: (shade) => (showNames ? shade.name : codeOf(shade.code)),
+    };
+  }, [scheme]);
 }

@@ -4,6 +4,7 @@ import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { useCopied } from "@/hooks/use-copied";
 import { hexToHsv, hsvToHex } from "@/lib/color";
 import { findShadeByCode } from "@/lib/shades";
+import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import type { PaintShade } from "@/lib/types";
 
 interface Harmony {
@@ -42,6 +43,8 @@ const HARMONIES: ReadonlyArray<Harmony> = COMPOSITIONS.flatMap(({ num, name, cod
 });
 
 export function Harmonies() {
+  // Colours read under the shop's own numbering when there is one.
+  const { codeOf, nameOf } = useShadeLabels();
   const { copied, copy } = useCopied();
 
   return (
@@ -66,7 +69,7 @@ export function Harmonies() {
               <article key={h.num} className={`reveal d${i + 1}`} style={{ border: "1px solid var(--rule)", padding: 0 }}>
                 <div className="hv-harmony-stack" style={{ display: "flex", height: 300 }}>
                   {h.trio.map((s, j) => (
-                    <div key={s.code} title={`${s.name} · ${s.code}`} style={{ flex: j === 0 ? 2 : 1, background: `linear-gradient(160deg, ${s.hex}, ${deepen(s.hex)})` }} />
+                    <div key={s.code} title={`${nameOf(s)} · ${codeOf(s.code)}`} style={{ flex: j === 0 ? 2 : 1, background: `linear-gradient(160deg, ${s.hex}, ${deepen(s.hex)})` }} />
                   ))}
                 </div>
                 <div style={{ padding: 24 }}>

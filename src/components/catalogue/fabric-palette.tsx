@@ -8,6 +8,7 @@ import { chroma, pairCeilingAndTrim } from "@/lib/color-science";
 import { IMAGE_ACCEPT, drawScaledCanvas, imageFileError, loadImageFromFile } from "@/lib/image-upload";
 import { useCopied } from "@/hooks/use-copied";
 import { UndertoneTag } from "./undertone-tag";
+import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import type { PaintShade } from "@/lib/types";
 
 const MAX_DIM = 900;
@@ -29,6 +30,8 @@ interface Scheme {
  * Everything runs on-device; no AI credit is spent.
  */
 export function FabricPalette({ shades }: { shades: ReadonlyArray<PaintShade> }) {
+  // Colours read under the shop's own numbering when there is one.
+  const { showNames, codeOf, nameOf } = useShadeLabels();
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [scheme, setScheme] = useState<Scheme | null>(null);
@@ -74,10 +77,10 @@ export function FabricPalette({ shades }: { shades: ReadonlyArray<PaintShade> })
   const copyScheme = () => {
     if (!scheme) return;
     const lines = [
-      scheme.mainWall && `Main walls: ${scheme.mainWall.name} (${scheme.mainWall.code})`,
-      scheme.accentWall && `Accent wall: ${scheme.accentWall.name} (${scheme.accentWall.code})`,
-      scheme.ceiling && `Ceiling: ${scheme.ceiling.name} (${scheme.ceiling.code})`,
-      scheme.trim && `Trim: ${scheme.trim.name} (${scheme.trim.code})`,
+      scheme.mainWall && `Main walls: ${nameOf(scheme.mainWall)} (${codeOf(scheme.mainWall.code)})`,
+      scheme.accentWall && `Accent wall: ${nameOf(scheme.accentWall)} (${codeOf(scheme.accentWall.code)})`,
+      scheme.ceiling && `Ceiling: ${nameOf(scheme.ceiling)} (${codeOf(scheme.ceiling.code)})`,
+      scheme.trim && `Trim: ${nameOf(scheme.trim)} (${codeOf(scheme.trim.code)})`,
     ].filter(Boolean);
     copy("scheme", lines.join("\n"));
   };
@@ -127,9 +130,9 @@ export function FabricPalette({ shades }: { shades: ReadonlyArray<PaintShade> })
                   <span style={{ width: 56, height: 44, background: s.hex, border: "1px solid var(--rule-strong)", borderRadius: 6, flexShrink: 0 }} />
                   <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
                     <Mono>{label}</Mono>
-                    <span style={{ font: "600 15px/1.2 var(--sans)", color: "var(--fg)" }}>{s.name}</span>
+                    <span style={{ font: "600 15px/1.2 var(--sans)", color: "var(--fg)" }}>{nameOf(s)}</span>
                     <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                      <Mono>{s.code} · {s.brand}</Mono>
+                      <Mono>{codeOf(s.code)}{showNames ? ` · ${s.brand}` : ""}</Mono>
                       <UndertoneTag hex={s.hex} />
                     </span>
                   </div>

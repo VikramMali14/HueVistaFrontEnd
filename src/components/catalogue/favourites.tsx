@@ -12,6 +12,7 @@ import {
   toggleShade,
   type ShadeBoard,
 } from "@/lib/boards";
+import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import type { PaintShade } from "@/lib/types";
 
 /**
@@ -40,6 +41,7 @@ export function HeartButton({
   onSaved?: (boardName: string) => void;
 }) {
   const saved = isSaved(boards, shade.code);
+  const { nameOf } = useShadeLabels();
   const onClick = () => {
     if (saved) {
       // Remove from every board that has it — the heart means "saved at all".
@@ -58,7 +60,7 @@ export function HeartButton({
       type="button"
       onClick={onClick}
       aria-pressed={saved}
-      aria-label={saved ? `Remove ${shade.name} from your boards` : `Save ${shade.name} to a board`}
+      aria-label={saved ? `Remove ${nameOf(shade)} from your boards` : `Save ${nameOf(shade)} to a board`}
       title={saved ? "Remove from boards" : "Save to board"}
       className="hv-card-action"
     >
@@ -83,6 +85,8 @@ export function BoardsPanel({
   hideCodes?: boolean;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const labels = useShadeLabels();
+  const { codeOf, nameOf } = labels;
   const byCode = new Map(catalogue.map((s) => [s.code, s]));
 
   const shadesOf = (b: ShadeBoard): PaintShade[] =>
@@ -93,7 +97,7 @@ export function BoardsPanel({
     if (shades.length === 0) return;
     setBusy(b.id);
     try {
-      const blob = await renderBoardImage(b.name, shades, hideCodes);
+      const blob = await renderBoardImage(b.name, shades, hideCodes, labels);
       if (!blob) return;
       const file = new File([blob], `${b.name.replace(/[^\w\d-]+/g, "-").toLowerCase() || "board"}.png`, { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
@@ -159,13 +163,13 @@ export function BoardsPanel({
                     key={s.code}
                     type="button"
                     onClick={() => { toggleShade(b.id, s.code); refresh(); }}
-                    title={`${s.name} — tap to remove`}
-                    aria-label={`Remove ${s.name} from ${b.name}`}
+                    title={`${nameOf(s)} — tap to remove`}
+                    aria-label={`Remove ${nameOf(s)} from ${b.name}`}
                     style={{ display: "flex", flexDirection: "column", gap: 4, background: "transparent", border: "none", cursor: "pointer", padding: 0, width: 64 }}
                   >
                     <span style={{ display: "block", width: 64, height: 44, background: s.hex, border: "1px solid var(--rule-strong)", borderRadius: 6 }} />
                     <span style={{ font: "400 9px/1.3 var(--mono)", color: "var(--fg-mute)", textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>
-                      {hideCodes ? s.name : s.code}
+                      {hideCodes ? nameOf(s) : codeOf(s.code)}
                     </span>
                   </button>
                 ))}
@@ -188,6 +192,7 @@ async function renderBoardImage(
   name: string,
   shades: ReadonlyArray<PaintShade>,
   hideCodes: boolean,
+  { showNames, codeOf, nameOf }: ReturnType<typeof useShadeLabels>,
 ): Promise<Blob | null> {
   const W = 1080;
   const PAD = 64;
@@ -218,10 +223,14 @@ async function renderBoardImage(
     ctx.strokeRect(PAD + 0.5, y + 0.5, 219, ROW - 27);
     ctx.fillStyle = "#f4f4f2";
     ctx.font = "600 38px 'Inter', sans-serif";
-    ctx.fillText(s.name, PAD + 260, y + 56);
+    ctx.fillText(nameOf(s), PAD + 260, y + 56);
     ctx.fillStyle = "rgba(244,244,242,.55)";
     ctx.font = "400 26px 'IBM Plex Mono', monospace";
-    ctx.fillText(hideCodes ? s.brand : `${s.code} · ${s.brand}`, PAD + 260, y + 100);
+    ctx.fillText(
+      hideCodes ? s.brand : `${codeOf(s.code)}${showNames ? ` · ${s.brand}` : ""}`,
+      PAD + 260,
+      y + 100,
+    );
   });
 
   ctx.fillStyle = "rgba(244,244,242,.4)";
