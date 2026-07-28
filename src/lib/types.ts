@@ -568,6 +568,8 @@ export interface ProjectReopenResult {
   /** True while a live subscription is holding the window — the paid days are banked. */
   paused: boolean;
   amountPaise: number;
+  /** Points spent instead, when the reopen was paid from the reward balance. */
+  pointsSpent?: number;
   daysAdded: number;
 }
 
@@ -633,7 +635,7 @@ export interface StoreLink {
   active: boolean;
   createdAt?: string | null;
   /** Points the shop earns per sale — its reward, in place of a share of the price. */
-  bonusPointsPaise?: number;
+  bonusPoints?: number;
 }
 
 /** What an anonymous kiosk visitor sees for a store link (backend StorePublicInfoResponse). */
@@ -679,21 +681,61 @@ export interface StoreCheckoutResult {
 export interface WalletSummary {
   organizationId: string;
   currency: string;
-  /** Spendable now. Read from the owner's billing wallet, so it includes any top-up too. */
-  pointsBalancePaise: number;
+  /** Spendable now, from the owner's point ledger. Below the lifetime figure once
+   *  batches have been spent or have expired. */
+  pointsBalance: number;
   /** Every point this kiosk has ever earned, refunded sales excluded. */
-  lifetimePointsEarnedPaise: number;
+  lifetimePointsEarned: number;
   /** What one sale earns the shop right now. */
-  pointsPerSalePaise: number;
-  /** What a walk-in pays right now. */
+  pointsPerSale: number;
+  /** What a walk-in pays right now, in paise. */
   kioskPricePaise: number;
   recentPayments: Array<{
     id: string;
     amountPaise: number;
-    bonusPointsPaise: number;
+    bonusPoints: number;
     reversed: boolean;
     code?: string | null;
     createdAt?: string | null;
+  }>;
+}
+
+/**
+ * A shop's reward-point standing (backend RewardPointsSummaryResponse).
+ *
+ * Carries no rupee figure on purpose: points buy at their own prices, and a "worth ₹X"
+ * would invite treating them as cash, which is the one thing they are not.
+ */
+export interface RewardPointsSummary {
+  /** Spendable now — live batches less any refund shortfall still being earned back. */
+  balance: number;
+  pointsPerSale: number;
+  /** How long a batch lasts from the day it is earned. */
+  validityDays: number;
+  /** How many days before expiry the warning email goes out. */
+  expiryWarningDays: number;
+  /** What each purchase costs, in points. */
+  imagePrice: number;
+  autoMaskPrice: number;
+  projectPrice: number;
+  reopenPrice: number;
+  /** The next batch to expire. Null when the shop holds none. */
+  nextExpiringPoints?: number | null;
+  nextExpiryAt?: string | null;
+  /** Every live batch, soonest expiry first. */
+  lots: Array<{ id: string; pointsRemaining: number; expiresAt: string }>;
+  recentActivity: Array<{
+    id: string;
+    points: number;
+    type:
+      | "KIOSK_EARNED"
+      | "KIOSK_REVERSED"
+      | "EXPIRED"
+      | "SPENT_ON_IMAGE"
+      | "SPENT_ON_AUTO_MASK"
+      | "SPENT_ON_PROJECT"
+      | "SPENT_ON_PROJECT_REOPEN";
+    createdAt: string;
   }>;
 }
 
@@ -768,8 +810,6 @@ export interface BillingWalletTransaction {
   id: string;
   type:
     | "TOPUP"
-    | "KIOSK_BONUS"
-    | "KIOSK_BONUS_REVERSAL"
     | "EXTRA_IMAGE"
     | "EXTRA_AUTO_MASK"
     | "PROJECT_CREDIT"
@@ -780,9 +820,11 @@ export interface BillingWalletTransaction {
 }
 
 /**
- * The prepaid billing wallet (GET /api/billing/wallet) — also the shop's reward-point
- * balance, deliberately the same pot. Filled by Razorpay top-up or by kiosk sales, and
- * spent on pay-per-use overage, whole projects and project reopens. Never withdrawable.
+ * The prepaid billing wallet (GET /api/billing/wallet): RUPEES added by Razorpay top-up
+ * and spent at rupee prices on overage, projects and reopens. Never withdrawable.
+ *
+ * Reward points are a separate ledger ({@link RewardPointsSummary}) with its own prices
+ * and a one-year expiry — the two are shown side by side, never merged.
  */
 export interface BillingWalletSummary {
   balancePaise: number;

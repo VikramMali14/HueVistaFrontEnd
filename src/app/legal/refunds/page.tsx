@@ -5,7 +5,7 @@ import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 
 export const metadata: Metadata = {
   title: "Refund & Cancellation Policy",
-  description: "How subscriptions, wallet credit and pay-per-use charges are cancelled and refunded on HueVista.",
+  description: "How subscriptions, wallet credit, reward points and pay-per-use charges are cancelled and refunded on HueVista.",
 };
 
 const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
@@ -26,20 +26,24 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
     p: "Upgrading to a higher tier starts immediately with a fresh quota, and your previous plan is cancelled automatically so you are never billed twice. To move to a smaller plan, cancel your current one — it stays active until the period ends — and subscribe to the smaller tier after that. Plan changes do not generate a refund.",
   },
   {
-    h: "5 · Wallet credit and reward points",
-    p: "Amounts added to your prepaid wallet are usage credit, not a deposit. Reward points earned when a customer buys a visualisation through your in-store kiosk link are added to the same balance, at one point per rupee. Both are used to pay for extra images, AI auto-masks and projects. Neither expires, and neither is refundable or withdrawable — they cannot be converted back to cash or transferred. Where a kiosk payment is refunded to the customer, the points that sale earned are removed from your balance.",
+    h: "5 · Wallet credit",
+    p: "Amounts added to your prepaid wallet are usage credit, not a deposit. Wallet credit pays for extra images, AI auto-masks, projects and project reopens at the rupee prices shown at the time of purchase. It does not expire, but it is non-refundable and non-withdrawable — it cannot be converted back to cash or transferred.",
   },
   {
-    h: "6 · Pay-per-use charges",
+    h: "6 · Reward points",
+    p: "Reward points are earned by paint shops when a customer buys a visualisation through the shop's in-store kiosk link. Points are a loyalty benefit, not money and not a purchase: they are granted at no charge, have no cash value, cannot be bought, sold, transferred or withdrawn, and are available to shop accounts only. They are spent at a published price list in points, which is separate from our rupee prices and may be changed with notice. Points expire one year from the day they are earned; we email you ten days before a batch expires and again on the day itself, and spending always uses the oldest points first. Where a kiosk payment is refunded to the customer, the points that sale earned are removed — if they have already been spent, the shortfall is set against points earned later. Expired points are not reinstated and are not refundable in any form.",
+  },
+  {
+    h: "7 · Pay-per-use charges",
     p: "Extra images and AI auto-masks purchased beyond your plan allowance are consumed on use and do not expire. Once a charge has been applied and the corresponding image or auto-mask has been delivered, it is non-refundable. Where a run fails on our side, the credit for that run is returned to you automatically at no charge.",
   },
   {
-    h: "7 · Duplicate or erroneous charges",
+    h: "8 · Duplicate or erroneous charges",
     p: "If you believe you have been charged in error — for example a duplicate payment or a charge for a service that was never delivered — write to us within 7 days of the transaction with your payment reference. Verified erroneous charges are refunded to the original payment method, typically within 5–7 business days once approved.",
   },
   {
-    h: "8 · How to reach us",
-    p: "For any cancellation, billing or refund question, use the in-app support chat or write to hello@huevista.com with your account and payment details. We reply within one business day.",
+    h: "9 · How to reach us",
+    p: "For any cancellation, billing or refund question, use the in-app support chat or write to payments@huevista.com with your account and payment details. We reply within one business day. Postal enquiries: HueVista, Proprietor Vikram Mali, Mount Road, Manpur, Abu Road, Sirohi, Rajasthan 307026, India. Phone: +91 63784 82381.",
   },
 ];
 

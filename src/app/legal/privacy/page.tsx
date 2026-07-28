@@ -39,7 +39,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "Contact",
-    p: "Privacy questions? Reach us through the in-app support chat, or write to hello@huevista.com.",
+    p: "HueVista is a sole proprietorship of Vikram Mali, Mount Road, Manpur, Abu Road, Sirohi, Rajasthan 307026, India — the data controller for the information described here. Privacy questions, or a request to access or delete your data? Reach us through the in-app support chat, write to hello@huevista.com, or call +91 63784 82381.",
   },
 ];
 

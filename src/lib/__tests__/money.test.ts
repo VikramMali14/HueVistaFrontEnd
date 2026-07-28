@@ -41,17 +41,17 @@ describe("parseRupeesToPaise", () => {
 });
 
 describe("formatPoints", () => {
-  it("reads a paise balance as whole points — 1 point = ₹1", () => {
-    expect(formatPoints(3900)).toBe("39 points");
-    expect(formatPoints(11_700)).toBe("117 points");
+  it("reads whole points, not a rupee amount", () => {
+    expect(formatPoints(30)).toBe("30 points");
+    expect(formatPoints(117)).toBe("117 points");
   });
 
   it("singularises one point", () => {
-    expect(formatPoints(100)).toBe("1 point");
+    expect(formatPoints(1)).toBe("1 point");
   });
 
   it("groups large balances Indian-style", () => {
-    expect(formatPoints(10_00_000_00)).toBe("10,00,000 points");
+    expect(formatPoints(1_00_000)).toBe("1,00,000 points");
   });
 
   it("shows nothing earned as zero rather than a blank", () => {

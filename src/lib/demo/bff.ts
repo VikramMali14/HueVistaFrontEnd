@@ -557,7 +557,7 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
         organizationName: org?.name ?? "Mehta Paints",
         // Platform-set, not shop-set — the shop earns points, not a share.
         pricePaise: store.wallet.kioskPricePaise,
-        bonusPointsPaise: store.wallet.pointsPerSalePaise,
+        bonusPoints: store.wallet.pointsPerSale,
         currency: "INR",
         validDays: Number(body.validDays ?? 7),
         active: true,

@@ -2,8 +2,8 @@
  * Money helpers for the in-store kiosk feature. All backend amounts are paise;
  * all retailer-facing inputs are rupees.
  *
- * Reward points share the paise unit deliberately — one point is one rupee of spending
- * power inside HueVista — so the same formatter reads them.
+ * Reward points are NOT money and do not share the paise unit: they are whole points
+ * bought at their own price list, so they get their own formatter.
  */
 
 /** "₹79" / "₹79.50" from paise. */
@@ -12,9 +12,8 @@ export function formatRupees(paise: number): string {
   return `₹${Number.isInteger(rupees) ? rupees.toLocaleString("en-IN") : rupees.toFixed(2)}`;
 }
 
-/** "39 points" from paise of point value — 1 point = ₹1 = 100 paise. */
-export function formatPoints(paise: number): string {
-  const points = Math.round(paise / 100);
+/** "30 points" / "1 point". Points are whole units, never a rupee amount. */
+export function formatPoints(points: number): string {
   return `${points.toLocaleString("en-IN")} point${points === 1 ? "" : "s"}`;
 }
 

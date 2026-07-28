@@ -39,6 +39,10 @@ export const BFF_ALLOWED_PREFIXES = [
   // purchases, and the colour-board PDF allowance/downloads. Without these the
   // BFF answers 403 before the request ever reaches the backend.
   "api/billing/wallet",
+  // Kiosk reward points: balance, expiry schedule and the four things points buy.
+  // A separate prefix from the wallet because it is a separate ledger — own price
+  // list, one-year expiry, retailers only.
+  "api/billing/points",
   "api/billing/image-credits",
   "api/billing/pdf-allowance",
   "api/billing/pdf-downloads",

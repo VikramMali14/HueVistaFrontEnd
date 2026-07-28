@@ -173,24 +173,24 @@ export const DEMO_COMBOS: RetailerCombo[] = [
 // The slug matches DEMO_ORG so the URL the portal advertises (/store/<slug>)
 // actually renders in demo mode.
 export const DEMO_STORE_LINKS: StoreLink[] = [
-  { id: "sl_01", slug: "mehta-paints-7a3b", organizationId: "org_demo", organizationName: "Mehta Paints", pricePaise: 9_900, bonusPointsPaise: 3_900, currency: "INR", validDays: 7, active: true, createdAt: "2026-06-10T10:00:00+05:30" },
+  { id: "sl_01", slug: "mehta-paints-7a3b", organizationId: "org_demo", organizationName: "Mehta Paints", pricePaise: 9_900, bonusPoints: 30, currency: "INR", validDays: 7, active: true, createdAt: "2026-06-10T10:00:00+05:30" },
 ];
 
 /** Numbers are coherent with the backend's derivation: balance = earned − pending − redeemed.
- *  Each ₹99 kiosk sale is HueVista's in full and earns the shop 39 points. */
+ *  Each ₹99 kiosk sale is HueVista's in full and earns the shop 30 points. */
 export const DEMO_WALLET: WalletSummary = {
   organizationId: "org_demo",
   currency: "INR",
-  pointsBalancePaise: 11_700,        // 3 sales' worth still unspent
-  lifetimePointsEarnedPaise: 19_500, // 5 sales x 39 points
-  pointsPerSalePaise: 3_900,
+  pointsBalance: 90,          // 3 sales' worth still unspent
+  lifetimePointsEarned: 120,  // 4 non-refunded sales x 30 points
+  pointsPerSale: 30,
   kioskPricePaise: 9_900,
   recentPayments: [
-    { id: "sp_05", amountPaise: 9_900, bonusPointsPaise: 3_900, reversed: false, code: "MEHTA9105", createdAt: "2026-06-23T17:40:00+05:30" },
-    { id: "sp_04", amountPaise: 9_900, bonusPointsPaise: 3_900, reversed: false, code: "MEHTA9104", createdAt: "2026-06-22T12:15:00+05:30" },
-    { id: "sp_03", amountPaise: 9_900, bonusPointsPaise: 3_900, reversed: false, code: "MEHTA9103", createdAt: "2026-06-20T16:05:00+05:30" },
-    { id: "sp_02", amountPaise: 9_900, bonusPointsPaise: 3_900, reversed: true, code: "MEHTA9102", createdAt: "2026-06-17T11:30:00+05:30" },
-    { id: "sp_01", amountPaise: 9_900, bonusPointsPaise: 3_900, reversed: false, code: "MEHTA9101", createdAt: "2026-06-14T13:00:00+05:30" },
+    { id: "sp_05", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9105", createdAt: "2026-06-23T17:40:00+05:30" },
+    { id: "sp_04", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9104", createdAt: "2026-06-22T12:15:00+05:30" },
+    { id: "sp_03", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9103", createdAt: "2026-06-20T16:05:00+05:30" },
+    { id: "sp_02", amountPaise: 9_900, bonusPoints: 30, reversed: true, code: "MEHTA9102", createdAt: "2026-06-17T11:30:00+05:30" },
+    { id: "sp_01", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9101", createdAt: "2026-06-14T13:00:00+05:30" },
   ],
 };
 

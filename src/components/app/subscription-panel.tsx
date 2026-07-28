@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { HttpError } from "@/lib/http-error";
 import { buyExtraImage, subscribeToPlan, topUpWallet } from "@/lib/payments";
-import type { BillingWalletSummary, PlanOption, ProjectPurchaseOptions, PurchasablePlan, SubscriptionSummary } from "@/lib/types";
+import type { BillingWalletSummary, PlanOption, ProjectPurchaseOptions, PurchasablePlan, RewardPointsSummary, SubscriptionSummary } from "@/lib/types";
 
 interface SubscriptionPanelProps {
   initialSubscription: SubscriptionSummary | null;
@@ -26,14 +26,32 @@ const paise = (p: number) =>
 
 const TXN_LABEL: Record<string, string> = {
   TOPUP: "Wallet top-up",
-  KIOSK_BONUS: "Kiosk points earned",
-  KIOSK_BONUS_REVERSAL: "Kiosk points reversed (refund)",
   EXTRA_IMAGE: "Extra image",
   EXTRA_AUTO_MASK: "Extra AI auto-mask",
   PROJECT_CREDIT: "Project bought",
   PROJECT_REOPEN: "Project reopened",
   REFUND: "Balance refunded",
 };
+
+const POINTS_LABEL: Record<string, string> = {
+  KIOSK_EARNED: "Kiosk sale",
+  KIOSK_REVERSED: "Kiosk sale refunded",
+  EXPIRED: "Expired unused",
+  SPENT_ON_IMAGE: "Extra image",
+  SPENT_ON_AUTO_MASK: "Extra AI auto-mask",
+  SPENT_ON_PROJECT: "Project",
+  SPENT_ON_PROJECT_REOPEN: "Project reopened",
+};
+
+/** "3 August 2027" — points expiry is a date the shop should be able to act on. */
+const fmtExpiry = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+
+/** Whole days from now until an expiry date, floored at 0. */
+function daysUntil(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / 86_400_000));
+}
 
 /** Quick top-up choices, in paise. */
 const TOPUP_PRESETS = [19900, 49900, 99900] as const;
@@ -167,11 +185,18 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
   const [walletPaying, setWalletPaying] = useState<"image" | "mask" | "project" | null>(null);
   // Project pricing, so the wallet card can name what a project costs THIS account.
   const [projectOptions, setProjectOptions] = useState<ProjectPurchaseOptions | null>(null);
+  // Reward points — a separate ledger with its own prices and a one-year expiry.
+  const [points, setPoints] = useState<RewardPointsSummary | null>(null);
+  const [pointsPaying, setPointsPaying] = useState<"image" | "mask" | "project" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     api.getProjectPurchaseOptions()
       .then((o) => !cancelled && setProjectOptions(o))
+      .catch(() => {});
+    // 403 for a non-retailer (points are shop-side), so a failure here is normal.
+    api.getRewardPoints()
+      .then((p) => !cancelled && setPoints(p))
       .catch(() => {});
     api.getBillingWallet()
       .then((w) => !cancelled && setWallet(w))
@@ -319,6 +344,33 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
       setError(e instanceof Error ? e.message : "Wallet payment failed. Please try again.");
     } finally {
       setWalletPaying(null);
+    }
+  }
+
+  // Spend reward points. Separate from walletPay because the ledgers are separate:
+  // different prices, different expiry, and a shop can hold one without the other.
+  async function pointsPay(kind: "image" | "mask" | "project") {
+    setError(null);
+    setNotice(null);
+    setPointsPaying(kind);
+    try {
+      if (kind === "project") {
+        setProjectOptions(await api.pointsPayProjectCredit());
+      } else {
+        setSub(kind === "image"
+          ? await api.pointsPayImageCredit()
+          : await api.pointsPayAutoMaskCredit());
+      }
+      const fresh = await api.getRewardPoints().catch(() => null);
+      if (fresh) setPoints(fresh);
+      setNotice(kind === "image" ? "Paid with points — one extra image added to your plan."
+        : kind === "mask" ? "Paid with points — one extra AI auto-mask added to your plan."
+        : "Paid with points — one project added. Start it from your projects list.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not spend your points. Please try again.");
+    } finally {
+      setPointsPaying(null);
     }
   }
 
@@ -560,10 +612,119 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
         )}
       </section>
 
-      {/* Wallet: prepaid top-ups AND kiosk reward points — one balance, several
-          redemptions. Shown even without a plan: a shop earns points from its kiosk
-          whatever its subscription is doing, and buying a project is exactly what those
-          points are for once a plan has lapsed. */}
+      {/* Reward points — their own ledger: own price list, one-year expiry, retailers
+          only. Shown whenever the shop has ever held points, plan or no plan: overage
+          needs a plan to overage on, buying a project does not, and the lapsed shop is
+          exactly the one that needs to spend them. */}
+      {points != null && (points.balance > 0 || points.lots.length > 0) && (
+        <section style={card}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "8px 16px" }}>
+            <h2 style={{ font: "600 20px/1.2 var(--serif)", color: "var(--fg)", margin: 0 }}>Points</h2>
+            <span style={{ font: "600 18px/1 var(--mono)", color: "var(--accent)" }}>
+              {points.balance.toLocaleString("en-IN")}
+            </span>
+            <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+              Earned {points.pointsPerSale} per kiosk sale. Buys: extra image{" "}
+              {points.imagePrice} pts, AI auto-mask {points.autoMaskPrice} pts, project{" "}
+              {points.projectPrice} pts, reopen {points.reopenPrice} pts.
+            </span>
+          </div>
+
+          {/* The expiry countdown is the whole reason points are shown as batches. */}
+          {points.nextExpiryAt != null && points.nextExpiringPoints != null && (
+            <p
+              role={daysUntil(points.nextExpiryAt) <= points.expiryWarningDays ? "alert" : undefined}
+              style={{
+                font: "400 13px/1.5 var(--sans)",
+                color: daysUntil(points.nextExpiryAt) <= points.expiryWarningDays
+                  ? "var(--terracotta)" : "var(--fg-mute)",
+                margin: "12px 0 0",
+              }}
+            >
+              {points.nextExpiringPoints.toLocaleString("en-IN")} point
+              {points.nextExpiringPoints === 1 ? "" : "s"} expire on{" "}
+              {fmtExpiry(points.nextExpiryAt)} ({daysUntil(points.nextExpiryAt)} day
+              {daysUntil(points.nextExpiryAt) === 1 ? "" : "s"} away). Points last{" "}
+              {points.validityDays} days from the day you earn them, and spending always
+              uses the oldest first.
+            </p>
+          )}
+
+          <div style={{ marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            {active && points.balance >= points.imagePrice && (
+              <button
+                type="button"
+                onClick={() => void pointsPay("image")}
+                disabled={pointsPaying !== null}
+                style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
+              >
+                {pointsPaying === "image" ? "Paying…" : `1 extra image — ${points.imagePrice} pts`}
+              </button>
+            )}
+            {active
+              && (sub?.autoMasksLimit ?? 0) < UNLIMITED_FLOOR
+              && points.balance >= points.autoMaskPrice && (
+              <button
+                type="button"
+                onClick={() => void pointsPay("mask")}
+                disabled={pointsPaying !== null}
+                style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
+              >
+                {pointsPaying === "mask" ? "Paying…" : `1 extra AI auto-mask — ${points.autoMaskPrice} pts`}
+              </button>
+            )}
+            {/* No plan gate: this is what points are worth between subscriptions. */}
+            {points.balance >= points.projectPrice && (
+              <button
+                type="button"
+                onClick={() => void pointsPay("project")}
+                disabled={pointsPaying !== null}
+                style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
+              >
+                {pointsPaying === "project" ? "Paying…" : `1 project — ${points.projectPrice} pts`}
+              </button>
+            )}
+            {points.balance < points.autoMaskPrice && (
+              <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+                Not enough to buy anything yet — {points.autoMaskPrice} points is the smallest
+                purchase.
+              </span>
+            )}
+          </div>
+
+          {!active && points.balance >= points.autoMaskPrice && (
+            <p style={{ font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "12px 0 0" }}>
+              Extra images and auto-masks top up a plan&rsquo;s monthly allowance, so they need a
+              live plan. Buying a project doesn&rsquo;t — that works whether or not you&rsquo;re
+              subscribed.
+            </p>
+          )}
+
+          {points.recentActivity.length > 0 && (
+            <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 6 }}>
+              <span style={fieldLabel}>Recent points activity</span>
+              {points.recentActivity.slice(0, 8).map((t) => (
+                <div
+                  key={t.id}
+                  style={{ display: "flex", gap: 12, alignItems: "baseline", font: "400 13px/1.5 var(--sans)", color: "var(--fg-soft)" }}
+                >
+                  <span style={{ minWidth: 150 }}>{POINTS_LABEL[t.type] ?? t.type}</span>
+                  <span style={{ font: "500 13px/1 var(--mono)", color: t.points >= 0 ? "var(--accent)" : "var(--terracotta)" }}>
+                    {t.points >= 0 ? "+" : "−"}{Math.abs(t.points)} pts
+                  </span>
+                  <span style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", color: "var(--fg-mute)" }}>
+                    {fmtDate(t.createdAt)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* The prepaid RUPEE wallet — separate from points above: rupee prices, no expiry.
+          Shown without a plan too, because a leftover balance can still buy a project
+          even though top-ups and overage need a live plan. */}
       {(active || (wallet != null && wallet.balancePaise > 0)) && (
         <section style={card}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "8px 16px" }}>
@@ -572,7 +733,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
               {wallet ? paise(wallet.balancePaise) : "—"}
             </span>
             <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-              Top-ups and kiosk points together. Spends on: extra image{" "}
+              Prepaid rupees. Spends on: extra image{" "}
               {wallet ? paise(wallet.imageCreditPricePaise) : "₹50"}, extra AI auto-mask{" "}
               {wallet ? paise(wallet.autoMaskCreditPricePaise) : "₹25"}
               {projectOptions ? `, a whole project ${paise(projectOptions.projectPricePaise)}` : ""}.

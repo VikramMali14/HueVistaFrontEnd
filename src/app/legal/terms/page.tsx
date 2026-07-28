@@ -26,24 +26,32 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
     p: "Paid plans and any included AI preview allowances are described at checkout. Trials carry no obligation. Fees are billed via our payment processor; taxes may apply. Allowances reset each billing cycle and do not roll over. Cancellations and refunds are governed by our Refund & Cancellation Policy.",
   },
   {
-    h: "5 · Content and ownership",
+    h: "5 · In-store kiosk and reward points",
+    p: "A paint shop may publish a public kiosk link. A customer who pays there is buying a visualisation from HueVista at a price HueVista sets; the shop does not set that price and receives no share of the payment. Shops instead earn reward points on those sales. Points are a loyalty benefit granted at no charge: they have no cash value, cannot be bought, sold, transferred, redeemed for money or withdrawn, and are available to shop accounts only. They are spent on HueVista services at a published price list stated in points, they expire one year from the day they are earned, and we may vary the earn rate, the price list or the expiry period with reasonable notice. Points earned on a payment that is later refunded are withdrawn.",
+  },
+  {
+    h: "6 · Content and ownership",
     p: "You retain ownership of the photographs you upload and the colour previews you create. You grant us a limited licence to process them solely to provide the service. Catalogue shade data remains the property of the respective paint manufacturers.",
   },
   {
-    h: "6 · AI-generated previews",
+    h: "7 · AI-generated previews",
     p: "Colour previews, segmentation and recommendations are computer-generated approximations. Actual paint appearance varies with lighting, surface and finish. Always confirm with a physical sample before purchase.",
   },
   {
-    h: "7 · Availability and changes",
+    h: "8 · Availability and changes",
     p: "We may update, suspend or discontinue features. We aim to give reasonable notice of material changes to these terms; continued use after changes constitutes acceptance.",
   },
   {
-    h: "8 · Liability",
+    h: "9 · Liability",
     p: "The service is provided “as is”. To the extent permitted by law, HueVista is not liable for indirect or consequential losses, or for colour decisions made from on-screen previews.",
   },
   {
-    h: "9 · Contact",
-    p: "Questions about these terms? Reach us through the in-app support chat, or write to hello@huevista.com.",
+    h: "10 · Governing law",
+    p: "These terms are governed by the laws of India, and the courts at Sirohi, Rajasthan have exclusive jurisdiction over any dispute arising from them.",
+  },
+  {
+    h: "11 · Contact",
+    p: "HueVista is a sole proprietorship of Vikram Mali, Mount Road, Manpur, Abu Road, Sirohi, Rajasthan 307026, India. Questions about these terms? Reach us through the in-app support chat, write to hello@huevista.com, or call +91 63784 82381.",
   },
 ];
 

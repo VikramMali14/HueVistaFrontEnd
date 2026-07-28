@@ -265,11 +265,11 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
       };
       store.accessCodes.unshift(code);
       // The sale is HueVista's in full; the shop earns points.
-      const points = store.wallet.pointsPerSalePaise;
-      store.wallet.lifetimePointsEarnedPaise += points;
-      store.wallet.pointsBalancePaise += points;
+      const points = store.wallet.pointsPerSale;
+      store.wallet.lifetimePointsEarned += points;
+      store.wallet.pointsBalance += points;
       store.wallet.recentPayments.unshift({
-        id: nextId("sp"), amountPaise: store.wallet.kioskPricePaise, bonusPointsPaise: points,
+        id: nextId("sp"), amountPaise: store.wallet.kioskPricePaise, bonusPoints: points,
         reversed: false, code: code.code, createdAt: new Date().toISOString(),
       });
       const result: StoreCheckoutResult = {

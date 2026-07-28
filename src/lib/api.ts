@@ -822,9 +822,8 @@ export const api = {
     browserFetch<import("./types").SubscriptionSummary>("api/billing/wallet/pay/auto-mask-credit", {
       method: "POST",
     }),
-  // The redemptions that give kiosk points their value to a shop with no plan: overage
-  // needs a plan to overage on, projects don't. Priced server-side (₹50 with a plan,
-  // ₹99 without; ₹9 to reopen) — the browser never names an amount.
+  // Projects bought from the prepaid RUPEE balance, priced server-side (₹50 with a
+  // plan, ₹99 without; ₹9 to reopen) — the browser never names an amount.
   walletPayProjectCredit: () =>
     browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/wallet/pay/project-credit", {
       method: "POST",
@@ -832,6 +831,26 @@ export const api = {
   walletPayProjectReopen: (projectId: string) =>
     browserFetch<import("./types").ProjectReopenResult>(
       `api/billing/wallet/pay/project-reopen/${encodeURIComponent(projectId)}`,
+      { method: "POST" },
+    ),
+  // --- Reward points: own balance, own prices, one-year expiry (retailers only) ---
+  getRewardPoints: () =>
+    browserFetch<import("./types").RewardPointsSummary>("api/billing/points"),
+  pointsPayImageCredit: () =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/points/pay/image-credit", {
+      method: "POST",
+    }),
+  pointsPayAutoMaskCredit: () =>
+    browserFetch<import("./types").SubscriptionSummary>("api/billing/points/pay/auto-mask-credit", {
+      method: "POST",
+    }),
+  pointsPayProjectCredit: () =>
+    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/points/pay/project-credit", {
+      method: "POST",
+    }),
+  pointsPayProjectReopen: (projectId: string) =>
+    browserFetch<import("./types").ProjectReopenResult>(
+      `api/billing/points/pay/project-reopen/${encodeURIComponent(projectId)}`,
       { method: "POST" },
     ),
   // Companies that actually have shades in the catalogue (name + slug + count).

@@ -118,7 +118,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
   }
 
   const kioskPrice = wallet?.kioskPricePaise ?? 9900;
-  const pointsPerSale = wallet?.pointsPerSalePaise ?? 3900;
+  const pointsPerSale = wallet?.pointsPerSale ?? 30;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
@@ -131,8 +131,8 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
             <Mono brass>Publish your store link</Mono>
             <p style={{ font: "400 16px/1.5 var(--sans)", color: "var(--fg-soft)", margin: "10px 0 18px" }}>
               A walk-in pays {formatRupees(kioskPrice)} for one room visualisation, and you earn{" "}
-              {formatPoints(pointsPerSale)} every time. Points spend like rupees inside HueVista —
-              on extra images, AI auto-masks and whole projects.
+              {formatPoints(pointsPerSale)} every time. Points buy extra images, AI auto-masks
+              and whole projects, and last a year from the day you earn them.
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -180,7 +180,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
                 <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <Mono>
                     {formatRupees(link.pricePaise)} per customer · you earn{" "}
-                    {formatPoints(link.bonusPointsPaise ?? pointsPerSale)} · codes valid {link.validDays}d
+                    {formatPoints(link.bonusPoints ?? pointsPerSale)} · codes valid {link.validDays}d
                   </Mono>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => void toggleActive(link)} disabled={savingLink === link.id}>
                     {link.active ? "Pause" : "Resume"}
@@ -203,19 +203,19 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
             <div>
               <Mono>Points to spend</Mono>
               <div style={{ font: "500 28px/1.2 var(--serif)", color: "var(--accent)", marginTop: 6 }}>
-                {formatPoints(wallet.pointsBalancePaise)}
+                {formatPoints(wallet.pointsBalance)}
               </div>
             </div>
             <div>
               <Mono>Earned all time</Mono>
               <div style={{ font: "500 28px/1.2 var(--serif)", color: "var(--fg)", marginTop: 6 }}>
-                {formatPoints(wallet.lifetimePointsEarnedPaise)}
+                {formatPoints(wallet.lifetimePointsEarned)}
               </div>
             </div>
             <div>
               <Mono>Per kiosk sale</Mono>
               <div style={{ font: "500 28px/1.2 var(--serif)", color: "var(--fg)", marginTop: 6 }}>
-                {formatPoints(wallet.pointsPerSalePaise)}
+                {formatPoints(wallet.pointsPerSale)}
               </div>
             </div>
           </div>
@@ -223,9 +223,10 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
           <div style={{ border: "1px solid var(--rule)", padding: "18px 22px", maxWidth: 640, marginBottom: 20 }}>
             <Mono brass>What points buy</Mono>
             <p style={{ font: "400 14px/1.5 var(--sans)", color: "var(--fg-soft)", margin: "8px 0 0" }}>
-              One point is worth ₹1 towards anything on HueVista — an extra image once your monthly
-              quota runs out, an extra AI auto-mask, or a whole project. Spend them in your
-              subscription panel. Points aren&rsquo;t paid out as cash; they come off your bill instead.
+              Points buy HueVista services at their own price — an extra image, an extra AI
+              auto-mask, a whole project, or another window on an expired one. Spend them from
+              the Points panel in your subscription page. They last one year from the day you
+              earn them, and aren&rsquo;t paid out as cash.
             </p>
           </div>
 
@@ -237,7 +238,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
                   <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "12px 16px", borderBottom: i === arr.length - 1 ? "none" : "1px solid var(--rule)", opacity: p.reversed ? 0.55 : 1 }}>
                     <span style={{ font: "500 15px/1 var(--serif)", minWidth: 80 }}>{formatRupees(p.amountPaise)}</span>
                     <Mono>
-                      {p.reversed ? `refunded — ${formatPoints(p.bonusPointsPaise)} taken back` : `+${formatPoints(p.bonusPointsPaise)}`}
+                      {p.reversed ? `refunded — ${formatPoints(p.bonusPoints)} taken back` : `+${formatPoints(p.bonusPoints)}`}
                     </Mono>
                     {p.code && <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{p.code}</span>}
                     {p.createdAt && (
