@@ -5,6 +5,8 @@ import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
+import { useShadeCodeScheme } from "@/hooks/use-shade-code-scheme";
+import { decodeShadeCode, encodeShadeCode, hasScheme } from "@/lib/shade-codes";
 import type { ComboScope, OrgResponse, PaintShade, RetailerCombo } from "@/lib/types";
 
 /** The three combo slots, in the studio's palette role order. */
@@ -28,6 +30,13 @@ export function ShopCombos({ shades, org: orgProp }: { shades: ReadonlyArray<Pai
   const [slots, setSlots] = useState<Array<PaintShade | null>>([null, null, null]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+
+  // A shop that runs its own numbering reads it here too: these combos are
+  // offered to its customers in the studio under the shop's codes, so the panel
+  // that builds them shows the same ones rather than the manufacturer's.
+  const scheme = useShadeCodeScheme();
+  const showNames = scheme?.showNames !== false;
+  const codeOf = (code: string) => (hasScheme(scheme) ? encodeShadeCode(scheme, code) : code);
 
   useEffect(() => {
     (async () => {
@@ -200,8 +209,8 @@ export function ShopCombos({ shades, org: orgProp }: { shades: ReadonlyArray<Pai
                         {combo.shades.map((s, i) => (
                           <div key={`${combo.id}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <span aria-hidden style={{ width: 24, height: 24, background: s.hex, border: "1px solid var(--rule-strong)", borderRadius: 4, flexShrink: 0 }} />
-                            <span style={{ font: "400 14px/1.2 var(--sans)", color: "var(--fg)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-                            <Mono>{s.code}</Mono>
+                            <span style={{ font: "400 14px/1.2 var(--sans)", color: "var(--fg)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{showNames ? s.name : codeOf(s.code)}</span>
+                            <Mono>{codeOf(s.code)}</Mono>
                           </div>
                         ))}
                       </div>
@@ -234,14 +243,24 @@ function SlotPicker({
 }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
+  const scheme = useShadeCodeScheme();
+  const showNames = scheme?.showNames !== false;
+  const codeOf = (code: string) => (hasScheme(scheme) ? encodeShadeCode(scheme, code) : code);
 
   const matches = useMemo(() => {
     if (!q) return [];
+    // Search what is on screen. Under a pattern the shop reads its own codes
+    // everywhere else, so typing one here has to find the shade — and a name
+    // the shop has hidden is not something to match against.
+    const decoded = hasScheme(scheme) ? (decodeShadeCode(scheme, query)?.toLowerCase() ?? null) : null;
+    const patterned = hasScheme(scheme);
     const out: PaintShade[] = [];
     for (const s of shades) {
+      const code = s.code.toLowerCase();
       if (
-        s.name.toLowerCase().includes(q) ||
-        s.code.toLowerCase().includes(q) ||
+        (showNames && s.name.toLowerCase().includes(q)) ||
+        (decoded !== null && code === decoded) ||
+        (!patterned && code.includes(q)) ||
         s.hex.toLowerCase().includes(q)
       ) {
         out.push(s);
@@ -249,7 +268,7 @@ function SlotPicker({
       }
     }
     return out;
-  }, [shades, q]);
+  }, [shades, q, query, scheme, showNames]);
 
   return (
     <div style={{ border: "1px solid var(--rule)", padding: 12 }}>
@@ -258,8 +277,8 @@ function SlotPicker({
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span aria-hidden style={{ width: 30, height: 30, background: value.hex, border: "1px solid var(--rule-strong)", borderRadius: 4, flexShrink: 0 }} />
           <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: "block", font: "400 14px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value.name}</span>
-            <Mono>{value.code}</Mono>
+            <span style={{ display: "block", font: "400 14px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{showNames ? value.name : codeOf(value.code)}</span>
+            <Mono>{codeOf(value.code)}</Mono>
           </span>
           <button
             type="button"
@@ -299,8 +318,8 @@ function SlotPicker({
                     style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", borderRadius: 6 }}
                   >
                     <span aria-hidden style={{ width: 20, height: 20, background: s.hex, border: "1px solid var(--rule-strong)", borderRadius: 4, flexShrink: 0 }} />
-                    <span style={{ flex: 1, minWidth: 0, font: "400 13.5px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-                    <Mono>{s.code}</Mono>
+                    <span style={{ flex: 1, minWidth: 0, font: "400 13.5px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{showNames ? s.name : codeOf(s.code)}</span>
+                    <Mono>{codeOf(s.code)}</Mono>
                   </button>
                 ))
               )}

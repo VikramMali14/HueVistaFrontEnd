@@ -2,7 +2,9 @@
 
 import { Mono } from "@/components/ui/eyebrow";
 import { useCopied } from "@/hooks/use-copied";
+import { useShadeCodeScheme } from "@/hooks/use-shade-code-scheme";
 import { closenessRating } from "@/lib/color-science";
+import { encodeShadeCode, hasScheme } from "@/lib/shade-codes";
 import type { ShadeMatch } from "@/hooks/use-shade-match";
 
 /**
@@ -10,6 +12,11 @@ import type { ShadeMatch } from "@/hooks/use-shade-match";
  * code · company, and a plain-words closeness rating a counter customer can
  * act on — never a raw ΔE number. Clicking a row copies the shade code
  * (default) or hands the shade to `onPick` when the caller applies it instead.
+ *
+ * Under a shop's own numbering this shows — and copies — the SHOP's code, and
+ * drops the paint name and company when the shop hides names. This list is the
+ * counter's colour finder: printing the manufacturer's code here would undo the
+ * shop's pattern at exactly the moment a customer is reading over the shoulder.
  */
 export function MatchList({
   matches,
@@ -25,6 +32,9 @@ export function MatchList({
   onPick?: (shade: ShadeMatch["shade"]) => void;
 }) {
   const { copied, copy } = useCopied();
+  const scheme = useShadeCodeScheme();
+  const showNames = scheme?.showNames !== false;
+  const codeOf = (code: string) => (hasScheme(scheme) ? encodeShadeCode(scheme, code) : code);
 
   if (matches.length === 0) return null;
 
@@ -39,19 +49,21 @@ export function MatchList({
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {matches.map(({ shade, deltaE }, i) => {
           const rating = closenessRating(deltaE);
+          const code = codeOf(shade.code);
+          const label = showNames ? shade.name : code;
           const action = onPick
             ? () => onPick(shade)
-            : () => copy(shade.code);
+            : () => copy(code);
           return (
             <button
               key={shade.code}
               type="button"
               onClick={action}
-              title={onPick ? `Apply ${shade.name} (${shade.code})` : `Copy code ${shade.code}`}
+              title={onPick ? `Apply ${label} (${code})` : `Copy code ${code}`}
               aria-label={
                 onPick
-                  ? `Apply ${shade.name}, code ${shade.code}, ${rating.toLowerCase()} match.`
-                  : `${shade.name}, code ${shade.code}, ${rating.toLowerCase()} match. Click to copy the code.`
+                  ? `Apply ${label}, code ${code}, ${rating.toLowerCase()} match.`
+                  : `${label}, code ${code}, ${rating.toLowerCase()} match. Click to copy the code.`
               }
               style={{
                 display: "flex",
@@ -86,14 +98,15 @@ export function MatchList({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {shade.name}
+                  {label}
                 </span>
                 <Mono>
-                  {shade.code} · {shade.brand} · {rating}
+                  {code} · {showNames ? `${shade.brand} · ` : ""}
+                  {rating}
                 </Mono>
               </span>
               <Mono brass>
-                {onPick ? "apply" : copied === shade.code ? "copied" : i === 0 ? "closest" : "copy"}
+                {onPick ? "apply" : copied === code ? "copied" : i === 0 ? "closest" : "copy"}
               </Mono>
             </button>
           );
