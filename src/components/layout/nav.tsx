@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { BrandMark } from "./brand-mark";
 
 const PUBLIC_LINKS = [
   { href: "/method", label: "How it works" },
@@ -134,7 +135,8 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
         <div className="cnav-bar">
           {/* Logo */}
           <Link href="/" className="cnav-logo" onClick={close} aria-label="HueVista — home">
-            HueVista
+            <BrandMark height={21} />
+            <span>HueVista</span>
           </Link>
 
           {/* Desktop links */}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { contact } from "@/lib/config";
+import { BrandMark } from "./brand-mark";
 
 const COLUMNS = [
   {
@@ -26,8 +27,29 @@ export function Footer() {
     <footer>
       <div className="footer-inner">
         <div className="footer-col">
-          <Link href="/" aria-label="HueVista — home" style={{ display: "inline-block", marginBottom: 16 }}>
-            <span style={{ font: "700 18px/1 var(--serif)", letterSpacing: "-.02em", color: "var(--fg)" }}>HueVista</span>
+          <Link
+            href="/"
+            aria-label="HueVista — home"
+            style={{ display: "inline-flex", alignItems: "center", gap: 11, marginBottom: 16 }}
+          >
+            <BrandMark height={30} />
+            <span style={{ display: "inline-block" }}>
+              <span style={{ display: "block", font: "700 18px/1 var(--serif)", letterSpacing: "-.02em", color: "var(--fg)" }}>
+                HueVista
+              </span>
+              <span
+                style={{
+                  display: "block",
+                  marginTop: 5,
+                  font: "400 9.5px/1 var(--mono)",
+                  letterSpacing: ".2em",
+                  textTransform: "uppercase",
+                  color: "var(--fg-mute)",
+                }}
+              >
+                Shades &amp; colours
+              </span>
+            </span>
           </Link>
           <p className="body" style={{ fontSize: 14, maxWidth: "34ch", marginTop: 12, color: "var(--fg-mute)" }}>
             Preview any paint colour on real walls before the can opens.
