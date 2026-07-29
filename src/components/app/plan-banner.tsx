@@ -33,6 +33,10 @@ const subscribeLink = (
  * Renders nothing only for accounts without a subscription at all (e.g.
  * customers). A lapsed or halted subscription keeps the banner visible with a
  * path to pay — that's the moment the upgrade prompt matters most.
+ *
+ * What counts as "current" is the backend entitlement gate, not the ACTIVE status:
+ * a cancelled plan keeps working to the end of the period it was paid for, and a
+ * plan bought to start later isn't in force yet.
  */
 export function PlanBanner() {
   const [sub, setSub] = useState<SubscriptionSummary | null | undefined>(undefined);
@@ -74,7 +78,23 @@ export function PlanBanner() {
 
   if (!sub) return null;
 
-  if (sub.status === "EXPIRED" || sub.status === "COMPLETED" || sub.status === "HALTED") {
+  // Mirrors the backend entitlement gate (and the subscription panel): ACTIVE, or
+  // CANCELLED but still inside the period the shop paid for, and started either way.
+  // Testing status === "ACTIVE" alone left this blank for a cancelled plan — no usage
+  // for one still running, and, once it lapsed, no "subscribe" prompt at all at exactly
+  // the moment it matters most.
+  const startedYet = sub.currentPeriodStart == null
+    || new Date(sub.currentPeriodStart).getTime() <= now;
+  const withinPaidPeriod = sub.currentPeriodEnd != null
+    && new Date(sub.currentPeriodEnd).getTime() > now;
+  const entitles = startedYet
+    && (sub.status === "ACTIVE" || (sub.status === "CANCELLED" && withinPaidPeriod));
+
+  // A plan bought to replace one that is winding down bills from the day that period
+  // ends. Until then the shop is still on the old plan, which has its own banner.
+  if (!startedYet) return null;
+
+  if (!entitles && sub.status !== "CREATED") {
     const halted = sub.status === "HALTED";
     const price = options ? `${options.projectPricePoints} points` : null;
     const credits = options?.availableCredits ?? 0;
@@ -113,25 +133,29 @@ export function PlanBanner() {
     );
   }
 
-  if (sub.status !== "ACTIVE") return null;
+  if (!entitles) return null;
 
   const extraCredits = sub.purchasedImageCredits ?? 0;
   const limit = sub.aiGenerationsLimit >= UNLIMITED ? "∞" : sub.aiGenerationsLimit + extraCredits;
   const daysLeft = sub.currentPeriodEnd
     ? Math.max(0, Math.ceil((new Date(sub.currentPeriodEnd).getTime() - now) / 86_400_000))
     : null;
+  // Cancelled, or set to cancel: still fully usable, just not renewing.
+  const windingDown = sub.status === "CANCELLED" || !!sub.cancelAtPeriodEnd;
 
   return (
-    <div style={bannerStyle(sub.trial)}>
+    <div style={bannerStyle(sub.trial || windingDown)}>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <Mono brass>{sub.trial ? "Free trial" : `${sub.planDisplayName} plan`}</Mono>
         <span style={{ font: "400 15px/1 var(--sans)", color: "var(--fg-soft)" }}>
-          {sub.trial && daysLeft !== null
+          {(sub.trial || windingDown) && daysLeft !== null
             ? `${sub.planDisplayName} · ${
                 // daysLeft is 0 only when the period end has already passed while the
                 // status is still ACTIVE — "0 days left" reads broken at the exact
                 // moment the subscribe nudge matters most.
-                daysLeft === 0 ? "ends today" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`
+                daysLeft === 0
+                  ? "ends today"
+                  : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`
               }`
             : "active"}
         </span>
@@ -149,7 +173,7 @@ export function PlanBanner() {
           </Mono>
         )}
       </span>
-      {sub.trial && subscribeLink}
+      {(sub.trial || windingDown) && subscribeLink}
     </div>
   );
 }

@@ -15,10 +15,17 @@ interface SubscriptionPanelProps {
 
 const UNLIMITED_FLOOR = 2_000_000_000;
 
-// Tier ladder for the upgrade rules: while a paid plan is ACTIVE, only a step
-// UP can be bought in place (the backend cancels the old plan on activation);
-// a downgrade needs a cancel first. Must match the backend Plan enum order.
-const PLAN_RANK: Record<string, number> = { STARTER: 0, PROFESSIONAL: 1, BUSINESS: 2, ENTERPRISE: 3 };
+// Tier ladder for the upgrade rules: while a paid plan is ACTIVE, only a step UP can be
+// bought in place (the backend cancels the old plan on activation); a downgrade needs a
+// cancel first. The backend serves each plan's rank, so this fallback only covers a
+// server too old to send one — a hand-kept copy of the enum order is exactly the kind of
+// duplicate that rots silently when a tier is added.
+const FALLBACK_RANK: Record<string, number> = { STARTER: 0, PROFESSIONAL: 1, BUSINESS: 2, ENTERPRISE: 3 };
+
+const rankOf = (plans: PlanOption[], plan: string): number => {
+  const served = plans.find((p) => p.plan === plan)?.rank;
+  return served ?? FALLBACK_RANK[plan] ?? -1;
+};
 
 /** Paise -> "₹50" / "₹25" (trailing .00 trimmed). */
 const paise = (p: number) =>
@@ -91,16 +98,29 @@ function withinPaidPeriod(s: SubscriptionSummary | null): boolean {
 }
 
 /**
+ * Bought, but not begun. A plan taken out while another was winding down is scheduled at
+ * the gateway for the day that period ends, so the buyer isn't charged for two
+ * overlapping months — until then the plan it replaces is the one in force.
+ */
+function notStartedYet(s: SubscriptionSummary | null): boolean {
+  return s?.currentPeriodStart != null && new Date(s.currentPeriodStart).getTime() > Date.now();
+}
+
+/**
  * Whether this subscription currently grants access — ACTIVE, or CANCELLED but still
- * inside its paid period. Mirrors the backend's entitlement gate exactly, so the panel
- * can never show "active till period end" while every feature answers 402.
+ * inside its paid period, and in either case already started. Mirrors the backend's
+ * entitlement gate exactly, so the panel can never show "active till period end" while
+ * every feature answers 402.
  */
 function entitles(s: SubscriptionSummary | null): boolean {
-  if (!s) return false;
+  if (!s || notStartedYet(s)) return false;
   return s.status === "ACTIVE" || (s.status === "CANCELLED" && withinPaidPeriod(s));
 }
 
 function statusLabel(s: SubscriptionSummary): { text: string; color: string } {
+  if (notStartedYet(s) && s.status !== "EXPIRED") {
+    return { text: `Starts ${fmtDate(s.currentPeriodStart)}`, color: "var(--accent)" };
+  }
   if (s.status === "ACTIVE") {
     if (s.cancelAtPeriodEnd) {
       return s.trial
@@ -191,16 +211,23 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
   const ended = sub != null && !active;
   // Winding down: still usable, but not renewing. It no longer blocks buying a plan.
   const windingDown = active && !!sub?.cancelAtPeriodEnd;
+  // Only a TRIAL can be un-cancelled. Razorpay has no "un-cancel" for a paid plan, so
+  // offering the button there was an action that could only ever fail — the way back is
+  // to subscribe again, which now starts the day this period ends.
+  const resumable = windingDown && !!sub?.trial;
   // A paid plan that is still renewing can only be changed by an upgrade; a trial, or one
   // already set to end, can buy anything.
   const activePaid = active && !sub?.trial && !windingDown;
-  const currentRank = activePaid && sub ? (PLAN_RANK[sub.plan] ?? -1) : -1;
+  const currentRank = activePaid && sub ? rankOf(plans, sub.plan) : -1;
 
   async function buy(plan: PurchasablePlan) {
     setError(null);
     setNotice(null);
     setBusyPlan(plan);
     const upgrading = activePaid;
+    // Bought to replace a plan still running out its paid period: the gateway starts
+    // billing the day that period ends, so this one is queued rather than live.
+    const queuedUntil = windingDown && !sub?.trial ? sub?.currentPeriodEnd : null;
     try {
       const paid = await subscribeToPlan(plan);
       if (paid) {
@@ -209,7 +236,9 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
         setNotice(
           upgrading
             ? "Upgrade complete — your new plan is active with its full quota, and the old one has been cancelled. No further charges on it."
-            : "Payment received — your plan is active. Happy painting!",
+            : queuedUntil
+              ? `All set — your new plan starts ${fmtDate(queuedUntil)}, when the current one ends. Nothing changes until then, and you're not billed twice.`
+              : "Payment received — your plan is active. Happy painting!",
         );
         router.refresh();
       }
@@ -458,11 +487,11 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
 
             {active && (
               <div style={{ marginTop: 24, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                {windingDown ? (
+                {resumable ? (
                   <button type="button" onClick={resume} disabled={resuming} style={buttonStyle}>
-                    {resuming ? "Resuming…" : "Keep my plan running"}
+                    {resuming ? "Resuming…" : "Keep my trial running"}
                   </button>
-                ) : !confirmCancel ? (
+                ) : windingDown ? null : !confirmCancel ? (
                   <button type="button" onClick={() => setConfirmCancel(true)} style={buttonStyle}>
                     {sub.trial ? "Cancel trial" : "Cancel subscription"}
                   </button>
@@ -487,10 +516,16 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                   </>
                 )}
                 {windingDown && (
-                  <span style={{ font: "400 13px/1 var(--mono)", color: "var(--fg-mute)" }}>
+                  <span style={{ font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
                     {sub.currentPeriodEnd
                       ? `Full access until ${fmtDate(sub.currentPeriodEnd)} — no further charges.`
                       : "Ends at period close — no further charges."}
+                    {!sub.trial && (
+                      // Razorpay can't un-cancel a paid plan, so say what the way back
+                      // actually is rather than offering a button that only errors.
+                      <> To keep going, pick a plan below — it starts the day this one
+                      ends, so you&rsquo;re never billed for two months at once.</>
+                    )}
                   </span>
                 )}
               </div>
@@ -677,6 +712,9 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
           {activePaid
             ? " Upgrades apply instantly — pay for the bigger plan and it starts right away with its full quota, while your old plan is cancelled automatically (no double billing). To downgrade, cancel first: your plan stays active till the period ends, then pick the smaller tier."
             : ""}
+          {windingDown && !sub?.trial && sub?.currentPeriodEnd
+            ? ` Your current plan runs to ${fmtDate(sub.currentPeriodEnd)}; whichever you pick starts that day, so there's no overlap and no double charge.`
+            : ""}
         </p>
         <div
           className="r-cols-md-1"
@@ -684,8 +722,9 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
         >
           {purchasable.map((p) => {
             const isCurrent = activePaid && sub?.plan === p.plan;
-            const isUpgrade = activePaid && (PLAN_RANK[p.plan] ?? -1) > currentRank;
+            const isUpgrade = activePaid && rankOf(plans, p.plan) > currentRank;
             const isDowngrade = activePaid && !isCurrent && !isUpgrade;
+            const isScheduled = windingDown && !sub?.trial;
             return (
               <div key={p.plan} style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
@@ -733,13 +772,22 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                         ? `Upgrade to ${p.displayName}`
                         : isDowngrade
                           ? "Cancel current plan first"
-                          : ended
-                            ? "Renew with this plan"
-                            : "Get this plan"}
+                          : isScheduled
+                            ? `Continue with ${p.displayName}`
+                            : ended
+                              ? "Renew with this plan"
+                              : "Get this plan"}
                 </button>
                 {isUpgrade && (
                   <span style={{ font: "400 11px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
                     Starts immediately · old plan cancelled automatically
+                  </span>
+                )}
+                {isScheduled && (
+                  <span style={{ font: "400 11px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
+                    {sub?.currentPeriodEnd
+                      ? `Starts ${fmtDate(sub.currentPeriodEnd)} · no double billing`
+                      : "Starts when your current plan ends · no double billing"}
                   </span>
                 )}
               </div>
