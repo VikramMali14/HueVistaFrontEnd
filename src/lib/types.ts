@@ -749,6 +749,11 @@ export interface SubscriptionSummary {
   status: "CREATED" | "ACTIVE" | "HALTED" | "CANCELLED" | "COMPLETED" | "EXPIRED";
   trial: boolean;
   cancelAtPeriodEnd?: boolean;
+  /** When this plan's period begins. In the FUTURE for a plan bought to replace one
+   *  that is still winding down: the gateway is told to start billing the day the
+   *  current period ends, so nobody pays for two overlapping months. Such a plan does
+   *  not entitle yet — the one it replaces is still in force. */
+  currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
   // Image quota — the AI photo clean-up is compulsory, so EVERY image consumes
   // one. (Field names keep the historical "aiGenerations" naming.) Remaining
@@ -786,6 +791,10 @@ export type PurchasablePlan = "STARTER" | "PROFESSIONAL" | "BUSINESS";
 export interface PlanOption {
   plan: "STARTER" | "PROFESSIONAL" | "BUSINESS" | "ENTERPRISE";
   displayName: string;
+  /** Position on the tier ladder, served by the backend so an upgrade can be told
+   *  from a downgrade without keeping a hand-maintained copy of the Plan enum order
+   *  here — one that goes quietly wrong the day a tier is added or reordered. */
+  rank?: number;
   priceInPaise: number;
   priceInRupees: number;
   taxPercent: number;
