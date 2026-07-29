@@ -1644,6 +1644,9 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
   display: inline-block;
   position: relative;
   color: var(--fg);
+  /* Colour of the mark's crescent and H — the surface the mark is sitting on,
+     so it reads as knocked out of the arch. Flips with the inverted plate. */
+  --hv-mark-negative: var(--bg);
 }
 .hv-logo.is-framed {
   padding: var(--logo-pad-y) var(--logo-pad-x);
@@ -1663,6 +1666,7 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
   color: var(--bg);
   border-radius: 999px;
   box-shadow: 0 10px 30px -16px rgba(0, 0, 0, 0.35);
+  --hv-mark-negative: var(--fg);
 }
 .hv-logo.is-inverted.is-framed::before { display: none; }
 .hv-logo-inner {
@@ -1672,11 +1676,9 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
   position: relative;
   z-index: 1;
 }
-.hv-logo-dot {
-  width: var(--logo-dot);
-  height: var(--logo-dot);
-  background: currentColor;
-  border-radius: 50%;
+.hv-logo-mark {
+  height: var(--logo-mark);
+  width: auto;
   flex-shrink: 0;
 }
 .hv-logo-text {
@@ -1716,7 +1718,7 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
 /* ----- Preset sizes ----- */
 .hv-logo-sm {
   --logo-word: 20px;
-  --logo-dot: 6px;
+  --logo-mark: 20px;
   --logo-sub: 7.5px;
   --logo-gap: 12px;
   --logo-rule-mt: 5px;
@@ -1726,7 +1728,7 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
 }
 .hv-logo-md {
   --logo-word: clamp(28px, 4vw, 40px);
-  --logo-dot: 7px;
+  --logo-mark: 30px;
   --logo-sub: 8.5px;
   --logo-gap: 18px;
   --logo-rule-mt: 8px;
@@ -1736,7 +1738,7 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
 }
 .hv-logo-lg {
   --logo-word: clamp(40px, 6vw, 64px);
-  --logo-dot: 9px;
+  --logo-mark: 44px;
   --logo-sub: 10px;
   --logo-gap: 26px;
   --logo-rule-mt: 12px;
@@ -1746,7 +1748,7 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
 }
 .hv-logo-xl {
   --logo-word: clamp(52px, 8vw, 96px);
-  --logo-dot: 12px;
+  --logo-mark: 62px;
   --logo-sub: 12px;
   --logo-gap: 36px;
   --logo-rule-mt: 16px;
@@ -2001,7 +2003,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 
 .cnav-logo {
-  display: inline-flex; align-items: center; text-decoration: none; flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 9px; text-decoration: none; flex-shrink: 0;
   font: 700 17px/1 var(--serif); letter-spacing: -.02em; color: var(--fg);
 }
 

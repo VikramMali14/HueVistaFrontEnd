@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { BrandMark } from "@/components/layout/brand-mark";
 
 type LogoSize = "sm" | "md" | "lg" | "xl";
 
@@ -48,7 +49,7 @@ export function Logo({
       style={style}
     >
       <span className="hv-logo-inner">
-        <span className="hv-logo-dot" aria-hidden />
+        <BrandMark className="hv-logo-mark" />
         <span className="hv-logo-text">
           {subtitle !== false && subtitle ? (
             <>
