@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
-import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { PROJECT_VALID_DAYS } from "@/lib/project-validity";
 import type { ProjectPurchaseOptions, SubscriptionSummary } from "@/lib/types";
 
 const UNLIMITED = 2147483647; // Integer.MAX_VALUE (Enterprise)
@@ -41,8 +41,6 @@ const subscribeLink = (
 export function PlanBanner() {
   const [sub, setSub] = useState<SubscriptionSummary | null | undefined>(undefined);
   const [options, setOptions] = useState<ProjectPurchaseOptions | null>(null);
-  const [buying, setBuying] = useState(false);
-  const [buyError, setBuyError] = useState<string | null>(null);
   // Mount-time clock for the days-left maths — render stays pure.
   const [now] = useState(() => Date.now());
 
@@ -61,20 +59,6 @@ export function PlanBanner() {
       cancelled = true;
     };
   }, []);
-
-  async function buyProject() {
-    setBuying(true);
-    setBuyError(null);
-    try {
-      // Points, not a checkout — the money was paid when the points were bought or
-      // earned, so this is a balance debit that either succeeds or 402s.
-      setOptions(await api.pointsPayProjectCredit());
-    } catch (e) {
-      setBuyError(e instanceof Error ? e.message : "Could not spend your points.");
-    } finally {
-      setBuying(false);
-    }
-  }
 
   if (!sub) return null;
 
@@ -98,6 +82,7 @@ export function PlanBanner() {
     const halted = sub.status === "HALTED";
     const price = options ? `${options.projectPricePoints} points` : null;
     const credits = options?.availableCredits ?? 0;
+    const validDays = options?.validDays ?? PROJECT_VALID_DAYS;
     return (
       <div style={bannerStyle(true)}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -106,27 +91,20 @@ export function PlanBanner() {
               still on the dashboard and still opens showing the colours last applied —
               what stops is changing them. Saying "paused" without that made shops think
               their work was gone. */}
+          {/* A single project is buyable, but not from here. It is offered in the studio
+              against the upload that needs it, so nobody pays for a room they then have to
+              remember to start — this banner says the route rather than being it. */}
           <span style={{ font: "400 15px/1.3 var(--sans)", color: "var(--fg-soft)" }}>
             Your projects are view-only — you can still open them and see the colours you
             last applied.{" "}
             {credits > 0
-              ? `${credits} project${credits === 1 ? "" : "s"} paid for and ready to start.`
+              ? `${credits} project${credits === 1 ? "" : "s"} paid for and ready to start — open the studio and add a photo.`
               : price
-                ? `Subscribe to keep working, or buy a single project for ${price} (open ${options!.validDays} days).`
+                ? `Subscribe to keep working, or add a photo in the studio to buy a single project for ${price} (open ${validDays} days from purchase).`
                 : "Subscribe to keep working."}
           </span>
-          {buyError && (
-            <span className="field-error" role="alert" style={{ flexBasis: "100%" }}>
-              {buyError}
-            </span>
-          )}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {credits === 0 && price && (
-            <Button size="sm" variant="ghost" disabled={buying} onClick={() => void buyProject()}>
-              {buying ? "Opening…" : `Buy a project · ${price}`}
-            </Button>
-          )}
           {subscribeLink}
         </span>
       </div>

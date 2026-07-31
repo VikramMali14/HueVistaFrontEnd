@@ -24,7 +24,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "4 · Plans, trials and billing",
-    p: "Paid plans and any included AI preview allowances are described at checkout. Trials carry no obligation. Fees are billed via our payment processor; taxes may apply. Allowances reset each billing cycle and do not roll over. Cancellations and refunds are governed by our Refund & Cancellation Policy.",
+    p: "Paid plans and any included AI preview allowances are described at checkout. Trials carry no obligation. Fees are billed via our payment processor; taxes may apply. Allowances reset each billing cycle and do not roll over. Extra projects may be bought individually once a cycle's allowance is spent; an unspent one is held on the account indefinitely, and once it is used to create a project that project remains editable for thirty days of use, stated to you before payment. Those days are suspended for as long as a paid plan is covering the account and resume if it lapses. After the window closes the project remains viewable and its saved colours are retained; further editing requires a reopen or a live plan. Cancellations and refunds are governed by our Refund & Cancellation Policy.",
   },
   {
     h: "5 · In-store kiosk and reward points",

@@ -24,6 +24,10 @@ vi.mock("@/lib/api", () => {
       // back. Best-effort in the component, so default to "nothing granted".
       listProjectGrants: vi.fn(async () => []),
       revokeProjectGrant: vi.fn(),
+      // Read by the "projects available to assign" line above the list. Both are
+      // best-effort there, so a rejection is a supported state, not a broken fixture.
+      getCurrentSubscription: vi.fn().mockRejectedValue(new Error("no subscription")),
+      getProjectPurchaseOptions: vi.fn().mockRejectedValue(new Error("no options")),
     },
   };
 });

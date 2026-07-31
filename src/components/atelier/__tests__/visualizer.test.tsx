@@ -19,7 +19,7 @@ import {
   type PollOptions,
   type SegmentationStatusLike,
 } from "@/lib/segmentation-polling";
-import { api } from "@/lib/api";
+import { api, HttpError } from "@/lib/api";
 import { Visualizer } from "../visualizer";
 
 // ---------------------------------------------------------------------------
@@ -27,6 +27,22 @@ import { Visualizer } from "../visualizer";
 // ---------------------------------------------------------------------------
 
 vi.mock("@/lib/api", () => {
+  /**
+   * What buying costs this account: served on mount, and again by the purchase endpoints
+   * themselves so the gate's prices are never a purchase behind. Declared inside the
+   * factory because `vi.mock` is hoisted above every const in this file.
+   */
+  const purchaseOptions = {
+    subscribed: true,
+    pricingPlan: "STARTER",
+    projectPricePoints: 80,
+    projectPricePaise: 9900,
+    reopenPricePoints: 9,
+    reopenPricePaise: 1000,
+    pointsBalance: 0,
+    validDays: 30,
+    availableCredits: 0,
+  };
   class HttpError extends Error {
     status: number;
     code?: string;
@@ -66,14 +82,7 @@ vi.mock("@/lib/api", () => {
       // a shop's own code pattern has to reach its own staff. Default to no pattern and
       // names shown, i.e. the plain manufacturer codes these tests assert on.
       // The gate quotes a real price, so the studio asks what buying costs on mount.
-      getProjectPurchaseOptions: vi.fn(async () => ({
-        subscribed: true,
-        projectPricePoints: 80,
-        reopenPricePoints: 9,
-        pointsBalance: 0,
-        validDays: 30,
-        availableCredits: 0,
-      })),
+      getProjectPurchaseOptions: vi.fn(async () => purchaseOptions),
       // The out-of-quota prompts quote point prices, so the studio reads the list on
       // mount. 403s for a customer account, which is why the component tolerates a
       // rejection here.
@@ -96,7 +105,9 @@ vi.mock("@/lib/api", () => {
       })),
       pointsPayImageCredit: vi.fn(),
       pointsPayAutoMaskCredit: vi.fn(),
-      pointsPayProjectCredit: vi.fn(),
+      // Answers with the account's refreshed options, exactly as the endpoint does — the
+      // studio feeds them straight back into the gate's prices.
+      pointsPayProjectCredit: vi.fn(async () => purchaseOptions),
       pointsPayProjectReopen: vi.fn(),
       requestMoreProjects: vi.fn(),
       getMyShadeCodeScheme: vi.fn(async () => ({
@@ -549,6 +560,56 @@ describe("Visualizer — happy path (upload → segment → regions)", () => {
 
     // No error surface anywhere.
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Buying an extra project happens HERE and nowhere else — at the upload that ran past the
+ * allowance, where there is a room to spend it on. The plan page and the dashboard banner
+ * now only say so. What the buyer is told before paying is the other half: the window is
+ * finite, so the length and the date both have to be on screen before the button is.
+ */
+describe("Visualizer — buying one extra project", () => {
+  const limitReached = () =>
+    new HttpError(402, "You've used this month's projects.", undefined, "PROJECT_LIMIT_REACHED");
+
+  it("quotes the point price and the validity window before taking the payment", async () => {
+    vi.mocked(api.createProject).mockRejectedValueOnce(limitReached());
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect(await screen.findByText(/Monthly projects used up/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Spend 80 points/i })).toBeInTheDocument();
+    // Both rails, because this is now the only place a project is sold — a shop out of
+    // allowance and holding no points must not have to leave a half-finished upload to
+    // find the card route on another page.
+    expect(screen.getByRole("button", { name: /pay ₹99 by card/i })).toBeInTheDocument();
+    // 30 days from the served options, and the date they run to — a length alone leaves
+    // the buyer counting, and a date alone leaves them working out whether it is generous.
+    const until = new Date(Date.now() + 30 * 86_400_000)
+      .toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+    expect(screen.getByText(new RegExp(`Valid 30 days from purchase.*${until}`))).toBeInTheDocument();
+  });
+
+  it("spends the points and re-runs the blocked upload", async () => {
+    vi.mocked(api.createProject).mockRejectedValueOnce(limitReached());
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: /Spend 80 points/i }));
+    });
+
+    expect(api.pointsPayProjectCredit).toHaveBeenCalledTimes(1);
+    // The photo is never re-uploaded — the project is created against the image already on
+    // the server, which is the whole reason the pending image id is kept.
+    expect(api.uploadImage).toHaveBeenCalledTimes(1);
+    expect(api.createProject).toHaveBeenCalledTimes(2);
+    expect((await screen.findAllByText("Walls detected")).length).toBeGreaterThan(0);
   });
 });
 

@@ -36,7 +36,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "7 · What points buy",
-    p: "Extra projects bought beyond your plan allowance — with points or by card — are consumed on use and do not themselves expire once credited. Once a charge has been applied and the corresponding project has been delivered, it is non-refundable. Where a run fails on our side, the credit for that run is returned to you automatically at no charge. Projects carried over from a plan you have upgraded away from are unused allowance rather than a purchase: they last the billing cycle they are carried into and are not refundable if unspent.",
+    p: "Extra projects bought beyond your plan allowance — with points or by card — are consumed on use and are held on the account indefinitely until spent. The project one becomes is editable for thirty days of use, a term shown to you before you pay; those days are suspended while a paid plan is covering the account and resume if it lapses, and once the window closes the project stays viewable with its saved colours intact. Once a charge has been applied and the corresponding project has been delivered, it is non-refundable. Where a run fails on our side, the credit for that run is returned to you automatically at no charge. Projects carried over from a plan you have upgraded away from are unused allowance rather than a purchase: they last the billing cycle they are carried into and are not refundable if unspent.",
   },
   {
     h: "8 · Duplicate or erroneous charges",

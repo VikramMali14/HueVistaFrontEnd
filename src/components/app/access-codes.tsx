@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ALL, FilterBar, facetOptionsFrom, matchesQuery } from "@/components/ui/filter-bar";
 import { useCopied } from "@/hooks/use-copied";
+import { AssignableProjects } from "@/components/app/assignable-projects";
 import { api, HttpError } from "@/lib/api";
 import { PAINT_BRANDS, type AccessCode, type OrgResponse, type ProjectDetail, type ShopProduct } from "@/lib/types";
 
@@ -92,7 +93,8 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   /**
    * Add another project to a code the customer is already using — the "one more room"
    * moment at the counter, without making them type a second code. Needs a live plan:
-   * each project reserves an image credit against the shop's monthly quota.
+   * each project reserves against the shop's monthly quota, and against the extras it
+   * bought once that quota is spent.
    */
   async function addProject(c: AccessCode) {
     if (!org) return;
@@ -336,6 +338,9 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
           <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".16em", color: "var(--fg-mute)" }}>
             NEW CODE · VALID {FIXED_VALID_DAYS} DAYS
           </span>
+          {/* What there is to give away, counted where the giving happens. Extras the shop
+              bought are part of it — assigning draws on the same pool painting does. */}
+          <AssignableProjects />
         </div>
 
         <div style={{ display: "flex", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
@@ -365,7 +370,8 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
             {issuing ? <><Spinner size={14} color="currentColor" /> Issuing…</> : <>Issue code <span className="arr">→</span></>}
           </Button>
           <span style={{ font: "400 12px/1.4 var(--sans)", color: "var(--fg-mute)", maxWidth: "34ch" }}>
-            {projectQuota} project{projectQuota === 1 ? "" : "s"} will be taken from your monthly image quota.
+            {projectQuota} project{projectQuota === 1 ? "" : "s"} will be taken from this
+            month&rsquo;s allowance, or from the extra projects you&rsquo;ve bought once it runs out.
           </span>
         </div>
 
@@ -547,7 +553,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                           type="button"
                           onClick={() => void addProject(c)}
                           disabled={toppingUp === c.id}
-                          title="Add one more project to this code (uses one image credit)"
+                          title="Add one more project to this code — from this month's allowance, or from an extra you bought"
                           className="hv-code-action"
                         >
                           {toppingUp === c.id ? "…" : "+ Project"}
