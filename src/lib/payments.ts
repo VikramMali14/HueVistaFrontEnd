@@ -1,5 +1,10 @@
 import { api } from "./api";
-import type { ProjectPurchaseOptions, PurchasablePlan, StoreOrder } from "./types";
+import type {
+  ProjectPurchaseOptions,
+  ProjectReopenResult,
+  PurchasablePlan,
+  StoreOrder,
+} from "./types";
 
 declare global {
   interface Window {
@@ -224,6 +229,53 @@ export async function buyOneProject(
         try {
           resolve(
             await api.verifyProjectPurchase({
+              orderId: resp.razorpay_order_id,
+              paymentId: resp.razorpay_payment_id,
+              signature: resp.razorpay_signature,
+            }),
+          );
+        } catch (e) {
+          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+        }
+      },
+      modal: { ondismiss: () => resolve(null) },
+    });
+    rzp.open();
+  });
+}
+
+/**
+ * Pay by card for another validity window on a lapsed project.
+ *
+ * The order is created (and refused) server-side: a project a live plan or a shop code
+ * already covers never reaches Checkout, so nobody is charged to unlock something that
+ * was never locked. Which project is extended comes off the order, not from here.
+ *
+ * Resolves the reopen result, `null` if the buyer closes Checkout, and throws on a real
+ * error.
+ */
+export async function reopenProjectWithMoney(
+  projectId: string,
+  prefill?: { name?: string; email?: string },
+): Promise<ProjectReopenResult | null> {
+  const order = await api.createReopenOrder(projectId);
+  await loadCheckout();
+  if (!window.Razorpay) throw new Error("Payment library unavailable.");
+
+  return new Promise<ProjectReopenResult | null>((resolve, reject) => {
+    const rzp = new window.Razorpay!({
+      key: order.razorpayKeyId,
+      amount: order.amount,
+      currency: order.currency,
+      order_id: order.orderId,
+      name: "HueVista",
+      description: "Reopen project",
+      prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
+      theme: { color: "#7c5cff" },
+      handler: async (resp: CheckoutSuccess) => {
+        try {
+          resolve(
+            await api.verifyReopen({
               orderId: resp.razorpay_order_id,
               paymentId: resp.razorpay_payment_id,
               signature: resp.razorpay_signature,

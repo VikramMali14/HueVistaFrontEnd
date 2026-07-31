@@ -802,6 +802,18 @@ export const api = {
     browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/points/pay/project-credit", {
       method: "POST",
     }),
+  // Reopening with money instead of points. The order is refused up-front (409) when the
+  // project is already workable, so nobody pays to unlock something a plan already covers.
+  createReopenOrder: (projectId: string) =>
+    browserFetch<import("./types").ProjectOrder>(
+      `api/billing/projects/${encodeURIComponent(projectId)}/reopen/order`,
+      { method: "POST" },
+    ),
+  verifyReopen: (body: { orderId: string; paymentId: string; signature: string }) =>
+    browserFetch<import("./types").ProjectReopenResult>("api/billing/projects/reopen/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   pointsPayProjectReopen: (projectId: string) =>
     browserFetch<import("./types").ProjectReopenResult>(
       `api/billing/points/pay/project-reopen/${encodeURIComponent(projectId)}`,

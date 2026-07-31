@@ -299,7 +299,7 @@ export interface ProjectDetail {
   /** When this project's paid validity ends. Absent when it has no window of its
    *  own (covered by a plan or a shop's code) or while that window is paused. */
   accessExpiresAt?: string | null;
-  /** What reopening a lapsed project costs, in paise. */
+  /** What reopening this project costs, in points. Only meaningful while readOnly. */
   reopenPricePoints?: number;
 }
 
@@ -556,8 +556,11 @@ export interface ProjectPurchaseOptions {
   /** What one project costs in money, in paise (GST included). Dearer than the points
    *  price on every tier — that gap is what makes topping up worth doing. */
   projectPricePaise: number;
-  /** What another window on a lapsed project costs, in points. */
+  /** What another window on a lapsed project costs — points, and money in paise.
+   *  Flat on both rails, unlike a new project: a reopen buys more time on work already
+   *  paid for once, so it does not get cheaper with the tier. */
   reopenPricePoints: number;
+  reopenPricePaise: number;
   /** Spendable balance, so the caller can say whether it is enough. */
   pointsBalance: number;
   /** Days of access a purchase (or a reopen) opens. */
@@ -583,8 +586,10 @@ export interface ProjectReopenResult {
   accessExpiresAt?: string | null;
   /** True while a live subscription is holding the window — the paid days are banked. */
   paused: boolean;
-  /** Points the reopen cost. */
+  /** What the reopen cost. Exactly one of these is non-zero — points when it was paid
+   *  from the reward balance, paise when it was paid by card. */
   pointsSpent: number;
+  amountPaise?: number;
   daysAdded: number;
 }
 

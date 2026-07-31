@@ -11,6 +11,7 @@ import { MaskStudio, type ExistingMask } from "./mask-studio";
 import { ProjectDetailsGate, type ProjectDetails } from "./project-details-gate";
 import type { RegionLite } from "./coordinate-suggestions";
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
+import { reopenProjectWithMoney } from "@/lib/payments";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import {
@@ -286,7 +287,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [viewOnly, setViewOnly] = useState(false);
   const [viewOnlyReason, setViewOnlyReason] = useState<string | null>(null);
   const [reopenPoints, setReopenPoints] = useState(0);
-  const [reopening, setReopening] = useState(false);
+  const [reopening, setReopening] = useState<"points" | "money" | null>(null);
   const [segmenting, setSegmenting] = useState(false);
   const [masksReady, setMasksReady] = useState(false);
   // Guest AI is billed to the shop; when the shop is out of credits we silently
@@ -469,6 +470,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   }, [guest]);
 
   const projectPrice = purchaseOptions?.projectPricePoints ?? null;
+  // The cash reopen price. Flat, so unlike the project price it doesn't move with the
+  // plan — still read from the server rather than hardcoded, since it is configuration.
+  const reopenPaise = purchaseOptions?.reopenPricePaise ?? 0;
   // Quoted on the out-of-quota prompt. The rate falls with the shop's plan, so it is
   // read from the server; the fallback is the dearest (no-plan) rate, which is the safe
   // direction to guess in and keeps a button from reading "Spend  points".
@@ -1173,18 +1177,28 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
    * subscription that came back), so trusting the payment alone would be guessing at
    * state we can simply ask for.
    */
-  const handleReopen = useCallback(async () => {
+  /**
+   * Buy another validity window. Both rails land here: `points` spends the reward balance,
+   * `money` opens Checkout. Either way the project is re-read afterwards, because the
+   * response deliberately carries only the new expiry — the studio needs the whole project
+   * back to drop out of view-only.
+   */
+  const handleReopen = useCallback(async (rail: "points" | "money") => {
     if (!projectId || reopening) return;
-    setReopening(true);
+    setReopening(rail);
     setError(null);
     try {
-      await api.pointsPayProjectReopen(projectId);
+      if (rail === "points") {
+        await api.pointsPayProjectReopen(projectId);
+      } else if (!(await reopenProjectWithMoney(projectId))) {
+        return; // buyer closed Checkout
+      }
       const refreshed = await getProjectCall(projectId);
       await applyProjectDetail(refreshed);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not reopen this project.");
     } finally {
-      setReopening(false);
+      setReopening(null);
     }
   }, [projectId, reopening, getProjectCall, applyProjectDetail]);
 
@@ -1759,14 +1773,29 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               "This project is view-only — you can still see the colours that were last applied."}
           </span>
           <span className="hv-viewonly-actions">
+            {/* Both rails, priced from the server. Points are the cheaper one, so they
+                lead; the card button is for a shop that would rather not hold a balance.
+                A project a live plan already covers never gets here — it isn't view-only. */}
             {reopenPoints > 0 && projectId && (
               <Button
                 size="sm"
                 variant="ghost"
-                disabled={reopening}
-                onClick={() => void handleReopen()}
+                disabled={reopening !== null}
+                onClick={() => void handleReopen("points")}
               >
-                {reopening ? "Reopening…" : `Reopen for ${reopenPoints} points`}
+                {reopening === "points" ? "Reopening…" : `Reopen for ${reopenPoints} points`}
+              </Button>
+            )}
+            {reopenPaise > 0 && projectId && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={reopening !== null}
+                onClick={() => void handleReopen("money")}
+              >
+                {reopening === "money"
+                  ? "Opening checkout…"
+                  : `or pay ₹${(reopenPaise / 100).toLocaleString("en-IN")}`}
               </Button>
             )}
             <LinkButton href="/subscription" size="sm" variant="ghost">

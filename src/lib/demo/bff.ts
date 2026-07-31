@@ -56,6 +56,7 @@ async function readJson(req: NextRequest): Promise<Record<string, unknown>> {
 const POINTS_PROJECT = 80;
 const PROJECT_PRICE_PAISE = 9900;
 const POINTS_REOPEN = 9;
+const REOPEN_PRICE_PAISE = 1000;
 const PROJECT_VALID_DAYS = 30;
 /** A shop-issued code is always good for 10 days, and an extension resets it to 10. */
 const ACCESS_CODE_VALID_DAYS = 10;
@@ -69,6 +70,7 @@ function projectPurchaseOptions(): import("../types").ProjectPurchaseOptions {
     projectPricePoints: POINTS_PROJECT,
     projectPricePaise: PROJECT_PRICE_PAISE,
     reopenPricePoints: POINTS_REOPEN,
+    reopenPricePaise: REOPEN_PRICE_PAISE,
     pointsBalance: store.wallet.pointsBalance,
     validDays: PROJECT_VALID_DAYS,
     availableCredits: store.projectCredits,
