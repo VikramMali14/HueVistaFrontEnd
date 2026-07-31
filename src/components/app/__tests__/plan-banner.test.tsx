@@ -24,9 +24,9 @@ function sub(overrides: Partial<SubscriptionSummary> = {}): SubscriptionSummary 
     trial: false,
     currentPeriodStart: new Date(Date.now() - 5 * DAYS).toISOString(),
     currentPeriodEnd: new Date(Date.now() + 25 * DAYS).toISOString(),
-    aiGenerationsUsed: 4,
-    aiGenerationsLimit: 20,
-    aiGenerationsRemaining: 16,
+    projectsUsed: 4,
+    projectsLimit: 15,
+    projectsRemaining: 11,
     ...overrides,
   };
 }
@@ -48,7 +48,7 @@ describe("PlanBanner", () => {
    */
   it("keeps showing usage for a cancelled plan inside its paid period", async () => {
     await banner(sub({ status: "CANCELLED" }));
-    await waitFor(() => expect(screen.getByText(/4\/20 images this month/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/4\/15 projects this month/i)).toBeTruthy());
     // Not renewing, so the countdown and the way back are both worth showing.
     expect(screen.getByText(/days left/i)).toBeTruthy();
     expect(screen.getByRole("link", { name: /subscribe/i })).toBeTruthy();

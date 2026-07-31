@@ -97,6 +97,9 @@ interface ShadeGridProps {
   /** Ask Claude for palettes tuned to THIS photo (costs 1 AI preview). Absent
    *  for guests and until the project exists — the section hides itself. */
   onFetchAiPalettes?: () => Promise<AiRecommendationResponse>;
+  /** Snapshot the room onto the colour-board PDF once a palette has been applied. The
+   *  apply happens here; the caller only has to capture. Absent = no button. */
+  onAddComboToPdf?: () => void;
   /** The shop's predefined combinations (AI Suggest tab). Absent/empty = hidden. */
   shopCombos?: ReadonlyArray<RetailerCombo>;
 }
@@ -166,6 +169,7 @@ export function ShadeGrid({
   outdoor = false,
   clashNote,
   onFetchAiPalettes,
+  onAddComboToPdf,
   shopCombos,
 }: ShadeGridProps) {
   const [family, setFamily] = useState<string>("All");
@@ -455,6 +459,7 @@ export function ShadeGrid({
         hideNames={hideNames}
             encodeCode={encodeCode}
             onFetchAiPalettes={onFetchAiPalettes}
+            onAddComboToPdf={onAddComboToPdf}
             shopCombos={shopCombos}
             outdoor={outdoor}
           />
@@ -895,6 +900,7 @@ function PaletteTrioCard({
   trio,
   onSelect,
   onApplyCombo,
+  onAddComboToPdf,
   codeLabel,
   nameLabel,
   applyAllTitle,
@@ -904,6 +910,9 @@ function PaletteTrioCard({
   trio: ReadonlyArray<PaintShade | undefined>;
   onSelect: (shade: PaintShade) => void;
   onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
+  /** Apply the palette AND snapshot it onto the colour-board PDF. Absent where the board
+   *  isn't available (guests, no canvas yet), in which case no button is rendered. */
+  onAddComboToPdf?: (shades: ReadonlyArray<PaintShade | undefined>) => void;
   codeLabel: (code: string) => string | null;
   /** The colour's display name — empty when the shop hides paint names. */
   nameLabel: (shade: { name: string; code: string }) => string;
@@ -1026,6 +1035,19 @@ function PaletteTrioCard({
         <button type="button" onClick={() => onApplyCombo(arranged)} className="btn btn-sm" title={applyAllTitle}>
           Apply all
         </button>
+        {/* One step, not three: the palette a counter likes is almost always the one they
+            want on the customer's sheet, and making them apply it, hunt for the board tray
+            and press Add lost that intent somewhere between the clicks. */}
+        {onAddComboToPdf && (
+          <button
+            type="button"
+            onClick={() => onAddComboToPdf(arranged)}
+            className="btn btn-sm"
+            title="Apply this palette and put it straight on the colour-board PDF"
+          >
+            Add to PDF
+          </button>
+        )}
       </div>
       {drag && dragShade &&
         createPortal(
@@ -1051,6 +1073,7 @@ function AISuggestPanel({
   hideNames = false,
   encodeCode,
   onFetchAiPalettes,
+  onAddComboToPdf,
   shopCombos,
   outdoor = false,
 }: {
@@ -1064,8 +1087,10 @@ function AISuggestPanel({
   hideCodes?: boolean;
   hideNames?: boolean;
   encodeCode?: (code: string) => string;
-  /** Claude palettes for THIS photo (1 AI preview per ask); hidden when absent. */
+  /** Claude palettes for THIS photo; hidden when absent. */
   onFetchAiPalettes?: () => Promise<AiRecommendationResponse>;
+  /** Snapshot the room onto the colour-board PDF, once a palette has been applied. */
+  onAddComboToPdf?: () => void;
   /** The shop's predefined combinations; absent/empty hides the section. */
   shopCombos?: ReadonlyArray<RetailerCombo>;
   /** Outdoor photo → the shop's EXTERIOR combos lead, interior ones otherwise. */
@@ -1151,6 +1176,15 @@ function AISuggestPanel({
     if (!applied && shades[0]) onSelect(shades[0]); // single-surface / no mapping → active wall
   };
 
+  // Apply, then hand off to the caller to capture. Sequencing the two here rather than
+  // in each section keeps "what Apply all does" in exactly one place.
+  const addComboToPdf = onAddComboToPdf
+    ? (shades: ReadonlyArray<PaintShade | undefined>) => {
+        applyCombo(shades);
+        onAddComboToPdf();
+      }
+    : undefined;
+
   const showPairings =
     Boolean(snap.baseHex) && Boolean(activeRegionId) && Boolean(onApplyToRegion) && snap.regions.length > 0;
 
@@ -1208,6 +1242,7 @@ function AISuggestPanel({
 
       {onFetchAiPalettes && (
         <ClaudePicksSection
+          onAddComboToPdf={addComboToPdf}
           fetchPalettes={onFetchAiPalettes}
           catalogue={catalogue}
           onSelect={onSelect}
@@ -1274,6 +1309,7 @@ function AISuggestPanel({
                 trio={[p.main, p.accent, p.trim]}
                 onSelect={onSelect}
                 onApplyCombo={applyCombo}
+                onAddComboToPdf={onAddComboToPdf}
                 codeLabel={codeLabel}
                 nameLabel={nameLabel}
                 applyAllTitle="Apply the whole palette — main, accent and trim — across the room"
@@ -1301,14 +1337,15 @@ function AISuggestPanel({
 
 /**
  * "Claude's picks" — palettes generated by Claude Vision from the actual project
- * photo (backend POST /recommendations). Unlike the free Room palettes below
- * (local catalogue math), each ask costs one AI preview from the shop's monthly
- * quota, so NOTHING is fetched until the retailer explicitly asks. A 402 (out
- * of previews / unsubscribed) gets its own message; every other failure keeps
- * the button usable for a retry — a failed run is refunded server-side.
+ * photo (backend POST /recommendations). Included in the project, like everything
+ * else done inside one, so an ask is free; it is still not fetched until the
+ * retailer explicitly asks, because it is a real model call. The only 402 left is a
+ * project whose access window has closed, which gets its own message; every other
+ * failure keeps the button usable for a retry.
  */
 function ClaudePicksSection({
   fetchPalettes,
+  onAddComboToPdf,
   catalogue,
   onSelect,
   onApplyCombo,
@@ -1317,6 +1354,7 @@ function ClaudePicksSection({
   encodeCode,
 }: {
   fetchPalettes: () => Promise<AiRecommendationResponse>;
+  onAddComboToPdf?: (shades: ReadonlyArray<PaintShade | undefined>) => void;
   catalogue: ReadonlyArray<PaintShade>;
   onSelect: (shade: PaintShade) => void;
   onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
@@ -1400,21 +1438,21 @@ function ClaudePicksSection({
           className="btn btn-sm"
           onClick={ask}
           disabled={loading}
-          title="Claude looks at the room photo and suggests three palettes matched to real catalogue shades. Each ask uses one AI preview."
+          title="Claude looks at the room photo and suggests three palettes matched to real catalogue shades — one colour per wall you have masked. Included in the project, so asking is free."
         >
-          {loading ? "Asking…" : combos ? "Ask again · 1 preview" : "Ask Claude · 1 preview"}
+          {loading ? "Asking…" : combos ? "Ask again" : "Ask Claude"}
         </button>
       </div>
       {!combos && !loading && !error && (
         <p className="hv-ai-intro">
-          Palettes tuned to this exact photo — its light, furnishings and mood. Each ask uses one
-          AI preview from your monthly quota; the Room palettes below stay free.
+          Palettes tuned to this exact photo — its light, furnishings and mood. Included in
+          the project, so asking costs nothing extra; the Room palettes below are free too.
         </p>
       )}
       {error && (
         <p className="field-error" role="alert">
           {error.quota
-            ? "You're out of images this month. Buy an extra image (₹50), upgrade your plan, or wait for the reset — the free Room palettes below still work."
+            ? "This project's access window has closed. Reopen it to keep working on it — the free Room palettes below still work."
             : error.message}
         </p>
       )}
@@ -1433,8 +1471,9 @@ function ClaudePicksSection({
               trio={trio}
               onSelect={onSelect}
               onApplyCombo={onApplyCombo}
+              onAddComboToPdf={onAddComboToPdf}
               codeLabel={codeLabel}
-                nameLabel={nameLabel}
+              nameLabel={nameLabel}
               applyAllTitle="Apply the whole palette — main, accent and trim — across the room"
             />
           ))}

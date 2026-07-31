@@ -12,7 +12,7 @@ interface SubscriptionManagerProps {
   ) => Promise<{ subscription?: SubscriptionSummary | null; error?: string }>;
   grantAction: (
     userId: string,
-    input: { plan: string; days: number; aiGenerationsLimit?: number },
+    input: { plan: string; days: number; projectsLimit?: number },
   ) => Promise<{ subscription?: SubscriptionSummary; error?: string }>;
   adjustAction: (
     userId: string,
@@ -69,7 +69,7 @@ function statusColor(status: SubscriptionSummary["status"]): string {
 
 /**
  * Admin subscription console: look a user up, see their plan and quota, then
- * grant a plan (no payment), top up AI image generations, or extend/reactivate
+ * grant a plan (no payment), top up project credits, or extend/reactivate
  * an ended subscription — all server-actioned against the admin endpoints.
  */
 export function SubscriptionManager({
@@ -92,7 +92,7 @@ export function SubscriptionManager({
   const [days, setDays] = useState("30");
   const [aiLimit, setAiLimit] = useState("");
   // Adjust forms
-  const [addGenerations, setAddGenerations] = useState("50");
+  const [addProjects, setAddProjects] = useState("50");
   const [extendDays, setExtendDays] = useState("30");
 
   function search() {
@@ -140,13 +140,13 @@ export function SubscriptionManager({
     const limitRaw = aiLimit.trim();
     const limit = limitRaw ? Math.trunc(Number(limitRaw)) : undefined;
     if (limitRaw && (!Number.isFinite(limit!) || limit! < 1)) {
-      setError("The AI image limit must be a positive number (or leave it blank for the plan default).");
+      setError("The project limit must be a positive number (or leave it blank for the plan default).");
       return;
     }
     startTransition(async () => {
       setError(null);
       setNotice(null);
-      const res = await grantAction(selected.id, { plan, days: d, aiGenerationsLimit: limit });
+      const res = await grantAction(selected.id, { plan, days: d, projectsLimit: limit });
       if (res.error) {
         setError(res.error);
         return;
@@ -157,7 +157,7 @@ export function SubscriptionManager({
     });
   }
 
-  function adjust(input: { addAiGenerations?: number; extendDays?: number }, message: string) {
+  function adjust(input: { addProjects?: number; extendDays?: number }, message: string) {
     if (!selected) return;
     startTransition(async () => {
       setError(null);
@@ -174,12 +174,12 @@ export function SubscriptionManager({
   }
 
   function addCredits() {
-    const n = Math.trunc(Number(addGenerations));
+    const n = Math.trunc(Number(addProjects));
     if (!Number.isFinite(n) || n < 1) {
-      setError("Enter how many AI image generations to add (at least 1).");
+      setError("Enter how many projects to add (at least 1).");
       return;
     }
-    adjust({ addAiGenerations: n }, `Added ${n} AI image generations.`);
+    adjust({ addProjects: n }, `Added ${n} project credits.`);
   }
 
   function extend() {
@@ -306,9 +306,9 @@ export function SubscriptionManager({
                 </dd>
               </div>
               <div>
-                <dt style={fieldLabel}>AI images</dt>
+                <dt style={fieldLabel}>Projects</dt>
                 <dd style={{ font: "400 15px/1.3 var(--sans)", color: "var(--fg)", margin: 0 }}>
-                  {sub.aiGenerationsUsed} / {fmtLimit(sub.aiGenerationsLimit)}
+                  {sub.projectsUsed} / {fmtLimit(sub.projectsLimit)}
                 </dd>
               </div>
               <div>
@@ -340,7 +340,7 @@ export function SubscriptionManager({
                     <input type="number" min={1} value={days} onChange={(e) => setDays(e.target.value)} style={{ ...inputStyle, width: "100%" }} />
                   </label>
                   <label>
-                    <span style={fieldLabel}>AI image limit (blank = plan default)</span>
+                    <span style={fieldLabel}>Project limit (blank = plan default)</span>
                     <input type="number" min={1} value={aiLimit} onChange={(e) => setAiLimit(e.target.value)} placeholder="Plan default" style={{ ...inputStyle, width: "100%" }} />
                   </label>
                   <button type="button" onClick={grant} disabled={pending} style={{ ...buttonStyle, borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }}>
@@ -354,15 +354,15 @@ export function SubscriptionManager({
 
               <section>
                 <h3 style={{ font: "600 15px/1.3 var(--serif)", color: "var(--fg)", margin: "0 0 12px" }}>
-                  Top up AI images
+                  Top up projects
                 </h3>
                 <div style={{ display: "flex", gap: 10 }}>
                   <input
                     type="number"
                     min={1}
-                    value={addGenerations}
-                    onChange={(e) => setAddGenerations(e.target.value)}
-                    aria-label="AI image generations to add"
+                    value={addProjects}
+                    onChange={(e) => setAddProjects(e.target.value)}
+                    aria-label="Projects to add"
                     style={{ ...inputStyle, flex: 1, minWidth: 0 }}
                   />
                   <button type="button" onClick={addCredits} disabled={pending || !sub} style={buttonStyle}>
@@ -370,7 +370,8 @@ export function SubscriptionManager({
                   </button>
                 </div>
                 <p style={{ font: "400 12px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "10px 0 0" }}>
-                  Raises this cycle&rsquo;s generation limit so the user can create more images right away.
+                  Usable right away, and they survive a renewal — granted credits go in the
+                  bought-extras bucket, not the monthly limit the renewal rebuilds.
                 </p>
 
                 <h3 style={{ font: "600 15px/1.3 var(--serif)", color: "var(--fg)", margin: "24px 0 12px" }}>

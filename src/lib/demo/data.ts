@@ -41,9 +41,9 @@ export const DEMO_SUBSCRIPTION: SubscriptionSummary = {
   status: "ACTIVE",
   trial: true,
   currentPeriodEnd: "2026-07-08T00:00:00+05:30",
-  aiGenerationsUsed: 12,
-  aiGenerationsLimit: 50,
-  aiGenerationsRemaining: 38,
+  projectsUsed: 12,
+  projectsLimit: 45,
+  projectsRemaining: 33,
 };
 
 /** The CUSTOMER account's project entitlement (api/me/entitlement). */

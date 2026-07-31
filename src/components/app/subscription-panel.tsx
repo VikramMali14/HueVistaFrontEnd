@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { HttpError } from "@/lib/http-error";
-import { buyPoints, subscribeToPlan } from "@/lib/payments";
+import { buyOneProject, buyPoints, subscribeToPlan } from "@/lib/payments";
 import type { PlanOption, PurchasablePlan, RewardPointsSummary, SubscriptionSummary } from "@/lib/types";
 
 interface SubscriptionPanelProps {
@@ -191,7 +191,8 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
   const [customTopUp, setCustomTopUp] = useState("");
   // Reward points — a separate ledger with its own prices and a one-year expiry.
   const [points, setPoints] = useState<RewardPointsSummary | null>(null);
-  const [pointsPaying, setPointsPaying] = useState<"image" | "mask" | "project" | null>(null);
+  const [pointsPaying, setPointsPaying] = useState<"project" | null>(null);
+  const [buyingProject, setBuyingProject] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -274,30 +275,51 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
     }
   }
 
-  // Spend reward points. Separate from walletPay because the ledgers are separate:
-  // different prices, different expiry, and a shop can hold one without the other.
-  async function pointsPay(kind: "image" | "mask" | "project") {
+  // Spend reward points on one extra project. There is one thing to buy now — a project
+  // covers the clean-up and the wall detection together — where there used to be three
+  // (image, auto-mask, project) a shop had to pick correctly between.
+  async function pointsPay(kind: "project") {
     setError(null);
     setNotice(null);
     setPointsPaying(kind);
     try {
-      if (kind === "project") {
-        await api.pointsPayProjectCredit();
-      } else {
-        setSub(kind === "image"
-          ? await api.pointsPayImageCredit()
-          : await api.pointsPayAutoMaskCredit());
-      }
-      const fresh = await api.getRewardPoints().catch(() => null);
-      if (fresh) setPoints(fresh);
-      setNotice(kind === "image" ? "Paid with points — one extra image added to your plan."
-        : kind === "mask" ? "Paid with points — one extra AI auto-mask added to your plan."
-        : "Paid with points — one project added. Start it from your projects list.");
+      await api.pointsPayProjectCredit();
+      const [freshPoints, freshSub] = await Promise.all([
+        api.getRewardPoints().catch(() => null),
+        api.getCurrentSubscription().catch(() => null),
+      ]);
+      if (freshPoints) setPoints(freshPoints);
+      if (freshSub) setSub(freshSub);
+      setNotice("Paid with points — one extra project added.");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not spend your points. Please try again.");
     } finally {
       setPointsPaying(null);
+    }
+  }
+
+  /**
+   * The same extra project, paid in money instead of points, at this plan's rate.
+   *
+   * The amount is never named here — the order is priced server-side from the plan, so a
+   * stale page can't check out at a tier the shop has since left.
+   */
+  async function payWithMoney() {
+    setError(null);
+    setNotice(null);
+    setBuyingProject(true);
+    try {
+      const done = await buyOneProject();
+      if (!done) return; // buyer closed Checkout
+      const fresh = await api.getCurrentSubscription().catch(() => null);
+      if (fresh) setSub(fresh);
+      setNotice("Payment received — one extra project added.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not complete the payment.");
+    } finally {
+      setBuyingProject(false);
     }
   }
 
@@ -416,34 +438,29 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                 }}
               >
                 <div>
-                  <span style={fieldLabel}>Images this cycle (incl. AI clean-up)</span>
+                  <span style={fieldLabel}>Projects this cycle (AI clean-up + auto-mask)</span>
                   <UsageBar
-                    used={sub.aiGenerationsUsed}
-                    limit={sub.aiGenerationsLimit + (sub.purchasedImageCredits ?? 0)}
+                    used={sub.projectsUsed}
+                    limit={sub.projectsLimit
+                           + (sub.purchasedProjectCredits ?? 0)
+                           + (sub.carriedProjectCredits ?? 0)}
                   />
-                  {(sub.purchasedImageCredits ?? 0) > 0 && (
+                  {/* The two kinds of extra are called out separately because they expire
+                      differently: bought ones never do, carried-over ones die with this
+                      cycle, and a shop planning its month needs to know which it holds. */}
+                  {(sub.purchasedProjectCredits ?? 0) > 0 && (
                     <span style={{ font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)", display: "block", marginTop: 4 }}>
-                      includes {sub.purchasedImageCredits} purchased extra{(sub.purchasedImageCredits ?? 0) === 1 ? "" : "s"}
+                      includes {sub.purchasedProjectCredits} bought extra{(sub.purchasedProjectCredits ?? 0) === 1 ? "" : "s"} — these never expire
                     </span>
                   )}
-                </div>
-                <div>
-                  <span style={fieldLabel}>AI auto-masks (wall detection)</span>
-                  {(sub.autoMasksLimit ?? 0) + (sub.purchasedAutoMaskCredits ?? 0) > 0 ? (
-                    <>
-                      <UsageBar
-                        used={sub.autoMasksUsed ?? 0}
-                        limit={(sub.autoMasksLimit ?? 0) + (sub.purchasedAutoMaskCredits ?? 0)}
-                      />
-                      {(sub.purchasedAutoMaskCredits ?? 0) > 0 && (
-                        <span style={{ font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)", display: "block", marginTop: 4 }}>
-                          includes {sub.purchasedAutoMaskCredits} purchased extra{(sub.purchasedAutoMaskCredits ?? 0) === 1 ? "" : "s"}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <span style={{ font: "400 13px/1.5 var(--mono)", color: "var(--fg-mute)", display: "block", marginTop: 8 }}>
-                      Not in this plan — manual masking is unlimited. Upgrade for AI wall detection.
+                  {(sub.carriedProjectCredits ?? 0) > 0 && (
+                    <span style={{ font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)", display: "block", marginTop: 4 }}>
+                      includes {sub.carriedProjectCredits} carried over from your old plan — use them before this cycle renews
+                    </span>
+                  )}
+                  {(sub.reservedProjects ?? 0) > 0 && (
+                    <span style={{ font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)", display: "block", marginTop: 4 }}>
+                      {sub.reservedProjects} held for access codes your customers haven&apos;t redeemed yet
                     </span>
                   )}
                 </div>
@@ -454,33 +471,35 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
               </div>
             )}
 
-            {active && sub.aiGenerationsLimit < UNLIMITED_FLOOR && points != null && (
+            {active && sub.projectsLimit < UNLIMITED_FLOOR && points != null && (
               <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                {points.balance >= points.imagePrice && (
+                {points.balance >= points.projectPrice && (
                   <button
                     type="button"
-                    onClick={() => void pointsPay("image")}
-                    disabled={pointsPaying !== null}
+                    onClick={() => void pointsPay("project")}
+                    disabled={pointsPaying !== null || buyingProject}
                     style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
                   >
-                    {pointsPaying === "image" ? "Paying…" : `1 extra image — ${points.imagePrice} pts`}
+                    {pointsPaying === "project" ? "Paying…" : `1 extra project — ${points.projectPrice} pts`}
                   </button>
                 )}
-                {(sub.autoMasksLimit ?? 0) < UNLIMITED_FLOOR
-                  && points.balance >= points.autoMaskPrice && (
-                  <button
-                    type="button"
-                    onClick={() => void pointsPay("mask")}
-                    disabled={pointsPaying !== null}
-                    style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
-                  >
-                    {pointsPaying === "mask" ? "Paying…" : `1 extra AI auto-mask — ${points.autoMaskPrice} pts`}
-                  </button>
-                )}
+                {/* The cash rail, for a shop that would rather pay for one project than
+                    keep a balance. Dearer than points on every tier, and shown saying so
+                    rather than leaving the buyer to work out why the two differ. */}
+                <button
+                  type="button"
+                  onClick={() => void payWithMoney()}
+                  disabled={pointsPaying !== null || buyingProject}
+                  style={buttonStyle}
+                >
+                  {buyingProject
+                    ? "Opening checkout…"
+                    : `1 extra project — ${paise(sub.extraProjectPricePaise ?? 0)}`}
+                </button>
                 <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-                  {points.balance < points.autoMaskPrice
-                    ? `Out of allowance? Buy points below — an extra image is ${points.imagePrice}.`
-                    : "Out of allowance mid-cycle? Extras never expire."}
+                  {points.balance < points.projectPrice
+                    ? `Out of allowance? Points are the cheaper way — ${points.projectPrice} pts against ${paise(sub.extraProjectPricePaise ?? 0)}.`
+                    : "Out of allowance mid-cycle? Bought projects never expire."}
                 </span>
               </div>
             )}
@@ -548,8 +567,8 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
             <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
               Earned {points.pointsPerSale} per kiosk sale, or bought below at{" "}
               {points.rupeesPerPoint === 1 ? "₹1 each" : `₹${points.rupeesPerPoint} each`}. Buys:
-              extra image {points.imagePrice} pts, AI auto-mask {points.autoMaskPrice} pts,
-              project {points.projectPrice} pts, reopen {points.reopenPrice} pts.
+              extra project {points.projectPrice} pts, reopen {points.reopenPrice} pts.
+              {" "}A project costs fewer points the bigger your plan.
             </span>
           </div>
 
@@ -630,54 +649,25 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
           )}
 
           <div style={{ marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            {active && points.balance >= points.imagePrice && (
-              <button
-                type="button"
-                onClick={() => void pointsPay("image")}
-                disabled={pointsPaying !== null}
-                style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
-              >
-                {pointsPaying === "image" ? "Paying…" : `1 extra image — ${points.imagePrice} pts`}
-              </button>
-            )}
-            {active
-              && (sub?.autoMasksLimit ?? 0) < UNLIMITED_FLOOR
-              && points.balance >= points.autoMaskPrice && (
-              <button
-                type="button"
-                onClick={() => void pointsPay("mask")}
-                disabled={pointsPaying !== null}
-                style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
-              >
-                {pointsPaying === "mask" ? "Paying…" : `1 extra AI auto-mask — ${points.autoMaskPrice} pts`}
-              </button>
-            )}
-            {/* No plan gate: this is what points are worth between subscriptions. */}
+            {/* No plan gate: buying a project works whether or not one is running. With a
+                plan it extends that plan's allowance; without one it stands on its own. */}
             {points.balance >= points.projectPrice && (
               <button
                 type="button"
                 onClick={() => void pointsPay("project")}
-                disabled={pointsPaying !== null}
+                disabled={pointsPaying !== null || buyingProject}
                 style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
               >
-                {pointsPaying === "project" ? "Paying…" : `1 project — ${points.projectPrice} pts`}
+                {pointsPaying === "project" ? "Paying…" : `1 extra project — ${points.projectPrice} pts`}
               </button>
             )}
-            {points.balance < points.autoMaskPrice && (
+            {points.balance < points.projectPrice && (
               <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-                Not enough to spend on anything yet — {points.autoMaskPrice} points is the
-                cheapest thing on the list.
+                Not enough for a project yet — that&rsquo;s {points.projectPrice} points on
+                your plan. A reopen is {points.reopenPrice}.
               </span>
             )}
           </div>
-
-          {!active && points.balance >= points.autoMaskPrice && (
-            <p style={{ font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "12px 0 0" }}>
-              Extra images and auto-masks top up a plan&rsquo;s monthly allowance, so they need a
-              live plan. Buying a project doesn&rsquo;t — that works whether or not you&rsquo;re
-              subscribed.
-            </p>
-          )}
 
           {points.recentActivity.length > 0 && (
             <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -737,15 +727,11 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                 </div>
                 <ul style={{ margin: 0, paddingLeft: 18, font: "400 14px/1.7 var(--sans)", color: "var(--fg-soft)" }}>
                   <li>
-                    {p.monthlyImageLimit === "unlimited" ? "Unlimited" : p.monthlyImageLimit} images / month
-                    {" "}(AI clean-up included)
+                    {p.monthlyProjectLimit === "unlimited" ? "Unlimited" : p.monthlyProjectLimit}
+                    {" "}projects / month — AI clean-up and AI wall detection on every one
                   </li>
                   <li>
-                    {p.monthlyAutoMaskLimit === "unlimited"
-                      ? "Unlimited AI auto-masks"
-                      : p.monthlyAutoMaskLimit === 0
-                        ? "Manual masking only (unlimited)"
-                        : `${p.monthlyAutoMaskLimit} AI auto-masks / month + unlimited manual`}
+                    Extra projects {p.extraProjectPoints} pts / {paise(p.extraProjectPriceWithTaxInPaise)} each
                   </li>
                   <li>
                     {p.monthlyPdfLimit === "unlimited" ? "Unlimited" : p.monthlyPdfLimit} colour-board PDFs

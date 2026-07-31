@@ -28,7 +28,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "5 · Points",
-    p: "Points are the only balance on a HueVista account and the only way to pay for extra images, AI auto-masks, projects and project reopens. They arrive two ways: earned free when a customer buys a visualisation through your in-store kiosk link, or bought at the published rate. Both kinds behave identically once credited. Points have no cash value, cannot be transferred to another account, and are not withdrawable or convertible back to money in any circumstance — a purchase of points is a purchase of service credit, not a deposit.",
+    p: "Points are a balance on a HueVista account, spendable on extra projects and project reopens. They arrive two ways: earned free when a customer buys a visualisation through your in-store kiosk link, or bought at the published rate. Both kinds behave identically once credited. What a project costs in points depends on the plan covering the account at the time it is bought. Points have no cash value, cannot be transferred to another account, and are not withdrawable or convertible back to money in any circumstance — a purchase of points is a purchase of service credit, not a deposit.",
   },
   {
     h: "6 · Points expiry and refunds",
@@ -36,7 +36,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "7 · What points buy",
-    p: "Extra images and AI auto-masks bought with points beyond your plan allowance are consumed on use and do not themselves expire once credited to a plan. Once a charge has been applied and the corresponding image or auto-mask has been delivered, it is non-refundable. Where a run fails on our side, the credit for that run is returned to you automatically at no charge.",
+    p: "Extra projects bought beyond your plan allowance — with points or by card — are consumed on use and do not themselves expire once credited. Once a charge has been applied and the corresponding project has been delivered, it is non-refundable. Where a run fails on our side, the credit for that run is returned to you automatically at no charge. Projects carried over from a plan you have upgraded away from are unused allowance rather than a purchase: they last the billing cycle they are carried into and are not refundable if unspent.",
   },
   {
     h: "8 · Duplicate or erroneous charges",

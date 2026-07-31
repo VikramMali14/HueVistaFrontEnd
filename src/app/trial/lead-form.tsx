@@ -10,9 +10,9 @@ interface ShopLeadFormProps {
 }
 
 const TIERS = [
-  { v: "starter", l: "Starter · ₹999", d: "Single counter. 20 images + 5 AI auto-masks a month, AI clean-up on every photo." },
-  { v: "pro", l: "Professional · ₹2,499", d: "Recommended. 60 images + 40 AI auto-masks a month, per-wall recolouring." },
-  { v: "business", l: "Business · ₹4,999", d: "Multi-shop. 120 images + 90 AI auto-masks a month." },
+  { v: "starter", l: "Starter · ₹999", d: "Single counter. 15 projects a month — AI clean-up and AI wall detection on every one." },
+  { v: "pro", l: "Professional · ₹2,499", d: "Recommended. 45 projects a month, per-wall recolouring, cheaper extras." },
+  { v: "business", l: "Business · ₹4,999", d: "Multi-shop. 100 projects a month, extras at the lowest rate." },
 ];
 
 const STATES = [

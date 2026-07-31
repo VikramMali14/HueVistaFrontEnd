@@ -11,6 +11,7 @@ import { MaskStudio, type ExistingMask } from "./mask-studio";
 import { ProjectDetailsGate, type ProjectDetails } from "./project-details-gate";
 import type { RegionLite } from "./coordinate-suggestions";
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
+import { reopenProjectWithMoney } from "@/lib/payments";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import {
@@ -286,7 +287,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [viewOnly, setViewOnly] = useState(false);
   const [viewOnlyReason, setViewOnlyReason] = useState<string | null>(null);
   const [reopenPoints, setReopenPoints] = useState(0);
-  const [reopening, setReopening] = useState(false);
+  const [reopening, setReopening] = useState<"points" | "money" | null>(null);
   const [segmenting, setSegmenting] = useState(false);
   const [masksReady, setMasksReady] = useState(false);
   // Guest AI is billed to the shop; when the shop is out of credits we silently
@@ -313,14 +314,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // verification required before the first project, and "subscribe to a plan".
   const [needVerification, setNeedVerification] = useState(false);
   const [needSubscription, setNeedSubscription] = useState(false);
-  // Retailer image-quota gate (402 IMAGE_LIMIT_REACHED): monthly images spent —
-  // offer the ₹50 buy-one-extra-image checkout right in the overlay.
-  const [imageLimitReached, setImageLimitReached] = useState(false);
-  // Auto-mask gate (402 AUTO_MASK_UNAVAILABLE): plan has no AI wall-detection
-  // credit for this run — steer to manual masking (free) or an upgrade.
-  const [autoMaskBlocked, setAutoMaskBlocked] = useState(false);
+  // Retailer project-quota gate (402 PROJECT_LIMIT_REACHED): the month's projects
+  // are spent — offer buy-one-more right in the overlay, at the plan's own rate.
+  // There is no sibling auto-mask refusal any more: one project covers the clean-up
+  // and the wall detection, so a run that can start can always finish.
+  const [projectLimitReached, setProjectLimitReached] = useState(false);
   const [buying, setBuying] = useState(false);
-  const [buyingImage, setBuyingImage] = useState(false);
+  const [buyingProject, setBuyingProject] = useState(false);
   const [pendingImageId, setPendingImageId] = useState<string | null>(null);
   // A photo the user has picked/received but NOT yet confirmed. While set, we show
   // a local preview with a Continue/Choose-different prompt; no upload, no
@@ -328,25 +328,21 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   // Per-run segmentation choices sent with every request so a retry keeps them.
   // maskMode is a real product choice (every signed-in role): AUTO = AI wall
-  // detection after the compulsory clean-up (uses one auto-mask credit),
-  // MANUAL = stop after the clean-up and mark walls by hand (free, unlimited).
+  // detection after the compulsory clean-up, MANUAL = stop after the clean-up and
+  // mark walls by hand. Both cost the same — one project — so this is about which
+  // result the shop wants, not which one it can afford.
   // cleanImage is the ADMIN-only testing knob (backend strips it otherwise).
   // Masks are always stored raw — exactly as the model painted them.
   const [segOptions, setSegOptions] = useState<SegmentationOptions>({
     cleanImage: true,
     maskMode: "AUTO",
   });
-  // Image + auto-mask quotas, shown in the topbar so the cost is visible at the
-  // moment it's spent (every image consumes one image credit — the AI clean-up
-  // is compulsory; AI wall detection additionally uses one auto-mask credit;
-  // recolouring is free). Null hides the pill: guests (the shop's budget, not
-  // theirs), customers (no subscription → 404) and fetch failures.
-  const [quota, setQuota] = useState<{
-    used: number;
-    limit: number;
-    autoMasksUsed: number;
-    autoMasksLimit: number;
-  } | null>(null);
+  // The project quota, shown in the topbar so the cost is visible at the moment it's
+  // spent. One project covers the whole automatic pipeline — clean-up and wall
+  // detection — and everything after it (trying shades, recolouring, palettes) is
+  // free. Null hides the pill: guests (the shop's budget, not theirs), customers
+  // (no subscription → 404) and fetch failures.
+  const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -384,6 +380,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // The shop's shade-code scheme. Guests see codes ENCODED with it (instead of
   // no codes at all), so the counter reads the shade straight off their screen.
   const [codeScheme, setCodeScheme] = useState<ShadeCodeScheme | null>(null);
+  // Whether the shop's scheme has been ASKED FOR yet, distinct from whether it has one.
+  // The fetch is async, so for the first paint the two are indistinguishable — and
+  // guessing "no scheme" there printed the manufacturer's real codes on screen for a
+  // moment before they were replaced. That flash is the whole thing a shop runs its own
+  // codes to prevent, and a customer only has to see it once.
+  const [schemeLoaded, setSchemeLoaded] = useState(false);
 
   // "Add to PDF" colour board: snapshots of the recoloured canvas, each with the
   // shades applied on it, downloadable as one PDF. How many images one board may
@@ -467,17 +469,25 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         // a shop can hide paint names without running its own codes.
         setHideNames(scheme?.showNames === false);
       })
-      .catch(() => {});
+      // Settled either way: a failed lookup must not leave codes hidden forever, or a
+      // shop with no scheme at all would never see a code again.
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setSchemeLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
   }, [guest]);
 
   const projectPrice = purchaseOptions?.projectPricePoints ?? null;
-  // Quoted on the out-of-quota prompts. Falls back to the shipped defaults when the
-  // points call fails, so a button never reads "Spend  points".
-  const imagePointPrice = points?.imagePrice ?? 40;
-  const autoMaskPointPrice = points?.autoMaskPrice ?? 20;
+  // The cash reopen price. Flat, so unlike the project price it doesn't move with the
+  // plan — still read from the server rather than hardcoded, since it is configuration.
+  const reopenPaise = purchaseOptions?.reopenPricePaise ?? 0;
+  // Quoted on the out-of-quota prompt. The rate falls with the shop's plan, so it is
+  // read from the server; the fallback is the dearest (no-plan) rate, which is the safe
+  // direction to guess in and keeps a button from reading "Spend  points".
+  const projectPointPrice = points?.projectPrice ?? purchaseOptions?.projectPricePoints ?? 80;
 
   // With a scheme, encoded codes replace the manufacturer's everywhere they appear.
   const encodeCode = useMemo(
@@ -487,7 +497,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
   // Raw codes are withheld from guests always, and from everyone once the shop has a
   // pattern — `encodeCode` then supplies what is shown in their place.
-  const hideRawCodes = guest || Boolean(codeScheme);
+  // Withheld from guests always, from everyone once the shop has a pattern — and from
+  // everyone while we still don't know, because the only safe way to be wrong here is to
+  // show nothing. `encodeCode` supplies what appears in their place.
+  const hideRawCodes = guest || !schemeLoaded || Boolean(codeScheme);
 
   useEffect(() => {
     if (saveStatus !== "saved") {
@@ -619,9 +632,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     };
   }, []);
 
-  // Load the AI-preview count on entry and re-read it after anything that can
-  // spend (or refund) a credit. Best-effort: any failure just hides the pill —
-  // the backend remains the authority on every charge.
+  // Load the project count on entry and re-read it after anything that can spend (or
+  // refund) a credit. Best-effort: any failure just hides the pill — the backend
+  // remains the authority on every charge.
   const refreshQuota = useCallback(() => {
     if (guest) return;
     api
@@ -629,18 +642,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       .then((s) => {
         if (s?.status === "ACTIVE") {
           setQuota({
-            // Purchased ₹50 overage credits extend the image allowance.
-            used: s.aiGenerationsUsed,
+            used: s.projectsUsed,
+            // Bought extras and projects carried over from a replaced plan are both
+            // spendable, so the pill counts them in — one that showed only the plan's
+            // own allowance would read "full" with runs still in hand.
             limit:
-              s.aiGenerationsLimit >= 2147483647
-                ? s.aiGenerationsLimit
-                : s.aiGenerationsLimit + (s.purchasedImageCredits ?? 0),
-            autoMasksUsed: s.autoMasksUsed ?? 0,
-            // Wallet-bought auto-mask credits extend the allowance like image credits.
-            autoMasksLimit:
-              (s.autoMasksLimit ?? 0) >= 2147483647
-                ? (s.autoMasksLimit ?? 0)
-                : (s.autoMasksLimit ?? 0) + (s.purchasedAutoMaskCredits ?? 0),
+              s.projectsLimit >= 2147483647
+                ? s.projectsLimit
+                : s.projectsLimit
+                  + (s.purchasedProjectCredits ?? 0)
+                  + (s.carriedProjectCredits ?? 0),
           });
         } else {
           setQuota(null);
@@ -648,12 +659,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       })
       .catch(() => setQuota(null));
   }, [guest]);
-
-  // Whether an AI auto-mask credit is available for the next run. Unknown quota
-  // (pill hidden) errs on the side of allowing — the backend is the authority
-  // and answers with a clean 402 AUTO_MASK_UNAVAILABLE if not.
-  const autoMaskAvailable =
-    quota == null || (quota.autoMasksLimit > 0 && quota.autoMasksUsed < quota.autoMasksLimit);
 
   useEffect(() => {
     refreshQuota();
@@ -771,8 +776,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setAccessExpired(false);
       setNeedVerification(false);
       setNeedSubscription(false);
-      setImageLimitReached(false);
-      setAutoMaskBlocked(false);
+      setProjectLimitReached(false);
       setSegmenting(true);
       try {
         const project = await createProjectCall({
@@ -798,9 +802,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           }
           setMasksReady(true);
         } else {
-          // Force MANUAL when the plan has no auto-mask credit left — the run
-          // still happens (clean-up + hand-marked walls) instead of 402ing.
-          const maskMode = autoMaskAvailable ? segOptions.maskMode : "MANUAL";
+          // The shop's choice, full stop. This used to be overridden to MANUAL when the
+          // auto-mask allowance was spent; a project now covers both steps, so there is
+          // nothing left to fall back from.
+          const maskMode = segOptions.maskMode;
           await api.requestSegmentation(
             project.id,
             isAdmin ? { ...segOptions, maskMode } : { maskMode },
@@ -820,11 +825,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             window.location.href = "/sign-in?next=/atelier";
           }, 1200);
         } else if (err instanceof HttpError && err.status === 402) {
-          // Retailer gates (coded): subscribe / monthly images spent / no auto-mask
-          // credit — vs the customer "buy one extra project" fallback (uncoded).
+          // Retailer gates (coded): subscribe / monthly projects spent — vs the
+          // customer "ask your shop" and "buy one extra project" fallbacks.
           if (err.code === "SUBSCRIPTION_REQUIRED") setNeedSubscription(true);
-          else if (err.code === "IMAGE_LIMIT_REACHED") setImageLimitReached(true);
-          else if (err.code === "AUTO_MASK_UNAVAILABLE") setAutoMaskBlocked(true);
+          else if (err.code === "PROJECT_LIMIT_REACHED") setProjectLimitReached(true);
           else if (err.code === "ASK_RETAILER") setAskRetailer(true);
           else setLimitReached(true);
           setError(err.message);
@@ -843,7 +847,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         refreshQuota(); // segmentation charges on success / refunds on failure
       }
     },
-    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota, isAdmin, segOptions, autoMaskAvailable],
+    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota, isAdmin, segOptions],
   );
 
   // Pick / receive a photo (file picker, drag-drop, or phone hand-off) and show it
@@ -945,8 +949,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const handleRetrySegmentation = useCallback(async (forcedMaskMode?: "AUTO" | "MANUAL") => {
     if (!projectId) return;
     setError(null);
-    setImageLimitReached(false);
-    setAutoMaskBlocked(false);
+    setProjectLimitReached(false);
     setSegmenting(true);
     try {
       if (guest) {
@@ -962,8 +965,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           setGuestAiUnavailable(true);
         }
       } else {
-        const maskMode =
-          forcedMaskMode ?? (autoMaskAvailable ? segOptions.maskMode : "MANUAL");
+        const maskMode = forcedMaskMode ?? segOptions.maskMode;
         if (forcedMaskMode) setSegOptions((o) => ({ ...o, maskMode: forcedMaskMode }));
         await api.requestSegmentation(
           projectId,
@@ -977,8 +979,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       if (err instanceof PollCancelledError) return;
       if (err instanceof HttpError && err.status === 402) {
         if (err.code === "SUBSCRIPTION_REQUIRED") setNeedSubscription(true);
-        else if (err.code === "IMAGE_LIMIT_REACHED") setImageLimitReached(true);
-        else if (err.code === "AUTO_MASK_UNAVAILABLE") setAutoMaskBlocked(true);
+        else if (err.code === "PROJECT_LIMIT_REACHED") setProjectLimitReached(true);
         else if (err.code === "ASK_RETAILER") setAskRetailer(true);
         else setLimitReached(true);
         setError(err.message);
@@ -989,7 +990,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setSegmenting(false);
       refreshQuota(); // retry charges on success / refunds on failure
     }
-  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, segOptions, autoMaskAvailable]);
+  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, segOptions]);
 
   const handleBuyAndRetry = useCallback(async () => {
     setError(null);
@@ -1017,41 +1018,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
   }, [pendingImageId, pendingFile, createAndSegment, chooseDifferent]);
 
-  // Retailer pay-per-image overage: buy ONE extra image (₹50) and
-  // immediately re-run the blocked segmentation — on the already-created
-  // project when there is one, else from the pending upload.
-  // One atomic server debit against the point balance. An insufficient balance
-  // surfaces the backend's "earn more or pay directly" message in place.
-  const handleWalletImageAndRetry = useCallback(async () => {
+  // Out of projects mid-month: buy ONE more at the plan's own rate and immediately
+  // re-run the blocked segmentation — on the already-created project when there is one,
+  // else from the pending upload. One atomic server debit against the point balance; an
+  // insufficient balance surfaces the backend's "earn more or buy points" message in
+  // place. There is only one thing to buy now, so the shop can't pick the wrong one and
+  // still be stuck.
+  const handleBuyProjectAndRetry = useCallback(async () => {
     setError(null);
-    setBuyingImage(true);
+    setBuyingProject(true);
     try {
-      await api.pointsPayImageCredit();
-      setImageLimitReached(false);
+      await api.pointsPayProjectCredit();
+      setProjectLimitReached(false);
       if (projectId) await handleRetrySegmentation();
       else if (pendingImageId) await createAndSegment(pendingImageId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not spend your points.");
     } finally {
-      setBuyingImage(false);
+      setBuyingProject(false);
     }
   }, [projectId, pendingImageId, createAndSegment, handleRetrySegmentation]);
-
-  // Extra AI auto-mask: credit it, then force an AUTO retry — the stale quota
-  // state would otherwise steer the retry to MANUAL.
-  const handleWalletAutoMaskAndRetry = useCallback(async () => {
-    setError(null);
-    setBuyingImage(true);
-    try {
-      await api.pointsPayAutoMaskCredit();
-      setAutoMaskBlocked(false);
-      await handleRetrySegmentation("AUTO");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not spend your points.");
-    } finally {
-      setBuyingImage(false);
-    }
-  }, [handleRetrySegmentation]);
 
   // Run a persistence call under the shared save-status machine. Failures are
   // queued for Retry even when a newer save has since succeeded — an older
@@ -1205,18 +1191,28 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
    * subscription that came back), so trusting the payment alone would be guessing at
    * state we can simply ask for.
    */
-  const handleReopen = useCallback(async () => {
+  /**
+   * Buy another validity window. Both rails land here: `points` spends the reward balance,
+   * `money` opens Checkout. Either way the project is re-read afterwards, because the
+   * response deliberately carries only the new expiry — the studio needs the whole project
+   * back to drop out of view-only.
+   */
+  const handleReopen = useCallback(async (rail: "points" | "money") => {
     if (!projectId || reopening) return;
-    setReopening(true);
+    setReopening(rail);
     setError(null);
     try {
-      await api.pointsPayProjectReopen(projectId);
+      if (rail === "points") {
+        await api.pointsPayProjectReopen(projectId);
+      } else if (!(await reopenProjectWithMoney(projectId))) {
+        return; // buyer closed Checkout
+      }
       const refreshed = await getProjectCall(projectId);
       await applyProjectDetail(refreshed);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not reopen this project.");
     } finally {
-      setReopening(false);
+      setReopening(null);
     }
   }, [projectId, reopening, getProjectCall, applyProjectDetail]);
 
@@ -1509,6 +1505,25 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setPdfNotice(null);
   }, [imageUrl, regions, pdfPages.length, maxPdfPages, hideRawCodes, hideNames, encodeCode]);
 
+  /**
+   * "Add to PDF" on a palette card: the palette is applied by the shade grid, and the
+   * snapshot has to wait for that paint to land. Applying and capturing in the same tick
+   * caught the PREVIOUS colours — React state and the WebGL canvas both update after the
+   * handler returns — so the board got the room the customer had just moved on from.
+   * Arming a flag and capturing once `regions` reflects the new paint is what makes the
+   * sheet show what is on screen.
+   */
+  const [pdfCaptureArmed, setPdfCaptureArmed] = useState(false);
+
+  useEffect(() => {
+    if (!pdfCaptureArmed) return;
+    const id = requestAnimationFrame(() => {
+      addToPdf();
+      setPdfCaptureArmed(false);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [pdfCaptureArmed, regions, addToPdf]);
+
   const removePdfPage = useCallback((index: number) => {
     setPdfPages((prev) => prev.filter((_, i) => i !== index));
     setPdfNotice(null);
@@ -1603,7 +1618,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [guest, projectId, refreshQuota],
   );
 
-  const manualRun = !guest && (segOptions.maskMode === "MANUAL" || !autoMaskAvailable);
+  const manualRun = !guest && segOptions.maskMode === "MANUAL";
   const overlayLabel = uploading && !segmenting
     ? "Uploading photo"
     : segmenting
@@ -1621,7 +1636,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
   // Wall detection can be retried without re-uploading the photo once the
   // project exists and we're still on the mask step. Guests can retry too — each
-  // attempt is billed to the shop, falling back to manual if it's out of credits.
+  // attempt is billed to the shop.
   const canRetrySegmentation = Boolean(projectId) && stage === "mask";
   // The photo uploaded fine but creating the project failed (network blip, 5xx):
   // retry project creation + segmentation from the already-uploaded image, so
@@ -1632,7 +1647,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const showCanvasError = Boolean(
     error && imageUrl && !uploading && !segmenting &&
     !limitReached && !askRetailer && !accessExpired && !needVerification && !needSubscription &&
-    !imageLimitReached && !autoMaskBlocked,
+    !projectLimitReached,
   );
 
   return (
@@ -1691,17 +1706,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           {quota && (
             <span
               className={`hv-status-pill ${quota.used >= quota.limit ? "is-error" : ""}`}
-              title="Images used this month — every image includes the compulsory AI photo clean-up. Claude palettes also use one; trying shades and recolouring are free."
+              title="Projects used this month. One project covers the AI photo clean-up and the AI wall detection together — everything after it (trying shades, recolouring, Claude palettes) is free."
             >
-              {quota.used}/{quota.limit >= 2147483647 ? "∞" : quota.limit} images
-            </span>
-          )}
-          {quota && quota.autoMasksLimit > 0 && (
-            <span
-              className={`hv-status-pill ${quota.autoMasksUsed >= quota.autoMasksLimit ? "is-error" : ""}`}
-              title="AI auto-masks used this month — spent only when the AI detects walls for you. Manual masking is free and unlimited."
-            >
-              {quota.autoMasksUsed}/{quota.autoMasksLimit >= 2147483647 ? "∞" : quota.autoMasksLimit} auto-masks
+              {quota.used}/{quota.limit >= 2147483647 ? "∞" : quota.limit} projects
             </span>
           )}
           {basicPreview && (
@@ -1799,14 +1806,29 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               "This project is view-only — you can still see the colours that were last applied."}
           </span>
           <span className="hv-viewonly-actions">
+            {/* Both rails, priced from the server. Points are the cheaper one, so they
+                lead; the card button is for a shop that would rather not hold a balance.
+                A project a live plan already covers never gets here — it isn't view-only. */}
             {reopenPoints > 0 && projectId && (
               <Button
                 size="sm"
                 variant="ghost"
-                disabled={reopening}
-                onClick={() => void handleReopen()}
+                disabled={reopening !== null}
+                onClick={() => void handleReopen("points")}
               >
-                {reopening ? "Reopening…" : `Reopen for ${reopenPoints} points`}
+                {reopening === "points" ? "Reopening…" : `Reopen for ${reopenPoints} points`}
+              </Button>
+            )}
+            {reopenPaise > 0 && projectId && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={reopening !== null}
+                onClick={() => void handleReopen("money")}
+              >
+                {reopening === "money"
+                  ? "Opening checkout…"
+                  : `or pay ₹${(reopenPaise / 100).toLocaleString("en-IN")}`}
               </Button>
             )}
             <LinkButton href="/subscription" size="sm" variant="ghost">
@@ -2075,23 +2097,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     <legend style={{ font: "500 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)", padding: "0 6px" }}>
                       After the AI photo clean-up
                     </legend>
-                    <label style={{ display: "flex", alignItems: "flex-start", gap: 8, font: "400 13px/1.4 var(--sans)", color: autoMaskAvailable ? "var(--fg-soft)" : "var(--fg-mute)", cursor: autoMaskAvailable ? "pointer" : "not-allowed" }}>
+                    <label style={{ display: "flex", alignItems: "flex-start", gap: 8, font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", cursor: "pointer" }}>
                       <input
                         type="radio"
                         name="mask-mode"
-                        checked={segOptions.maskMode !== "MANUAL" && autoMaskAvailable}
-                        disabled={!autoMaskAvailable}
+                        checked={segOptions.maskMode !== "MANUAL"}
                         onChange={() => setSegOptions((o) => ({ ...o, maskMode: "AUTO" }))}
                         style={{ marginTop: 2 }}
                       />
                       <span>
                         Let AI detect the walls
                         <span style={{ display: "block", font: "400 11px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
-                          {autoMaskAvailable
-                            ? "uses 1 AI auto-mask credit"
-                            : quota != null && quota.autoMasksLimit <= 0
-                              ? "not in your plan — upgrade to unlock"
-                              : "monthly auto-mask credits used up"}
+                          included in this project — no extra credit
                         </span>
                       </span>
                     </label>
@@ -2099,14 +2116,14 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       <input
                         type="radio"
                         name="mask-mode"
-                        checked={segOptions.maskMode === "MANUAL" || !autoMaskAvailable}
+                        checked={segOptions.maskMode === "MANUAL"}
                         onChange={() => setSegOptions((o) => ({ ...o, maskMode: "MANUAL" }))}
                         style={{ marginTop: 2 }}
                       />
                       <span>
                         I&apos;ll mark the walls myself
                         <span style={{ display: "block", font: "400 11px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
-                          free & unlimited — click each wall after the clean-up
+                          same one project — click each wall after the clean-up
                         </span>
                       </span>
                     </label>
@@ -2207,7 +2224,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               </div>
             )}
             <LoaderOverlay show={uploading || segmenting} label={overlayLabel} hint={overlayHint} />
-            {(limitReached || askRetailer || accessExpired || needVerification || needSubscription || imageLimitReached || autoMaskBlocked) && (
+            {(limitReached || askRetailer || accessExpired || needVerification || needSubscription || projectLimitReached) && (
               <div
                 style={{
                   position: "absolute",
@@ -2239,11 +2256,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                         ? "Subscribe to continue"
                         : accessExpired
                           ? "Access ended"
-                          : imageLimitReached
-                            ? "Monthly images used up"
-                            : autoMaskBlocked
-                              ? "AI wall detection unavailable"
-                              : "Project limit reached"}
+                          : projectLimitReached
+                            ? "Monthly projects used up"
+                            : "Project limit reached"}
                   </Mono>
                   <p style={{ font: "400 19px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "14px 0 22px" }}>
                     {error ||
@@ -2255,11 +2270,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                           ? "Your free trial includes one project. Subscribe to a plan to create more."
                           : accessExpired
                             ? "Your access has ended. Ask your retailer for a new code."
-                            : imageLimitReached
-                              ? "You've used this month's image allowance."
-                              : autoMaskBlocked
-                                ? "Your plan has no AI wall-detection credit for this run — manual masking is free and unlimited."
-                                : "You've used your included project.")}
+                            : projectLimitReached
+                              ? "You've used this month's projects. One more covers the clean-up and the wall detection, same as the rest."
+                              : "You've used your included project.")}
                   </p>
                   {needVerification && (
                     <a className="btn btn-brass" href="/dashboard">
@@ -2271,17 +2284,17 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       See plans <span className="arr">→</span>
                     </a>
                   )}
-                  {imageLimitReached && (
+                  {projectLimitReached && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
-                      <Button variant="brass" onClick={() => void handleWalletImageAndRetry()} disabled={buyingImage}>
-                        {buyingImage ? (
+                      <Button variant="brass" onClick={() => void handleBuyProjectAndRetry()} disabled={buyingProject}>
+                        {buyingProject ? (
                           <>
                             <Spinner size={14} color="currentColor" />
                             <span>Paying…</span>
                           </>
                         ) : (
                           <>
-                            Spend {imagePointPrice} points <span className="arr">→</span>
+                            Spend {projectPointPrice} points <span className="arr">→</span>
                           </>
                         )}
                       </Button>
@@ -2289,32 +2302,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                         href="/subscription"
                         style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-soft)" }}
                       >
-                        or buy points / upgrade your plan →
-                      </a>
-                    </div>
-                  )}
-                  {autoMaskBlocked && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
-                      <Button variant="brass" onClick={() => void handleWalletAutoMaskAndRetry()} disabled={buyingImage}>
-                        {buyingImage ? (
-                          <>
-                            <Spinner size={14} color="currentColor" />
-                            <span>Paying…</span>
-                          </>
-                        ) : (
-                          <>
-                            Spend {autoMaskPointPrice} points &amp; detect walls <span className="arr">→</span>
-                          </>
-                        )}
-                      </Button>
-                      <Button onClick={() => void handleRetrySegmentation("MANUAL")} disabled={buyingImage}>
-                        Continue with manual masking (free) <span className="arr">→</span>
-                      </Button>
-                      <a
-                        href="/subscription"
-                        style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-soft)" }}
-                      >
-                        or top up the wallet / upgrade your plan →
+                        or pay by card / upgrade your plan →
                       </a>
                     </div>
                   )}
@@ -2409,6 +2397,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             outdoor={classification === "OUTDOOR"}
             clashNote={clashNote}
             onFetchAiPalettes={fetchAiPalettes}
+            onAddComboToPdf={guest ? undefined : () => setPdfCaptureArmed(true)}
             // Shop picks appear once the room photo is up — before that there's
             // nothing to apply them to.
             shopCombos={imageUrl ? shopCombos : undefined}

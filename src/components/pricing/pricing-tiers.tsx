@@ -24,17 +24,17 @@ interface Tier {
 // line item that doesn't exist yet. (Annual billing, device limits and the
 // paint quantity estimator were removed for exactly that reason.)
 //
-// The quota model behind the numbers: every image gets the compulsory AI photo
-// clean-up, so IMAGES are the core allowance. After clean-up the shop chooses —
-// AI wall detection (an "AI auto-mask", its own monthly allowance) or marking
-// walls by hand (free and unlimited on every tier). Out of allowance mid-month?
-// Extras cost ₹50 per image / ₹25 per auto-mask, paid from the prepaid wallet
-// or directly.
+// The quota model behind the numbers: one PROJECT is one photograph turned into a
+// recolour-ready scene, and it covers the whole automatic pipeline — the compulsory
+// AI photo clean-up AND the AI wall detection. Marking walls by hand instead costs
+// the same, because the project is what is charged, not the step. Out of allowance
+// mid-month? Extras are bought one at a time at the tier's own rate — cheaper the
+// bigger the plan — with points or by card.
 const TIERS: ReadonlyArray<Tier> = [
-  { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Every photo professionally cleaned by AI, with a taste of automatic wall detection.", featured: false, features: ["20 images / month — AI photo clean-up on every one", "5 AI auto-masks / month (instant wall detection)", "Manual wall masking (click-to-segment) — unlimited", "25 colour-board PDFs / month (4 images each)", "Full multi-brand colour library & colour finder", "Link & WhatsApp share", "Customer access codes", "Email support"] },
-  { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. After the clean-up, let the AI detect walls for you — or mask by hand.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["60 images / month — AI photo clean-up on every one", "40 AI auto-masks / month (instant wall detection)", "Per-wall recolouring", "100 colour-board PDFs / month (8 images each)", "AI colour palette suggestions", "Priority support"] },
-  { name: "Business", plan: "BUSINESS", monthlyN: 4999, lede: "For multi-shop dealers who run several counters on one account.", featured: false, inherits: "Everything in Professional, plus", note: "White-label subdomain & painter portal are rolling out — Business shops get them first.", features: ["120 images / month — AI photo clean-up on every one", "90 AI auto-masks / month", "300 colour-board PDFs / month (12 images each)", "Multi-shop friendly quota", "White-label subdomain (coming soon)", "Painter portal (coming soon)", "Dedicated account manager"] },
-  { name: "Enterprise", monthlyN: null, lede: "For manufacturers and large chains. SLA, dedicated catalogue ingestion, custom terms.", featured: false, inherits: "Everything in Business, plus", note: "Distributor commissions on request.", features: ["Unlimited images & AI auto-masks", "Unlimited colour-board PDFs (16 images each)", "Dedicated catalogue ingest", "SLA · 99.9%", "Named technical lead"] },
+  { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Every photo professionally cleaned by AI, walls detected automatically.", featured: false, features: ["15 projects / month — AI clean-up + AI wall detection on every one", "Extra projects 60 points or ₹65 each", "Manual wall masking (click-to-segment) — same project, no extra", "25 colour-board PDFs / month (4 images each)", "Full multi-brand colour library & colour finder", "Link & WhatsApp share", "Customer access codes", "Email support"] },
+  { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. Three times the volume, and every extra project costs less.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["45 projects / month — AI clean-up + AI wall detection on every one", "Extra projects 50 points or ₹55 each", "Per-wall recolouring", "100 colour-board PDFs / month (8 images each)", "AI colour palette suggestions", "Priority support"] },
+  { name: "Business", plan: "BUSINESS", monthlyN: 4999, lede: "For multi-shop dealers who run several counters on one account.", featured: false, inherits: "Everything in Professional, plus", note: "White-label subdomain & painter portal are rolling out — Business shops get them first.", features: ["100 projects / month — AI clean-up + AI wall detection on every one", "Extra projects 40 points or ₹45 each — the lowest rate", "300 colour-board PDFs / month (12 images each)", "Multi-shop friendly quota", "White-label subdomain (coming soon)", "Painter portal (coming soon)", "Dedicated account manager"] },
+  { name: "Enterprise", monthlyN: null, lede: "For manufacturers and large chains. SLA, dedicated catalogue ingestion, custom terms.", featured: false, inherits: "Everything in Business, plus", note: "Distributor commissions on request.", features: ["Unlimited projects", "Unlimited colour-board PDFs (16 images each)", "Dedicated catalogue ingest", "SLA · 99.9%", "Named technical lead"] },
 ];
 
 const inr = (n: number) => n.toLocaleString("en-IN");
@@ -78,10 +78,11 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
           Billed monthly · cancel anytime · every new shop starts with a 7-day trial we set up for you.
         </span>
         <span style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
-          Every image includes the compulsory AI photo clean-up;
-          manual wall masking is free and unlimited on all plans. Used your month&apos;s allowance?
-          Top up your prepaid wallet and pay per use — ₹50 per extra image, ₹25 per
-          extra AI auto-mask — or pay per item by UPI/card. Upgrades apply instantly from your dashboard.
+          One project covers the AI photo clean-up and the AI wall detection together —
+          there is no second allowance to run out of. Used your month&apos;s projects? Buy
+          more one at a time at your plan&apos;s rate — 60 points or ₹65 on Starter, down to
+          40 or ₹45 on Business. Upgrades apply instantly from your dashboard, and whatever
+          projects you had left come with you.
         </span>
       </div>
 

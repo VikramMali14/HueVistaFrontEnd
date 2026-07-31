@@ -4,9 +4,9 @@ import { Mono } from "@/components/ui/eyebrow";
 interface Tier { name: string; price: string; feature: string; featured?: boolean; }
 
 const TIERS: ReadonlyArray<Tier> = [
-  { name: "Starter", price: "₹999", feature: "20 images · 5 AI auto-masks / mo" },
-  { name: "Professional", price: "₹2,499", feature: "60 images · 40 AI auto-masks / mo", featured: true },
-  { name: "Business", price: "₹4,999", feature: "120 images · 90 auto-masks · multi-shop" },
+  { name: "Starter", price: "₹999", feature: "15 projects / mo · AI clean-up + walls" },
+  { name: "Professional", price: "₹2,499", feature: "45 projects / mo · extras at ₹55", featured: true },
+  { name: "Business", price: "₹4,999", feature: "100 projects / mo · extras at ₹45" },
   { name: "Enterprise", price: "On request", feature: "Unlimited images & masks" },
 ];
 

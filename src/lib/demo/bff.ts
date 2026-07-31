@@ -51,19 +51,26 @@ async function readJson(req: NextRequest): Promise<Record<string, unknown>> {
 
 // Point prices the demo quotes. Mirrors the server defaults — flat, and the same
 // whatever the plan is doing.
+// The no-plan rate, on both rails. The demo BFF doesn't model the per-tier discount —
+// it exists to exercise the screens, not the pricing table.
 const POINTS_PROJECT = 80;
+const PROJECT_PRICE_PAISE = 9900;
 const POINTS_REOPEN = 9;
+const REOPEN_PRICE_PAISE = 1000;
 const PROJECT_VALID_DAYS = 30;
 /** A shop-issued code is always good for 10 days, and an extension resets it to 10. */
 const ACCESS_CODE_VALID_DAYS = 10;
 
 function projectPurchaseOptions(): import("../types").ProjectPurchaseOptions {
   const store = getStore();
-  const subscribed = store.subscription.status === "ACTIVE";
+  const subscribed = store.subscription.status === "ACTIVE" && !store.subscription.trial;
   return {
     subscribed,
+    pricingPlan: subscribed ? store.subscription.plan : "FREE",
     projectPricePoints: POINTS_PROJECT,
+    projectPricePaise: PROJECT_PRICE_PAISE,
     reopenPricePoints: POINTS_REOPEN,
+    reopenPricePaise: REOPEN_PRICE_PAISE,
     pointsBalance: store.wallet.pointsBalance,
     validDays: PROJECT_VALID_DAYS,
     availableCredits: store.projectCredits,
@@ -279,7 +286,7 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   if (path === "api/billing/subscriptions" && method === "POST") {
     const body = await readJson(req);
     const plan = (String(body.plan ?? "PROFESSIONAL") as SubscriptionSummary["plan"]);
-    const limits: Record<string, number> = { STARTER: 20, PROFESSIONAL: 60, BUSINESS: 150, ENTERPRISE: 2147483647 };
+    const limits: Record<string, number> = { STARTER: 15, PROFESSIONAL: 45, BUSINESS: 100, ENTERPRISE: 2147483647 };
     const names: Record<string, string> = { STARTER: "Starter", PROFESSIONAL: "Professional", BUSINESS: "Business", ENTERPRISE: "Enterprise" };
     // A freshly-created (unpaid) subscription: hand back the ids the in-app Checkout needs.
     return json({
@@ -289,9 +296,9 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
       status: "CREATED",
       trial: false,
       currentPeriodEnd: null,
-      aiGenerationsUsed: 0,
-      aiGenerationsLimit: limits[plan] ?? 60,
-      aiGenerationsRemaining: limits[plan] ?? 60,
+      projectsUsed: 0,
+      projectsLimit: limits[plan] ?? 45,
+      projectsRemaining: limits[plan] ?? 45,
       razorpaySubscriptionId: nextId("rzpsub"),
       razorpayKeyId: "rzp_test_demo",
     } satisfies SubscriptionSummary);

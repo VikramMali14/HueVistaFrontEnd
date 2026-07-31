@@ -299,7 +299,7 @@ export interface ProjectDetail {
   /** When this project's paid validity ends. Absent when it has no window of its
    *  own (covered by a plan or a shop's code) or while that window is paused. */
   accessExpiresAt?: string | null;
-  /** What reopening a lapsed project costs, in paise. */
+  /** What reopening this project costs, in points. Only meaningful while readOnly. */
   reopenPricePoints?: number;
 }
 
@@ -539,24 +539,45 @@ export interface AccessCode {
 }
 
 /**
- * What buying a project costs this account, and what it buys
+ * What one extra project costs THIS account on both rails, and what it buys
  * (backend ProjectPurchaseOptionsResponse).
  *
- * Both prices are sent, not just today's: a shop should learn the lapsed price BEFORE
- * their plan ends, not from a repriced checkout afterwards.
+ * The price falls with the buyer's plan — 80 points / ₹99 with none, down to
+ * 40 points / ₹45 on Business — so it is always read from here rather than held as a
+ * constant in the UI, where it would quietly go wrong for everyone but one tier.
  */
 export interface ProjectPurchaseOptions {
+  /** Whether a PAID plan is covering this account — what sets the rate below. */
   subscribed: boolean;
-  /** What one project costs, in points. Flat — it does not move with a plan. */
+  /** The tier the price was read off; "FREE" when no paid plan is covering the account. */
+  pricingPlan: "FREE" | "STARTER" | "PROFESSIONAL" | "BUSINESS" | "ENTERPRISE";
+  /** What one project costs, in points. */
   projectPricePoints: number;
-  /** What another window on a lapsed project costs, in points. */
+  /** What one project costs in money, in paise (GST included). Dearer than the points
+   *  price on every tier — that gap is what makes topping up worth doing. */
+  projectPricePaise: number;
+  /** What another window on a lapsed project costs — points, and money in paise.
+   *  Flat on both rails, unlike a new project: a reopen buys more time on work already
+   *  paid for once, so it does not get cheaper with the tier. */
   reopenPricePoints: number;
+  reopenPricePaise: number;
   /** Spendable balance, so the caller can say whether it is enough. */
   pointsBalance: number;
   /** Days of access a purchase (or a reopen) opens. */
   validDays: number;
-  /** Projects already paid for and not yet created. */
+  /** Standalone credits already paid for and not yet created — what a shop BETWEEN plans
+   *  holds. On a live plan an extra goes into the plan's own allowance instead. */
   availableCredits: number;
+}
+
+/** Razorpay order details for buying one extra project with money. */
+export interface ProjectOrder {
+  orderId: string;
+  pricingPlan: string;
+  /** What it costs, in paise — derived server-side from the buyer's plan. */
+  amount: number;
+  currency: string;
+  razorpayKeyId: string;
 }
 
 /** The outcome of paying to reopen a lapsed project (backend ProjectReopenResponse). */
@@ -565,8 +586,10 @@ export interface ProjectReopenResult {
   accessExpiresAt?: string | null;
   /** True while a live subscription is holding the window — the paid days are banked. */
   paused: boolean;
-  /** Points the reopen cost. */
+  /** What the reopen cost. Exactly one of these is non-zero — points when it was paid
+   *  from the reward balance, paise when it was paid by card. */
   pointsSpent: number;
+  amountPaise?: number;
   daysAdded: number;
 }
 
@@ -715,9 +738,8 @@ export interface RewardPointsSummary {
   validityDays: number;
   /** How many days before expiry the warning email goes out. */
   expiryWarningDays: number;
-  /** What each purchase costs, in points. */
-  imagePrice: number;
-  autoMaskPrice: number;
+  /** What each purchase costs, in points. projectPrice is the CALLER'S rate — it falls
+   *  with their plan (80 with none, down to 40 on Business), so it is not a constant. */
   projectPrice: number;
   reopenPrice: number;
   /** The next batch to expire. Null when the shop holds none. */
@@ -755,21 +777,27 @@ export interface SubscriptionSummary {
    *  not entitle yet — the one it replaces is still in force. */
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
-  // Image quota — the AI photo clean-up is compulsory, so EVERY image consumes
-  // one. (Field names keep the historical "aiGenerations" naming.) Remaining
-  // includes any purchased pay-per-image overage credits.
-  aiGenerationsUsed: number;
-  aiGenerationsLimit: number;
-  aiGenerationsRemaining: number;
-  // AI auto-mask (wall-detection) quota — spent only when the shop picks the
-  // automatic mask after clean-up. Limit 0 = plan is manual-masking only.
-  autoMasksUsed?: number;
-  autoMasksLimit?: number;
-  autoMasksRemaining?: number;
-  /** Unused pay-per-image overage credits (₹50 each); never expire. */
-  purchasedImageCredits?: number;
-  /** Unused pay-per-use AI auto-mask credits (₹25 each, wallet-paid). */
-  purchasedAutoMaskCredits?: number;
+  /** How many of the plan this subscription is billed for — the multiplier behind
+   *  projectsLimit. */
+  quantity?: number;
+  // The project quota. ONE project covers the whole automatic pipeline — the AI photo
+  // clean-up AND the AI wall detection — so it is charged once, not once per step.
+  // Remaining is the allowance less what is spent and what is held behind unredeemed
+  // access codes.
+  projectsUsed: number;
+  projectsLimit: number;
+  projectsRemaining: number;
+  /** Projects held for access codes customers haven't redeemed yet. Already paid for,
+   *  and excluded from projectsRemaining because they are spoken for. */
+  reservedProjects?: number;
+  /** Extra projects bought at the plan's rate, still unused. Never expire. */
+  purchasedProjectCredits?: number;
+  /** Projects carried over from a plan this one replaced. Spendable now, but they
+   *  expire when this cycle renews — unlike the purchased ones. */
+  carriedProjectCredits?: number;
+  /** What one extra project costs on this plan: points, and money in paise. */
+  extraProjectPoints?: number;
+  extraProjectPricePaise?: number;
   pdfDownloadsUsed?: number;
   pdfDownloadsLimit?: number;
   pdfDownloadsRemaining?: number;
@@ -800,20 +828,16 @@ export interface PlanOption {
   taxPercent: number;
   priceWithTaxInPaise: number;
   priceWithTaxInRupees: number;
-  /** Images processed per cycle (clean-up is compulsory on every image).
-   *  Kept as monthlyAiLimit too for API compatibility. */
-  monthlyAiLimit: number | "unlimited";
-  monthlyImageLimit: number | "unlimited";
-  /** AI wall-detection runs per cycle; 0 = manual masking only (Starter). */
-  monthlyAutoMaskLimit: number | "unlimited";
+  /** Complete projects per cycle — each covers the AI clean-up AND the AI wall
+   *  detection, so there is one number here where there used to be two. */
+  monthlyProjectLimit: number | "unlimited";
   pdfImageLimit: number;
   monthlyPdfLimit: number | "unlimited";
-  /** One extra image once the monthly quota is spent: ₹50 (GST currently 0%). */
-  imageOveragePriceInPaise: number;
-  imageOveragePriceWithTaxInPaise: number;
-  /** One extra AI auto-mask run: ₹25 (GST currently 0%, wallet-paid). */
-  autoMaskOveragePriceInPaise: number;
-  autoMaskOveragePriceWithTaxInPaise: number;
+  /** What one extra project costs ON THIS TIER once the monthly quota is spent —
+   *  cheaper the bigger the plan, on both rails. */
+  extraProjectPoints: number;
+  extraProjectPriceInPaise: number;
+  extraProjectPriceWithTaxInPaise: number;
 }
 
 /** Colour-board PDF allowance (backend PdfAllowanceResponse) — resolved against
