@@ -2,10 +2,29 @@
 
 import { useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
-import { decodeShadeCode, encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
+import {
+  decodeShadeCodeAnyScheme,
+  encodeShadeCode,
+  hasScheme,
+  type RetiredShadeCodeScheme,
+  type ShadeCodeScheme,
+} from "@/lib/shade-codes";
 import type { PaintShade } from "@/lib/types";
 
 const MAX_RESULTS = 8;
+
+/** "AB · XY · CD" — the parts of a pattern, skipping the ones it doesn't use. */
+function describeScheme(s: RetiredShadeCodeScheme): string {
+  const parts = [s.prefix, s.infix, s.suffix].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : "no parts";
+}
+
+function fmtRetired(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? "earlier"
+    : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
 
 /**
  * The shade-code debugger: both directions in one place, so the counter never
@@ -46,10 +65,13 @@ export function CodeChecker({
 
   const decoded = useMemo(() => {
     if (mode !== "read" || !q) return null;
-    if (!hasScheme(scheme)) return { code: q.toUpperCase(), match: byCode.get(q.toUpperCase()) ?? null };
-    const code = decodeShadeCode(scheme, q);
-    if (!code) return { code: null, match: null };
-    return { code, match: byCode.get(code) ?? null };
+    if (!hasScheme(scheme)) {
+      return { code: q.toUpperCase(), match: byCode.get(q.toUpperCase()) ?? null, via: null };
+    }
+    // Retired patterns are tried too, so a code from an older colour board still reads.
+    const hit = decodeShadeCodeAnyScheme(scheme, q);
+    if (!hit) return { code: null, match: null, via: null };
+    return { code: hit.code, match: byCode.get(hit.code) ?? null, via: hit.via };
   }, [mode, q, scheme, byCode]);
 
   if (!hasScheme(scheme)) {
@@ -111,8 +133,8 @@ export function CodeChecker({
         <div style={{ marginTop: 14 }}>
           {decoded.code === null ? (
             <p style={{ font: "400 14.5px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
-              That doesn&apos;t follow your scheme — check the prefix, the pair after the first two
-              characters, and the suffix.
+              That doesn&apos;t follow your scheme{(scheme.retired?.length ?? 0) > 0 ? ", or any you've used before," : ""} —
+              check the prefix, the pair after the first two characters, and the suffix.
             </p>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -129,6 +151,19 @@ export function CodeChecker({
               ) : (
                 <span style={{ font: "400 13.5px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
                   not in the catalogue — the code decodes, but no shade carries it
+                </span>
+              )}
+              {/* Which pattern read it. Silent for the live one — that is the expected
+                  case and saying so on every lookup would be noise — but named for a
+                  retired one, because "this card is from your old numbering" is exactly
+                  what the counter needs to know before quoting from it. */}
+              {decoded.via && (
+                <span
+                  style={{ font: "400 12.5px/1.4 var(--sans)", color: "var(--fg-mute)", width: "100%" }}
+                >
+                  Read with an older scheme of yours ({describeScheme(decoded.via)}
+                  {decoded.via.retiredAt ? `, retired ${fmtRetired(decoded.via.retiredAt)}` : ""}
+                  ) — your current one would not have matched it.
                 </span>
               )}
             </div>

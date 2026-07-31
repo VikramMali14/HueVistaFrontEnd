@@ -28,6 +28,21 @@ export interface ShadeCodeScheme {
    * yes, which is the default everywhere.
    */
   showNames?: boolean;
+  /**
+   * Patterns the shop has stopped using, newest first. Present only on the shop's own
+   * fetch of its settings — the studio never needs them, because nothing is ever ENCODED
+   * with a retired pattern.
+   */
+  retired?: ReadonlyArray<RetiredShadeCodeScheme>;
+}
+
+/** A pattern the shop no longer issues codes under, but whose codes still exist. */
+export interface RetiredShadeCodeScheme {
+  prefix: string;
+  infix: string;
+  suffix: string;
+  /** When it went out of use — what dates an old colour board. */
+  retiredAt?: string | null;
 }
 
 export const SCHEME_LIMITS = { prefix: 4, infix: 2, suffix: 4 } as const;
@@ -89,4 +104,36 @@ export function decodeShadeCode(scheme: ShadeCodeScheme, customerCode: string): 
     value = value.slice(0, at) + value.slice(at + infix.length);
   }
   return value || null;
+}
+
+/** What a decode attempt found: the real code, and which pattern read it. */
+export interface DecodeResult {
+  code: string;
+  /** null when the CURRENT pattern read it; otherwise the retired one that did. */
+  via: RetiredShadeCodeScheme | null;
+}
+
+/**
+ * Decode against the live pattern first, then every pattern the shop has retired.
+ *
+ * A shop's numbering does not live only on our screens — it is printed on colour boards,
+ * quoted on estimates and photographed off the counter. Changing the pattern used to make
+ * every code already in circulation unreadable, so a customer walking in with last
+ * season's card was told their code was invalid by the shop that printed it. Trying the
+ * retired patterns too is what keeps those codes honest.
+ *
+ * Current first, then newest-retired first, so a code that two patterns could both read
+ * resolves to the most recent shop meaning rather than the oldest.
+ */
+export function decodeShadeCodeAnyScheme(
+  scheme: ShadeCodeScheme,
+  customerCode: string,
+): DecodeResult | null {
+  const live = decodeShadeCode(scheme, customerCode);
+  if (live) return { code: live, via: null };
+  for (const past of scheme.retired ?? []) {
+    const code = decodeShadeCode({ ...past }, customerCode);
+    if (code) return { code, via: past };
+  }
+  return null;
 }

@@ -258,8 +258,20 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+/**
+ * "Generated 31 Jul 2026, 4:15 pm" — the moment this file was built.
+ *
+ * The time matters as much as the date: a counter often prints two boards for the same
+ * customer on the same day as they change their mind, and the date alone cannot tell you
+ * which sheet on the table is the later one.
+ */
 function formatDateLine(d: Date): string {
-  return `Generated ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  const h24 = d.getHours();
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const meridiem = h24 < 12 ? "am" : "pm";
+  return `Generated ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
+    + `, ${h12}:${minutes} ${meridiem}`;
 }
 
 /** Branded header (palette strip, eyebrow, date, title) + footer, shared by every page. */

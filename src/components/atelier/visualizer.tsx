@@ -380,6 +380,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // The shop's shade-code scheme. Guests see codes ENCODED with it (instead of
   // no codes at all), so the counter reads the shade straight off their screen.
   const [codeScheme, setCodeScheme] = useState<ShadeCodeScheme | null>(null);
+  // Whether the shop's scheme has been ASKED FOR yet, distinct from whether it has one.
+  // The fetch is async, so for the first paint the two are indistinguishable — and
+  // guessing "no scheme" there printed the manufacturer's real codes on screen for a
+  // moment before they were replaced. That flash is the whole thing a shop runs its own
+  // codes to prevent, and a customer only has to see it once.
+  const [schemeLoaded, setSchemeLoaded] = useState(false);
 
   // "Add to PDF" colour board: snapshots of the recoloured canvas, each with the
   // shades applied on it, downloadable as one PDF. How many images one board may
@@ -463,7 +469,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         // a shop can hide paint names without running its own codes.
         setHideNames(scheme?.showNames === false);
       })
-      .catch(() => {});
+      // Settled either way: a failed lookup must not leave codes hidden forever, or a
+      // shop with no scheme at all would never see a code again.
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setSchemeLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -486,7 +497,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
   // Raw codes are withheld from guests always, and from everyone once the shop has a
   // pattern — `encodeCode` then supplies what is shown in their place.
-  const hideRawCodes = guest || Boolean(codeScheme);
+  // Withheld from guests always, from everyone once the shop has a pattern — and from
+  // everyone while we still don't know, because the only safe way to be wrong here is to
+  // show nothing. `encodeCode` supplies what appears in their place.
+  const hideRawCodes = guest || !schemeLoaded || Boolean(codeScheme);
 
   useEffect(() => {
     if (saveStatus !== "saved") {
@@ -1491,6 +1505,25 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setPdfNotice(null);
   }, [imageUrl, regions, pdfPages.length, maxPdfPages, hideRawCodes, hideNames, encodeCode]);
 
+  /**
+   * "Add to PDF" on a palette card: the palette is applied by the shade grid, and the
+   * snapshot has to wait for that paint to land. Applying and capturing in the same tick
+   * caught the PREVIOUS colours — React state and the WebGL canvas both update after the
+   * handler returns — so the board got the room the customer had just moved on from.
+   * Arming a flag and capturing once `regions` reflects the new paint is what makes the
+   * sheet show what is on screen.
+   */
+  const [pdfCaptureArmed, setPdfCaptureArmed] = useState(false);
+
+  useEffect(() => {
+    if (!pdfCaptureArmed) return;
+    const id = requestAnimationFrame(() => {
+      addToPdf();
+      setPdfCaptureArmed(false);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [pdfCaptureArmed, regions, addToPdf]);
+
   const removePdfPage = useCallback((index: number) => {
     setPdfPages((prev) => prev.filter((_, i) => i !== index));
     setPdfNotice(null);
@@ -2364,6 +2397,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             outdoor={classification === "OUTDOOR"}
             clashNote={clashNote}
             onFetchAiPalettes={fetchAiPalettes}
+            onAddComboToPdf={guest ? undefined : () => setPdfCaptureArmed(true)}
             // Shop picks appear once the room photo is up — before that there's
             // nothing to apply them to.
             shopCombos={imageUrl ? shopCombos : undefined}
