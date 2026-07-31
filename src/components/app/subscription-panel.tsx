@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { HttpError } from "@/lib/http-error";
-import { buyOneProject, buyPoints, subscribeToPlan } from "@/lib/payments";
+import { buyPoints, subscribeToPlan } from "@/lib/payments";
+import { PROJECT_VALID_DAYS } from "@/lib/project-validity";
 import type { PlanOption, PurchasablePlan, RewardPointsSummary, SubscriptionSummary } from "@/lib/types";
 
 interface SubscriptionPanelProps {
@@ -191,8 +192,9 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
   const [customTopUp, setCustomTopUp] = useState("");
   // Reward points — a separate ledger with its own prices and a one-year expiry.
   const [points, setPoints] = useState<RewardPointsSummary | null>(null);
-  const [pointsPaying, setPointsPaying] = useState<"project" | null>(null);
-  const [buyingProject, setBuyingProject] = useState(false);
+  // How long a bought project stays open. Configuration, so it is read from the server
+  // rather than stated here; the constant only covers the moment before it arrives.
+  const [projectValidDays, setProjectValidDays] = useState(PROJECT_VALID_DAYS);
 
   useEffect(() => {
     let cancelled = false;
@@ -200,6 +202,9 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
     api.getRewardPoints()
       .then((p) => !cancelled && setPoints(p))
       .catch(() => {});
+    api.getProjectPurchaseOptions()
+      .then((o) => !cancelled && setProjectValidDays(o.validDays))
+      .catch(() => {}); // the fallback already reads correctly
     return () => {
       cancelled = true;
     };
@@ -272,54 +277,6 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
       setError(e instanceof Error ? e.message : "Could not complete the purchase.");
     } finally {
       setToppingUp(false);
-    }
-  }
-
-  // Spend reward points on one extra project. There is one thing to buy now — a project
-  // covers the clean-up and the wall detection together — where there used to be three
-  // (image, auto-mask, project) a shop had to pick correctly between.
-  async function pointsPay(kind: "project") {
-    setError(null);
-    setNotice(null);
-    setPointsPaying(kind);
-    try {
-      await api.pointsPayProjectCredit();
-      const [freshPoints, freshSub] = await Promise.all([
-        api.getRewardPoints().catch(() => null),
-        api.getCurrentSubscription().catch(() => null),
-      ]);
-      if (freshPoints) setPoints(freshPoints);
-      if (freshSub) setSub(freshSub);
-      setNotice("Paid with points — one extra project added.");
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not spend your points. Please try again.");
-    } finally {
-      setPointsPaying(null);
-    }
-  }
-
-  /**
-   * The same extra project, paid in money instead of points, at this plan's rate.
-   *
-   * The amount is never named here — the order is priced server-side from the plan, so a
-   * stale page can't check out at a tier the shop has since left.
-   */
-  async function payWithMoney() {
-    setError(null);
-    setNotice(null);
-    setBuyingProject(true);
-    try {
-      const done = await buyOneProject();
-      if (!done) return; // buyer closed Checkout
-      const fresh = await api.getCurrentSubscription().catch(() => null);
-      if (fresh) setSub(fresh);
-      setNotice("Payment received — one extra project added.");
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not complete the payment.");
-    } finally {
-      setBuyingProject(false);
     }
   }
 
@@ -471,37 +428,20 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
               </div>
             )}
 
-            {active && sub.projectsLimit < UNLIMITED_FLOOR && points != null && (
-              <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                {points.balance >= points.projectPrice && (
-                  <button
-                    type="button"
-                    onClick={() => void pointsPay("project")}
-                    disabled={pointsPaying !== null || buyingProject}
-                    style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
-                  >
-                    {pointsPaying === "project" ? "Paying…" : `1 extra project — ${points.projectPrice} pts`}
-                  </button>
-                )}
-                {/* The cash rail, for a shop that would rather pay for one project than
-                    keep a balance. Dearer than points on every tier, and shown saying so
-                    rather than leaving the buyer to work out why the two differ. */}
-                <button
-                  type="button"
-                  onClick={() => void payWithMoney()}
-                  disabled={pointsPaying !== null || buyingProject}
-                  style={buttonStyle}
-                >
-                  {buyingProject
-                    ? "Opening checkout…"
-                    : `1 extra project — ${paise(sub.extraProjectPricePaise ?? 0)}`}
-                </button>
-                <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-                  {points.balance < points.projectPrice
-                    ? `Out of allowance? Points are the cheaper way — ${points.projectPrice} pts against ${paise(sub.extraProjectPricePaise ?? 0)}.`
-                    : "Out of allowance mid-cycle? Bought projects never expire."}
-                </span>
-              </div>
+            {/* Where an extra project is bought, said rather than sold. A project is only
+                worth anything at the moment there is a photo to spend it on, and buying one
+                here meant a shop could pay, walk away and never spend it — so the purchase
+                now lives in the studio, on the upload that is asking for it. */}
+            {active && sub.projectsLimit < UNLIMITED_FLOOR && (
+              <p style={{ margin: "20px 0 0", font: "400 13px/1.6 var(--sans)", color: "var(--fg-mute)", maxWidth: "70ch" }}>
+                {`Out of allowance mid-cycle? You'll be offered one extra project in the studio, `
+                  + `at the moment you upload the photo that needs it`
+                  + (points != null
+                      ? ` — ${points.projectPrice} points, or ${paise(sub.extraProjectPricePaise ?? 0)}`
+                      : "")
+                  + `. Each one stays open for ${projectValidDays} days from the day you buy it, `
+                  + `and can be assigned to a customer from your shop portal.`}
+              </p>
             )}
 
             {active && (
@@ -553,10 +493,10 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
         )}
       </section>
 
-      {/* Points — the only balance. Earned at the kiosk or bought here, spent on
-          everything chargeable besides the plan itself. Always rendered when the account
-          can hold points at all: a zero balance is exactly the state that needs the
-          purchase controls in front of it, and a lapsed shop still buys projects here. */}
+      {/* Points — the only balance. Earned at the kiosk or bought here, spent in the
+          studio on the projects that need them. Always rendered when the account can hold
+          points at all: a zero balance is exactly the state that needs the top-up controls
+          in front of it, and a lapsed shop still tops up here. */}
       {points != null && (
         <section style={card}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "8px 16px" }}>
@@ -579,7 +519,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                 key={n}
                 type="button"
                 onClick={() => void purchasePoints(n)}
-                disabled={toppingUp || pointsPaying !== null}
+                disabled={toppingUp}
                 style={{ ...buttonStyle, borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }}
               >
                 + {n.toLocaleString("en-IN")} pts · {paise(n * points.rupeesPerPoint * 100)}
@@ -616,7 +556,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                   }
                   void purchasePoints(count);
                 }}
-                disabled={toppingUp || pointsPaying !== null}
+                disabled={toppingUp}
                 style={buttonStyle}
               >
                 {toppingUp ? "Opening payment…" : "Buy points"}
@@ -649,24 +589,16 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
           )}
 
           <div style={{ marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            {/* No plan gate: buying a project works whether or not one is running. With a
-                plan it extends that plan's allowance; without one it stands on its own. */}
-            {points.balance >= points.projectPrice && (
-              <button
-                type="button"
-                onClick={() => void pointsPay("project")}
-                disabled={pointsPaying !== null || buyingProject}
-                style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent)" }}
-              >
-                {pointsPaying === "project" ? "Paying…" : `1 extra project — ${points.projectPrice} pts`}
-              </button>
-            )}
-            {points.balance < points.projectPrice && (
-              <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-                Not enough for a project yet — that&rsquo;s {points.projectPrice} points on
-                your plan. A reopen is {points.reopenPrice}.
-              </span>
-            )}
+            {/* What the balance is FOR, without a way to spend it here. Points are bought on
+                this page; the thing they buy is offered in the studio, against the upload
+                that needs it, so a project is never paid for before there is a room for it. */}
+            <span style={{ font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)", maxWidth: "70ch" }}>
+              {points.balance >= points.projectPrice
+                ? `Enough for ${Math.floor(points.balance / points.projectPrice)} extra project${
+                    Math.floor(points.balance / points.projectPrice) === 1 ? "" : "s"
+                  } — spend them in the studio when an upload runs past your allowance. A bought project stays open for ${projectValidDays} days.`
+                : `Not enough for a project yet — that's ${points.projectPrice} points on your plan. A reopen is ${points.reopenPrice}.`}
+            </span>
           </div>
 
           {points.recentActivity.length > 0 && (

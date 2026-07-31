@@ -24,6 +24,10 @@ vi.mock("@/lib/api", () => {
       listShadeBrands: vi.fn(),
       listShopProducts: vi.fn(),
       revokeAccessCode: vi.fn(),
+      // Read by the "projects available to assign" line above the issue form. Both are
+      // best-effort there, so a rejection is a supported state, not a broken fixture.
+      getCurrentSubscription: vi.fn().mockRejectedValue(new Error("no subscription")),
+      getProjectPurchaseOptions: vi.fn().mockRejectedValue(new Error("no options")),
     },
   };
 });

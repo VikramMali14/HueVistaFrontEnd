@@ -9,7 +9,6 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/lib/payments", () => ({
   subscribeToPlan: vi.fn(),
   buyPoints: vi.fn(),
-  buyOneProject: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => {
@@ -25,10 +24,12 @@ vi.mock("@/lib/api", () => {
     api: {
       // Points are shop-side; a rejection here is the normal path for this panel.
       getRewardPoints: vi.fn().mockRejectedValue(new Error("403")),
+      // Only for the length of a bought project's window, quoted in the copy that says
+      // where one is bought. Best-effort — the panel falls back to the standard window.
+      getProjectPurchaseOptions: vi.fn().mockRejectedValue(new Error("no options")),
       getCurrentSubscription: vi.fn(),
       cancelSubscription: vi.fn(),
       resumeSubscription: vi.fn(),
-      pointsPayProjectCredit: vi.fn(),
     },
   };
 });
@@ -132,6 +133,18 @@ describe("SubscriptionPanel", () => {
     }));
     expect(screen.getByText(/^Starts /)).toBeTruthy();
     expect(screen.queryByText(/3 of 15 used/i)).toBeNull();
+  });
+
+  /**
+   * A project is only worth anything against a photo, so it is bought in the studio at the
+   * upload that needs it. Selling one here let a shop pay and then never spend it — the
+   * page now says where the purchase lives, and how long what it buys lasts.
+   */
+  it("does not sell an extra project, and says where one is bought instead", () => {
+    panel(sub());
+    expect(screen.queryByRole("button", { name: /extra project/i })).toBeNull();
+    expect(screen.getByText(/offered one extra project in the\s+studio/i)).toBeTruthy();
+    expect(screen.getByText(/stays open for 30 days from the day you buy it/i)).toBeTruthy();
   });
 
   /** Upgrade vs downgrade comes from the rank the server serves, not a local copy. */

@@ -6,6 +6,7 @@ import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ALL, FilterBar, matchesQuery } from "@/components/ui/filter-bar";
+import { AssignableProjects } from "@/components/app/assignable-projects";
 import type { CustomerEntitlement, OrgResponse, ProjectGrant } from "@/lib/types";
 
 function formatAccessLeft(iso?: string | null): string {
@@ -99,8 +100,9 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
         setRows((prev) => prev.map((r) => (r.customerId === customerId ? updated : r)));
         setGrants(await api.listProjectGrants(orgId).catch(() => grants));
       } catch (err) {
-        // Granting now costs an image credit, so a lapsed plan or a spent quota is a
-        // real refusal rather than a bug — the backend's message says which.
+        // Granting costs a project, drawn from the month's allowance or from an extra the
+        // shop bought, so a lapsed plan or an exhausted pool is a real refusal rather than
+        // a bug — the backend's message says which.
         setError(err instanceof Error ? err.message : "Could not grant a project.");
       } finally {
         setGrantingId(null);
@@ -174,6 +176,11 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
 
   return (
     <>
+    {/* What there is left to grant, said before the shop clicks a row and finds out.
+        Extras it bought count — granting draws on the same pool painting does. */}
+    <div style={{ marginBottom: 12 }}>
+      <AssignableProjects />
+    </div>
     <FilterBar
       query={query}
       onQueryChange={setQuery}

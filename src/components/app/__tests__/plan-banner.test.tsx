@@ -9,7 +9,6 @@ vi.mock("@/lib/api", () => ({
   api: {
     getCurrentSubscription: vi.fn(),
     getProjectPurchaseOptions: vi.fn().mockRejectedValue(new Error("no options")),
-    pointsPayProjectCredit: vi.fn(),
   },
 }));
 
@@ -61,6 +60,33 @@ describe("PlanBanner", () => {
     }));
     await waitFor(() => expect(screen.getByText(/view-only/i)).toBeTruthy());
     expect(screen.getByRole("link", { name: /subscribe/i })).toBeTruthy();
+  });
+
+  /**
+   * A lapsed shop can still buy a single project — but in the studio, against the upload
+   * that needs it, not from a banner it might click while there is nothing to spend it on.
+   */
+  it("points a lapsed shop at the studio instead of selling a project here", async () => {
+    vi.mocked(api.getProjectPurchaseOptions).mockResolvedValue({
+      subscribed: false,
+      pricingPlan: "FREE",
+      projectPricePoints: 80,
+      projectPricePaise: 9900,
+      reopenPricePoints: 9,
+      reopenPricePaise: 1000,
+      pointsBalance: 500,
+      validDays: 30,
+      availableCredits: 0,
+    });
+    await banner(sub({
+      status: "CANCELLED",
+      currentPeriodEnd: new Date(Date.now() - 1 * DAYS).toISOString(),
+    }));
+    await waitFor(() =>
+      expect(screen.getByText(/add a photo in the studio to buy a single project/i)).toBeTruthy(),
+    );
+    expect(screen.getByText(/open 30 days from purchase/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /buy a project/i })).toBeNull();
   });
 
   /** A plan bought to start later isn't in force — the old one's banner is the true one. */

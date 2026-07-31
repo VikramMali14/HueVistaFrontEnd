@@ -11,7 +11,8 @@ import { MaskStudio, type ExistingMask } from "./mask-studio";
 import { ProjectDetailsGate, type ProjectDetails } from "./project-details-gate";
 import type { RegionLite } from "./coordinate-suggestions";
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
-import { reopenProjectWithMoney } from "@/lib/payments";
+import { buyOneProject, reopenProjectWithMoney } from "@/lib/payments";
+import { PROJECT_VALID_DAYS, validityNote } from "@/lib/project-validity";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import {
@@ -231,6 +232,13 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";
 
+/**
+ * How one extra project is being paid for. Points are a balance debit with no checkout;
+ * money opens Razorpay, which the buyer can close without paying. Both buy exactly the
+ * same thing, and both are offered here because this is the only place a project is sold.
+ */
+type PayRail = "points" | "money";
+
 /** How long a share link stays live — the same 10 days a walk-in access code gets. */
 const SHARE_VALID_DAYS = 10;
 
@@ -305,6 +313,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // button says "Buy a project" with no price.
   const [purchaseOptions, setPurchaseOptions] =
     useState<import("@/lib/types").ProjectPurchaseOptions | null>(null);
+  // Mount-time clock, so the "open until <date>" the purchase prompt quotes is stable
+  // across renders rather than moving a millisecond at a time under the buyer.
+  const [mountedAt] = useState(() => Date.now());
   // The point price list, so the out-of-quota prompts quote configuration rather than
   // a hardcoded number. 403 for a customer account, which is why it is best-effort.
   const [points, setPoints] =
@@ -319,8 +330,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // There is no sibling auto-mask refusal any more: one project covers the clean-up
   // and the wall detection, so a run that can start can always finish.
   const [projectLimitReached, setProjectLimitReached] = useState(false);
-  const [buying, setBuying] = useState(false);
-  const [buyingProject, setBuyingProject] = useState(false);
+  // Which rail a purchase is running on, so the two buttons can show their own spinner
+  // and neither can be clicked while the other is mid-flight.
+  const [buying, setBuying] = useState<PayRail | null>(null);
+  const [buyingProject, setBuyingProject] = useState<PayRail | null>(null);
   const [pendingImageId, setPendingImageId] = useState<string | null>(null);
   // A photo the user has picked/received but NOT yet confirmed. While set, we show
   // a local preview with a Continue/Choose-different prompt; no upload, no
@@ -484,10 +497,21 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // The cash reopen price. Flat, so unlike the project price it doesn't move with the
   // plan — still read from the server rather than hardcoded, since it is configuration.
   const reopenPaise = purchaseOptions?.reopenPricePaise ?? 0;
+  // The cash price of one project, at this account's tier. Zero until the options land,
+  // which is what hides the card button rather than showing "or pay ₹0".
+  const projectPaise = purchaseOptions?.projectPricePaise ?? 0;
   // Quoted on the out-of-quota prompt. The rate falls with the shop's plan, so it is
   // read from the server; the fallback is the dearest (no-plan) rate, which is the safe
   // direction to guess in and keeps a button from reading "Spend  points".
   const projectPointPrice = points?.projectPrice ?? purchaseOptions?.projectPricePoints ?? 80;
+  // What the buyer is actually getting, stated before they pay rather than discovered
+  // afterwards: the window is days from the purchase, so it is quoted as both a length
+  // and a date. Recomputed only when the served window changes — the mount-time clock
+  // keeps the render pure.
+  const projectValidityNote = useMemo(
+    () => validityNote(purchaseOptions?.validDays ?? PROJECT_VALID_DAYS, mountedAt),
+    [purchaseOptions?.validDays, mountedAt],
+  );
 
   // With a scheme, encoded codes replace the manufacturer's everywhere they appear.
   const encodeCode = useMemo(
@@ -992,13 +1016,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
   }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, segOptions]);
 
-  const handleBuyAndRetry = useCallback(async () => {
+  const handleBuyAndRetry = useCallback(async (rail: PayRail = "points") => {
     setError(null);
-    setBuying(true);
+    setBuying(rail);
     try {
-      // Spent from the point balance — no checkout to dismiss, so this either
-      // succeeds or throws (402 when the balance is short).
-      await api.pointsPayProjectCredit();
+      // Points are a balance debit — no checkout to dismiss, so that rail either
+      // succeeds or throws (402 when the balance is short). Card opens Razorpay,
+      // which the buyer can close: a null there is a change of mind, not a failure.
+      // Both rails answer with the account's refreshed options, so the balance and the
+      // credit count behind a second visit to this gate are never a purchase behind.
+      if (rail === "points") {
+        setPurchaseOptions(await api.pointsPayProjectCredit());
+      } else {
+        const paid = await buyOneProject();
+        if (!paid) return;
+        setPurchaseOptions(paid);
+      }
       setLimitReached(false);
       if (pendingImageId) {
         await createAndSegment(pendingImageId);
@@ -1007,35 +1040,46 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         // way). Never leave a blank canvas after taking money: back to the
         // picker with a note — the purchased slot stays on the account.
         chooseDifferent();
-        setError("Points spent — your extra project is ready. Add your photo again to continue.");
+        setError(
+          "Paid — your extra project is ready. Add your photo again to continue. "
+          + projectValidityNote,
+        );
       }
       // With a pendingFile the confirm box is back on screen — "Continue with
       // this image" re-runs the upload against the freshly bought slot.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Payment could not be completed.");
     } finally {
-      setBuying(false);
+      setBuying(null);
     }
-  }, [pendingImageId, pendingFile, createAndSegment, chooseDifferent]);
+  }, [pendingImageId, pendingFile, createAndSegment, chooseDifferent, projectValidityNote]);
 
   // Out of projects mid-month: buy ONE more at the plan's own rate and immediately
   // re-run the blocked segmentation — on the already-created project when there is one,
-  // else from the pending upload. One atomic server debit against the point balance; an
-  // insufficient balance surfaces the backend's "earn more or buy points" message in
-  // place. There is only one thing to buy now, so the shop can't pick the wrong one and
-  // still be stuck.
-  const handleBuyProjectAndRetry = useCallback(async () => {
+  // else from the pending upload. There is only one thing to buy now, so the shop can't
+  // pick the wrong one and still be stuck; the choice is only how to pay for it.
+  //
+  // Both rails live here because this is the only place a project is sold. The card
+  // route used to be on the subscription page, which meant a shop that had run out and
+  // held no points had to leave the upload it was in the middle of to find it.
+  const handleBuyProjectAndRetry = useCallback(async (rail: PayRail = "points") => {
     setError(null);
-    setBuyingProject(true);
+    setBuyingProject(rail);
     try {
-      await api.pointsPayProjectCredit();
+      if (rail === "points") {
+        setPurchaseOptions(await api.pointsPayProjectCredit());
+      } else {
+        const paid = await buyOneProject();
+        if (!paid) return; // buyer closed Checkout
+        setPurchaseOptions(paid);
+      }
       setProjectLimitReached(false);
       if (projectId) await handleRetrySegmentation();
       else if (pendingImageId) await createAndSegment(pendingImageId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not spend your points.");
+      setError(err instanceof Error ? err.message : "Payment could not be completed.");
     } finally {
-      setBuyingProject(false);
+      setBuyingProject(null);
     }
   }, [projectId, pendingImageId, createAndSegment, handleRetrySegmentation]);
 
@@ -2286,8 +2330,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   )}
                   {projectLimitReached && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
-                      <Button variant="brass" onClick={() => void handleBuyProjectAndRetry()} disabled={buyingProject}>
-                        {buyingProject ? (
+                      <Button
+                        variant="brass"
+                        onClick={() => void handleBuyProjectAndRetry("points")}
+                        disabled={buyingProject !== null}
+                      >
+                        {buyingProject === "points" ? (
                           <>
                             <Spinner size={14} color="currentColor" />
                             <span>Paying…</span>
@@ -2298,11 +2346,29 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                           </>
                         )}
                       </Button>
+                      {/* The card rail, for a shop that has run out and holds no points.
+                          It used to live on the subscription page, which meant leaving the
+                          upload half-finished to go and find it. */}
+                      {projectPaise > 0 && (
+                        <Button
+                          variant="ghost"
+                          onClick={() => void handleBuyProjectAndRetry("money")}
+                          disabled={buyingProject !== null}
+                        >
+                          {buyingProject === "money"
+                            ? "Opening checkout…"
+                            : `or pay ₹${(projectPaise / 100).toLocaleString("en-IN")} by card`}
+                        </Button>
+                      )}
+                      {/* What the money buys, before it is spent. An extra project is not
+                          an unlimited one, and a buyer who only finds that out a month
+                          later has been sold something they didn't agree to. */}
+                      <Mono>{projectValidityNote}</Mono>
                       <a
                         href="/subscription"
                         style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-soft)" }}
                       >
-                        or pay by card / upgrade your plan →
+                        top up your points or upgrade your plan →
                       </a>
                     </div>
                   )}
@@ -2339,26 +2405,40 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       offering only the second strands anyone who has no shop to visit. */}
                   {limitReached && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
-                      <Button variant="brass" onClick={() => void handleBuyAndRetry()} disabled={buying}>
-                        {buying ? (
+                      <Button
+                        variant="brass"
+                        onClick={() => void handleBuyAndRetry("points")}
+                        disabled={buying !== null}
+                      >
+                        {buying === "points" ? (
                           <>
                             <Spinner size={14} color="currentColor" />
-                            <span>Opening payment…</span>
+                            <span>Paying…</span>
                           </>
                         ) : (
                           <>
-                            Buy a project{projectPrice ? ` · ₹${projectPrice}` : ""} <span className="arr">→</span>
+                            {/* Points, not rupees — this button debits the balance. It
+                                said "₹80" for a price of 80 POINTS, which is the same
+                                figure in the wrong currency and a promise nobody kept. */}
+                            Buy a project{projectPrice ? ` · ${projectPrice} points` : ""} <span className="arr">→</span>
                           </>
                         )}
                       </Button>
+                      {projectPaise > 0 && (
+                        <Button
+                          variant="ghost"
+                          onClick={() => void handleBuyAndRetry("money")}
+                          disabled={buying !== null}
+                        >
+                          {buying === "money"
+                            ? "Opening checkout…"
+                            : `or pay ₹${(projectPaise / 100).toLocaleString("en-IN")} by card`}
+                        </Button>
+                      )}
                       <a className="btn" href="/redeem">
                         Redeem a shop code <span className="arr">→</span>
                       </a>
-                      <Mono>
-                        {purchaseOptions
-                          ? `A bought project stays open for ${purchaseOptions.validDays} days.`
-                          : "Or ask a paint shop for an access code."}
-                      </Mono>
+                      <Mono>{projectValidityNote}</Mono>
                     </div>
                   )}
                 </div>
