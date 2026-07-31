@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { HttpError } from "@/lib/http-error";
 import { buyPoints, subscribeToPlan } from "@/lib/payments";
+import { formatLimit, isUnlimited } from "@/lib/plan-quota";
 import { PROJECT_VALID_DAYS } from "@/lib/project-validity";
 import type { PlanOption, PurchasablePlan, RewardPointsSummary, SubscriptionSummary } from "@/lib/types";
 
@@ -14,7 +15,6 @@ interface SubscriptionPanelProps {
   plans: PlanOption[];
 }
 
-const UNLIMITED_FLOOR = 2_000_000_000;
 
 // Tier ladder for the upgrade rules: while a paid plan is ACTIVE, only a step UP can be
 // bought in place (the backend cancels the old plan on activation); a downgrade needs a
@@ -88,10 +88,7 @@ function fmtDate(iso?: string | null): string {
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function fmtLimit(n?: number): string {
-  if (n == null) return "—";
-  return n >= UNLIMITED_FLOOR ? "unlimited" : n.toLocaleString("en-IN");
-}
+const fmtLimit = formatLimit;
 
 /** Still inside the period the customer paid for. */
 function withinPaidPeriod(s: SubscriptionSummary | null): boolean {
@@ -148,7 +145,7 @@ function statusLabel(s: SubscriptionSummary): { text: string; color: string } {
 }
 
 function UsageBar({ used, limit }: { used: number; limit: number }) {
-  const unlimited = limit >= UNLIMITED_FLOOR;
+  const unlimited = isUnlimited(limit);
   const pct = unlimited || limit <= 0 ? 0 : Math.min(100, Math.round((used / limit) * 100));
   return (
     <div>
@@ -432,7 +429,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                 worth anything at the moment there is a photo to spend it on, and buying one
                 here meant a shop could pay, walk away and never spend it — so the purchase
                 now lives in the studio, on the upload that is asking for it. */}
-            {active && sub.projectsLimit < UNLIMITED_FLOOR && (
+            {active && !isUnlimited(sub.projectsLimit) && (
               <p style={{ margin: "20px 0 0", font: "400 13px/1.6 var(--sans)", color: "var(--fg-mute)", maxWidth: "70ch" }}>
                 {`Out of allowance mid-cycle? You'll be offered one extra project in the studio, `
                   + `at the moment you upload the photo that needs it`

@@ -35,6 +35,7 @@ import {
 import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
+import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
 import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
 import type {
@@ -99,8 +100,18 @@ const SHADOW_ON = true;
 const SHADOW_STRENGTH = 0.85;
 const SOFT_EDGE_ON = false;
 const EDGE_NUDGE_PX = 1;
-/** Most coloured snapshots the user can collect into one downloadable PDF. */
-const MAX_PDF_PAGES = 8;
+/**
+ * Most coloured snapshots one downloadable PDF may hold, used ONLY until the plan's real
+ * figure arrives (`pdfAllowance.imagesPerPdf`).
+ *
+ * Deliberately the SMALLEST cap any tier carries, not the largest. The allowance fetch
+ * fails silently by design — the server still gates the download — but a fallback above
+ * the floor spends that silence in the wrong direction: a shop on a 4-image plan would be
+ * invited to build an 8-image board and only find the ceiling at the download, after the
+ * work. Guessing low is recoverable (the real, higher cap lands a moment later); guessing
+ * high is not.
+ */
+const MAX_PDF_PAGES = 4;
 
 const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
   { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#e8d5b0" },
@@ -670,12 +681,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             // Bought extras and projects carried over from a replaced plan are both
             // spendable, so the pill counts them in — one that showed only the plan's
             // own allowance would read "full" with runs still in hand.
-            limit:
-              s.projectsLimit >= 2147483647
-                ? s.projectsLimit
-                : s.projectsLimit
-                  + (s.purchasedProjectCredits ?? 0)
-                  + (s.carriedProjectCredits ?? 0),
+            limit: projectAllowance(s),
           });
         } else {
           setQuota(null);
@@ -1752,7 +1758,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               className={`hv-status-pill ${quota.used >= quota.limit ? "is-error" : ""}`}
               title="Projects used this month. One project covers the AI photo clean-up and the AI wall detection together — everything after it (trying shades, recolouring, Claude palettes) is free."
             >
-              {quota.used}/{quota.limit >= 2147483647 ? "∞" : quota.limit} projects
+              {quota.used}/{formatLimitSymbol(quota.limit)} projects
             </span>
           )}
           {basicPreview && (

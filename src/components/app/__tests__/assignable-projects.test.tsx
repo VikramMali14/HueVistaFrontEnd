@@ -14,19 +14,38 @@ vi.mock("@/lib/api", () => ({
 
 const DAYS = 86_400_000;
 
+/**
+ * A subscription payload shaped like one the backend could actually send.
+ *
+ * projectsRemaining is DERIVED rather than defaulted, because the backend derives it
+ * (Subscription#projectsRemaining) from exactly these fields. Pinning it to a constant
+ * while the tests overrode used/held/bought around it produced payloads the API cannot
+ * produce — 15 of 15 used AND two held AND nine spent — which is no basis for asserting
+ * what the panel shows. An explicit override still wins, for the cases that want one.
+ */
 function sub(overrides: Partial<SubscriptionSummary> = {}): SubscriptionSummary {
-  return {
+  const base = {
     id: "sub-1",
-    plan: "STARTER",
+    plan: "STARTER" as const,
     planDisplayName: "Starter",
-    status: "ACTIVE",
+    status: "ACTIVE" as const,
     trial: false,
     currentPeriodStart: new Date(Date.now() - 5 * DAYS).toISOString(),
     currentPeriodEnd: new Date(Date.now() + 25 * DAYS).toISOString(),
     projectsUsed: 15,
     projectsLimit: 15,
-    projectsRemaining: 0,
     ...overrides,
+  };
+  const allowance =
+    base.projectsLimit +
+    (base.purchasedProjectCredits ?? 0) +
+    (base.carriedProjectCredits ?? 0);
+  return {
+    projectsRemaining: Math.max(
+      0,
+      allowance - base.projectsUsed - (base.reservedProjects ?? 0),
+    ),
+    ...base,
   };
 }
 

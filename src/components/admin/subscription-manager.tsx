@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import type { AdminUserRow } from "@/lib/api";
+import { formatLimit } from "@/lib/plan-quota";
 import type { SubscriptionSummary } from "@/lib/types";
 
 interface SubscriptionManagerProps {
@@ -57,9 +58,7 @@ function fmtDate(iso?: string | null): string {
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function fmtLimit(n: number): string {
-  return n >= 2_000_000_000 ? "unlimited" : String(n);
-}
+const fmtLimit = formatLimit;
 
 function statusColor(status: SubscriptionSummary["status"]): string {
   if (status === "ACTIVE") return "var(--accent)";

@@ -105,4 +105,36 @@ describe("PlanBanner", () => {
     expect(screen.getByText(/^active$/i)).toBeTruthy();
     expect(screen.queryByRole("link", { name: /subscribe/i })).toBeNull();
   });
+
+  /**
+   * The fraction is the ALLOWANCE, so on its own it read as capacity the shop does not
+   * have: 15-project plan, 3 used, 10 held behind codes nobody has redeemed → "3/15",
+   * while the portal would assign 2 and creation refuses after 5. The holds have to be
+   * named for the banner to be honest about the month.
+   */
+  it("names projects held behind unredeemed codes", async () => {
+    await banner(sub({ projectsUsed: 3, reservedProjects: 10, projectsRemaining: 2 }));
+    await waitFor(() => expect(screen.getByText(/3\/15 projects this month/i)).toBeTruthy());
+    expect(screen.getByText(/10 held for codes not yet redeemed/i)).toBeTruthy();
+  });
+
+  /** Nothing held, nothing said — the chip is for a real state, not a permanent zero. */
+  it("says nothing about holds when there are none", async () => {
+    await banner(sub());
+    await waitFor(() => expect(screen.getByText(/4\/15 projects this month/i)).toBeTruthy());
+    expect(screen.queryByText(/held for codes/i)).toBeNull();
+  });
+
+  /** An unlimited tier has no number worth printing, whichever sentinel the API sends. */
+  it("renders an unlimited plan as ∞ rather than ten digits", async () => {
+    await banner(sub({
+      plan: "ENTERPRISE",
+      planDisplayName: "Enterprise",
+      projectsUsed: 40,
+      projectsLimit: 2147483647,
+      projectsRemaining: 2147483647,
+      purchasedProjectCredits: 5,
+    }));
+    await waitFor(() => expect(screen.getByText(/40\/∞ projects this month/i)).toBeTruthy());
+  });
 });

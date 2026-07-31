@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { api } from "@/lib/api";
+import { isUnlimited, projectsAvailable } from "@/lib/plan-quota";
 import { PROJECT_VALID_DAYS } from "@/lib/project-validity";
 import type { ProjectPurchaseOptions, SubscriptionSummary } from "@/lib/types";
-
-const UNLIMITED_FLOOR = 2_000_000_000;
 
 /**
  * How many projects this shop can still hand to a customer, and where they came from.
@@ -44,17 +43,13 @@ export function AssignableProjects() {
   if (!loaded || !sub) return null;
 
   const bought = sub.purchasedProjectCredits ?? 0;
-  const carried = sub.carriedProjectCredits ?? 0;
   // Standalone credits — extras bought while the shop had no plan. The backend moves
   // these onto the plan when an assignment needs them, so they count here too.
   const ledger = options?.availableCredits ?? 0;
-  const unlimited = sub.projectsLimit >= UNLIMITED_FLOOR;
-  const left = unlimited
-    ? Number.POSITIVE_INFINITY
-    : Math.max(
-        0,
-        sub.projectsLimit + bought + carried - sub.projectsUsed - (sub.reservedProjects ?? 0),
-      ) + ledger;
+  const unlimited = isUnlimited(sub.projectsLimit);
+  // projectsAvailable is the backend's own figure — the one the quota gate enforces —
+  // so this panel and the gate can never disagree about what is assignable.
+  const left = unlimited ? Number.POSITIVE_INFINITY : projectsAvailable(sub) + ledger;
   const extras = bought + ledger;
 
   if (unlimited) {

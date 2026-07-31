@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
 import { api } from "@/lib/api";
+import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
 import { PROJECT_VALID_DAYS } from "@/lib/project-validity";
 import type { ProjectPurchaseOptions, SubscriptionSummary } from "@/lib/types";
-
-const UNLIMITED = 2147483647; // Integer.MAX_VALUE (Enterprise)
 
 const bannerStyle = (highlight: boolean): React.CSSProperties => ({
   display: "flex",
@@ -116,8 +115,13 @@ export function PlanBanner() {
   // Everything spendable this cycle, not just the plan's own allowance: bought extras
   // and projects carried over from a plan the shop upgraded away from are real and
   // usable, and a bar that ignored them read as "full" while runs were still available.
-  const extraCredits = (sub.purchasedProjectCredits ?? 0) + (sub.carriedProjectCredits ?? 0);
-  const limit = sub.projectsLimit >= UNLIMITED ? "∞" : sub.projectsLimit + extraCredits;
+  const limit = formatLimitSymbol(projectAllowance(sub));
+  // Projects already spoken for by access codes nobody has redeemed yet. The fraction
+  // above is the allowance, so on its own it implied capacity this shop does not have:
+  // a plan of 15 with 3 used and 10 held reads "3/15" while the portal will assign 2
+  // and creation refuses after 5. Naming the holds is what closes that gap — the same
+  // disclosure the subscription panel already makes.
+  const held = sub.reservedProjects ?? 0;
   const daysLeft = sub.currentPeriodEnd
     ? Math.max(0, Math.ceil((new Date(sub.currentPeriodEnd).getTime() - now) / 86_400_000))
     : null;
@@ -143,6 +147,11 @@ export function PlanBanner() {
         <Mono>
           {sub.projectsUsed}/{limit} projects this month
         </Mono>
+        {held > 0 && (
+          <Mono>
+            {held} held for codes not yet redeemed
+          </Mono>
+        )}
         {(sub.carriedProjectCredits ?? 0) > 0 && (
           <Mono>
             {sub.carriedProjectCredits} carried over · expire this cycle
@@ -150,7 +159,7 @@ export function PlanBanner() {
         )}
         {typeof sub.pdfDownloadsLimit === "number" && sub.pdfDownloadsLimit > 0 && (
           <Mono>
-            {sub.pdfDownloadsUsed ?? 0}/{sub.pdfDownloadsLimit >= UNLIMITED ? "∞" : sub.pdfDownloadsLimit} PDFs
+            {sub.pdfDownloadsUsed ?? 0}/{formatLimitSymbol(sub.pdfDownloadsLimit)} PDFs
           </Mono>
         )}
       </span>
