@@ -23,11 +23,10 @@ const MATRIX: ReadonlyArray<Section> = [
   {
     title: "The preview",
     rows: [
-      ["Images / month (AI photo clean-up on every one)", "20", "60", "120", "Unlimited"],
-      ["AI auto-masks / month (instant wall detection)", "5", "40", "90", "Unlimited"],
+      ["Projects / month (AI clean-up + AI wall detection)", "15", "45", "100", "Unlimited"],
       ["Manual wall masking (click-to-segment)", "Unlimited", "Unlimited", "Unlimited", "Unlimited"],
-      ["Extra image / extra auto-mask (wallet or UPI)", "₹50 / ₹25", "₹50 / ₹25", "₹50 / ₹25", "—"],
-      ["Prepaid wallet for pay-per-use", "●", "●", "●", "●"],
+      ["Extra project — points / card", "60 pts / ₹65", "50 pts / ₹55", "40 pts / ₹45", "—"],
+      ["Unused projects carried over on upgrade", "●", "●", "●", "●"],
       ["Colour-board PDFs / month", "25 (4 img)", "100 (8 img)", "300 (12 img)", "Unlimited (16 img)"],
       ["Recolour speed", "60 fps", "60 fps", "60 fps", "60 fps"],
       ["Per-region recolour", "●", "●", "●", "●"],

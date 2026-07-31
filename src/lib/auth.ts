@@ -735,7 +735,7 @@ export async function getUserSubscriptionAction(
 /** ADMIN: activate a plan for a user without a payment (supersedes any active plan). */
 export async function grantSubscriptionAction(
   userId: string,
-  input: { plan: string; days: number; aiGenerationsLimit?: number },
+  input: { plan: string; days: number; projectsLimit?: number },
 ): Promise<{ subscription?: SubscriptionSummary; error?: string }> {
   "use server";
   const token = await getAccessToken();
@@ -751,11 +751,11 @@ export async function grantSubscriptionAction(
   }
 }
 
-/** ADMIN: add AI image-generation credits and/or extend a user's subscription
+/** ADMIN: grant extra project credits and/or extend a user's subscription
  *  (extending a lapsed one reactivates it). */
 export async function adjustSubscriptionAction(
   userId: string,
-  input: { addAiGenerations?: number; extendDays?: number },
+  input: { addProjects?: number; extendDays?: number },
 ): Promise<{ subscription?: SubscriptionSummary; error?: string }> {
   "use server";
   const token = await getAccessToken();

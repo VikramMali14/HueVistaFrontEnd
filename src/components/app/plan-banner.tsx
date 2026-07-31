@@ -135,8 +135,11 @@ export function PlanBanner() {
 
   if (!entitles) return null;
 
-  const extraCredits = sub.purchasedImageCredits ?? 0;
-  const limit = sub.aiGenerationsLimit >= UNLIMITED ? "∞" : sub.aiGenerationsLimit + extraCredits;
+  // Everything spendable this cycle, not just the plan's own allowance: bought extras
+  // and projects carried over from a plan the shop upgraded away from are real and
+  // usable, and a bar that ignored them read as "full" while runs were still available.
+  const extraCredits = (sub.purchasedProjectCredits ?? 0) + (sub.carriedProjectCredits ?? 0);
+  const limit = sub.projectsLimit >= UNLIMITED ? "∞" : sub.projectsLimit + extraCredits;
   const daysLeft = sub.currentPeriodEnd
     ? Math.max(0, Math.ceil((new Date(sub.currentPeriodEnd).getTime() - now) / 86_400_000))
     : null;
@@ -160,11 +163,11 @@ export function PlanBanner() {
             : "active"}
         </span>
         <Mono>
-          {sub.aiGenerationsUsed}/{limit} images this month
+          {sub.projectsUsed}/{limit} projects this month
         </Mono>
-        {typeof sub.autoMasksLimit === "number" && sub.autoMasksLimit > 0 && (
+        {(sub.carriedProjectCredits ?? 0) > 0 && (
           <Mono>
-            {sub.autoMasksUsed ?? 0}/{sub.autoMasksLimit >= UNLIMITED ? "∞" : sub.autoMasksLimit} AI auto-masks
+            {sub.carriedProjectCredits} carried over · expire this cycle
           </Mono>
         )}
         {typeof sub.pdfDownloadsLimit === "number" && sub.pdfDownloadsLimit > 0 && (

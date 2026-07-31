@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/lib/payments", () => ({
   subscribeToPlan: vi.fn(),
   buyPoints: vi.fn(),
+  buyOneProject: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => {
@@ -27,8 +28,6 @@ vi.mock("@/lib/api", () => {
       getCurrentSubscription: vi.fn(),
       cancelSubscription: vi.fn(),
       resumeSubscription: vi.fn(),
-      pointsPayImageCredit: vi.fn(),
-      pointsPayAutoMaskCredit: vi.fn(),
       pointsPayProjectCredit: vi.fn(),
     },
   };
@@ -40,20 +39,20 @@ const STARTER: PlanOption = {
   plan: "STARTER", displayName: "Starter", rank: 1,
   priceInPaise: 99900, priceInRupees: 999, taxPercent: 0,
   priceWithTaxInPaise: 99900, priceWithTaxInRupees: 999,
-  monthlyAiLimit: 20, monthlyImageLimit: 20, monthlyAutoMaskLimit: 5,
+  monthlyProjectLimit: 15,
   pdfImageLimit: 4, monthlyPdfLimit: 25,
-  imageOveragePriceInPaise: 5000, imageOveragePriceWithTaxInPaise: 5000,
-  autoMaskOveragePriceInPaise: 2500, autoMaskOveragePriceWithTaxInPaise: 2500,
+  extraProjectPoints: 60,
+  extraProjectPriceInPaise: 6500, extraProjectPriceWithTaxInPaise: 6500,
 };
 
 const PROFESSIONAL: PlanOption = {
   plan: "PROFESSIONAL", displayName: "Professional", rank: 2,
   priceInPaise: 249900, priceInRupees: 2499, taxPercent: 0,
   priceWithTaxInPaise: 249900, priceWithTaxInRupees: 2499,
-  monthlyAiLimit: 60, monthlyImageLimit: 60, monthlyAutoMaskLimit: 40,
+  monthlyProjectLimit: 45,
   pdfImageLimit: 8, monthlyPdfLimit: 100,
-  imageOveragePriceInPaise: 5000, imageOveragePriceWithTaxInPaise: 5000,
-  autoMaskOveragePriceInPaise: 2500, autoMaskOveragePriceWithTaxInPaise: 2500,
+  extraProjectPoints: 50,
+  extraProjectPriceInPaise: 5500, extraProjectPriceWithTaxInPaise: 5500,
 };
 
 const PLANS: PlanOption[] = [STARTER, PROFESSIONAL];
@@ -67,9 +66,9 @@ function sub(overrides: Partial<SubscriptionSummary> = {}): SubscriptionSummary 
     trial: false,
     currentPeriodStart: new Date(Date.now() - 5 * DAYS).toISOString(),
     currentPeriodEnd: new Date(Date.now() + 25 * DAYS).toISOString(),
-    aiGenerationsUsed: 3,
-    aiGenerationsLimit: 20,
-    aiGenerationsRemaining: 17,
+    projectsUsed: 3,
+    projectsLimit: 15,
+    projectsRemaining: 12,
     ...overrides,
   };
 }
@@ -89,8 +88,8 @@ describe("SubscriptionPanel", () => {
     panel(sub({ status: "CANCELLED" }));
     expect(screen.getByText(/active till period end/i)).toBeTruthy();
     expect(screen.queryByText(/subscription has ended/i)).toBeNull();
-    // Usage is still worth showing — those images are still spendable.
-    expect(screen.getByText(/3 of 20 used/i)).toBeTruthy();
+    // Usage is still worth showing — those projects are still spendable.
+    expect(screen.getByText(/3 of 15 used/i)).toBeTruthy();
   });
 
   it("shows a lapsed plan as ended with a way back", () => {
@@ -132,7 +131,7 @@ describe("SubscriptionPanel", () => {
       currentPeriodEnd: new Date(Date.now() + 42 * DAYS).toISOString(),
     }));
     expect(screen.getByText(/^Starts /)).toBeTruthy();
-    expect(screen.queryByText(/3 of 20 used/i)).toBeNull();
+    expect(screen.queryByText(/3 of 15 used/i)).toBeNull();
   });
 
   /** Upgrade vs downgrade comes from the rank the server serves, not a local copy. */

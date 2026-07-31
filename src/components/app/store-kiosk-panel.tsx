@@ -18,7 +18,7 @@ const VALIDITY = [3, 7, 14] as const;
  * The shop no longer prices the link or takes a share of the payment — the walk-in is
  * HueVista's customer at one flat price, and the shop earns points instead. So there is
  * no price field and no payout form here; points are spent in the billing panel, on
- * extra images, auto-masks and projects.
+ * extra projects and reopens.
  */
 export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) {
   const [loading, setLoading] = useState(true);
@@ -131,8 +131,8 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
             <Mono brass>Publish your store link</Mono>
             <p style={{ font: "400 16px/1.5 var(--sans)", color: "var(--fg-soft)", margin: "10px 0 18px" }}>
               A walk-in pays {formatRupees(kioskPrice)} for one room visualisation, and you earn{" "}
-              {formatPoints(pointsPerSale)} every time. Points buy extra images, AI auto-masks
-              and whole projects, and last a year from the day you earn them.
+              {formatPoints(pointsPerSale)} every time. Points buy extra projects and
+              reopens, and last a year from the day you earn them.
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -223,8 +223,9 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
           <div style={{ border: "1px solid var(--rule)", padding: "18px 22px", maxWidth: 640, marginBottom: 20 }}>
             <Mono brass>What points buy</Mono>
             <p style={{ font: "400 14px/1.5 var(--sans)", color: "var(--fg-soft)", margin: "8px 0 0" }}>
-              Points buy HueVista services at their own price — an extra image, an extra AI
-              auto-mask, a whole project, or another window on an expired one. Spend them from
+              Points buy HueVista services at their own price — an extra project, or another
+              window on an expired one. A project costs fewer points the bigger your plan
+              (80 with none, down to 40 on Business). Spend them from
               the Points panel in your subscription page. They last one year from the day you
               earn them, and aren&rsquo;t paid out as cash.
             </p>

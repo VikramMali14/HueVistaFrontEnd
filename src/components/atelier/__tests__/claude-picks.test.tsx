@@ -2,7 +2,7 @@
 /**
  * "Claude's picks" — the quota-billed photo-palette section on the AI Suggest
  * tab. Nothing may be fetched until the retailer clicks Ask; results map onto
- * the room's regions via Apply all; a 402 shows the quota message instead of a
+ * the room's regions via Apply all; a 402 shows the closed-window message instead of a
  * generic error; and the section is absent entirely when no fetcher is passed
  * (guests / unsaved projects).
  */
@@ -82,10 +82,10 @@ describe("Claude's picks (AI Suggest tab)", () => {
     expect(calls[1]![1]).toMatchObject({ code: "AP-202", hex: "#a9714b" });
   });
 
-  it("shows the quota message on 402 instead of a generic error", async () => {
+  it("shows the closed-window message on 402 instead of a generic error", async () => {
     const user = userEvent.setup();
     const fetchPalettes = vi.fn(async () => {
-      throw new HttpError(402, "Monthly AI generation limit reached (60).");
+      throw new HttpError(402, "This project's access window has closed.");
     });
     renderGrid({ onFetchAiPalettes: fetchPalettes });
 
@@ -93,7 +93,7 @@ describe("Claude's picks (AI Suggest tab)", () => {
     await user.click(screen.getByRole("button", { name: /Ask Claude/ }));
 
     await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(/out of images/),
+      expect(screen.getByRole("alert")).toHaveTextContent(/access window has closed/),
     );
     // The button stays usable for a retry after the reset/upgrade.
     expect(screen.getByRole("button", { name: /Ask Claude/ })).toBeEnabled();

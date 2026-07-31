@@ -16,7 +16,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "2 · When access starts",
-    p: "Access is granted immediately on successful payment — typically within a few seconds, and in all cases within a few minutes. A subscription becomes active as soon as the payment is confirmed. Points bought are credited the moment the payment clears and are spendable straight away; extra images, AI auto-masks, projects and reopens are added to your account the instant the points are spent.",
+    p: "Access is granted immediately on successful payment — typically within a few seconds, and in all cases within a few minutes. A subscription becomes active as soon as the payment is confirmed. Points bought are credited the moment the payment clears and are spendable straight away; extra projects and reopens are added to your account the instant they are paid for, whether with points or by card.",
   },
   {
     h: "3 · In-store kiosk purchases",

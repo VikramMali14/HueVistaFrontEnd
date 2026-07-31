@@ -36,10 +36,12 @@ export const BFF_ALLOWED_PREFIXES = [
   // Pay-per-use billing the signed-in retailer drives from the plan page, plus the
   // colour-board PDF allowance/downloads. Without these the BFF answers 403 before
   // the request ever reaches the backend.
-  // Points: the only balance. Buying, spending, expiry — and the project-options
-  // quote. The wallet and per-item image/project prefixes went with the ledgers
-  // behind them; nothing routes there any more.
+  // Points: a shop's own balance. Buying, spending, expiry — and the project-options
+  // quote. The wallet and per-item image prefixes went with the ledgers behind them;
+  // nothing routes there any more.
   "api/billing/points",
+  // Buying one extra project with money instead of points — order + verify.
+  "api/billing/projects",
   "api/billing/pdf-allowance",
   "api/billing/pdf-downloads",
   "api/organizations",

@@ -358,17 +358,18 @@ export const adminApi = {
   grantSubscription: (
     accessToken: string,
     userId: string,
-    body: { plan: string; days: number; aiGenerationsLimit?: number },
+    body: { plan: string; days: number; projectsLimit?: number },
   ) =>
     serverFetch<import("./types").SubscriptionSummary>(
       `/api/admin/users/${encodeURIComponent(userId)}/subscription`,
       { method: "POST", accessToken, body: JSON.stringify(body) },
     ),
-  // Add AI image-generation credits and/or extend (reactivating a lapsed plan).
+  // Grant extra project credits (they survive renewal) and/or extend the period,
+  // reactivating a lapsed plan.
   adjustSubscription: (
     accessToken: string,
     userId: string,
-    body: { addAiGenerations?: number; extendDays?: number },
+    body: { addProjects?: number; extendDays?: number },
   ) =>
     serverFetch<import("./types").SubscriptionSummary>(
       `/api/admin/users/${encodeURIComponent(userId)}/subscription`,
@@ -762,13 +763,24 @@ export const api = {
   // paid for by the shop, which can add one in a click.
   requestMoreProjects: () =>
     browserFetch<void>("api/me/request-more-projects", { method: "POST" }),
-  // --- Buying a project (with points) ---
-  // What a project and a reopen cost in points, the balance to weigh them against, and
-  // how many paid-for projects are waiting.
+  // --- Buying one extra project ---
+  // What a project costs THIS account on both rails (points and money), what a reopen
+  // costs, the balance to weigh them against, and how many paid-for projects are waiting.
+  // The price falls with the caller's plan, so it is always read from here rather than
+  // held as a constant in the UI.
   getProjectPurchaseOptions: () =>
     browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/points/project-options"),
-  // --- Points: the only balance. Earned at the kiosk or bought at ₹1 each, spent on
-  // everything chargeable besides a plan, expiring a year after they arrive.
+  // Paying with money instead of points. Only the caller travels — the amount is priced
+  // server-side from their plan, so the browser can never name its own price.
+  createProjectOrder: () =>
+    browserFetch<import("./types").ProjectOrder>("api/billing/projects/order", { method: "POST" }),
+  verifyProjectPurchase: (body: { orderId: string; paymentId: string; signature: string }) =>
+    browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/projects/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  // --- Points: a shop's own balance. Earned at the kiosk or bought at ₹1 each, spent on
+  // extra projects and reopens, expiring a year after they arrive.
   // Retailers only — a customer account gets 403 from all of these.
   getRewardPoints: () =>
     browserFetch<import("./types").RewardPointsSummary>("api/billing/points"),
@@ -784,14 +796,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  pointsPayImageCredit: () =>
-    browserFetch<import("./types").SubscriptionSummary>("api/billing/points/pay/image-credit", {
-      method: "POST",
-    }),
-  pointsPayAutoMaskCredit: () =>
-    browserFetch<import("./types").SubscriptionSummary>("api/billing/points/pay/auto-mask-credit", {
-      method: "POST",
-    }),
+  // One extra project, paid in points at the caller's plan rate. Added to a live plan's
+  // allowance when there is one, issued as a standalone credit when there isn't.
   pointsPayProjectCredit: () =>
     browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/points/pay/project-credit", {
       method: "POST",

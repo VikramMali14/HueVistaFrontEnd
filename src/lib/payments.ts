@@ -1,5 +1,5 @@
 import { api } from "./api";
-import type { PurchasablePlan, StoreOrder } from "./types";
+import type { ProjectPurchaseOptions, PurchasablePlan, StoreOrder } from "./types";
 
 declare global {
   interface Window {
@@ -147,9 +147,9 @@ export async function openStoreCheckout(
 }
 
 /**
- * Buy reward points. Points are the only balance in the product — every extra image,
- * auto-mask, project and reopen is paid for with them — so this is the one top-up
- * flow there is.
+ * Buy reward points. Points are a shop's own balance — extra projects and reopens are
+ * paid for with them, at a rate that falls with the shop's plan — so this is the one
+ * top-up flow there is.
  *
  * The COUNT is what travels; the amount is priced server-side from it, so the browser
  * never names a rupee figure. Resolves `true` once the points are credited, `false` if
@@ -186,6 +186,54 @@ export async function buyPoints(
         }
       },
       modal: { ondismiss: () => resolve(false) },
+    });
+    rzp.open();
+  });
+}
+
+/**
+ * Buy ONE extra project with money, at the buyer's own plan rate (₹99 with no plan,
+ * down to ₹45 on Business).
+ *
+ * Nothing about the price travels from the browser: the order is created server-side
+ * from the caller's plan, and verification re-reads it back from Razorpay. Points are the
+ * cheaper rail for the same thing (see `api.pointsPayProjectCredit`) — this exists for
+ * shops that would rather pay for one project than hold a balance.
+ *
+ * Resolves the refreshed purchase options once the project is credited, `null` if the
+ * buyer closes Checkout, and throws on a real error.
+ */
+export async function buyOneProject(
+  prefill?: { name?: string; email?: string },
+): Promise<ProjectPurchaseOptions | null> {
+  const order = await api.createProjectOrder();
+  await loadCheckout();
+  if (!window.Razorpay) throw new Error("Payment library unavailable.");
+
+  return new Promise<ProjectPurchaseOptions | null>((resolve, reject) => {
+    const rzp = new window.Razorpay!({
+      key: order.razorpayKeyId,
+      amount: order.amount,
+      currency: order.currency,
+      order_id: order.orderId,
+      name: "HueVista",
+      description: "1 extra project",
+      prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
+      theme: { color: "#7c5cff" },
+      handler: async (resp: CheckoutSuccess) => {
+        try {
+          resolve(
+            await api.verifyProjectPurchase({
+              orderId: resp.razorpay_order_id,
+              paymentId: resp.razorpay_payment_id,
+              signature: resp.razorpay_signature,
+            }),
+          );
+        } catch (e) {
+          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+        }
+      },
+      modal: { ondismiss: () => resolve(null) },
     });
     rzp.open();
   });
