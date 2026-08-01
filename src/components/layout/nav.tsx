@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { APK_URL, hasApk } from "@/components/shared/app-download";
 import { BrandMark } from "./brand-mark";
 
 const PUBLIC_LINKS = [
@@ -213,6 +214,21 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
                 {l.label}
               </Link>
             ))}
+            {/* The bottom bar offering the APK is dismissible, so the menu keeps a
+                permanent way back to it. Plain <a>, not <Link>: it is a file to
+                download, not a route to push. */}
+            {hasApk && (
+              <a
+                href={APK_URL}
+                download
+                rel="noopener"
+                className="cnav-panel-link"
+                tabIndex={open ? 0 : -1}
+                onClick={close}
+              >
+                Get the Android app
+              </a>
+            )}
             {authed && (
               <>
                 <div className="cnav-panel-divider" />

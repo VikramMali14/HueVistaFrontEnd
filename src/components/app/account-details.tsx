@@ -51,8 +51,8 @@ function VerifiedChip({ verified }: { verified: boolean }) {
 
 /**
  * The account page's interactive profile block: edit the display name
- * (PATCH /api/auth/profile), see email/mobile verification state (with inline
- * email OTP), and change the password (LOCAL accounts).
+ * (PATCH /api/auth/profile), see email verification state (with inline email
+ * OTP), and change the password (LOCAL accounts).
  */
 export function AccountDetails({ user: initial }: { user: AuthUser }) {
   const [user, setUser] = useState(initial);
@@ -224,14 +224,14 @@ export function AccountDetails({ user: initial }: { user: AuthUser }) {
         </>
         )}
 
+        {/* No verified/not-verified chip here. Mobile verification is off — no SMS
+            sender is registered yet — so the chip could only ever read "Not
+            verified", next to no way of changing that. The number is a contact
+            detail, shown as one. */}
         <dt style={label}>Mobile</dt>
         <dd style={{ ...value, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span>{user.phoneNumber || "—"}</span>
-          {user.phoneNumber ? (
-            <VerifiedChip verified={Boolean(user.phoneVerified)} />
-          ) : (
-            <Mono>None on file</Mono>
-          )}
+          {user.phoneNumber ? null : <Mono>None on file</Mono>}
         </dd>
 
         <dt style={label}>Account</dt>

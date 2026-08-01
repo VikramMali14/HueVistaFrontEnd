@@ -33,7 +33,6 @@ export const DEMO_USERS: Record<DemoRole, DemoAccount> = {
     role: "RETAILER",
     emailVerified: true,
     phoneNumber: "+91 98860 12345",
-    phoneVerified: true,
     createdAt: "2025-11-02T09:30:00+05:30",
     updatedAt: "2026-06-20T10:00:00+05:30",
   },
@@ -46,14 +45,13 @@ export const DEMO_USERS: Record<DemoRole, DemoAccount> = {
     role: "ADMIN",
     emailVerified: true,
     phoneNumber: "+91 99000 11223",
-    phoneVerified: true,
     createdAt: "2025-09-01T08:00:00+05:30",
     updatedAt: "2026-06-21T08:00:00+05:30",
   },
   CUSTOMER: {
     // A walk-in customer who redeemed a shop code. Email left unverified so the
     // dashboard's "Secure your account" OTP card is demoable on this account.
-    // (The card is email-only while SMS verification is hidden.)
+    // (The card is email-only; there is no SMS sender to verify a number with.)
     id: "usr_anjali",
     name: "Anjali Nair",
     email: "anjali@example.in",
@@ -62,7 +60,6 @@ export const DEMO_USERS: Record<DemoRole, DemoAccount> = {
     role: "CUSTOMER",
     emailVerified: false,
     phoneNumber: "+91 98470 55667",
-    phoneVerified: false,
     createdAt: "2026-06-01T07:30:00+05:30",
     updatedAt: "2026-06-22T07:30:00+05:30",
   },

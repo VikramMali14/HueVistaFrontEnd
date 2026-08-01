@@ -3738,3 +3738,77 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .hv-studio-swatch:hover { transform: none; }
   .hv-status-pill .dot { animation: none; }
 }
+
+/* ============================================================
+   Android APK bar — "HueVista for Android", pinned to the bottom
+   ============================================================
+   Mobile only, and mobile is decided here rather than in JavaScript: the
+   component renders the markup and this rule decides whether a screen is
+   narrow enough to see it, so a desktop browser toggling its device toolbar
+   gets the right answer with no resize listener and nothing to re-hydrate.
+   Above the breakpoint the bar is simply not displayed. */
+.hv-apk {
+  display: none;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 95;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--rule-strong);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, .18);
+}
+.hv-apk-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none;
+  width: 38px; height: 38px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 10px;
+  color: var(--accent);
+  background: var(--bg);
+}
+.hv-apk-text {
+  display: flex; flex-direction: column; gap: 3px;
+  min-width: 0;                 /* let the label ellipsize instead of shoving the button off-screen */
+  flex: 1;
+}
+.hv-apk-text strong {
+  font: 600 15px/1.2 var(--sans);
+  color: var(--fg);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hv-apk-get {
+  flex: none;
+  font: 600 13px/1 var(--sans);
+  color: var(--bg);
+  background: var(--fg);
+  border: 1px solid var(--fg);
+  border-radius: var(--radius-pill);
+  padding: 11px 18px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.hv-apk-get:hover { opacity: .88; }
+.hv-apk-close {
+  flex: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--fg-mute);
+  font-size: 15px;
+  line-height: 1;
+  padding: 8px;
+}
+@media (max-width: 768px) {
+  .hv-apk { display: flex; }
+}
+@media (max-width: 360px) {
+  /* On the narrowest handsets the decoration costs more room than it earns, and
+     losing it is what keeps "HueVista for Android" from truncating to an ellipsis. */
+  .hv-apk { gap: 10px; padding-left: 12px; padding-right: 12px; }
+  .hv-apk-icon { display: none; }
+  .hv-apk-text .mono { display: none; }
+  .hv-apk-text strong { font-size: 14px; }
+  .hv-apk-get { padding: 11px 15px; }
+}

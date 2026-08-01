@@ -14,10 +14,10 @@ type Phase = "idle" | "sending" | "code" | "confirming";
  * Self-hides once verified. Reads initial status from the server-rendered
  * user, then talks to /api/auth/verify/* via the BFF.
  *
- * Mobile/SMS verification is hidden for now — no SMS sender is registered yet
- * (needs the company registration to complete). The backend endpoints and
- * api.sendPhoneCode/confirmPhoneCode still exist; restore the phone row from
- * git history once SMS is live.
+ * Mobile/SMS verification is gone — no SMS sender is registered yet (needs the
+ * company registration to complete), so a texted code would never arrive. The
+ * backend endpoints still exist; restore the phone row and its two API wrappers
+ * from git history once SMS is live.
  */
 export function AccountVerification({ user }: { user: AuthUser | null }) {
   const [emailVerified, setEmailVerified] = useState(Boolean(user?.emailVerified));
