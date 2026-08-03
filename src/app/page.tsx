@@ -1,3 +1,4 @@
+import { fetchCatalogueSize } from "@/lib/catalogue";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Hero } from "@/components/home/hero";
@@ -14,17 +15,21 @@ import { PricingPreview } from "@/components/home/pricing-preview";
 import { Closing } from "@/components/home/closing";
 import { RevealMount } from "@/components/ui/reveal-mount";
 
-export default function HomePage() {
+export default async function HomePage() {
+  // The hero stat row states how many shades we hold. Read it from the catalogue
+  // rather than hard-coding it — the hard-coded "10,000+" was more than twice the
+  // truth. Cached for an hour; null when the backend is unreachable.
+  const size = await fetchCatalogueSize();
   return (
     <>
       <SiteHeader />
       <main>
         <RevealMount />
         <Hero />
-        <Stats />
+        <Stats shades={size?.shades ?? null} />
         <MethodGrid />
         <Partners />
-        <Services />
+        <Services shades={size?.shades ?? null} />
         <PaintRoom />
         <Toolkit />
         <Moods />

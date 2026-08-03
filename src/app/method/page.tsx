@@ -6,6 +6,7 @@ import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
 import { RevealMount } from "@/components/ui/reveal-mount";
+import { fetchCatalogueSize } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "How it works",
@@ -63,7 +64,8 @@ const CHAPTERS = [
   },
 ];
 
-export default function MethodPage() {
+export default async function MethodPage() {
+  const size = await fetchCatalogueSize();
   return (
     <>
       <Marquee items={["How it works", "From a customer's photograph to a photorealistic preview · in seconds", "A photograph, a tap, a hue"]} />
@@ -76,7 +78,10 @@ export default function MethodPage() {
             <Mono>Made in India</Mono>
           </div>
           <h1 className="display">From a photo,<br /><i>a painted wall.</i></h1>
-          <Lead className="page-lead">A photograph leaves the customer's hand. Seconds later, the same photograph returns — its walls in any of two thousand catalogued shades, every shadow exactly where it was.</Lead>
+          {/* The count is read from the catalogue rather than written out — the prose
+              said "two thousand" while the site's other pages said "10,000+", and
+              neither matched what the backend actually serves. */}
+          <Lead className="page-lead">A photograph leaves the customer&apos;s hand. Seconds later, the same photograph returns — its walls in any of {size ? `our ${size.shades.toLocaleString("en-IN")} catalogued shades` : "our catalogued shades"}, every shadow exactly where it was.</Lead>
         </header>
 
         {CHAPTERS.map((c, i) => (
@@ -100,7 +105,11 @@ export default function MethodPage() {
               The colour, <i>at the counter.</i>
             </h2>
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-              <Link href="/gallery" className="btn btn-brass">See it on real rooms <span className="arr">→</span></Link>
+              {/* This page's only call to action. It used to open the gallery — a set of
+                  placeholder plates — so it now goes where a reader who has just read how
+                  the product works actually wants to go: asking for an account. */}
+              <Link href="/trial" className="btn btn-brass">Bring it to your counter <span className="arr">→</span></Link>
+              <Link href="/catalogue" className="btn btn-ghost">Browse the catalogue <span className="arr">→</span></Link>
             </div>
           </div>
         </section>

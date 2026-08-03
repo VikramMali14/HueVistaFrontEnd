@@ -1,26 +1,33 @@
 import Link from "next/link";
 import { contact } from "@/lib/config";
+import { SHOWCASE_CONTENT } from "@/lib/showcase";
 import { BrandMark } from "./brand-mark";
 
+// Gallery, Our work and Journal are placeholder editorial pages and 404 unless
+// NEXT_PUBLIC_SHOWCASE_CONTENT=1 (see lib/showcase) — don't link to a 404.
 const COLUMNS = [
   {
     title: "Product",
     links: [
       { href: "/method", label: "How it works" },
       { href: "/catalogue", label: "Colour library" },
-      { href: "/gallery", label: "Gallery" },
+      ...(SHOWCASE_CONTENT ? [{ href: "/gallery", label: "Gallery" }] : []),
       { href: "/pricing", label: "Pricing" },
     ],
   },
   {
     title: "Company",
     links: [
-      { href: "/work", label: "Our work" },
-      { href: "/journal", label: "Journal" },
+      ...(SHOWCASE_CONTENT
+        ? [
+            { href: "/work", label: "Our work" },
+            { href: "/journal", label: "Journal" },
+          ]
+        : []),
       { href: "/legal/contact", label: "Contact" },
     ],
   },
-] as const;
+];
 
 export function Footer() {
   return (

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { showcaseContentEnabled } from "@/lib/showcase";
 import { Marquee } from "@/components/layout/marquee";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
@@ -50,6 +52,10 @@ const PLATES: ReadonlyArray<Plate> = WORKS.map((w, i) => {
 });
 
 export default function GalleryPage() {
+  // Placeholder plates, not photographs of finished rooms — see lib/showcase.
+  // The middleware 404s this path first; this is the backstop if it is ever
+  // dropped from the matcher, so the invented content still cannot render.
+  if (!showcaseContentEnabled()) notFound();
   return (
     <>
       <Marquee items={["The Gallery", "Recoloured rooms · real catalogue shades · only the wall changes", "Curated quarterly"]} />

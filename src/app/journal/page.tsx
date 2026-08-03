@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { showcaseContentEnabled } from "@/lib/showcase";
 import { Marquee } from "@/components/layout/marquee";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
@@ -15,6 +17,9 @@ export const metadata: Metadata = {
 };
 
 export default function JournalPage() {
+  // Invented bylines, no articles behind the entries — see lib/showcase.
+  // Backstop behind the middleware gate, not the primary one.
+  if (!showcaseContentEnabled()) notFound();
   return (
     <>
       <Marquee items={["The Journal · Letters from the studio", "Monthly · India", "On colour, on craft, on the counter"]} />

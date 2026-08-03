@@ -7,16 +7,19 @@ import { gsap } from "gsap";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { APK_URL, hasApk } from "@/components/shared/app-download";
+import { SHOWCASE_CONTENT } from "@/lib/showcase";
 import { BrandMark } from "./brand-mark";
 
+// Gallery and Journal are placeholder editorial pages and 404 unless
+// NEXT_PUBLIC_SHOWCASE_CONTENT=1 (see lib/showcase) — don't link to a 404.
 const PUBLIC_LINKS = [
   { href: "/method", label: "How it works" },
   { href: "/catalogue", label: "Catalogue" },
-  { href: "/gallery", label: "Gallery" },
+  ...(SHOWCASE_CONTENT ? [{ href: "/gallery", label: "Gallery" }] : []),
   { href: "/pricing", label: "Pricing" },
-  { href: "/journal", label: "Journal" },
+  ...(SHOWCASE_CONTENT ? [{ href: "/journal", label: "Journal" }] : []),
   { href: "/redeem", label: "Redeem" },
-] as const;
+];
 
 interface NavProps {
   showCta?: boolean;
@@ -125,7 +128,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
       ]
     : [
         ...PUBLIC_LINKS,
-        { href: "/work", label: "Our work" },
+        ...(SHOWCASE_CONTENT ? [{ href: "/work", label: "Our work" }] : []),
         { href: "/join", label: "Create account" },
         { href: "/sign-in", label: "Sign in" },
       ];

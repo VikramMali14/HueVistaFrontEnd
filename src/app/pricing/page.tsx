@@ -9,6 +9,8 @@ import { RevealMount } from "@/components/ui/reveal-mount";
 import { PricingTiers } from "@/components/pricing/pricing-tiers";
 import { PricingFaq } from "@/components/pricing/pricing-faq";
 import { getCurrentUser } from "@/lib/auth";
+import { fetchCatalogueSize } from "@/lib/catalogue";
+import { TRIAL_DAYS } from "@/lib/trial";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -83,9 +85,16 @@ export default async function PricingPage() {
   // backend refuses those charges anyway (plans unlock nothing for a customer).
   const user = await getCurrentUser();
   const isCustomer = user?.role === "CUSTOMER";
+  // The marquee and the lede both used to overstate the catalogue ("10,000+ shades
+  // across five brands" against a real 4,522 across two) and the lede contradicted
+  // the rest of the page on the trial length. Both now read the truth.
+  const size = await fetchCatalogueSize();
+  const catalogueLine = size
+    ? `${size.shades.toLocaleString("en-IN")} shades · ${size.brands} ${size.brands === 1 ? "company" : "companies"} · more to follow`
+    : "Every shade, every code intact";
   return (
     <>
-      <Marquee items={["Pricing · For retailers, not consumers", "7-day trial · no card · we set you up", "10,000+ shades across five brands"]} />
+      <Marquee items={["Pricing · For retailers, not consumers", `${TRIAL_DAYS}-day trial · no card · we set you up`, catalogueLine]} />
       <SiteHeader />
       <main>
         <RevealMount />
@@ -95,7 +104,7 @@ export default async function PricingPage() {
             <Mono>Built for retailers · not consumers</Mono>
           </div>
           <h1 className="display">For retailers,<br /><i>not consumers.</i></h1>
-          <Lead className="page-lead">Four tiers, each tuned to a different counter. Every new shop starts with fourteen unbilled days — request an account and we set you up. Cancel quietly when you wish.</Lead>
+          <Lead className="page-lead">Four tiers, each tuned to a different counter. Every new shop starts with {TRIAL_DAYS} unbilled days — request an account and we set you up. Cancel quietly when you wish.</Lead>
           <PricingTiers isCustomer={isCustomer} />
         </header>
 
@@ -181,7 +190,7 @@ export default async function PricingPage() {
               </p>
               <a href={`mailto:${contact.general}?subject=Shop%20account`} className="text-link" style={{ marginTop: 32, display: "inline-block" }}>Write to us &nbsp;→</a>
             </div>
-            <PricingFaq />
+            <PricingFaq catalogue={size ? { shades: size.shades, names: size.names } : null} />
           </div>
         </section>
 
