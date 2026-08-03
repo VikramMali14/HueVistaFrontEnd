@@ -16,8 +16,9 @@ export const BFF_ALLOWED_PREFIXES = [
   "api/guest",
   "api/auth/profile",
   "api/auth/me",
-  // Email/mobile verification (send + confirm OTP). NOT "api/auth" — that would
-  // also expose login/register/refresh/logout through the BFF.
+  // Email verification (send + confirm OTP). NOT "api/auth" — that would also
+  // expose login/register/refresh/logout through the BFF. The prefix still
+  // covers /verify/phone/*, which no client calls while SMS is off.
   "api/auth/verify",
   // Change password from the account page (requires the current password; the
   // backend revokes every session on success).

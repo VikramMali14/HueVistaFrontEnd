@@ -16,8 +16,13 @@ export interface AuthUser {
   provider: AuthProvider;
   role: UserRole;
   emailVerified?: boolean;
+  /**
+   * A contact detail, not a verified one. The backend still returns
+   * `phoneVerified` alongside it, but nothing here reads it: with no SMS sender
+   * registered, the flag can never move off false, and a "Not verified" chip
+   * beside a number the owner cannot verify is a complaint, not information.
+   */
   phoneNumber?: string | null;
-  phoneVerified?: boolean;
 }
 
 /**

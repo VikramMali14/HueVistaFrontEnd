@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Inter, Space_Grotesk } from "next/font/google";
+import { AppDownloadBanner } from "@/components/shared/app-download";
 import "./globals.css";
 
 // Self-hosted via next/font. The CSS variables feed globals.css:
@@ -95,6 +96,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         {children}
+        {/* Offers the Android APK on phone-width screens. Renders nothing when no
+            build is published, on iOS, or inside the signed-in app. */}
+        <AppDownloadBanner />
       </body>
     </html>
   );

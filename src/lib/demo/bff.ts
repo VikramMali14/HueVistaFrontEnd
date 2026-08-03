@@ -151,20 +151,14 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   }
 
   // ---------- Auth (via BFF) + verification OTP ----------
+  // Email only. The demo mirrors what the app offers, and the app stopped
+  // offering SMS codes when it became clear nothing could send one.
   if (path === "api/auth/profile" && method === "GET") return json(user);
   if (path === "api/auth/verify/email/send" && method === "POST") {
     return json(verificationStatus("EMAIL", maskEmail(user.email ?? "")));
   }
   if (path === "api/auth/verify/email/confirm" && method === "POST") {
     return json({ ...user, emailVerified: true });
-  }
-  if (path === "api/auth/verify/phone/send" && method === "POST") {
-    const body = await readJson(req);
-    const phone = String(body.phoneNumber ?? user.phoneNumber ?? "+91 90000 00000");
-    return json(verificationStatus("PHONE", maskPhone(phone)));
-  }
-  if (path === "api/auth/verify/phone/confirm" && method === "POST") {
-    return json({ ...user, phoneVerified: true });
   }
 
   // ---------- Projects ----------
@@ -651,10 +645,6 @@ function slugify(name: string): string {
 function maskEmail(email: string): string {
   const [u, d] = email.split("@");
   return `${u?.[0] ?? ""}***@${d ?? "example.in"}`;
-}
-function maskPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
-  return `******${digits.slice(-3)}`;
 }
 function summariseConvo(c: SupportConversation) {
   const last = c.messages[c.messages.length - 1];

@@ -16,6 +16,18 @@ npm run dev                       # http://localhost:3000
 
 The frontend expects a HueVista backend reachable at `NEXT_PUBLIC_API_ORIGIN` (defaults to `http://localhost:8080`).
 
+### Offering the Android app
+
+Set `NEXT_PUBLIC_APK_URL` to a public link to the APK (a GitHub release asset, an S3
+object, or a file under `public/`) and phone-width screens get a "HueVista for Android"
+bar at the bottom of the page, plus a "Get the Android app" entry in the mobile menu.
+`NEXT_PUBLIC_APK_VERSION` is an optional label beside it.
+
+Both default to blank, and blank means nothing is offered — better than a download
+button that 404s. The bar is Android-only (an APK cannot be installed on iOS) and
+stays out of the signed-in app, where a bar pinned to the bottom would land on the
+support button.
+
 ---
 
 ## Stack
