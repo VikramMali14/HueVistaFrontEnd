@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clientIpFromHeaders } from "@/lib/client-ip";
+import { SHOWCASE_CONTENT } from "@/lib/showcase";
 
 // NOTE: lives in src/ (not the project root) so Next actually runs it for a
 // src/-based app. It gates protected routes AND refreshes the access token here,
@@ -20,6 +21,12 @@ const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/pro
 // allowed through. /trial is NOT listed either — it's the public shop lead form
 // (no account is created there), so signed-in visitors may use it too.
 const GUEST_ONLY_PATHS = ["/sign-in", "/sign-in/forgot", "/join"];
+// Placeholder editorial pages — see lib/showcase for what is wrong with them.
+// Gated here rather than with `notFound()` inside the pages because the root
+// loading.tsx opens a Suspense boundary: the shell is already flushed by the time
+// a page-level notFound() throws, so the visitor gets the 404 page under a 200
+// status and a crawler keeps the URL indexed. Middleware runs before any of that.
+const SHOWCASE_PREFIXES = ["/gallery", "/journal", "/work"];
 const ACCESS_COOKIE = "hv_access";
 const SESSION_COOKIE = "hv_refresh";
 const GUEST_COOKIE = "hv_guest";
@@ -48,6 +55,16 @@ function cookieOpts(maxAge: number) {
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+
+  // Unpublished editorial pages answer as if they were never routed at all, so a
+  // search engine drops the URL instead of keeping a page of invented rooms and
+  // bylines in its index.
+  if (
+    !SHOWCASE_CONTENT &&
+    SHOWCASE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  ) {
+    return NextResponse.rewrite(new URL("/_not-found", req.url), { status: 404 });
+  }
 
   // Public auth endpoints are REWRITTEN to the backend (next.config.ts), and
   // Next's rewrite proxy forwards X-Forwarded-For exactly as the client sent
@@ -202,5 +219,9 @@ export const config = {
     "/sign-in",
     "/sign-in/forgot",
     "/join",
+    // Placeholder editorial pages — 404'd here while unpublished (SHOWCASE_PREFIXES).
+    "/gallery/:path*",
+    "/journal/:path*",
+    "/work/:path*",
   ],
 };

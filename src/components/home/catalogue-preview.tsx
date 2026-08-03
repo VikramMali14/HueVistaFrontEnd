@@ -1,5 +1,6 @@
 import { LinkButton } from "@/components/ui/button";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
+import { SHOWCASE_CONTENT } from "@/lib/showcase";
 
 const SWATCHES = [
   "#a47148", "#d6a78a", "#8a5a3a", "#1a1612", "#f3eee4",
@@ -19,7 +20,9 @@ export function CataloguePreview() {
           <Lead>Filter by colour family, finish, or depth. Search by shade code or name. Find what looks closest across brands by colour science — not by approximation.</Lead>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
             <LinkButton href="/catalogue">Browse the catalogue <span className="arr">→</span></LinkButton>
-            <LinkButton href="/gallery" variant="ghost">See it on real walls <span className="arr">→</span></LinkButton>
+            {SHOWCASE_CONTENT && (
+              <LinkButton href="/gallery" variant="ghost">See it on real walls <span className="arr">→</span></LinkButton>
+            )}
           </div>
         </div>
         <div className="hv-cat-preview" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>

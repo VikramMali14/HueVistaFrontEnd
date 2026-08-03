@@ -26,6 +26,52 @@ export async function fetchCatalogue(): Promise<PaintShade[]> {
   return data.map(mapToPaintShade);
 }
 
+/** How big the public catalogue actually is, right now. */
+export interface CatalogueSize {
+  /** Total shades across every company we have loaded. */
+  shades: number;
+  /** How many paint companies those shades come from. */
+  brands: number;
+  /** Those companies, by name, in catalogue order — for prose that lists them. */
+  names: string[];
+}
+
+/**
+ * The size of the public catalogue, straight from the backend.
+ *
+ * The marketing pages used to hard-code this ("10,000+ shades across five brands")
+ * and the number drifted a long way from the truth — the catalogue actually holds
+ * 4,522 shades from two companies, and the pricing FAQ named four catalogues that
+ * were never loaded. Reading the real figure means the claim can only ever be as
+ * generous as the catalogue really is.
+ *
+ * Uses the cheap `/api/shades/brands` projection (a few hundred bytes) rather than
+ * the full 1.2 MB `/api/shades`, and shares the hour-long cache with its sibling
+ * above. Returns null when the backend can't be reached, so a caller can render
+ * prose that names no number at all rather than a wrong one.
+ */
+export async function fetchCatalogueSize(): Promise<CatalogueSize | null> {
+  try {
+    if (isDemoMode()) {
+      const brands = Array.from(new Set(SHADES.map((s) => s.brand))).filter(Boolean);
+      return { shades: SHADES.length, brands: brands.length, names: brands };
+    }
+    const res = await fetch(`${config.internalApiOrigin}/api/shades/brands`, {
+      headers: { Accept: "application/json" },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    const rows = (await res.json()) as Array<{ name?: string; shadeCount?: number }>;
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+    const shades = rows.reduce((n, r) => n + (r.shadeCount ?? 0), 0);
+    if (shades <= 0) return null;
+    const names = rows.map((r) => r.name).filter((n): n is string => Boolean(n));
+    return { shades, brands: rows.length, names };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The catalogue as the caller is allowed to see it — a shop gets only the paint
  * companies its distributor assigned it, and a customer or guest only the ones their

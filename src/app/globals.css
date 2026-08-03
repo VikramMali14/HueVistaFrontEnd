@@ -978,6 +978,8 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   border-bottom: 1px solid rgba(234,232,227,.08);
 }
 .hv-stats-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; align-items: start; }
+/* Two figures instead of three when the live catalogue count is unavailable. */
+.hv-stats-grid.is-two { grid-template-columns: repeat(2, 1fr); }
 .hv-stat {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
   gap: 18px; padding: 6px 30px; position: relative; text-align: center;
@@ -997,7 +999,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-stat-label { font: 400 14px/1.45 var(--sans); color: rgba(247,247,245,.62); margin: 0; justify-content: center; max-width: 24ch; }
 @media (max-width: 768px) {
   .hv-stats { padding-top: 64px; padding-bottom: 64px; }
-  .hv-stats-grid { grid-template-columns: 1fr; gap: 0; }
+  .hv-stats-grid, .hv-stats-grid.is-two { grid-template-columns: 1fr; gap: 0; }
   .hv-stat { padding: 30px 20px; }
   .hv-stat + .hv-stat::before { left: 14%; right: 14%; top: 0; bottom: auto; width: auto; height: 1px; }
 }
@@ -1026,6 +1028,8 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-services-title { font-size: clamp(38px, 5vw, 80px); }
 .hv-services-lead { font: 400 18px/1.55 var(--sans); color: var(--fg-soft); max-width: 46ch; }
 .hv-services-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+/* Three cards when the gallery card is withheld (see lib/showcase). */
+.hv-services-grid.is-three { grid-template-columns: repeat(3, 1fr); }
 .hv-svc-card {
   position: relative; overflow: hidden;
   min-height: 380px; aspect-ratio: 4 / 5;
@@ -1049,10 +1053,10 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-svc-card:hover .hv-svc-arrow { transform: translateX(5px); }
 @media (max-width: 1024px) {
   .hv-services-head { grid-template-columns: 1fr; gap: 20px; align-items: start; }
-  .hv-services-grid { grid-template-columns: repeat(2, 1fr); }
+  .hv-services-grid, .hv-services-grid.is-three { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 560px) {
-  .hv-services-grid { grid-template-columns: 1fr; }
+  .hv-services-grid, .hv-services-grid.is-three { grid-template-columns: 1fr; }
   .hv-svc-card { aspect-ratio: 16 / 11; min-height: 240px; }
 }
 

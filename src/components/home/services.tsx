@@ -1,18 +1,27 @@
 import Link from "next/link";
 import { TiltCard } from "@/components/ui/tilt-card";
+import { SHOWCASE_CONTENT } from "@/lib/showcase";
+import { TRIAL_DAYS } from "@/lib/trial";
 
-const SERVICES = [
+/**
+ * `shades` is the live catalogue count, passed down from the page. The card used to
+ * claim "10,000+ shades"; the catalogue holds 4,522. When the count is unavailable
+ * the card describes the search without naming a figure.
+ */
+const services = (shades: number | null) => [
   {
     kicker: "Pricing",
     title: "One plan, priced for shops",
-    desc: "7-day trial — no card, we set you up. Everything included, built for the counter.",
+    desc: `${TRIAL_DAYS}-day trial — no card, we set you up. Everything included, built for the counter.`,
     tone: "terracotta",
     href: "/pricing",
   },
   {
     kicker: "Catalogue match",
     title: "Match a colour, exactly",
-    desc: "Search 10,000+ shades by code, name or hex — with harmonies and look-alikes across brands.",
+    desc: shades
+      ? `Search ${shades.toLocaleString("en-IN")} shades by code, name or hex — with harmonies and look-alikes across brands.`
+      : "Search the catalogue by code, name or hex — with harmonies and look-alikes across brands.",
     tone: "slate",
     href: "/catalogue",
   },
@@ -23,16 +32,22 @@ const SERVICES = [
     tone: "sage",
     href: "/trial",
   },
-  {
-    kicker: "Gallery",
-    title: "Rooms — only the wall changed",
-    desc: "Twelve rooms recoloured with catalogue shades — only the wall changes, the code on every one.",
-    tone: "walnut",
-    href: "/gallery",
-  },
-] as const;
+  // Only while the gallery is published — otherwise this card leads to a 404.
+  ...(SHOWCASE_CONTENT
+    ? [
+        {
+          kicker: "Gallery",
+          title: "Rooms — only the wall changed",
+          desc: "Twelve rooms recoloured with catalogue shades — only the wall changes, the code on every one.",
+          tone: "walnut",
+          href: "/gallery",
+        },
+      ]
+    : []),
+];
 
-export function Services() {
+export function Services({ shades }: { shades?: number | null }) {
+  const SERVICES = services(shades ?? null);
   return (
     <section id="services" className="hv-services">
       <header className="hv-services-head reveal">
@@ -44,7 +59,7 @@ export function Services() {
           colour lives inside HueVista.
         </p>
       </header>
-      <div className="hv-services-grid">
+      <div className={`hv-services-grid${SERVICES.length === 3 ? " is-three" : ""}`}>
         {SERVICES.map((s, i) => (
           <div key={s.href} className={`reveal d${i + 1}`} style={{ height: "100%" }}>
             <TiltCard style={{ height: "100%" }}>
