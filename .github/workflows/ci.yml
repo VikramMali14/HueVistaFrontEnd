@@ -21,7 +21,13 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          # 22, not 20: jsdom 30 pulls in undici 8, whose CacheStorage calls
+          # webidl.util.markAsUncloneable — backed by node:worker_threads'
+          # markAsUncloneable, which does not exist before 22.10. On 20 every
+          # jsdom test worker dies at import with "markAsUncloneable is not a
+          # function" and the suite reports 19 unhandled errors while still
+          # exiting non-zero. Broke on main when jsdom 30 landed (#138).
+          node-version: '22'
           cache: npm
 
       - name: Install

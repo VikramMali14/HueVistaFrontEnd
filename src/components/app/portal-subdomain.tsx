@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { api } from "@/lib/api";
+import { site } from "@/lib/config";
 
 /**
- * Shows the retailer's reserved white-label subdomain ({org-slug}.huevista.com).
+ * Shows the retailer's reserved white-label subdomain ({org-slug}.huevista.org).
  * Deliberately NOT a live link: subdomain hosting is still rolling out, so a
  * link would 404 from the retailer's own portal header. Becomes a link again
  * once host-based routing ships.
@@ -41,7 +42,7 @@ export function PortalSubdomain({ slug: slugProp }: { slug?: string | null }) {
       title="White-label subdomains are rolling out — contact us to switch yours on early."
       style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}
     >
-      <Mono brass>{slug}.huevista.com</Mono>
+      <Mono brass>{slug}.{site.whiteLabelDomain}</Mono>
       <Mono>· coming soon</Mono>
     </span>
   );

@@ -19,6 +19,38 @@ export const config = {
 } as const;
 
 /**
+ * Where this site actually lives.
+ *
+ * One place, because the canonical origin was hardcoded as `https://huevista.com` in
+ * the root layout's metadataBase and the redeem instruction spelled out
+ * `huevista.com/redeem` in four more files — including the "Paid. You're in." screen a
+ * walk-in customer sees the moment their kiosk payment clears. That domain has no DNS
+ * record at all; the app is served from app.huevista.org. So every canonical URL, every
+ * WhatsApp link preview and every post-payment instruction pointed a paying customer at
+ * a host that does not resolve.
+ *
+ * Read from the environment so a preview deployment points its canonicals at itself
+ * rather than at production. Anything user-facing that names the site should read this
+ * rather than spell out a domain.
+ */
+const SITE_ORIGIN = (
+  process.env.NEXT_PUBLIC_SITE_ORIGIN ?? "https://app.huevista.org"
+).replace(/\/$/, "");
+
+export const site = {
+  /** Canonical origin, no trailing slash. metadataBase, robots and sitemap read this. */
+  origin: SITE_ORIGIN,
+  /** Host alone, for prose that should not carry a scheme. */
+  host: SITE_ORIGIN.replace(/^https?:\/\//, ""),
+  /** Where a customer redeems a shop access code. */
+  redeemUrl: `${SITE_ORIGIN}/redeem`,
+  /** What we tell a customer to type — a bare host reads better than a full URL. */
+  redeemLabel: `${SITE_ORIGIN.replace(/^https?:\/\//, "")}/redeem`,
+  /** Root domain the reserved white-label subdomains hang off ({shop}.huevista.org). */
+  whiteLabelDomain: "huevista.org",
+} as const;
+
+/**
  * The addresses we ask people to write to.
  *
  * One place, because these were literals scattered across the footer, all three legal

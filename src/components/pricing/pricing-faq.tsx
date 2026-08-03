@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { site } from "@/lib/config";
 
 /**
  * `catalogue` describes what is actually loaded, passed down from the page.
@@ -31,7 +32,7 @@ const FAQ: ReadonlyArray<{ q: string; a: string }> = [
   { q: "How long does a bought project last?", a: "An unspent one waits as long as you like; the 30 days start when you turn it into a room, and you are told the date before you pay. Those are 30 days of USE, not a calendar deadline: while a plan is covering you the countdown is paused and the days are banked, so a project bought today is not quietly burnt down by a subscription that was already paying for it. If the window does run out the room stays readable — the colours you last applied are still there — and a reopen buys another 30 days. Projects bought outright can also be assigned to a customer from your shop portal, the same as the ones your plan includes." },
   { q: "Points or card — what's the difference?", a: "Both buy the same extra project, in the same place — the studio, at the upload that needs it — and points are cheaper on every tier. You earn points on every kiosk sale, or buy them at ₹1 each (₹100 minimum) by UPI, card or netbanking from your subscription page, then spend them with one tap — no checkout each time. Points expire a year after they arrive and spending always uses the oldest first. Paying by card is the one-off route if you'd rather not hold a balance. Every purchase gets a Razorpay receipt." },
   { q: "Which paint companies are in the catalogue?", a: "" },
-  { q: "Does the customer see my branding or HueVista's?", a: "Today every share carries a small HueVista byline. A white-label subdomain ({your-shop}.huevista.com) with your wordmark and palette is rolling out to Business and Enterprise shops — ask us for early access." },
+  { q: "Does the customer see my branding or HueVista's?", a: `Today every share carries a small HueVista byline. A white-label subdomain ({your-shop}.${site.whiteLabelDomain}) with your wordmark and palette is rolling out to Business and Enterprise shops — ask us for early access.` },
   { q: "What happens after the seven-day trial?", a: "Nothing automatic. We do not ask for a card to begin. Your saved scenes stay accessible; you choose if and when to subscribe." },
   { q: "Can I change plans later?", a: "Upgrade any time from your subscription page — pay for the bigger plan and it starts immediately with its full fresh quota, while the old plan is cancelled automatically so you're never billed twice. Whatever was left of the old plan's projects comes with you: 5 unused on Starter plus a fresh 45 on Professional is 50 to spend. Carried-over projects last that billing cycle and then expire, so use them first — anything you BOUGHT outright stays yours until you spend it. To move to a smaller plan, cancel your current one (it stays active till the period ends) and subscribe to the smaller tier after that." },
   { q: "How do I pay?", a: "UPI, cards and netbanking, billed monthly. We never store card details ourselves — payments run through Razorpay." },

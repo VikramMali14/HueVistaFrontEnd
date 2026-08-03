@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Inter, Space_Grotesk } from "next/font/google";
 import { AppDownloadBanner } from "@/components/shared/app-download";
+import { site } from "@/lib/config";
 import "./globals.css";
 
 // Self-hosted via next/font. The CSS variables feed globals.css:
@@ -27,7 +28,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://huevista.com"),
+  metadataBase: new URL(site.origin),
   title: {
     default: "HueVista — See any paint colour on your walls",
     template: "%s — HueVista",

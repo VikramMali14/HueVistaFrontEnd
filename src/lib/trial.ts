@@ -9,3 +9,12 @@
  * should read this rather than spell out a number.
  */
 export const TRIAL_DAYS = 7;
+
+/**
+ * The same number spelled out, for display headings that set it in words.
+ *
+ * The pricing page's closing heading read "Fourteen days." long after the rest of the
+ * page had been corrected to seven — a numeral-driven fix missed it because the word
+ * form was hardcoded. Kept beside the number so the two cannot drift again.
+ */
+export const TRIAL_DAYS_WORD = "Seven";
