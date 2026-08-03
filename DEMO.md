@@ -41,7 +41,8 @@ A guest access code you can redeem at **/redeem** (no account): **`MEHTA7K2`**.
   flat ₹99 platform price; each sale credits the shop 39 points.
 - **Products** — paint brands → lines → shop products (4 seeded); add your own.
 - **Colour finder / Catalogue** — full bundled shade catalogue, photo→shade match.
-- **Account** — profile + email/mobile OTP verification (accepts any 6-digit code).
+- **Account** — profile + email OTP verification (accepts any 6-digit code). Mobile
+  verification is not offered: no SMS sender is registered yet.
 - **Inbox** (admin) — support conversations with reply/resolve.
 
 Demo writes (new project, product, code, support message…) update an in-memory

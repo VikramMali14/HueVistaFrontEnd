@@ -607,7 +607,7 @@ export const api = {
     form.append("file", file);
     return browserFetch<UploadedImage>("api/images/upload", { method: "POST", body: form });
   },
-  // --- Account profile + email/mobile verification (6-digit OTP) ---
+  // --- Account profile + email verification (6-digit OTP) ---
   getMyProfile: () => browserFetch<UserProfile>("api/auth/profile"),
   /** Update the signed-in user's display name (the backend PATCH also accepts
    *  a picture URL; phone changes are NOT supported by this endpoint). */
@@ -627,16 +627,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ code }),
     }),
-  sendPhoneCode: (phoneNumber?: string) =>
-    browserFetch<VerificationStatus>("api/auth/verify/phone/send", {
-      method: "POST",
-      body: JSON.stringify({ phoneNumber }),
-    }),
-  confirmPhoneCode: (code: string) =>
-    browserFetch<UserProfile>("api/auth/verify/phone/confirm", {
-      method: "POST",
-      body: JSON.stringify({ code }),
-    }),
+  // No sendPhoneCode/confirmPhoneCode: mobile verification is off until an SMS
+  // sender is registered. The backend still serves /auth/verify/phone/*, so
+  // these two come back from git history the day it can actually deliver.
   listImages: () => browserFetch<UploadedImage[]>("api/images"),
   getImage: (id: string) =>
     browserFetch<UploadedImage>(`api/images/${encodeURIComponent(id)}`),
