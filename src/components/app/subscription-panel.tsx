@@ -21,6 +21,10 @@ interface SubscriptionPanelProps {
 // cancel first. The backend serves each plan's rank, so this fallback only covers a
 // server too old to send one — a hand-kept copy of the enum order is exactly the kind of
 // duplicate that rots silently when a tier is added.
+//
+// ENTERPRISE keeps a rank even though it is no longer sold: an account granted it before
+// it was withdrawn still holds it, and it has to out-rank Business so every card below
+// reads as the downgrade it is rather than offering that shop an "upgrade" to less.
 const FALLBACK_RANK: Record<string, number> = { STARTER: 0, PROFESSIONAL: 1, BUSINESS: 2, ENTERPRISE: 3 };
 
 const rankOf = (plans: PlanOption[], plan: string): number => {
@@ -116,7 +120,11 @@ function entitles(s: SubscriptionSummary | null): boolean {
 }
 
 function statusLabel(s: SubscriptionSummary): { text: string; color: string } {
-  if (notStartedYet(s) && s.status !== "EXPIRED") {
+  // "Starts <date>" is for a plan that has been PAID for and scheduled to begin when the
+  // current one ends. A CREATED row is an unpaid checkout attempt that happens to carry
+  // the same future start date, and labelling it "Starts 3 September" told a shop that
+  // had abandoned checkout it had a plan coming — it has nothing until it pays.
+  if (notStartedYet(s) && s.status !== "EXPIRED" && s.status !== "CREATED") {
     return { text: `Starts ${fmtDate(s.currentPeriodStart)}`, color: "var(--accent)" };
   }
   if (s.status === "ACTIVE") {
@@ -211,7 +219,12 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
   // this mirrors the backend gate exactly, so the panel can never claim access the API
   // will refuse (or hide access the customer still has).
   const active = entitles(sub);
-  const ended = sub != null && !active;
+  // HALTED is NOT "ended" — Razorpay could not collect the renewal, so the subscription
+  // is paused, not finished: it still holds an unpaid invoice and would resume if that
+  // invoice were settled. Telling the shop "your subscription has ended" hid both facts
+  // and offered no way to stop it. It gets its own state and its own way out.
+  const halted = sub?.status === "HALTED";
+  const ended = sub != null && !active && !halted;
   // Winding down: still usable, but not renewing. It no longer blocks buying a plan.
   const windingDown = active && !!sub?.cancelAtPeriodEnd;
   // Only a TRIAL can be un-cancelled. Razorpay has no "un-cancel" for a paid plan, so
@@ -316,9 +329,9 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
     }
   }
 
-  const purchasable = plans.filter(
-    (p): p is PlanOption & { plan: PurchasablePlan } => p.plan !== "ENTERPRISE",
-  );
+  // Everything the backend serves here is buyable — it stopped listing Enterprise when
+  // that tier was withdrawn, so there is nothing left to filter out.
+  const purchasable = plans;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
@@ -376,6 +389,55 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                 pay to start a fresh one — you&rsquo;ll be active again the moment the payment
                 completes.
               </p>
+            )}
+
+            {halted && (
+              <div
+                role="note"
+                style={{
+                  margin: "16px 0 0",
+                  padding: "12px 16px",
+                  border: "1px solid var(--terracotta)",
+                  borderRadius: 8,
+                  font: "400 15px/1.6 var(--sans)",
+                  color: "var(--fg-soft)",
+                }}
+              >
+                <p style={{ margin: 0 }}>
+                  We couldn&rsquo;t collect your renewal payment, so this plan is paused —
+                  new projects and PDF downloads are off until it&rsquo;s sorted. Two ways
+                  forward: pay for a plan below to start fresh (we close this one
+                  automatically, so you&rsquo;re never charged for both), or end it here and
+                  nothing further will be collected.
+                </p>
+                {!confirmCancel ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmCancel(true)}
+                    style={{ ...buttonStyle, marginTop: 12 }}
+                  >
+                    End this plan
+                  </button>
+                ) : (
+                  <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ font: "400 14px/1.4 var(--sans)" }}>
+                      End it now? There&rsquo;s no paid time left to lose — the plan already
+                      stopped working when the payment failed.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={cancel}
+                      disabled={cancelling}
+                      style={{ ...buttonStyle, borderColor: "var(--terracotta)", color: "var(--terracotta)" }}
+                    >
+                      {cancelling ? "Ending…" : "Yes, end it"}
+                    </button>
+                    <button type="button" onClick={() => setConfirmCancel(false)} style={buttonStyle}>
+                      Keep it for now
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
 
             {active && (

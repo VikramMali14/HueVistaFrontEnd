@@ -816,13 +816,20 @@ export interface SubscriptionSummary {
   razorpayKeyId?: string | null;
 }
 
-/** Plans a retailer can purchase directly (Enterprise is custom-priced — contact sales). */
+/**
+ * Every plan a retailer can be sold — which, since Enterprise was withdrawn, is every
+ * plan the backend serves from /api/billing/plans.
+ *
+ * ENTERPRISE survives in `SubscriptionSummary["plan"]` and in `pricingPlan` above
+ * because a row granted before it was withdrawn still names it and must still render;
+ * it is simply not something new money can be taken for.
+ */
 export type PurchasablePlan = "STARTER" | "PROFESSIONAL" | "BUSINESS";
 
 /** One plan option from GET /api/billing/plans (pricing + quota limits).
  *  Prices are BASE prices; GST (currently 0%) is added on top (priceWithTax*). */
 export interface PlanOption {
-  plan: "STARTER" | "PROFESSIONAL" | "BUSINESS" | "ENTERPRISE";
+  plan: PurchasablePlan;
   displayName: string;
   /** Position on the tier ladder, served by the backend so an upgrade can be told
    *  from a downgrade without keeping a hand-maintained copy of the Plan enum order

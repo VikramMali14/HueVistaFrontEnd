@@ -14,50 +14,57 @@ import { TRIAL_DAYS, TRIAL_DAYS_WORD } from "@/lib/trial";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: "For retailers, not consumers. Four tiers. One catalogue.",
+  description: "For retailers, not consumers. Three tiers. One catalogue.",
 };
 
-type Row = readonly [string, string, string, string, string];
+type Row = readonly [string, string, string, string];
 type Section = { title: string; rows: ReadonlyArray<Row> };
 
 // Every cell states what ships today; unbuilt items say "Soon" (never "●").
+//
+// The quota rows show the arithmetic ("15 + 30 = 45"), matching the tier cards above.
+// A bare total under an "everything in the tier below, plus" framing was read as
+// cumulative — 15 AND 45 — which is the one thing it never meant.
+//
+// Three columns, not four: Enterprise is not offered for now, and the backend does not
+// serve it from /api/billing/plans, so a fifth "On request" column would be quoting a
+// plan nothing in the product can sell.
 const MATRIX: ReadonlyArray<Section> = [
   {
     title: "The preview",
     rows: [
-      ["Projects / month (AI clean-up + AI wall detection)", "15", "45", "100", "Unlimited"],
-      ["Manual wall masking (click-to-segment)", "Unlimited", "Unlimited", "Unlimited", "Unlimited"],
-      ["Extra project — points / card", "60 pts / ₹65", "50 pts / ₹55", "40 pts / ₹45", "—"],
-      ["Unused projects carried over on upgrade", "●", "●", "●", "●"],
-      ["Colour-board PDFs / month", "25 (4 img)", "100 (8 img)", "300 (12 img)", "Unlimited (16 img)"],
-      ["Recolour speed", "60 fps", "60 fps", "60 fps", "60 fps"],
-      ["Per-region recolour", "●", "●", "●", "●"],
-      ["AI colour palette suggestions", "—", "●", "●", "●"],
+      ["Projects / month (AI clean-up + AI wall detection)", "15", "15 + 30 = 45", "45 + 55 = 100"],
+      ["Manual wall masking (click-to-segment)", "Unlimited", "Unlimited", "Unlimited"],
+      ["Extra project — points / card", "60 pts / ₹65", "50 pts / ₹55", "40 pts / ₹45"],
+      ["Unused projects carried over on upgrade", "●", "●", "●"],
+      ["Colour-board PDFs / month", "25 (4 img)", "25 + 75 = 100 (8 img)", "100 + 200 = 300 (12 img)"],
+      ["Recolour speed", "60 fps", "60 fps", "60 fps"],
+      ["Per-region recolour", "●", "●", "●"],
+      ["AI colour palette suggestions", "—", "●", "●"],
     ],
   },
   {
     title: "The catalogue",
     rows: [
-      ["Asian Paints — full", "●", "●", "●", "●"],
-      ["Berger · Nerolac · Dulux · Nippon", "●", "●", "●", "●"],
-      ["CIELAB find-similar across brands", "—", "●", "●", "●"],
+      ["Asian Paints — full", "●", "●", "●"],
+      ["Berger · Nerolac · Dulux · Nippon", "●", "●", "●"],
+      ["CIELAB find-similar across brands", "—", "●", "●"],
     ],
   },
   {
     title: "The counter",
     rows: [
-      ["Link & WhatsApp share", "●", "●", "●", "●"],
-      ["Customer access codes", "●", "●", "●", "●"],
-      ["White-label subdomain", "—", "—", "Soon", "Soon"],
-      ["Painter portal", "—", "—", "Soon", "Soon"],
+      ["Link & WhatsApp share", "●", "●", "●"],
+      ["Customer access codes", "●", "●", "●"],
+      ["White-label subdomain", "—", "—", "Soon"],
+      ["Painter portal", "—", "—", "Soon"],
     ],
   },
   {
     title: "Engineering",
     rows: [
-      ["API & SDK", "—", "—", "—", "On request"],
-      ["SLA", "Best-effort", "Business hrs", "99.5%", "99.9%"],
-      ["Support", "Email", "Priority", "Account lead", "Named tech lead"],
+      ["SLA", "Best-effort", "Business hrs", "99.5%"],
+      ["Support", "Email", "Priority", "Account lead"],
     ],
   },
 ];
@@ -104,7 +111,7 @@ export default async function PricingPage() {
             <Mono>Built for retailers · not consumers</Mono>
           </div>
           <h1 className="display">For retailers,<br /><i>not consumers.</i></h1>
-          <Lead className="page-lead">Four tiers, each tuned to a different counter. Every new shop starts with {TRIAL_DAYS} unbilled days — request an account and we set you up. Cancel quietly when you wish.</Lead>
+          <Lead className="page-lead">Three tiers, each tuned to a different counter. Every new shop starts with {TRIAL_DAYS} unbilled days — request an account and we set you up. Cancel quietly when you wish.</Lead>
           <PricingTiers isCustomer={isCustomer} />
         </header>
 
@@ -147,14 +154,13 @@ export default async function PricingPage() {
                         so the tint survives sticky overlap. */}
                     <th style={{ ...headStyle, color: "var(--accent-soft)", background: "linear-gradient(rgba(124,92,255,.08), rgba(124,92,255,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "var(--accent-soft)" }}>₹2,499 / mo</div></th>
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Business<div style={thPriceStyle}>₹4,999 / mo</div></th>
-                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Enterprise<div style={thPriceStyle}>On request</div></th>
                   </tr>
                 </thead>
                 <tbody>
                   {MATRIX.flatMap((section) => [
                     (
                       <tr key={`s-${section.title}`}>
-                        <td colSpan={5} style={sectionHeadStyle}>{section.title}</td>
+                        <td colSpan={4} style={sectionHeadStyle}>{section.title}</td>
                       </tr>
                     ),
                     ...section.rows.map((row) => (
@@ -163,7 +169,6 @@ export default async function PricingPage() {
                         <MatrixCell v={row[1]} />
                         <MatrixCell v={row[2]} featured />
                         <MatrixCell v={row[3]} />
-                        <MatrixCell v={row[4]} />
                       </tr>
                     )),
                   ])}
@@ -174,7 +179,6 @@ export default async function PricingPage() {
                     <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Request account</Link></td>
                     <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#0a0a0f" }}>Request account</Link></td>
                     <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Request account</Link></td>
-                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-ghost btn-sm" style={{ color: "var(--ivory)", borderColor: "rgba(247,247,245,.35)" }}>Talk to us</Link></td>
                   </tr>
                 </tbody>
                 </table>

@@ -8,15 +8,14 @@ import type { PurchasablePlan } from "@/lib/types";
 
 interface Tier {
   name: string;
-  monthlyN: number | null;
+  monthlyN: number;
   lede: string;
   features: ReadonlyArray<string>;
   inherits?: string;
   note?: string;
   featured: boolean;
   ribbon?: string;
-  /** Set on the directly-purchasable tiers; undefined for Enterprise (contact sales). */
-  plan?: PurchasablePlan;
+  plan: PurchasablePlan;
 }
 
 // Feature lists describe what ships TODAY. Anything still being built is
@@ -30,11 +29,23 @@ interface Tier {
 // the same, because the project is what is charged, not the step. Out of allowance
 // mid-month? Extras are bought one at a time at the tier's own rate — cheaper the
 // bigger the plan — with points or by card.
+//
+// Every quota on a higher tier states the ARITHMETIC, not just the total: "15 + 30 =
+// 45 projects". The "Everything in Starter, plus" heading above the list is doing real
+// work — the features genuinely accumulate — but read together with a bare "45
+// projects" it says the opposite of what is meant, and shops were reading the
+// Professional card as Starter's 15 AND another 45. Spelling the sum out costs a few
+// characters and removes the only reading that was wrong.
+//
+// Enterprise is deliberately absent. It was a fourth card with no price, no checkout
+// path and no tier behind it that a shop could actually be put on, so every question it
+// raised ("what does unlimited cost?") had no answer. The backend no longer serves it
+// from /api/billing/plans either — the two must agree, or this page advertises a plan
+// the subscription page cannot sell.
 const TIERS: ReadonlyArray<Tier> = [
   { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Every photo professionally cleaned by AI, walls detected automatically.", featured: false, features: ["15 projects / month — AI clean-up + AI wall detection on every one", "Extra projects 60 points or ₹65 each", "Manual wall masking (click-to-segment) — same project, no extra", "25 colour-board PDFs / month (4 images each)", "Full multi-brand colour library & colour finder", "Link & WhatsApp share", "Customer access codes", "Email support"] },
-  { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. Three times the volume, and every extra project costs less.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["45 projects / month — AI clean-up + AI wall detection on every one", "Extra projects 50 points or ₹55 each", "Per-wall recolouring", "100 colour-board PDFs / month (8 images each)", "AI colour palette suggestions", "Priority support"] },
-  { name: "Business", plan: "BUSINESS", monthlyN: 4999, lede: "For multi-shop dealers who run several counters on one account.", featured: false, inherits: "Everything in Professional, plus", note: "White-label subdomain & painter portal are rolling out — Business shops get them first.", features: ["100 projects / month — AI clean-up + AI wall detection on every one", "Extra projects 40 points or ₹45 each — the lowest rate", "300 colour-board PDFs / month (12 images each)", "Multi-shop friendly quota", "White-label subdomain (coming soon)", "Painter portal (coming soon)", "Dedicated account manager"] },
-  { name: "Enterprise", monthlyN: null, lede: "For manufacturers and large chains. SLA, dedicated catalogue ingestion, custom terms.", featured: false, inherits: "Everything in Business, plus", note: "Distributor commissions on request.", features: ["Unlimited projects", "Unlimited colour-board PDFs (16 images each)", "Dedicated catalogue ingest", "SLA · 99.9%", "Named technical lead"] },
+  { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. Three times the volume, and every extra project costs less.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["15 + 30 = 45 projects / month — AI clean-up + AI wall detection on every one", "Extra projects 50 points or ₹55 each", "Per-wall recolouring", "25 + 75 = 100 colour-board PDFs / month (8 images each)", "AI colour palette suggestions", "Priority support"] },
+  { name: "Business", plan: "BUSINESS", monthlyN: 4999, lede: "For multi-shop dealers who run several counters on one account.", featured: false, inherits: "Everything in Professional, plus", note: "White-label subdomain & painter portal are rolling out — Business shops get them first.", features: ["45 + 55 = 100 projects / month — AI clean-up + AI wall detection on every one", "Extra projects 40 points or ₹45 each — the lowest rate", "100 + 200 = 300 colour-board PDFs / month (12 images each)", "Multi-shop friendly quota", "White-label subdomain (coming soon)", "Painter portal (coming soon)", "Dedicated account manager"] },
 ];
 
 const inr = (n: number) => n.toLocaleString("en-IN");
@@ -99,28 +110,19 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
       )}
 
       <section style={{ paddingTop: 60 }}>
-        <div className="reveal r-cols-lg-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
+        <div className="reveal r-cols-lg-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
           {TIERS.map((t) => (
             <div key={t.name} className={t.featured ? "hv-tier hv-tier--featured" : "hv-tier"} style={{ background: t.featured ? "var(--accent)" : "var(--charcoal-soft)", color: t.featured ? "#fff" : "var(--ivory)", padding: "56px 36px", display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
               {t.ribbon && (<span style={{ position: "absolute", top: 0, right: 24, background: "#fff", color: "var(--accent-deep)", font: "500 9px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", padding: "8px 14px", transform: "translateY(-50%)" }}>{t.ribbon}</span>)}
               <div style={{ font: "400 11px/1 var(--mono)", letterSpacing: ".3em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.85)" : "var(--brass)" }}>{t.name}</div>
               <div style={{ minHeight: 84 }}>
-                {t.monthlyN === null ? (
-                  <>
-                    <div style={{ font: "italic 600 40px/1.2 var(--serif)", letterSpacing: "-.02em", whiteSpace: "nowrap", color: t.featured ? "#fff" : "var(--ivory)" }}>On request</div>
-                    <div style={{ marginTop: 8, font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)" }}>custom commercial terms</div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "#fff" : "var(--ivory)" }}>
-                      ₹{inr(t.monthlyN)}
-                      <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)", marginLeft: 6 }}>/ month</span>
-                    </div>
-                    <div style={{ marginTop: 8, font: "400 10px/1.4 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)" }}>
-                      Billed monthly · cancel anytime
-                    </div>
-                  </>
-                )}
+                <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "#fff" : "var(--ivory)" }}>
+                  ₹{inr(t.monthlyN)}
+                  <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)", marginLeft: 6 }}>/ month</span>
+                </div>
+                <div style={{ marginTop: 8, font: "400 10px/1.4 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)" }}>
+                  Billed monthly · cancel anytime
+                </div>
               </div>
               <p style={{ font: "400 17px/1.5 var(--serif)", color: t.featured ? "rgba(255,255,255,.85)" : "var(--ivory-soft)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.25)" : "var(--rule)"), paddingTop: 18 }}>{t.lede}</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
@@ -138,11 +140,11 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
                 )}
               </div>
               <div style={{ marginTop: "auto" }}>
-                {t.plan && !isCustomer ? (
+                {!isCustomer ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <button
                       type="button"
-                      onClick={() => void handleBuy(t.plan!)}
+                      onClick={() => void handleBuy(t.plan)}
                       disabled={busyPlan === t.plan}
                       className="btn"
                       style={t.featured ? { background: "#fff", color: "var(--accent-deep)", borderColor: "#fff" } : undefined}
@@ -159,11 +161,11 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
                   </div>
                 ) : (
                   <Link
-                    href={isCustomer ? "/redeem" : "/trial"}
+                    href="/redeem"
                     className={t.featured ? "btn" : "btn btn-ghost"}
                     style={t.featured ? { background: "#fff", color: "var(--accent-deep)", borderColor: "#fff" } : undefined}
                   >
-                    {isCustomer ? (<>Redeem a shop code <span className="arr">→</span></>) : (<>Talk to us <span className="arr">→</span></>)}
+                    Redeem a shop code <span className="arr">→</span>
                   </Link>
                 )}
                 {payError && payError.plan === t.plan && (
@@ -172,7 +174,7 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
                   </div>
                 )}
                 <div style={{ marginTop: 12, font: "400 10px/1.5 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--mute-deep)" }}>
-                  {t.monthlyN === null ? "We reply within an afternoon" : "Billed monthly · cancel anytime"}
+                  Billed monthly · cancel anytime
                 </div>
               </div>
             </div>

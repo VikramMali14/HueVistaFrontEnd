@@ -23,27 +23,31 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
     p: "You may cancel your plan at any time from your subscription page. Cancellation takes effect at the end of the current billing cycle: your plan stays active until then, and your card is not charged again. We do not provide partial or pro-rata refunds for the unused portion of a cycle that has already been paid.",
   },
   {
-    h: "4 · Changing plans",
+    h: "4 · If a renewal payment fails",
+    p: "When your payment method cannot be charged, the plan is paused: its features stop, and no further charge is taken by us. You can end a paused plan outright from your subscription page — it stops there and then, since there is no remaining paid period to run out, and nothing more is collected. Subscribing again starts a fresh plan and automatically closes the paused one at the gateway, so a delayed settlement can never bring it back as a second charge. We email you when a payment fails; nothing is charged for the period a paused plan was unusable.",
+  },
+  {
+    h: "5 · Changing plans",
     p: "Upgrading to a higher tier starts immediately with a fresh quota, and your previous plan is cancelled automatically so you are never billed twice. To move to a smaller plan, cancel your current one — it stays active until the period ends — and subscribe to the smaller tier after that. Plan changes do not generate a refund.",
   },
   {
-    h: "5 · Points",
+    h: "6 · Points",
     p: "Points are a balance on a HueVista account, spendable on extra projects and project reopens. They arrive two ways: earned free when a customer buys a visualisation through your in-store kiosk link, or bought at the published rate. Both kinds behave identically once credited. What a project costs in points depends on the plan covering the account at the time it is bought. Points have no cash value, cannot be transferred to another account, and are not withdrawable or convertible back to money in any circumstance — a purchase of points is a purchase of service credit, not a deposit.",
   },
   {
-    h: "6 · Points expiry and refunds",
+    h: "7 · Points expiry and refunds",
     p: "Points expire one year from the day they are credited, whether earned or bought. We email you ten days before a batch expires and again on the expiry day itself, and spending always uses the oldest points first so nothing lapses while newer points sit unused. Expired points are not reinstated and are not refundable. A purchase of points is refundable only if the points were never credited — once they are on your account and available to spend, the service has been delivered. Where a kiosk payment is refunded to the customer, the points that sale earned are removed; if they have already been spent, the shortfall is set against points credited later.",
   },
   {
-    h: "7 · What points buy",
+    h: "8 · What points buy",
     p: "Extra projects bought beyond your plan allowance — with points or by card — are consumed on use and are held on the account indefinitely until spent. The project one becomes is editable for thirty days of use, a term shown to you before you pay; those days are suspended while a paid plan is covering the account and resume if it lapses, and once the window closes the project stays viewable with its saved colours intact. Once a charge has been applied and the corresponding project has been delivered, it is non-refundable. Where a run fails on our side, the credit for that run is returned to you automatically at no charge. Projects carried over from a plan you have upgraded away from are unused allowance rather than a purchase: they last the billing cycle they are carried into and are not refundable if unspent.",
   },
   {
-    h: "8 · Duplicate or erroneous charges",
+    h: "9 · Duplicate or erroneous charges",
     p: "If you believe you have been charged in error — for example a duplicate payment or a charge for a service that was never delivered — write to us within 7 days of the transaction with your payment reference. Verified erroneous charges are refunded to the original payment method, typically within 5–7 business days once approved.",
   },
   {
-    h: "9 · How to reach us",
+    h: "10 · How to reach us",
     p: `For any cancellation, billing or refund question, use the in-app support chat or write to ${contact.billing} with your account and payment details. We reply within one business day. Postal enquiries: HueVista, Proprietor ${contact.legalName}, ${contact.addressInline}. Phone: ${contact.phone}.`,
   },
 ];
@@ -58,7 +62,7 @@ export default function RefundsPage() {
           Refund &amp; cancellation <i>policy.</i>
         </h1>
         <Lead style={{ marginTop: 20 }}>
-          When a subscription can be cancelled, and when a payment is refundable. Last updated July 2026.
+          When a subscription can be cancelled, and when a payment is refundable. Last updated August 2026.
         </Lead>
         <div style={{ marginTop: 56, display: "flex", flexDirection: "column", gap: 36 }}>
           {SECTIONS.map((s) => (
