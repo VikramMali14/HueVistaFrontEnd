@@ -10,7 +10,7 @@ import { PricingTiers } from "@/components/pricing/pricing-tiers";
 import { PricingFaq } from "@/components/pricing/pricing-faq";
 import { getCurrentUser } from "@/lib/auth";
 import { fetchCatalogueSize } from "@/lib/catalogue";
-import { TRIAL_DAYS } from "@/lib/trial";
+import { TRIAL_DAYS, TRIAL_DAYS_WORD } from "@/lib/trial";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -115,6 +115,11 @@ export default async function PricingPage() {
           <span aria-hidden>·</span>
           <span>Cancel anytime — scenes kept 30 days</span>
           <span aria-hidden>·</span>
+          {/* Plan.GST_PERCENT is 0 — this runs as a non-GST-registered proprietorship,
+              so the price on the card is the whole price. Say so rather than leave a
+              buyer (or a payment reviewer) to wonder what gets added at checkout. */}
+          <span>Prices in INR, all-inclusive — no GST added at checkout</span>
+          <span aria-hidden>·</span>
           <span>Built in India for Indian counters</span>
         </div>
 
@@ -198,7 +203,7 @@ export default async function PricingPage() {
           <div className="reveal">
             <Mono brass>Commencement</Mono>
             <h2 className="display" style={{ fontSize: "clamp(56px, 9vw, 142px)", marginTop: 32, lineHeight: 0.92 }}>
-              Fourteen days.<br /><i>No card.</i>
+              {TRIAL_DAYS_WORD} days.<br /><i>No card.</i>
             </h2>
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
               <Link href="/trial" className="btn btn-brass">Request a shop account <span className="arr">→</span></Link>

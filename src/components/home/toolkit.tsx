@@ -1,4 +1,5 @@
 import { Eyebrow, Mono } from "@/components/ui/eyebrow";
+import { site } from "@/lib/config";
 
 /**
  * The old "index of quiet capabilities" rows, rebuilt as a bento of small
@@ -41,7 +42,7 @@ export function Toolkit() {
         {/* White-label — the subdomain types itself */}
         <article className="hv-tk-card hv-tk-span2">
           <div className="hv-tk-url" aria-hidden>
-            <span className="hv-tk-typed">your-shop.huevista.com</span>
+            <span className="hv-tk-typed">your-shop.{site.whiteLabelDomain}</span>
           </div>
           <h3 className="hv-tk-card-title">Your name on the door</h3>
           <p className="hv-tk-card-desc">A white-label subdomain for your counter — rolling out soon.</p>

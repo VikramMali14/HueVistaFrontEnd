@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getAccessToken, requireFeature, requireRole } from "@/lib/auth";
 import { orgApi } from "@/lib/api";
+import { site } from "@/lib/config";
 import type { OrgResponse } from "@/lib/types";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { RetailerCustomers } from "@/components/app/retailer-customers";
@@ -59,7 +60,7 @@ export default async function PortalPage() {
       <section id="active-codes" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>Active codes</h2>
         <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
-          Issue a code and share it with a customer. They enter it at <Mono>huevista.com/redeem</Mono> to start
+          Issue a code and share it with a customer. They enter it at <Mono>{site.redeemLabel}</Mono> to start
           visualising — with one project and a validity window you control.
         </p>
         <AccessCodes org={shopOrg} />

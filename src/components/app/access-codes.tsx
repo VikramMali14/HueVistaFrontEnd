@@ -8,6 +8,7 @@ import { ALL, FilterBar, facetOptionsFrom, matchesQuery } from "@/components/ui/
 import { useCopied } from "@/hooks/use-copied";
 import { AssignableProjects } from "@/components/app/assignable-projects";
 import { api, HttpError } from "@/lib/api";
+import { site } from "@/lib/config";
 import { PAINT_BRANDS, type AccessCode, type OrgResponse, type ProjectDetail, type ShopProduct } from "@/lib/types";
 
 const FIXED_VALID_DAYS = 10;
@@ -451,7 +452,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyMessage(justIssued)}>
             {copied === "whatsapp-message" ? "Message copied" : "Copy message"}
           </button>
-          <Mono>Share with your customer — they enter it at huevista.com/redeem</Mono>
+          <Mono>Share with your customer — they enter it at {site.redeemLabel}</Mono>
         </div>
       )}
 
