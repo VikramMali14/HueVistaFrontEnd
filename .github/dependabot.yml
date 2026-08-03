@@ -7,6 +7,23 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      # TypeScript 7 is the native (Go) port: it ships a `tsc` binary but no JS
+      # compiler API. Both `next build`'s type-check and typescript-eslint load
+      # that API, so 7.x breaks the build and the lint step (typescript-eslint
+      # still declares `typescript >=4.8.4 <6.1.0`). Stay on 6.0.x until the
+      # toolchain declares support; revisit when eslint-config-next bumps that
+      # peer range.
+      - dependency-name: "typescript"
+        versions: [">=6.1.0"]
+      # ESLint 10 removed the old rule context API (`context.getFilename`).
+      # eslint-plugin-react — pulled in by eslint-config-next — still peers on
+      # `^9.7` and crashes on 10.x with "contextOrFilename.getFilename is not a
+      # function". Stay on 9.39.x until eslint-plugin-react ships ESLint 10
+      # support. Both of these bumps have been merged and reverted twice
+      # (74f5cb3, a95ea27); these ignores are what stops a third round.
+      - dependency-name: "eslint"
+        versions: [">=10.0.0"]
     groups:
       # One PR per week for routine minor/patch bumps instead of a flood.
       minor-and-patch:

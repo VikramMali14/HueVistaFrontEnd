@@ -28,10 +28,10 @@
     "@types/node": "^26.1.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "eslint": "^10.8.0",
+    "eslint": "~9.39.5",
     "eslint-config-next": "^16.2.12",
     "jsdom": "^30.0.1",
-    "typescript": "^7.0.2",
+    "typescript": "~6.0.3",
     "vitest": "^4.1.10"
   },
   "engines": {
