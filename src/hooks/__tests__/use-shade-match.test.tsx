@@ -15,12 +15,12 @@ const shade = (over: Partial<PaintShade> & Pick<PaintShade, "code" | "hex" | "br
 // Two companies, deliberately arranged so the overall nearest shade to #ff0000
 // belongs to Berger — filtering to Asian Paints must NOT return it.
 const CATALOGUE: PaintShade[] = [
-  shade({ code: "AP-1", hex: "#ff2200", brand: "Asian Paints" }),
-  shade({ code: "AP-2", hex: "#0000ff", brand: "Asian Paints" }),
+  shade({ code: "HV-1", hex: "#ff2200", brand: "Sample palette" }),
+  shade({ code: "HV-2", hex: "#0000ff", brand: "Sample palette" }),
   shade({ code: "BG-1", hex: "#ff0000", brand: "Berger" }),
 ];
 
-const ASIAN: MatchBrand = { name: "Asian Paints", slug: "asian-paints" };
+const ASIAN: MatchBrand = { name: "Sample palette", slug: "asian-paints" };
 
 const backendShade = (code: string, hex: string, brandName: string) => ({
   shadeCode: code,
@@ -41,7 +41,7 @@ describe("useShadeMatch — company filter", () => {
   it("passes the company slug to the backend matcher", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => [backendShade("AP-1", "#ff2200", "Asian Paints")],
+      json: async () => [backendShade("HV-1", "#ff2200", "Sample palette")],
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -50,7 +50,7 @@ describe("useShadeMatch — company filter", () => {
     await waitFor(() => expect(result.current.source).toBe("backend"));
     const url = String(fetchMock.mock.calls[0]![0]);
     expect(url).toContain("brand=asian-paints");
-    expect(result.current.matches.map((m) => m.shade.code)).toEqual(["AP-1"]);
+    expect(result.current.matches.map((m) => m.shade.code)).toEqual(["HV-1"]);
   });
 
   it("omits the brand param when no company is selected", async () => {
@@ -73,7 +73,7 @@ describe("useShadeMatch — company filter", () => {
 
     await waitFor(() => expect(result.current.source).toBe("offline"));
     // Berger's exact match is nearer, but the customer asked for Asian Paints.
-    expect(result.current.matches.map((m) => m.shade.code)).toEqual(["AP-1", "AP-2"]);
+    expect(result.current.matches.map((m) => m.shade.code)).toEqual(["HV-1", "HV-2"]);
   });
 
   it("reports an empty result for a company with no shades instead of widening the search", async () => {

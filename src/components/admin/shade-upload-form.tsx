@@ -256,9 +256,9 @@ export function ShadeUploadForm({ initialBrands }: { initialBrands: UploadBrand[
             Enrich each shade with AI
           </span>
           <span style={{ ...hintStyle, display: "block", marginTop: 2 }}>
-            Sends every new shade to Claude for style tags, mood, finish recommendations and a description —
-            just like the seeded catalogue. Uncheck for a fast, no-cost import; large files take longer with
-            this on.
+            Adds style tags, mood, finish suggestions and a description to every new shade,
+            the same as the seeded catalogue. Untick for a fast, no-cost import; large files
+            take longer with this on.
           </span>
         </span>
       </label>

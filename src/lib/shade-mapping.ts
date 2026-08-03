@@ -56,11 +56,16 @@ function familyFromColor(hex: string): ColorFamily {
 /**
  * Keep whatever company name the backend sent — the catalogue is multi-brand and
  * new companies arrive via the admin shade upload, so there is no fixed list to
- * normalise against. Only a missing name falls back to "Asian Paints".
+ * normalise against.
+ *
+ * A MISSING name used to fall back to "Asian Paints", which meant any row that
+ * arrived without a company was labelled with a real one — attributing a shade to a
+ * manufacturer on no evidence at all, in the one field a shop reads to decide which
+ * tin to open. An unknown company is now shown as unknown.
  */
 function normalizeBrand(raw: string | null | undefined): PaintShade["brand"] {
   const b = (raw ?? "").trim();
-  return b.length > 0 ? b : "Asian Paints";
+  return b.length > 0 ? b : "Unknown company";
 }
 
 /** Common spellings mapped to the display name the Indian market uses. */

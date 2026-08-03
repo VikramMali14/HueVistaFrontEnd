@@ -29,21 +29,21 @@ describe("boards storage", () => {
 
   it("toggles a shade on and off", () => {
     const b = createBoard("Hall");
-    const on = toggleShade(b.id, "AP-2118");
+    const on = toggleShade(b.id, "HV-2118");
     expect(on.added).toBe(true);
-    expect(isSaved(on.boards, "AP-2118")).toBe(true);
+    expect(isSaved(on.boards, "HV-2118")).toBe(true);
 
-    const off = toggleShade(b.id, "AP-2118");
+    const off = toggleShade(b.id, "HV-2118");
     expect(off.added).toBe(false);
-    expect(isSaved(off.boards, "AP-2118")).toBe(false);
+    expect(isSaved(off.boards, "HV-2118")).toBe(false);
   });
 
   it("keeps newest shade first and dedupes", () => {
     const b = createBoard("Hall");
-    toggleShade(b.id, "AP-1");
-    toggleShade(b.id, "AP-2");
-    const { boards } = toggleShade(b.id, "AP-3");
-    expect(boards[0]!.codes).toEqual(["AP-3", "AP-2", "AP-1"]);
+    toggleShade(b.id, "HV-1");
+    toggleShade(b.id, "HV-2");
+    const { boards } = toggleShade(b.id, "HV-3");
+    expect(boards[0]!.codes).toEqual(["HV-3", "HV-2", "HV-1"]);
   });
 
   it("renames and deletes boards", () => {

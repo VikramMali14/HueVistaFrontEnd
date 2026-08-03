@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { PlanOption, SubscriptionSummary } from "@/lib/types";
 import { SubscriptionPanel } from "../subscription-panel";
 
@@ -175,5 +175,42 @@ describe("SubscriptionPanel", () => {
     // Starter now outranks Professional, so it reads as the upgrade, not a downgrade.
     expect(screen.getByRole("button", { name: /upgrade to starter/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Cancel current plan first" })).toBeNull();
+  });
+
+  /**
+   * A HALTED plan is paused, not finished: Razorpay could not collect the renewal, so
+   * the subscription is still live at the gateway with an unpaid invoice against it and
+   * would resume if that invoice settled. The panel used to fold it into "your
+   * subscription has ended" — which hid both the cause and the fact that something is
+   * still outstanding — and offered no way to stop it, because the cancel controls only
+   * rendered for an entitling plan.
+   */
+  it("shows a halted plan as a payment problem, with a way to end it", async () => {
+    const { api } = await import("@/lib/api");
+    panel(sub({ status: "HALTED" }));
+
+    expect(screen.getByText(/couldn’t collect your renewal payment/i)).toBeTruthy();
+    expect(screen.queryByText(/subscription has ended/i)).toBeNull();
+
+    // And ending it is reachable — two steps, since it is not reversible.
+    fireEvent.click(screen.getByRole("button", { name: /end this plan/i }));
+    expect(screen.getByRole("button", { name: /yes, end it/i })).toBeTruthy();
+    expect(api.cancelSubscription).not.toHaveBeenCalled();
+  });
+
+  /**
+   * "Starts <date>" means a plan that has been PAID for and scheduled to begin when the
+   * current one ends. A CREATED row is an abandoned checkout that happens to carry the
+   * same future start date, and labelling it that way told a shop it had a plan coming
+   * when it had nothing at all.
+   */
+  it("calls an unpaid checkout attempt awaiting payment, not scheduled", () => {
+    panel(sub({
+      status: "CREATED",
+      currentPeriodStart: new Date(Date.now() + 20 * DAYS).toISOString(),
+      currentPeriodEnd: new Date(Date.now() + 50 * DAYS).toISOString(),
+    }));
+    expect(screen.getByText(/awaiting payment/i)).toBeTruthy();
+    expect(screen.queryByText(/^starts /i)).toBeNull();
   });
 });

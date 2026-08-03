@@ -12,31 +12,39 @@ export const metadata: Metadata = {
 const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   {
     h: "What we collect",
-    p: "Account details (name, email, optional mobile number), the photographs you upload, the colour selections you make, and basic usage/diagnostic data. We collect a mobile number only when you choose to verify one.",
+    p: "Account details (name, email, optional mobile number), the photographs you upload, the colour selections you make, and basic usage/diagnostic data. We collect a mobile number only when you choose to verify one. If you subscribe to our monthly letter we store that email address for the list, whether or not you have an account.",
   },
   {
     h: "How we use it",
-    p: "To provide the visualiser (segmentation, recolouring, recommendations), to operate your account and any retailer/customer relationship, to send verification and transactional messages, and to improve the service.",
+    p: "To make your previews, to run your account and the link between a shop and its customers, to send you verification codes and service messages, and to improve the product.",
+  },
+  {
+    h: "Payments",
+    p: "Card, UPI and netbanking details are entered on Razorpay's own checkout and never reach our servers — we never see or store a card number. What we keep is the record of the transaction: the payment and order references Razorpay returns, the amount, and what it bought. That record is what lets us verify a payment, honour a refund and meet our tax obligations, so it is retained even after an account closes.",
+  },
+  {
+    h: "Emails we send",
+    p: "Two kinds, and you can tell them apart. Transactional messages — verification codes, payment receipts, plan changes, points expiring — go with the service and cannot be turned off while the account is open. The monthly letter is the only marketing email we send: it is opt-in, every one carries a one-click unsubscribe that needs no login, and leaving affects nothing else about your account.",
   },
   {
     h: "AI processing",
-    p: "Uploaded photographs may be sent to our AI providers (e.g. for classification, clean-up and segmentation) strictly to generate your previews. We do not sell your photographs or use them to train third-party models.",
+    p: "Making a preview involves sending your photograph to the AI services we use, purely to produce that preview. We do not sell your photographs, and we do not give them to anyone to train their models on.",
   },
   {
     h: "Sharing",
-    p: "We share data only with processors that help run the service (hosting, storage, payments, email/SMS, AI) under contract, and with the paint retailer whose access code you redeem. We do not sell personal data.",
+    p: "We share data only with processors that help run the service — hosting, storage, payments (Razorpay), email/SMS, AI — under contract, and with the paint retailer whose access code you redeem. We do not sell personal data.",
   },
   {
     h: "Retention",
-    p: "We keep project data while your account is active. Deleting a project removes its images and masks from storage. You may request account deletion at any time.",
+    p: "We keep project data while your account is active. Deleting a project removes its images and masks from storage. You may request account deletion at any time. Two things outlive an account by design: transaction records, which we are required to keep for tax and dispute handling, and a monthly-letter subscription, which is a separate list — unsubscribe from it directly if you want it gone.",
   },
   {
     h: "Your choices",
-    p: "You can update your profile, verify or change your contact details, and request a copy or deletion of your data through support. Verification is optional and does not gate basic use.",
+    p: "You can update your profile, verify or change your contact details, unsubscribe from the monthly letter using the link in any of them, and request a copy or deletion of your data through support. Verification is optional and does not gate basic use.",
   },
   {
     h: "Security",
-    p: "Passwords are hashed (BCrypt), access is token-based, and verification codes are one-time and short-lived. No system is perfectly secure, but we take reasonable measures to protect your data.",
+    p: "Passwords are stored scrambled, never in plain text. Sign-in uses short-lived tokens, and verification codes work once and expire quickly. No system is perfectly secure, but we take reasonable care of your data.",
   },
   {
     h: "Contact",
@@ -54,7 +62,7 @@ export default function PrivacyPage() {
           Privacy <i>policy.</i>
         </h1>
         <Lead style={{ marginTop: 20 }}>
-          What we collect, why we collect it, and the choices you keep. Last updated June 2026.
+          What we collect, why we collect it, and the choices you keep. Last updated August 2026.
         </Lead>
         <div style={{ marginTop: 56, display: "flex", flexDirection: "column", gap: 36 }}>
           {SECTIONS.map((s) => (

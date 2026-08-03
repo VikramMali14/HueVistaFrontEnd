@@ -6,59 +6,66 @@ import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
 import { RevealMount } from "@/components/ui/reveal-mount";
+import { AiPreviewNote } from "@/components/shared/accuracy-note";
 import { fetchCatalogueSize } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "How it works",
-  description: "From a customer's photograph to a photorealistic preview — in seconds, at your counter.",
+  description: "A photo of a room, the walls found automatically, any colour on them — in seconds, at your counter.",
 };
 
+// Six plain steps. This page used to be written as prose — "A photograph is a flat
+// surface. We make it dimensional", "Nothing is ever repainted by a machine's
+// imagination" — which read well and told a shop owner nothing they could act on.
+// Each step now says what happens, in the order it happens, in words a counter
+// assistant can repeat to a customer. It also stops short of describing HOW any of
+// it is done: that is our business, and a description of the machinery ages badly.
 const CHAPTERS = [
   {
     num: "I.",
     eyebrow: "Upload",
-    title: <>The <i>photograph.</i></>,
-    body: "A picture from the customer's phone, dragged onto the counter tablet, or sent on WhatsApp. The room, its surfaces and its light — afternoon western light, a fluorescent kitchen, an overcast veranda — are read straight away, and everything that follows is shaped by that first read.",
+    title: <>The <i>photo.</i></>,
+    body: "Take a photo of the room on any phone, or use one the customer has already sent you on WhatsApp. One clear picture of the wall is enough.",
     tone: "ivory" as const,
     tag: "FIG. I",
   },
   {
     num: "II.",
-    eyebrow: "Clean · optional",
-    title: <>The <i>frame.</i></>,
-    body: "Most Indian homes are photographed mid-life. A power cable trailing the cornice. A scooter parked half in frame. A length of laundry, a wire bundled at the corner. Optional, and entirely the retailer's choice: the distractions are quietly removed, and the customer sees the room they wish they had photographed.",
+    eyebrow: "Clean up",
+    title: <>The <i>clean-up.</i></>,
+    body: "Everyday clutter — a hanging wire, a stray object, marks on the wall — is tidied out of the picture first, so the colour is the thing your customer looks at.",
     tone: "slate" as const,
     tag: "FIG. II",
   },
   {
     num: "III.",
-    eyebrow: "The walls",
+    eyebrow: "Find the walls",
     title: <>The <i>walls.</i></>,
-    body: "A photograph is a flat surface. We make it dimensional. Every paintable surface is picked out on its own — main wall, accent wall, trim, ceiling, door frame. Each is addressed separately: different walls can hold different colours; the trim moves on its own; the feature wall, alone.",
+    body: "Next we work out which parts of the photo are paintable wall and which are not — furniture, windows, doors, the floor. Each wall is kept separate, so you can give them different colours.",
     tone: "sage" as const,
     tag: "FIG. III",
   },
   {
     num: "IV.",
-    eyebrow: "Refine · one click",
-    title: <>The <i>refinement.</i></>,
-    body: "It is right most of the time. Not always. A pillar overlapping the wall. A picture frame. An unusual moulding. One click is enough to isolate that exact surface and keep it as a saved region — permanent, recoverable, and reusable across every recolour.",
+    eyebrow: "Fix anything missed",
+    title: <>The <i>correction.</i></>,
+    body: "It gets it right most of the time, not every time. If a pillar or a picture frame is included by mistake, click to add or remove it yourself. Your correction is saved with the room.",
     tone: "brass" as const,
     tag: "FIG. IV",
   },
   {
     num: "V.",
-    eyebrow: "Recolour · live",
-    title: <>The <i>hue.</i></>,
-    body: "Nothing is ever repainted by a machine's imagination. The pixel that was lit, stays lit; the pixel in shadow, stays in shadow. Only the colour changes, and only inside the wall — live, in the customer's own browser, as they change shade while looking, while moving, while comparing.",
+    eyebrow: "Paint it",
+    title: <>The <i>colour.</i></>,
+    body: "Now pick a shade and the wall takes it. The original photo stays underneath as the reference, so the light and shadows in the room stay where they were and only the colour changes. Try as many shades as you like — it costs nothing extra.",
     tone: "terracotta" as const,
     tag: "FIG. V",
   },
   {
     num: "VI.",
-    eyebrow: "Hand back · close",
+    eyebrow: "Send it back",
     title: <>The <i>handover.</i></>,
-    body: "The finished room goes back the way it came — on WhatsApp, to the customer's own phone, with the shade codes and finishes attached. They show it at home that evening. You mix the can the same afternoon.",
+    body: "Send the finished picture to your customer on WhatsApp or as a link, with the shade codes attached. They show it at home; you mix the can.",
     tone: "ink" as const,
     tag: "FIG. VI",
   },
@@ -68,7 +75,7 @@ export default async function MethodPage() {
   const size = await fetchCatalogueSize();
   return (
     <>
-      <Marquee items={["How it works", "From a customer's photograph to a photorealistic preview · in seconds", "A photograph, a tap, a hue"]} />
+      <Marquee items={["How it works", "A photo in, a painted wall back · in seconds", "Six steps, at your counter"]} />
       <SiteHeader />
       <main>
         <RevealMount />
@@ -81,7 +88,11 @@ export default async function MethodPage() {
           {/* The count is read from the catalogue rather than written out — the prose
               said "two thousand" while the site's other pages said "10,000+", and
               neither matched what the backend actually serves. */}
-          <Lead className="page-lead">A photograph leaves the customer&apos;s hand. Seconds later, the same photograph returns — its walls in any of {size ? `our ${size.shades.toLocaleString("en-IN")} catalogued shades` : "our catalogued shades"}, every shadow exactly where it was.</Lead>
+          <Lead className="page-lead">Send in a photo of a room. Seconds later you get the same room back with its walls in any of {size ? `our ${size.shades.toLocaleString("en-IN")} shades` : "our shades"} — the furniture, the light and the shadows all left as they were.</Lead>
+          {/* Right under the promise, not buried at the bottom. The whole page is a
+              description of an AI doing something to a customer's photograph, so the
+              honest limit belongs beside it. */}
+          <AiPreviewNote style={{ marginTop: 24 }} />
         </header>
 
         {CHAPTERS.map((c, i) => (

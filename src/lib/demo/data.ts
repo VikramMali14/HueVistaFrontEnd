@@ -61,7 +61,7 @@ export const DEMO_ENTITLEMENT: CustomerEntitlement = {
 };
 
 export const DEMO_BRANDS: PaintBrand[] = [
-  { id: 1, name: "Asian Paints", slug: "asian-paints" },
+  { id: 1, name: "Sample palette", slug: "asian-paints" },
   { id: 2, name: "Berger", slug: "berger" },
   { id: 3, name: "Nerolac", slug: "nerolac" },
   { id: 4, name: "Dulux", slug: "dulux" },
@@ -106,8 +106,8 @@ export function demoLinesFor(brandId: number, category: ProductCategory): PaintL
 }
 
 export const DEMO_SHOP_PRODUCTS: ShopProduct[] = [
-  { id: "prod_01", lineId: 11, brandName: "Asian Paints", lineName: "Royale Luxury Emulsion", category: "INTERIOR", price: 6200, priceUnit: "20 L", packSize: "20 L", coverage: "140-160 sq ft/L", finish: "Royale", qualityTier: "LUXURY", brightness: 5, imageUrl: null, features: "Stain resistant, low VOC, Teflon surface protection", description: "Premium silky-matt interior emulsion for living spaces.", createdAt: "2026-06-01T10:00:00+05:30" },
-  { id: "prod_02", lineId: 12, brandName: "Asian Paints", lineName: "Apcolite Premium Emulsion", category: "INTERIOR", price: 3400, priceUnit: "20 L", packSize: "20 L", coverage: "130-150 sq ft/L", finish: "Satin", qualityTier: "PREMIUM", brightness: 4, imageUrl: null, features: "Washable, smooth finish", description: "Everyday premium interior emulsion.", createdAt: "2026-06-02T10:00:00+05:30" },
+  { id: "prod_01", lineId: 11, brandName: "Sample palette", lineName: "Royale Luxury Emulsion", category: "INTERIOR", price: 6200, priceUnit: "20 L", packSize: "20 L", coverage: "140-160 sq ft/L", finish: "Royale", qualityTier: "LUXURY", brightness: 5, imageUrl: null, features: "Stain resistant, low VOC, Teflon surface protection", description: "Premium silky-matt interior emulsion for living spaces.", createdAt: "2026-06-01T10:00:00+05:30" },
+  { id: "prod_02", lineId: 12, brandName: "Sample palette", lineName: "Apcolite Premium Emulsion", category: "INTERIOR", price: 3400, priceUnit: "20 L", packSize: "20 L", coverage: "130-150 sq ft/L", finish: "Satin", qualityTier: "PREMIUM", brightness: 4, imageUrl: null, features: "Washable, smooth finish", description: "Everyday premium interior emulsion.", createdAt: "2026-06-02T10:00:00+05:30" },
   { id: "prod_03", lineId: 23, brandName: "Berger", lineName: "WeatherCoat Anti Dustt", category: "EXTERIOR", price: 4100, priceUnit: "20 L", packSize: "20 L", coverage: "90-110 sq ft/L", finish: "Matt", qualityTier: "PREMIUM", brightness: 4, imageUrl: null, features: "Dust-guard, anti-algae, 7-yr warranty", description: "Exterior emulsion that keeps walls cleaner for longer.", createdAt: "2026-06-03T10:00:00+05:30" },
   { id: "prod_04", lineId: 41, brandName: "Dulux", lineName: "Velvet Touch", category: "INTERIOR", price: 5800, priceUnit: "20 L", packSize: "20 L", coverage: "135-155 sq ft/L", finish: "Velvet", qualityTier: "LUXURY", brightness: 5, imageUrl: null, features: "Rich velvet sheen, anti-bacterial", description: "Luxury interior emulsion with a soft velvet finish.", createdAt: "2026-06-04T10:00:00+05:30" },
 ];
@@ -119,7 +119,7 @@ export const DEMO_CUSTOMERS: CustomerEntitlement[] = [
 ];
 
 export const DEMO_ACCESS_CODES: AccessCode[] = [
-  { id: "ac_01", code: "MEHTA7K2", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 7, expiresAt: "2026-07-01T00:00:00+05:30", used: false, expired: false, allowedBrands: ["Asian Paints", "Berger"], createdAt: "2026-06-24T09:00:00+05:30" },
+  { id: "ac_01", code: "MEHTA7K2", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 7, expiresAt: "2026-07-01T00:00:00+05:30", used: false, expired: false, allowedBrands: ["Sample palette", "Berger"], createdAt: "2026-06-24T09:00:00+05:30" },
   { id: "ac_02", code: "MEHTA9QP", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 14, expiresAt: "2026-07-08T00:00:00+05:30", used: true, expired: false, usedAt: "2026-06-20T13:00:00+05:30", createdAt: "2026-06-06T10:00:00+05:30" },
   { id: "ac_03", code: "MEHTA3XR", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 3, expiresAt: "2026-05-01T00:00:00+05:30", used: false, expired: true, createdAt: "2026-04-28T08:00:00+05:30" },
 ];
@@ -135,9 +135,9 @@ export const DEMO_COMBOS: RetailerCombo[] = [
     name: "Warm evening",
     scope: "INTERIOR",
     shades: [
-      { code: "AP-2118", name: "Terracotta", hex: "#a47148" },
-      { code: "AP-2215", name: "Champagne", hex: "#dac1a3" },
-      { code: "AP-N101", name: "Bone China", hex: "#f3eee4" },
+      { code: "HV-2118", name: "Terracotta", hex: "#a47148" },
+      { code: "HV-2215", name: "Champagne", hex: "#dac1a3" },
+      { code: "HV-N101", name: "Bone China", hex: "#f3eee4" },
     ],
     createdAt: "2026-06-18T10:00:00+05:30",
   },
@@ -148,9 +148,9 @@ export const DEMO_COMBOS: RetailerCombo[] = [
     name: "Sage & linen",
     scope: "INTERIOR",
     shades: [
-      { code: "AP-7711", name: "Pale Sage", hex: "#a9b8a4" },
-      { code: "AP-7720", name: "Olive Branch", hex: "#5b6c5b" },
-      { code: "AP-N110", name: "Linen", hex: "#e7d9c4" },
+      { code: "HV-7711", name: "Pale Sage", hex: "#a9b8a4" },
+      { code: "HV-7720", name: "Olive Branch", hex: "#5b6c5b" },
+      { code: "HV-N110", name: "Linen", hex: "#e7d9c4" },
     ],
     createdAt: "2026-06-12T15:30:00+05:30",
   },
@@ -161,9 +161,9 @@ export const DEMO_COMBOS: RetailerCombo[] = [
     name: "Street-front classic",
     scope: "EXTERIOR",
     shades: [
-      { code: "AP-2112", name: "Saffron Cream", hex: "#d6a78a" },
-      { code: "AP-2121", name: "Tan Bark", hex: "#8a5a3a" },
-      { code: "AP-N101", name: "Bone China", hex: "#f3eee4" },
+      { code: "HV-2112", name: "Saffron Cream", hex: "#d6a78a" },
+      { code: "HV-2121", name: "Tan Bark", hex: "#8a5a3a" },
+      { code: "HV-N101", name: "Bone China", hex: "#f3eee4" },
     ],
     createdAt: "2026-06-05T09:00:00+05:30",
   },

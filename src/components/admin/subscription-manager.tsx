@@ -21,7 +21,12 @@ interface SubscriptionManagerProps {
   ) => Promise<{ subscription?: SubscriptionSummary; error?: string }>;
 }
 
-const PLANS = ["STARTER", "PROFESSIONAL", "BUSINESS", "ENTERPRISE"] as const;
+// The tiers an admin may put a shop on — the same three the product sells. Enterprise
+// is not here: granting a tier no pricing page describes and no self-serve flow can
+// renew leaves the shop on a plan nobody can explain to them. An unlimited-ish comp is
+// still possible without it — grant Business and raise the project allowance with the
+// override below, which is what that field is for.
+const PLANS = ["STARTER", "PROFESSIONAL", "BUSINESS"] as const;
 
 const inputStyle: React.CSSProperties = {
   font: "400 15px/1.4 var(--sans)",

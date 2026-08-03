@@ -254,6 +254,28 @@ export const leadApi = {
 };
 
 /**
+ * The monthly letter. Public on both ends: signing up needs no account, and neither
+ * does leaving — the unsubscribe token in the welcome mail is the whole authorisation,
+ * because "cancel quietly, any time" cannot mean "first, log in".
+ */
+export const newsletterApi = {
+  subscribe: (email: string, source: string, clientIp?: string) =>
+    serverFetch<{ status: string; message: string }>("/api/newsletter/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ email, source }),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
+  unsubscribe: (token: string, clientIp?: string) =>
+    serverFetch<{ status: string; message: string }>(
+      `/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}`,
+      {
+        method: "POST",
+        headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+      },
+    ),
+};
+
+/**
  * Admin API — ROLE_ADMIN only, used from admin server actions. Goes directly to
  * the backend with the admin's cookie-resident access token.
  */

@@ -67,7 +67,7 @@ beforeEach(() => {
   vi.mocked(api.listAccessCodes).mockResolvedValue(CODES);
   vi.mocked(api.listShopProducts).mockResolvedValue([]);
   vi.mocked(api.listShadeBrands).mockResolvedValue([
-    { name: "Asian Paints", slug: "asian-paints", shadeCount: 2200 },
+    { name: "Sample palette", slug: "asian-paints", shadeCount: 2200 },
     { name: "Birla Opus", slug: "birla-opus", shadeCount: 2322 },
   ]);
 });

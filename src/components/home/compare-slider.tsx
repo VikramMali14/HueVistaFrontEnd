@@ -16,7 +16,10 @@ const DEFAULT_BEFORE = "radial-gradient(ellipse at 50% 35%, rgba(255,250,235,.16
 const DEFAULT_AFTER = "radial-gradient(ellipse at 50% 35%, rgba(255,235,210,.28), transparent 60%), linear-gradient(160deg, #c87a55 0%, #9d5236 55%, #4d2618 100%)";
 
 export function CompareSlider({
-  afterShade = "Terracotta · AP-1428",
+  // A demo caption, so a colour name and no code. It used to read "Terracotta ·
+  // AP-1428" on the home page hero — an invented code in a real company's
+  // format, for a shade nobody sells.
+  afterShade = "Terracotta",
   beforeBg = DEFAULT_BEFORE,
   afterBg = DEFAULT_AFTER,
   style,

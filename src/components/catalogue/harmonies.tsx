@@ -31,10 +31,10 @@ function trio(codes: [string, string, string]): [PaintShade, PaintShade, PaintSh
 }
 
 const COMPOSITIONS: ReadonlyArray<{ num: string; name: React.ReactNode; codes: [string, string, string] }> = [
-  { num: "Composition I", name: <>Veranda <em style={{ color: "var(--brass-soft)" }}>Afternoon</em></>, codes: ["AP-1428", "AP-2104", "AP-N101"] },
-  { num: "Composition II", name: <>Library <em style={{ color: "var(--brass-soft)" }}>at Dusk</em></>, codes: ["AP-3318", "AP-2208", "AP-9921"] },
-  { num: "Composition III", name: <>Pondicherry <em style={{ color: "var(--brass-soft)" }}>Sage</em></>, codes: ["AP-7720", "AP-9940", "AP-3304"] },
-  { num: "Composition IV", name: <>Midnight <em style={{ color: "var(--brass-soft)" }}>Linen</em></>, codes: ["AP-9912", "AP-N110", "AP-2230"] },
+  { num: "Composition I", name: <>Veranda <em style={{ color: "var(--brass-soft)" }}>Afternoon</em></>, codes: ["HV-1428", "HV-2104", "HV-N101"] },
+  { num: "Composition II", name: <>Library <em style={{ color: "var(--brass-soft)" }}>at Dusk</em></>, codes: ["HV-3318", "HV-2208", "HV-9921"] },
+  { num: "Composition III", name: <>Pondicherry <em style={{ color: "var(--brass-soft)" }}>Sage</em></>, codes: ["HV-7720", "HV-9940", "HV-3304"] },
+  { num: "Composition IV", name: <>Midnight <em style={{ color: "var(--brass-soft)" }}>Linen</em></>, codes: ["HV-9912", "HV-N110", "HV-2230"] },
 ];
 
 const HARMONIES: ReadonlyArray<Harmony> = COMPOSITIONS.flatMap(({ num, name, codes }) => {

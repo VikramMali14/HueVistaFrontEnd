@@ -35,7 +35,7 @@ describe("decodeShadeCode", () => {
   });
 
   it("round-trips whatever encode produced", () => {
-    for (const code of ["L124", "9436", "AP-X", "K", "0090"]) {
+    for (const code of ["L124", "9436", "HV-X", "K", "0090"]) {
       const scheme: ShadeCodeScheme = { prefix: "Z9", infix: "Q", suffix: "END" };
       expect(decodeShadeCode(scheme, encodeShadeCode(scheme, code))).toBe(code.toUpperCase());
     }

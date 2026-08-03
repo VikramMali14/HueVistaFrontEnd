@@ -7,6 +7,7 @@ import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { config } from "@/lib/config";
 import type { ProjectDetail, ShadeBrandSummary } from "@/lib/types";
 import { ShareRepaint, type RepaintBrand, type RepaintRegion } from "./share-repaint";
+import { ShadeAccuracyNote } from "@/components/shared/accuracy-note";
 
 // Public, read-only view of a shared project — colours are shown, shade codes hidden
 // (the backend's /api/share endpoint serves the code-hidden projection).
@@ -65,7 +66,7 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   const img = absUrl(project.cleanedImageUrl) ?? absUrl(project.imageUrl);
   return {
     title: `${project.name} · HueVista colour preview`,
-    description: "A colour preview shared from HueVista. Your retailer has the exact shades.",
+    description: "A colour preview shared from HueVista. Your paint shop has the exact shades.",
     openGraph: { images: img ? [{ url: img }] : [] },
     twitter: { card: "summary_large_image" },
   };
@@ -84,7 +85,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           <h1 className="display" style={{ fontSize: "clamp(36px, 5vw, 56px)", marginTop: 16 }}>
             This link has <i>expired.</i>
           </h1>
-          <Lead style={{ marginTop: 20 }}>The share link is invalid or no longer active. Ask whoever shared it for a fresh one.</Lead>
+          <Lead style={{ marginTop: 20 }}>This link is no longer working. Ask whoever sent it for a new one.</Lead>
           <Link className="btn btn-brass" href="/" style={{ marginTop: 28 }}>Explore HueVista <span className="arr">→</span></Link>
         </main>
         <Footer />
@@ -111,8 +112,12 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           <Eyebrow>Shared colour preview</Eyebrow>
           <h1 className="display" style={{ fontSize: "clamp(36px, 5vw, 64px)", marginTop: 12 }}>{project.name}</h1>
           <Lead style={{ marginTop: 16 }}>
-            A colour preview shared with you. Repaint it with your own picks — your retailer has the exact shades.
+            A colour preview shared with you. Try your own colours on it — your paint shop has the exact shades.
           </Lead>
+          {/* The one page a customer reaches with no account, no shop and no context,
+              looking at a picture of their own room. If either warning is going to be
+              read anywhere, it is here — so both are, right under the promise. */}
+          <ShadeAccuracyNote both style={{ marginTop: 20 }} />
         </header>
 
         {img ? (
@@ -143,7 +148,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           <div>
             <Mono brass style={{ display: "block", marginBottom: 12 }}>For your counter</Mono>
             <p style={{ font: "400 19px/1.45 var(--serif)", color: "var(--fg)", margin: "0 0 18px", maxWidth: "36ch" }}>
-              Run a paint shop? Put previews like this on your counter — 7-day trial, no card, we set you up.
+              Run a paint shop? Show previews like this at your counter. 7-day trial, no card — we set it up for you.
             </p>
             <Link className="btn btn-brass" href="/trial">Request a shop account <span className="arr">→</span></Link>
           </div>

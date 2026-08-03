@@ -292,7 +292,7 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
                   variant="ghost"
                   disabled={grantingId === c.customerId}
                   onClick={() => void takeBack(c.customerId)}
-                  title="Returns the unused project and its image credit to your quota"
+                  title="Puts the unused project back in your allowance"
                 >
                   Take back
                 </Button>

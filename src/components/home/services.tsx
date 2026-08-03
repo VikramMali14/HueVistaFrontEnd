@@ -11,24 +11,27 @@ import { TRIAL_DAYS } from "@/lib/trial";
 const services = (shades: number | null) => [
   {
     kicker: "Pricing",
-    title: "One plan, priced for shops",
-    desc: `${TRIAL_DAYS}-day trial — no card, we set you up. Everything included, built for the counter.`,
+    title: "Priced for paint shops",
+    desc: `A ${TRIAL_DAYS}-day trial to start — no card needed, and we set it up for you.`,
     tone: "terracotta",
     href: "/pricing",
   },
   {
-    kicker: "Catalogue match",
-    title: "Match a colour, exactly",
+    kicker: "Catalogue",
+    // "Match a colour, exactly" promised an exactness no screen can deliver — the
+    // one claim this product must never make. It finds the closest shades; the
+    // shade card at the counter decides.
+    title: "Find the closest shade",
     desc: shades
-      ? `Search ${shades.toLocaleString("en-IN")} shades by code, name or hex — with harmonies and look-alikes across brands.`
-      : "Search the catalogue by code, name or hex — with harmonies and look-alikes across brands.",
+      ? `Search ${shades.toLocaleString("en-IN")} shades by code or name, and see what comes closest across the companies you carry.`
+      : "Search the catalogue by code or name, and see what comes closest across the companies you carry.",
     tone: "slate",
     href: "/catalogue",
   },
   {
-    kicker: "Live visualiser",
+    kicker: "Visualiser",
     title: "See it on the wall",
-    desc: "Paint any shade onto the room in seconds — every shadow and texture left where it was.",
+    desc: "Put any shade on the room in seconds. The light and shadows stay as they were — only the colour changes.",
     tone: "sage",
     href: "/trial",
   },
@@ -55,8 +58,8 @@ export function Services({ shades }: { shades?: number | null }) {
           Everything you need,<br /><i>in one place.</i>
         </h2>
         <p className="hv-services-lead">
-          From the first photograph to the shade code on the invoice — every step of selling
-          colour lives inside HueVista.
+          From the first photo to the shade code on the bill — every step of selling colour,
+          in one place.
         </p>
       </header>
       <div className={`hv-services-grid${SERVICES.length === 3 ? " is-three" : ""}`}>

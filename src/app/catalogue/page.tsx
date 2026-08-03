@@ -7,10 +7,11 @@ import { RevealMount } from "@/components/ui/reveal-mount";
 import { getCatalogueOrSample } from "@/lib/catalogue";
 import { requireFeature } from "@/lib/auth";
 import { CatalogueToolbar } from "@/components/catalogue/catalogue-toolbar";
+import { ShadeAccuracyNote } from "@/components/shared/accuracy-note";
 
 export const metadata: Metadata = {
   title: "Catalogue",
-  description: "Thousands of paint shades with real codes across every company we carry. Search by name or code; filter by colour family and finish.",
+  description: "Paint shades with their real codes, from every company we carry. Search by name or code, filter by colour family and finish.",
 };
 
 export default async function CataloguePage() {
@@ -37,7 +38,11 @@ export default async function CataloguePage() {
             <Mono>{shades.length.toLocaleString("en-IN")} shades · {brandLine} · more to follow</Mono>
           </div>
           <h1 className="display">Every shade.<br /><i>Codes intact.</i></h1>
-          <Lead className="page-lead">{brands.join(", ")} — with more companies to follow. Filter by colour family, finish, or depth. Search by shade code or name.</Lead>
+          <Lead className="page-lead">{brands.join(", ")}, with more companies to follow. Search by shade code or name, or filter by colour family and finish.</Lead>
+          {/* Said here, at the top, and not only in the terms. Someone is about to
+              choose paint from colours on a screen; they need to know before they
+              scroll, not after they buy. */}
+          <ShadeAccuracyNote style={{ marginTop: 24 }} />
         </header>
 
         <section style={{ paddingTop: 80 }}>

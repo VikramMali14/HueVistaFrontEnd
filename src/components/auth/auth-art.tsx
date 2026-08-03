@@ -4,34 +4,28 @@ import { useEffect, useState, type ReactNode } from "react";
 
 interface ArtShade {
   name: string;
-  code: string;
   bg: string;
 }
 
 const SHADES: ReadonlyArray<ArtShade> = [
   {
     name: "Terracotta",
-    code: "AP-1428",
     bg: "radial-gradient(ellipse at 30% 25%, rgba(255,235,210,.32), transparent 60%), linear-gradient(160deg, #b96b48 0%, #7a3a2f 55%, #2a100e 100%)",
   },
   {
     name: "Sage Whisper",
-    code: "AP-7706",
     bg: "radial-gradient(ellipse at 30% 25%, rgba(255,250,235,.24), transparent 60%), linear-gradient(160deg, #8a9a85 0%, #5b6c5b 55%, #232d23 100%)",
   },
   {
     name: "Indigo Night",
-    code: "AP-5519",
     bg: "radial-gradient(ellipse at 30% 25%, rgba(220,225,255,.22), transparent 60%), linear-gradient(160deg, #3a4870 0%, #1f284a 55%, #0c1226 100%)",
   },
   {
     name: "Slate",
-    code: "AP-9904",
     bg: "radial-gradient(ellipse at 30% 25%, rgba(255,255,255,.18), transparent 60%), linear-gradient(160deg, #6a7680 0%, #3e4a52 55%, #1f262d 100%)",
   },
   {
     name: "Walnut",
-    code: "AP-3304",
     bg: "radial-gradient(ellipse at 30% 25%, rgba(255,220,180,.2), transparent 60%), linear-gradient(160deg, #8a6446 0%, #5a4030 55%, #2c1d12 100%)",
   },
 ];
@@ -59,7 +53,7 @@ export function AuthArt({ children }: { children: ReactNode }) {
       <div className="auth-art-layers" aria-hidden>
         {SHADES.map((s, i) => (
           <div
-            key={s.code}
+            key={s.name}
             className="auth-art-layer"
             data-active={i === idx || undefined}
             style={{ background: s.bg }}
@@ -69,7 +63,7 @@ export function AuthArt({ children }: { children: ReactNode }) {
       </div>
 
       <div className="corner">
-        <span key={shade.code} className="auth-art-label">{shade.name} · {shade.code}</span>
+        <span key={shade.name} className="auth-art-label">{shade.name}</span>
       </div>
 
       <div className="auth-art-mid">{children}</div>
@@ -78,7 +72,7 @@ export function AuthArt({ children }: { children: ReactNode }) {
         <div className="auth-art-dots" role="group" aria-label="Wall colour">
           {SHADES.map((s, i) => (
             <button
-              key={s.code}
+              key={s.name}
               type="button"
               className="auth-art-dot"
               data-active={i === idx || undefined}

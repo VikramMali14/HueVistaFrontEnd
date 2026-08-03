@@ -132,14 +132,14 @@ describe("whiteTint / isWhiteShade", () => {
     expect(whiteTint("#f5f5f5")).toBe("neutral");
   });
   it("treats the Whites family and bright low-chroma shades as whites", () => {
-    expect(isWhiteShade(byCode("AP-N101"))).toBe(true); // Bone China
-    expect(isWhiteShade(byCode("AP-3318"))).toBe(false); // Oxblood
+    expect(isWhiteShade(byCode("HV-N101"))).toBe(true); // Bone China
+    expect(isWhiteShade(byCode("HV-3318"))).toBe(false); // Oxblood
   });
 });
 
 describe("lighterSteps", () => {
   it("offers meaningfully lighter shades of a similar colour", () => {
-    const dark = byCode("AP-7720"); // Olive Branch, LRV 18
+    const dark = byCode("HV-7720"); // Olive Branch, LRV 18
     const steps = lighterSteps(dark, SHADES, 2);
     expect(steps.length).toBeGreaterThan(0);
     for (const s of steps) {
@@ -157,7 +157,7 @@ describe("lighterSteps", () => {
 
 describe("fanDeck / stepInFanDeck", () => {
   it("returns a lightest-first strip containing the seed", () => {
-    const seed = byCode("AP-7706"); // Sage Whisper
+    const seed = byCode("HV-7706"); // Sage Whisper
     const strip = fanDeck(seed, SHADES, 9);
     expect(strip.some((s) => s.code === seed.code)).toBe(true);
     for (let i = 1; i < strip.length; i++) {
@@ -165,7 +165,7 @@ describe("fanDeck / stepInFanDeck", () => {
     }
   });
   it("steps lighter and darker from the seed", () => {
-    const seed = byCode("AP-7706");
+    const seed = byCode("HV-7706");
     const lighter = stepInFanDeck(seed, SHADES, -1);
     const darker = stepInFanDeck(seed, SHADES, 1);
     if (lighter) expect(lighter.lrv).toBeGreaterThanOrEqual(seed.lrv);
@@ -186,12 +186,12 @@ describe("lightShift", () => {
 
 describe("sunFadeRisk / fadeSaferAlternatives", () => {
   it("flags deep saturated reds and blues, not pale calm shades", () => {
-    expect(sunFadeRisk(byCode("AP-3318"))).toBe(true); // Oxblood
-    expect(sunFadeRisk(byCode("AP-7711"))).toBe(false); // Pale Sage
-    expect(sunFadeRisk(byCode("AP-N101"))).toBe(false); // Bone China
+    expect(sunFadeRisk(byCode("HV-3318"))).toBe(true); // Oxblood
+    expect(sunFadeRisk(byCode("HV-7711"))).toBe(false); // Pale Sage
+    expect(sunFadeRisk(byCode("HV-N101"))).toBe(false); // Bone China
   });
   it("suggests lighter or calmer neighbours", () => {
-    const risky = byCode("AP-3318");
+    const risky = byCode("HV-3318");
     const alts = fadeSaferAlternatives(risky, SHADES, 2);
     for (const a of alts) {
       expect(a.code).not.toBe(risky.code);
@@ -201,7 +201,7 @@ describe("sunFadeRisk / fadeSaferAlternatives", () => {
 
 describe("pairCeilingAndTrim", () => {
   it("pairs a warm wall with a warm-side white ceiling and a quiet trim", () => {
-    const wall = byCode("AP-2118"); // Terracotta, warm
+    const wall = byCode("HV-2118"); // Terracotta, warm
     const { ceiling, trim } = pairCeilingAndTrim(wall, SHADES);
     expect(ceiling).toBeTruthy();
     expect(isWhiteShade(ceiling!)).toBe(true);
@@ -211,8 +211,8 @@ describe("pairCeilingAndTrim", () => {
     expect(trim!.code).not.toBe(ceiling!.code);
   });
   it("gives a dark wall a lighter trim and a light wall a darker trim", () => {
-    const dark = byCode("AP-3304"); // Walnut, LRV 14
-    const light = byCode("AP-N105"); // Ivory Coast, LRV 82
+    const dark = byCode("HV-3304"); // Walnut, LRV 14
+    const light = byCode("HV-N105"); // Ivory Coast, LRV 82
     const darkPair = pairCeilingAndTrim(dark, SHADES);
     const lightPair = pairCeilingAndTrim(light, SHADES);
     expect(darkPair.trim!.lrv).toBeGreaterThan(dark.lrv);

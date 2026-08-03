@@ -11,8 +11,8 @@ interface ShopLeadFormProps {
 
 const TIERS = [
   { v: "starter", l: "Starter · ₹999", d: "Single counter. 15 projects a month — AI clean-up and AI wall detection on every one." },
-  { v: "pro", l: "Professional · ₹2,499", d: "Recommended. 45 projects a month, per-wall recolouring, cheaper extras." },
-  { v: "business", l: "Business · ₹4,999", d: "Multi-shop. 100 projects a month, extras at the lowest rate." },
+  { v: "pro", l: "Professional · ₹2,499", d: "Recommended. 15 + 30 = 45 projects a month, per-wall recolouring, cheaper extras." },
+  { v: "business", l: "Business · ₹4,999", d: "Multi-shop. 45 + 55 = 100 projects a month, extras at the lowest rate." },
 ];
 
 const STATES = [
