@@ -33,30 +33,34 @@ const MATRIX: ReadonlyArray<Section> = [
   {
     title: "The preview",
     rows: [
-      ["Projects / month (AI clean-up + AI wall detection)", "15", "15 + 30 = 45", "45 + 55 = 100"],
-      ["Manual wall masking (click-to-segment)", "Unlimited", "Unlimited", "Unlimited"],
+      ["Projects per month (clean-up + walls found for you)", "15", "15 + 30 = 45", "45 + 55 = 100"],
+      ["Marking walls yourself", "Unlimited", "Unlimited", "Unlimited"],
       ["Extra project — points / card", "60 pts / ₹65", "50 pts / ₹55", "40 pts / ₹45"],
-      ["Unused projects carried over on upgrade", "●", "●", "●"],
-      ["Colour-board PDFs / month", "25 (4 img)", "25 + 75 = 100 (8 img)", "100 + 200 = 300 (12 img)"],
-      ["Recolour speed", "60 fps", "60 fps", "60 fps"],
-      ["Per-region recolour", "●", "●", "●"],
-      ["AI colour palette suggestions", "—", "●", "●"],
+      ["Unused projects carried over when you upgrade", "●", "●", "●"],
+      ["Colour boards (PDF) per month", "25 (4 photos)", "25 + 75 = 100 (8 photos)", "100 + 200 = 300 (12 photos)"],
+      ["Paint each wall its own colour", "●", "●", "●"],
+      ["Colour scheme suggestions", "—", "●", "●"],
     ],
   },
   {
     title: "The catalogue",
     rows: [
-      ["Asian Paints — full", "●", "●", "●"],
-      ["Berger · Nerolac · Dulux · Nippon", "●", "●", "●"],
-      ["CIELAB find-similar across brands", "—", "●", "●"],
+      // No hard-coded brand list. This row used to read "Berger · Nerolac · Dulux ·
+      // Nippon ✓" on every tier, which said those four catalogues were loaded — the
+      // FAQ on this same page had already been corrected for making exactly that
+      // claim when they were not. Which companies a shop sees depends on what its
+      // distributor assigned it, so the catalogue page states the live list and this
+      // table says only what every tier gets: all of it.
+      ["Every company in your catalogue", "●", "●", "●"],
+      ["Find the closest shade across companies", "—", "●", "●"],
     ],
   },
   {
     title: "The counter",
     rows: [
-      ["Link & WhatsApp share", "●", "●", "●"],
-      ["Customer access codes", "●", "●", "●"],
-      ["White-label subdomain", "—", "—", "Soon"],
+      ["Send by link or WhatsApp", "●", "●", "●"],
+      ["Codes for your customers", "●", "●", "●"],
+      ["Your own web address", "—", "—", "Soon"],
       ["Painter portal", "—", "—", "Soon"],
     ],
   },

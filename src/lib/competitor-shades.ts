@@ -1,7 +1,7 @@
 /**
  * SAMPLE competitor shade data for the counter-side "code translator".
  *
- * Like lib/shades.ts (the bundled Asian Paints sample), this is demo data so
+ * Like lib/shades.ts (the bundled sample palette), this is demo data so
  * the tool works offline and before the backend competitor catalogues are
  * seeded. Codes and names here are ILLUSTRATIVE — they follow each brand's
  * code style but are not verified against real fan decks, and every hex is an

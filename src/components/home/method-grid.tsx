@@ -1,12 +1,16 @@
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 
+// The same six steps as /method, in six words each. "Mark the walls — AI segments
+// each paintable surface" and "Recolour live — 60 fps" were written for someone who
+// already knew the product; these are written for a shop owner reading the home page
+// for the first time.
 const STEPS = [
-  { num: "I.", title: "Upload the photo", body: "Customer's phone, tablet or WhatsApp." },
-  { num: "II.", title: "Clean the frame", body: "Remove cables, clutter — optional." },
-  { num: "III.", title: "Mark the walls", body: "AI segments each paintable surface." },
-  { num: "IV.", title: "Refine the mask", body: "One click to fix pillars, frames." },
-  { num: "V.", title: "Recolour live", body: "60 fps · shadows stay · live." },
-  { num: "VI.", title: "Hand back", body: "WhatsApp it with the shade codes." },
+  { num: "I.", title: "Upload the photo", body: "From a phone, a tablet or WhatsApp." },
+  { num: "II.", title: "Clean it up", body: "Wires, clutter and marks tidied away." },
+  { num: "III.", title: "Find the walls", body: "Paintable walls picked out, one by one." },
+  { num: "IV.", title: "Fix anything missed", body: "Click to add or remove a surface." },
+  { num: "V.", title: "Paint it", body: "Colour changes; light and shadows stay." },
+  { num: "VI.", title: "Send it back", body: "On WhatsApp, with the shade codes." },
 ];
 
 export function MethodGrid() {
@@ -17,7 +21,7 @@ export function MethodGrid() {
           <Eyebrow>The method</Eyebrow>
           <h2 className="display hv-method-title">From a photograph,<br /><i>a painted wall.</i></h2>
         </div>
-        <Lead className="hv-method-lead">No studio, no waiting. The customer&apos;s own photograph, their walls in any shade, ready to share — in seconds, at your counter.</Lead>
+        <Lead className="hv-method-lead">No studio and no waiting. Your customer&apos;s own photo, their walls in any shade, ready to send — in seconds, at your counter.</Lead>
       </div>
       <div className="hv-method-grid r-cols-md-2 r-cols-sm-1">
         {STEPS.map((s, i) => (

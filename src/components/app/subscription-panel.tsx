@@ -40,9 +40,9 @@ const POINTS_LABEL: Record<string, string> = {
   KIOSK_EARNED: "Kiosk sale",
   KIOSK_REVERSED: "Kiosk sale refunded",
   EXPIRED: "Expired unused",
-  SPENT_ON_IMAGE: "Extra image",
-  SPENT_ON_AUTO_MASK: "Extra AI auto-mask",
-  SPENT_ON_PROJECT: "Project",
+  SPENT_ON_IMAGE: "Extra photo",
+  SPENT_ON_AUTO_MASK: "Extra wall detection",
+  SPENT_ON_PROJECT: "Extra project",
   SPENT_ON_PROJECT_REOPEN: "Project reopened",
 };
 
@@ -251,7 +251,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
         if (fresh) setSub(fresh);
         setNotice(
           upgrading
-            ? "Upgrade complete — your new plan is active with its full quota, and the old one has been cancelled. No further charges on it."
+            ? "Upgraded. Your new plan is live with its full allowance, and the old one has been cancelled — nothing more will be charged on it."
             : queuedUntil
               ? `All set — your new plan starts ${fmtDate(queuedUntil)}, when the current one ends. Nothing changes until then, and you're not billed twice.`
               : "Payment received — your plan is active. Happy painting!",
@@ -346,8 +346,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
       <section style={card}>
         {!sub && (
           <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", margin: 0 }}>
-            You don&rsquo;t have a subscription yet. Pick a plan below to unlock AI-cleaned
-            images, wall masking and colour boards.
+            You don&rsquo;t have a plan yet. Pick one below to start creating projects.
           </p>
         )}
         {sub && (
@@ -691,7 +690,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
         <p style={{ font: "300 16px/1.6 var(--serif)", color: "var(--fg-soft)", margin: "0 0 18px", maxWidth: "62ch" }}>
           Billed monthly through Razorpay, cancel anytime.
           {activePaid
-            ? " Upgrades apply instantly — pay for the bigger plan and it starts right away with its full quota, while your old plan is cancelled automatically (no double billing). To downgrade, cancel first: your plan stays active till the period ends, then pick the smaller tier."
+            ? " Upgrading is instant: pay for the bigger plan and it starts straight away with its full allowance, and we cancel the old one for you so you are never billed twice. To move to a smaller plan, cancel first — you keep access to the end of the period — then pick the smaller one."
             : ""}
           {windingDown && !sub?.trial && sub?.currentPeriodEnd
             ? ` Your current plan runs to ${fmtDate(sub.currentPeriodEnd)}; whichever you pick starts that day, so there's no overlap and no double charge.`

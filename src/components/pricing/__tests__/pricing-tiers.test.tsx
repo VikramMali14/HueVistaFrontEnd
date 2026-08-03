@@ -21,16 +21,16 @@ describe("PricingTiers", () => {
 
   it("spells out the project maths on every tier above the first", () => {
     render(<PricingTiers />);
-    expect(screen.getByText(/15 \+ 30 = 45 projects \/ month/)).toBeTruthy();
-    expect(screen.getByText(/45 \+ 55 = 100 projects \/ month/)).toBeTruthy();
+    expect(screen.getByText(/15 \+ 30 = 45 projects a month/)).toBeTruthy();
+    expect(screen.getByText(/45 \+ 55 = 100 projects a month/)).toBeTruthy();
     // Starter is the base — there is nothing to add to, so it stays a plain number.
-    expect(screen.getByText(/^15 projects \/ month/)).toBeTruthy();
+    expect(screen.getByText(/^15 projects a month/)).toBeTruthy();
   });
 
-  it("spells out the PDF maths too", () => {
+  it("spells out the colour-board maths too", () => {
     render(<PricingTiers />);
-    expect(screen.getByText(/25 \+ 75 = 100 colour-board PDFs/)).toBeTruthy();
-    expect(screen.getByText(/100 \+ 200 = 300 colour-board PDFs/)).toBeTruthy();
+    expect(screen.getByText(/25 \+ 75 = 100 colour boards a month/)).toBeTruthy();
+    expect(screen.getByText(/100 \+ 200 = 300 colour boards a month/)).toBeTruthy();
   });
 
   it("offers exactly the three buyable tiers, and no Enterprise card", () => {

@@ -195,10 +195,15 @@ export type ColorFamily =
   | "Browns";
 
 /**
- * Well-known paint companies, used as a fallback when the live catalogue is
- * unreachable (demo mode / bundled sample shades). The real brand list is dynamic —
- * derived from the shades the backend returns — so a newly uploaded company
- * (e.g. "Birla Opus") appears without a code change.
+ * Companies whose catalogues we cover, used only to seed a picker before the live
+ * list arrives and to show "· soon" against one that isn't loaded yet. The real
+ * brand list is dynamic — derived from the shades the backend returns — so a newly
+ * uploaded company (e.g. "Birla Opus") appears without a code change.
+ *
+ * These are real company names, and that is the point: they say whose shades a shop
+ * can look up. They are never presented as partners, and no shade is ever attributed
+ * to one of them unless it came from that company's own catalogue data — the bundled
+ * fallback shades are labelled "Sample palette" precisely so they cannot be.
  */
 export const PAINT_BRANDS = ["Asian Paints", "Berger", "Nerolac", "Dulux"] as const;
 export type ShadeBrand = string;

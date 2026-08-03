@@ -20,12 +20,12 @@ export function Toolkit() {
           <div className="hv-tk-chat" aria-hidden>
             <div className="hv-tk-bubble is-sent">
               <span className="hv-tk-thumb" />
-              <span>Your wall in Terracotta · AP-1428</span>
+              <span>Your wall in Terracotta</span>
             </div>
             <div className="hv-tk-bubble is-reply">Looks perfect — book it 🎉</div>
           </div>
           <h3 className="hv-tk-card-title">WhatsApp-first share</h3>
-          <p className="hv-tk-card-desc">One tap sends the finished preview as an image or a link — straight to the customer.</p>
+          <p className="hv-tk-card-desc">Send the finished preview to your customer as a picture or a link, in one tap.</p>
         </article>
 
         {/* AI three-colour combination — swatches fan out on hover */}
@@ -35,8 +35,8 @@ export function Toolkit() {
             <span style={{ background: "#e9e2d2" }} />
             <span style={{ background: "#3e4a52" }} />
           </div>
-          <h3 className="hv-tk-card-title">AI colour combinations</h3>
-          <p className="hv-tk-card-desc">Ask for a three-colour combination — each one comes back as a real catalogue shade with its code.</p>
+          <h3 className="hv-tk-card-title">Colour suggestions</h3>
+          <p className="hv-tk-card-desc">Ask for a three-colour scheme. Every suggestion is a shade from the catalogue, with its code.</p>
         </article>
 
         {/* White-label — the subdomain types itself */}
@@ -45,7 +45,7 @@ export function Toolkit() {
             <span className="hv-tk-typed">your-shop.{site.whiteLabelDomain}</span>
           </div>
           <h3 className="hv-tk-card-title">Your name on the door</h3>
-          <p className="hv-tk-card-desc">A white-label subdomain for your counter — rolling out soon.</p>
+          <p className="hv-tk-card-desc">Your own web address for the counter. Coming soon.</p>
         </article>
 
         {/* Find similar — close swatches spread apart */}
@@ -58,24 +58,27 @@ export function Toolkit() {
             <span style={{ background: "#8a9a85" }} />
           </div>
           <h3 className="hv-tk-card-title">Find what&apos;s close</h3>
-          <p className="hv-tk-card-desc">Nearest shades across brands, by colour science.</p>
+          <p className="hv-tk-card-desc">The nearest shades from every company you carry.</p>
         </article>
 
-        {/* Paint estimate — the litres gauge fills on reveal */}
+        {/* Paint another wall on its own — the two halves split apart */}
         <article className="hv-tk-card hv-tk-span2">
-          <div className="hv-tk-gauge" aria-hidden>
-            <span className="hv-tk-gauge-fill" />
-            <span className="hv-tk-gauge-num">12.4 L</span>
+          <div className="hv-tk-similar" aria-hidden>
+            <span style={{ background: "#b96b48" }} />
+            <span style={{ background: "#b96b48" }} />
+            <span style={{ background: "#e9e2d2" }} />
+            <span style={{ background: "#e9e2d2" }} />
+            <span style={{ background: "#e9e2d2" }} />
           </div>
-          <h3 className="hv-tk-card-title">Litres, not guesses</h3>
-          <p className="hv-tk-card-desc">Wall area to litres per finish — on the invoice.</p>
+          <h3 className="hv-tk-card-title">One wall at a time</h3>
+          <p className="hv-tk-card-desc">Give each wall its own colour, or paint them all together.</p>
         </article>
 
         {/* Auto-save — full-width quiet strip */}
         <article className="hv-tk-card hv-tk-strip hv-tk-span6">
           <span className="hv-tk-pulse" aria-hidden />
-          <h3 className="hv-tk-card-title">Auto-save, every two seconds</h3>
-          <p className="hv-tk-card-desc">There is no save button.</p>
+          <h3 className="hv-tk-card-title">Saves itself</h3>
+          <p className="hv-tk-card-desc">There is no save button — your work is kept as you go.</p>
           <Mono className="hv-tk-saved">saved just now</Mono>
         </article>
       </div>

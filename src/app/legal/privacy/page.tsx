@@ -16,7 +16,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "How we use it",
-    p: "To provide the visualiser (segmentation, recolouring, recommendations), to operate your account and any retailer/customer relationship, to send verification and transactional messages, and to improve the service.",
+    p: "To make your previews, to run your account and the link between a shop and its customers, to send you verification codes and service messages, and to improve the product.",
   },
   {
     h: "Payments",
@@ -28,7 +28,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "AI processing",
-    p: "Uploaded photographs may be sent to our AI providers (e.g. for classification, clean-up and segmentation) strictly to generate your previews. We do not sell your photographs or use them to train third-party models.",
+    p: "Making a preview involves sending your photograph to the AI services we use, purely to produce that preview. We do not sell your photographs, and we do not give them to anyone to train their models on.",
   },
   {
     h: "Sharing",
@@ -44,7 +44,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "Security",
-    p: "Passwords are hashed (BCrypt), access is token-based, and verification codes are one-time and short-lived. No system is perfectly secure, but we take reasonable measures to protect your data.",
+    p: "Passwords are stored scrambled, never in plain text. Sign-in uses short-lived tokens, and verification codes work once and expire quickly. No system is perfectly secure, but we take reasonable care of your data.",
   },
   {
     h: "Contact",

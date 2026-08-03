@@ -1591,7 +1591,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setPdfAllowance(after);
     } catch (e) {
       if (e instanceof HttpError && e.status === 402) {
-        setPdfNotice(e.message || "The monthly PDF download limit is spent.");
+        setPdfNotice(e.message || "You've used this month's colour-board downloads.");
         setPdfDownloading(false);
         return;
       }
@@ -1604,7 +1604,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     } catch {
       // Building the PDF can genuinely fail (e.g. a full board on a low-memory
       // phone). Without this the button would stay on "Preparing…" forever.
-      setPdfNotice("Could not build the PDF on this device — try removing an image and downloading again.");
+      setPdfNotice("Could not make the PDF on this device — try removing a photo and downloading again.");
     } finally {
       setPdfDownloading(false);
     }
@@ -1675,11 +1675,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       ? manualRun ? "Cleaning up the photo" : "Detecting walls"
       : "Working";
   const overlayHint = uploading && !segmenting
-    ? "Sending the photo to our service."
+    ? "Uploading the photo."
     : segmenting
       ? manualRun
-        ? "Removing clutter and blemishes from the photo. When it's done, click each wall to mark it yourself."
-        : "Finding the walls, trim and other paintable surfaces. This usually takes about a minute — hang tight, complex photos can take a little longer."
+        ? "Tidying up the photo. When it's done, click each wall to mark it yourself."
+        : "Finding the walls and other paintable surfaces. This usually takes about a minute; a busy photo can take longer."
       : undefined;
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
@@ -1756,13 +1756,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           {quota && (
             <span
               className={`hv-status-pill ${quota.used >= quota.limit ? "is-error" : ""}`}
-              title="Projects used this month. One project covers the AI photo clean-up and the AI wall detection together — everything after it (trying shades, recolouring, Claude palettes) is free."
+              title="Projects used this month. One project covers the clean-up and finding the walls together — everything after that (trying shades, painting each wall, colour suggestions) is free."
             >
               {quota.used}/{formatLimitSymbol(quota.limit)} projects
             </span>
           )}
           {basicPreview && (
-            <span className="hv-status-pill" title="WebGL2 unavailable — using the simplified renderer">
+            <span className="hv-status-pill" title="This device is using a simpler display mode. Colours are still accurate.">
               ⚠ Basic preview
             </span>
           )}
@@ -1783,7 +1783,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             </span>
           )}
           {guest && guestAiUnavailable && masksReady && (
-            <span className="hv-status-pill" title="The shop's AI previews are used up — mark the walls by hand instead.">
+            <span className="hv-status-pill" title="The shop has used up this month's projects — mark the walls by hand instead.">
               AI unavailable
             </span>
           )}
@@ -1853,7 +1853,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         <div className="hv-viewonly-bar" role="status">
           <span className="hv-viewonly-text">
             {viewOnlyReason ??
-              "This project is view-only — you can still see the colours that were last applied."}
+              "This project is view-only — you can still see the colours last applied to it."}
           </span>
           <span className="hv-viewonly-actions">
             {/* Both rails, priced from the server. Points are the cheaper one, so they
@@ -1957,10 +1957,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                         className="hv-seg-btn"
                         title={
                           l.id === "original"
-                            ? "Original — the photo exactly as shot"
+                            ? "Original — the photo as taken"
                             : l.id === "soft"
                               ? "Soft glow — a gentle lift, like opening the curtains"
-                              : "Radiant — a strong lift for dark photos"
+                              : "Bright — a stronger lift for dark photos"
                         }
                         onClick={() => setBrighten(l.id)}
                       >
@@ -2068,7 +2068,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                         disabled={pdfDownloading || (pdfAllowance !== null && !pdfAllowance.unlimited && pdfAllowance.remaining <= 0)}
                         title={
                           pdfAllowance !== null && !pdfAllowance.unlimited && pdfAllowance.remaining <= 0
-                            ? "The plan's monthly PDF downloads are used up"
+                            ? "This month's colour-board downloads are used up"
                             : pdfAllowance !== null && !pdfAllowance.unlimited
                               ? `${pdfAllowance.remaining} download${pdfAllowance.remaining === 1 ? "" : "s"} left this month`
                               : "Download the colour board as a PDF"
@@ -2317,11 +2317,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                         : askRetailer
                         ? "You've used the projects on your code. Your shop can add another."
                         : needSubscription
-                          ? "Your free trial includes one project. Subscribe to a plan to create more."
+                          ? "Your free trial includes one project. Pick a plan to make more."
                           : accessExpired
-                            ? "Your access has ended. Ask your retailer for a new code."
+                            ? "Your access has ended. Ask your paint shop for a new code."
                             : projectLimitReached
-                              ? "You've used this month's projects. One more covers the clean-up and the wall detection, same as the rest."
+                              ? "You've used this month's projects. One more covers the clean-up and finding the walls, same as the rest."
                               : "You've used your included project.")}
                   </p>
                   {needVerification && (

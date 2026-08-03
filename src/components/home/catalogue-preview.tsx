@@ -26,8 +26,11 @@ export function CataloguePreview() {
           </div>
         </div>
         <div className="hv-cat-preview" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
+          {/* Decoration, so no labels. Each tile used to carry a tooltip reading
+              "AP-2104", "AP-2105" … — sequential invented codes in a real
+              company's format, none of which exist in anyone's range. */}
           {SWATCHES.map((hex, i) => (
-            <div key={i} title={`AP-${String(2104 + i).padStart(4, "0")}`} style={{ background: hex, aspectRatio: "1 / 1", "--i": i } as React.CSSProperties} />
+            <div key={i} style={{ background: hex, aspectRatio: "1 / 1", "--i": i } as React.CSSProperties} />
           ))}
         </div>
       </div>

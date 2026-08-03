@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
+import { ShadeAccuracyNote } from "@/components/shared/accuracy-note";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { openStoreCheckout } from "@/lib/payments";
@@ -106,9 +107,12 @@ export function StoreKiosk({ info, hasGuestSession }: { info: StorePublicInfo; h
           See your room<br /><i>in new colours.</i>
         </h1>
         <Lead style={{ marginTop: 20, maxWidth: "52ch" }}>
-          Order here like at a ticket machine: pay once, upload one photo of your room, and try this
-          shop&apos;s colours on your own walls. No account needed.
+          Pay once, upload one photo of your room, and try this shop&apos;s colours on your own
+          walls. No account needed.
         </Lead>
+        {/* Before they pay, not after. This is a stranger about to hand over money
+            for a picture of their own room, with no account and nobody to ask. */}
+        <ShadeAccuracyNote both style={{ marginTop: 18 }} />
       </header>
 
       <ol style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "grid", gap: 12 }}>

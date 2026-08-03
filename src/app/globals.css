@@ -486,6 +486,8 @@ footer { background: var(--bg-deep); border-top: 1px solid var(--rule); padding:
 .footer-col-title { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--fg-mute); margin-bottom: 18px; }
 .footer-col a { display: block; font-family: var(--sans); font-size: 14px; font-weight: 500; color: var(--fg-soft); padding: 5px 0; transition: color .2s var(--ease); }
 .footer-col a:hover { color: var(--fg); }
+.footer-note { max-width: var(--max); margin: 52px auto 0; padding: 20px var(--gutter) 0; border-top: 1px solid var(--rule); font: 400 11.5px/1.65 var(--sans); color: var(--fg-mute); }
+.footer-note + .footer-bottom { margin-top: 20px; border-top: none; padding-top: 0; }
 .footer-bottom { max-width: var(--max); margin: 52px auto 0; padding: 24px var(--gutter) 0; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
 
 /* ====== FORMS ====== */
@@ -3815,4 +3817,15 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .hv-apk-text .mono { display: none; }
   .hv-apk-text strong { font-size: 14px; }
   .hv-apk-get { padding: 11px 15px; }
+}
+
+/* Quiet fine print inside the studio panels — the shade-accuracy note under the
+   shade list. Small and low-contrast on purpose: it must be readable by anyone
+   who looks for it without competing with the swatches it sits below. */
+.hv-studio-fineprint {
+  margin: 18px 0 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font: 400 11px/1.6 var(--sans);
+  color: var(--fg-mute);
 }

@@ -23,7 +23,7 @@ export function Hero() {
           See any paint colour
           <span style={{ color: "rgba(247,247,245,.58)" }}>on your walls.</span>
         </h1>
-        <p className="hv-hero2-sub reveal" style={{ maxWidth: "46ch" }}>Upload a photo of a room and preview any paint colour on the walls in seconds. Built for paint shops and their customers.</p>
+        <p className="hv-hero2-sub reveal" style={{ maxWidth: "46ch" }}>Upload a photo of a room and see any paint colour on the walls in seconds. Made for paint shops and their customers.</p>
         <div className="hv-hero2-cta reveal d1">
           <LinkButton href="/trial" size="lg">Get started <span className="arr">→</span></LinkButton>
           <LinkButton href="/method" size="lg" variant="ghost">How it works <span className="arr">→</span></LinkButton>
@@ -33,7 +33,7 @@ export function Hero() {
       <figure className="hv-hero2-demo reveal d2">
         <CompareSlider />
         <figcaption>
-          <Mono>Drag to compare — the same room, the same light, only the wall colour changed</Mono>
+          <Mono>Drag to compare — same room, same light, only the wall colour changed</Mono>
         </figcaption>
       </figure>
     </section>

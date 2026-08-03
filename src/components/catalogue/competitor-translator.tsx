@@ -50,8 +50,11 @@ export function CompetitorTranslator({ shades }: { shades: ReadonlyArray<PaintSh
     <div className="hv-finder" style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px", marginBottom: 48 }}>
       <Mono brass>Have a Berger or Nerolac code?</Mono>
       <p className="finder-lead" style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 18px", maxWidth: "52ch" }}>
-        Type the code from the customer&apos;s slip and we&apos;ll find the nearest shades in our
-        catalogue — with an honest rating of how close the match really is.
+        Type the code from the customer&apos;s slip and we&apos;ll find the nearest shades in
+        your catalogue, with a rating of how close each one is. Only a small sample of
+        other companies&apos; codes is built in, and those colours are approximate — if
+        yours isn&apos;t recognised, or the match matters, pick the colour off the shade
+        card in front of you instead.
       </p>
 
       <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -109,7 +112,7 @@ export function CompetitorTranslator({ shades }: { shades: ReadonlyArray<PaintSh
         <div style={{ marginTop: 24 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <span style={{ width: 34, height: 34, background: out.source.hex, border: "1px solid var(--rule-strong)", borderRadius: 6, display: "inline-block" }} />
-            <Mono>{out.source.label}{out.source.fromSample ? " · sample data, colour approximate" : ""}</Mono>
+            <Mono>{out.source.label}{out.source.fromSample ? " · sample code, colour approximate — check the shade card" : ""}</Mono>
           </div>
           <div style={{ display: "flex", gap: 16, marginTop: 16, flexWrap: "wrap" }}>
             {out.results.map((r) => {

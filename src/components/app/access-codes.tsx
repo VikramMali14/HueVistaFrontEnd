@@ -593,7 +593,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                         <button
                           type="button"
                           onClick={() => setConfirmRevoke(c.id)}
-                          title="Cancel this code and return its project quota"
+                          title="Cancel this code and put its projects back in your allowance"
                           style={{ background: "transparent", border: "1px solid var(--rule-strong)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--fg-soft)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
                         >
                           Cancel

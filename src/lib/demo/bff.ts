@@ -198,23 +198,23 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
     if (tail === "recommendations" && method === "POST") {
       // Canned Claude palettes so the AI panel is demoable offline.
       const shade = (id: number, code: string, name: string, hex: string) =>
-        ({ id, shadeCode: code, name, hexCode: hex, brand: "Asian Paints", deltaE: 1.2 });
+        ({ id, shadeCode: code, name, hexCode: hex, brand: "Sample palette", deltaE: 1.2 });
       return json({
         projectId: project.id,
         imageType: "INDOOR",
         combinations: [
           { name: "Morning Chai", rationale: "Warm neutrals that keep the room bright while the trim grounds it.",
-            primaryHex: "#d9c7ae", primaryShade: shade(101, "AP-8477", "Morning Fog", "#d9c7ae"),
-            accentHex: "#a9714b", accentShade: shade(102, "AP-8542", "Terracotta Ray", "#a9714b"),
-            trimHex: "#4a3527", trimShade: shade(103, "AP-8318", "Deep Walnut", "#4a3527") },
+            primaryHex: "#d9c7ae", primaryShade: shade(101, "HV-8477", "Morning Fog", "#d9c7ae"),
+            accentHex: "#a9714b", accentShade: shade(102, "HV-8542", "Terracotta Ray", "#a9714b"),
+            trimHex: "#4a3527", trimShade: shade(103, "HV-8318", "Deep Walnut", "#4a3527") },
           { name: "Monsoon Sky", rationale: "A cool, calming pairing that flatters the daylight in the photo.",
-            primaryHex: "#c9d4d9", primaryShade: shade(104, "AP-9123", "Silver Drizzle", "#c9d4d9"),
-            accentHex: "#476a7a", accentShade: shade(105, "AP-9188", "Harbour Blue", "#476a7a"),
-            trimHex: "#f2efe8", trimShade: shade(106, "AP-9001", "Ivory Lace", "#f2efe8") },
+            primaryHex: "#c9d4d9", primaryShade: shade(104, "HV-9123", "Silver Drizzle", "#c9d4d9"),
+            accentHex: "#476a7a", accentShade: shade(105, "HV-9188", "Harbour Blue", "#476a7a"),
+            trimHex: "#f2efe8", trimShade: shade(106, "HV-9001", "Ivory Lace", "#f2efe8") },
           { name: "Haldi Glow", rationale: "A confident accent wall with soft companions for the other surfaces.",
-            primaryHex: "#efe6d4", primaryShade: shade(107, "AP-7719", "Cream Silk", "#efe6d4"),
-            accentHex: "#d99a2b", accentShade: shade(108, "AP-7788", "Turmeric Gold", "#d99a2b"),
-            trimHex: "#6d5a3f", trimShade: shade(109, "AP-7645", "Aged Brass", "#6d5a3f") },
+            primaryHex: "#efe6d4", primaryShade: shade(107, "HV-7719", "Cream Silk", "#efe6d4"),
+            accentHex: "#d99a2b", accentShade: shade(108, "HV-7788", "Turmeric Gold", "#d99a2b"),
+            trimHex: "#6d5a3f", trimShade: shade(109, "HV-7645", "Aged Brass", "#6d5a3f") },
         ],
       });
     }
@@ -312,7 +312,7 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   }
   if (path === "api/me/assigned-products" && method === "GET") {
     if (user.role !== "CUSTOMER") return json(undefined, 404);
-    return json({ shopName: "Mehta Paints", allowedBrands: ["Asian Paints", "Berger"], products: [] });
+    return json({ shopName: "Mehta Paints", allowedBrands: ["Sample palette", "Berger"], products: [] });
   }
   // The shop's suggested combinations for whoever is visualising. Single demo
   // tenant: every role (and guests, via the api/guest rewrite above) sees the

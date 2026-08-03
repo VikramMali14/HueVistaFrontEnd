@@ -43,9 +43,9 @@ interface Tier {
 // from /api/billing/plans either — the two must agree, or this page advertises a plan
 // the subscription page cannot sell.
 const TIERS: ReadonlyArray<Tier> = [
-  { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Every photo professionally cleaned by AI, walls detected automatically.", featured: false, features: ["15 projects / month — AI clean-up + AI wall detection on every one", "Extra projects 60 points or ₹65 each", "Manual wall masking (click-to-segment) — same project, no extra", "25 colour-board PDFs / month (4 images each)", "Full multi-brand colour library & colour finder", "Link & WhatsApp share", "Customer access codes", "Email support"] },
-  { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. Three times the volume, and every extra project costs less.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["15 + 30 = 45 projects / month — AI clean-up + AI wall detection on every one", "Extra projects 50 points or ₹55 each", "Per-wall recolouring", "25 + 75 = 100 colour-board PDFs / month (8 images each)", "AI colour palette suggestions", "Priority support"] },
-  { name: "Business", plan: "BUSINESS", monthlyN: 4999, lede: "For multi-shop dealers who run several counters on one account.", featured: false, inherits: "Everything in Professional, plus", note: "White-label subdomain & painter portal are rolling out — Business shops get them first.", features: ["45 + 55 = 100 projects / month — AI clean-up + AI wall detection on every one", "Extra projects 40 points or ₹45 each — the lowest rate", "100 + 200 = 300 colour-board PDFs / month (12 images each)", "Multi-shop friendly quota", "White-label subdomain (coming soon)", "Painter portal (coming soon)", "Dedicated account manager"] },
+  { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Photos cleaned up and walls found for you on every project.", featured: false, features: ["15 projects a month — clean-up and walls included", "Extra projects 60 points or ₹65 each", "Mark walls yourself as often as you like — no extra charge", "25 colour boards a month (4 photos each)", "The full colour library and shade search", "Send by link or WhatsApp", "Codes for your customers", "Email support"] },
+  { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. Three times the projects, and extras cost less.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["15 + 30 = 45 projects a month", "Extra projects 50 points or ₹55 each", "Paint each wall its own colour", "25 + 75 = 100 colour boards a month (8 photos each)", "Colour scheme suggestions", "Priority support"] },
+  { name: "Business", plan: "BUSINESS", monthlyN: 4999, lede: "For dealers running more than one counter on one account.", featured: false, inherits: "Everything in Professional, plus", note: "Your own web address and the painter portal are on the way — Business shops get them first.", features: ["45 + 55 = 100 projects a month", "Extra projects 40 points or ₹45 each — the lowest rate", "100 + 200 = 300 colour boards a month (12 photos each)", "Project allowance that suits several counters", "Your own web address (coming soon)", "Painter portal (coming soon)", "A named person to call"] },
 ];
 
 const inr = (n: number) => n.toLocaleString("en-IN");
@@ -86,14 +86,14 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
     <>
       <div className="reveal d2" style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 8 }}>
         <span style={{ font: "400 16px/1.4 var(--serif)", color: "var(--fg-soft)" }}>
-          Billed monthly · cancel anytime · every new shop starts with a 7-day trial we set up for you.
+          Billed monthly · cancel any time · every new shop starts with a 7-day trial we set up for you.
         </span>
         <span style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
-          One project covers the AI photo clean-up and the AI wall detection together —
-          there is no second allowance to run out of. Used your month&apos;s projects? Buy
-          more one at a time at your plan&apos;s rate — 60 points or ₹65 on Starter, down to
-          40 or ₹45 on Business. Upgrades apply instantly from your dashboard, and whatever
-          projects you had left come with you.
+          One project is one photo turned into a room you can paint, and it covers the
+          clean-up and finding the walls together — there is no second allowance to run
+          out of. Used up the month&apos;s projects? Buy more one at a time at your
+          plan&apos;s rate: 60 points or ₹65 on Starter, down to 40 or ₹45 on Business.
+          Upgrade any time and whatever you had left comes with you.
         </span>
       </div>
 

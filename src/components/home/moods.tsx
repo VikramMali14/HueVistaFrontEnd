@@ -6,7 +6,6 @@ import CircularGallery from "@/components/ui/circular-gallery";
 
 interface MoodShade {
   name: string;
-  code: string;
   hex: string;
   light?: boolean;
 }
@@ -18,53 +17,58 @@ interface Mood {
   shades: ReadonlyArray<MoodShade>;
 }
 
+// Plain colour names and nothing else. These tiles used to carry codes like
+// "HV-9904" — invented ones, in a real company's format, for shades that company
+// does not sell. That reads as a quote from their range, and none of them would
+// have matched anything at the counter. The real codes live in the catalogue,
+// where they come from the companies themselves.
 const MOODS: ReadonlyArray<Mood> = [
   {
     id: "calm",
     label: "Calm",
-    line: "Rooms that lower their voice.",
+    line: "Quiet rooms.",
     shades: [
-      { name: "Porcelain", code: "AP-N108", hex: "#e8e6df", light: true },
-      { name: "Dove", code: "AP-9812", hex: "#c9cfd2", light: true },
-      { name: "Mist", code: "AP-9820", hex: "#aebcc4", light: true },
-      { name: "Rain", code: "AP-9904", hex: "#8c98a8" },
-      { name: "Quiet Blue", code: "AP-9931", hex: "#5f7382" },
+      { name: "Porcelain", hex: "#e8e6df", light: true },
+      { name: "Dove", hex: "#c9cfd2", light: true },
+      { name: "Mist", hex: "#aebcc4", light: true },
+      { name: "Rain", hex: "#8c98a8" },
+      { name: "Quiet Blue", hex: "#5f7382" },
     ],
   },
   {
     id: "earthy",
     label: "Earthy",
-    line: "Baked clay, warm sand, late sun.",
+    line: "Clay, sand and late sun.",
     shades: [
-      { name: "Champagne", code: "AP-2215", hex: "#dac1a3", light: true },
-      { name: "Saffron", code: "AP-2208", hex: "#c9a17a", light: true },
-      { name: "Terracotta", code: "AP-1428", hex: "#b96b48" },
-      { name: "Walnut", code: "AP-3304", hex: "#8a6446" },
-      { name: "Umber", code: "AP-3340", hex: "#5a4030" },
+      { name: "Champagne", hex: "#dac1a3", light: true },
+      { name: "Saffron", hex: "#c9a17a", light: true },
+      { name: "Terracotta", hex: "#b96b48" },
+      { name: "Walnut", hex: "#8a6446" },
+      { name: "Umber", hex: "#5a4030" },
     ],
   },
   {
     id: "bold",
     label: "Bold",
-    line: "One wall that does the talking.",
+    line: "One wall that stands out.",
     shades: [
-      { name: "Saffron Deep", code: "AP-2230", hex: "#b8884a" },
-      { name: "Oxblood", code: "AP-3318", hex: "#7a3a2f" },
-      { name: "Indigo Night", code: "AP-5519", hex: "#3a4870" },
-      { name: "Deep Teal", code: "AP-5560", hex: "#2f3b3a" },
-      { name: "Ink", code: "AP-0007", hex: "#1f262d" },
+      { name: "Deep Saffron", hex: "#b8884a" },
+      { name: "Oxblood", hex: "#7a3a2f" },
+      { name: "Indigo Night", hex: "#3a4870" },
+      { name: "Deep Teal", hex: "#2f3b3a" },
+      { name: "Ink", hex: "#1f262d" },
     ],
   },
   {
     id: "fresh",
     label: "Fresh",
-    line: "Morning air, windows open.",
+    line: "Light and airy.",
     shades: [
-      { name: "Lime Wash", code: "AP-7780", hex: "#e6e9da", light: true },
-      { name: "Mint Milk", code: "AP-7772", hex: "#d3ddd0", light: true },
-      { name: "Eucalyptus", code: "AP-7741", hex: "#a9b8a4", light: true },
-      { name: "Sage Whisper", code: "AP-7706", hex: "#7b8a72" },
-      { name: "Fern", code: "AP-7733", hex: "#5b6c5b" },
+      { name: "Lime Wash", hex: "#e6e9da", light: true },
+      { name: "Mint Milk", hex: "#d3ddd0", light: true },
+      { name: "Eucalyptus", hex: "#a9b8a4", light: true },
+      { name: "Sage", hex: "#7b8a72" },
+      { name: "Fern", hex: "#5b6c5b" },
     ],
   },
 ];
@@ -149,7 +153,7 @@ export function Moods() {
   const textColor = theme === "light" ? "#2b2823" : "#eae8e3";
 
   const items = useMemo(
-    () => mood.shades.map((s) => ({ image: swatchImage(s.hex), text: `${s.name} · ${s.code}` })),
+    () => mood.shades.map((s) => ({ image: swatchImage(s.hex), text: s.name })),
     [mood],
   );
 
@@ -182,7 +186,7 @@ export function Moods() {
               access, so the shades are also exposed as a visually-hidden list. */}
           <ul className="sr-only" aria-label={`${mood.label} shades`}>
             {mood.shades.map((s) => (
-              <li key={s.code}>{s.name} — {s.code}</li>
+              <li key={s.name}>{s.name}</li>
             ))}
           </ul>
           {/* theme is intentionally NOT in the key — textColor flows through as a
@@ -209,13 +213,12 @@ export function Moods() {
           <div key={mood.id} className="hv-mood-strip">
             {mood.shades.map((s, i) => (
               <div
-                key={s.code}
+                key={s.name}
                 className="hv-mood-swatch"
                 data-light={s.light || undefined}
                 style={{ background: s.hex, animationDelay: `${i * 70}ms` }}
               >
                 <span className="hv-mood-swatch-name">{s.name}</span>
-                <span className="mono hv-mood-swatch-code">{s.code}</span>
               </div>
             ))}
           </div>

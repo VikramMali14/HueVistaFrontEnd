@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * "Claude's picks" — the quota-billed photo-palette section on the AI Suggest
+ * "Suggested for this room" — the photo-based scheme section on the AI Suggest
  * tab. Nothing may be fetched until the retailer clicks Ask; results map onto
  * the room's regions via Apply all; a 402 shows the closed-window message instead of a
  * generic error; and the section is absent entirely when no fetcher is passed
@@ -15,7 +15,7 @@ import type { RegionLite } from "../coordinate-suggestions";
 import { ShadeGrid } from "../shade-grid";
 
 const SHADES: PaintShade[] = [
-  { code: "AP-101", name: "Catalogue Fog", hex: "#d9c7ae", family: "Neutrals", lrv: 60, brand: "Asian Paints", finishes: [] },
+  { code: "HV-101", name: "Catalogue Fog", hex: "#d9c7ae", family: "Neutrals", lrv: 60, brand: "Sample palette", finishes: [] },
 ];
 
 const REGIONS: RegionLite[] = [
@@ -33,12 +33,12 @@ const RESPONSE: AiRecommendationResponse = {
       rationale: "Warm neutrals for the light in this room.",
       primaryHex: "#d9c7ae",
       // Matches the catalogue entry above — must resolve to the REAL shade.
-      primaryShade: { id: 1, shadeCode: "AP-101", name: "Catalogue Fog", hexCode: "#d9c7ae" },
+      primaryShade: { id: 1, shadeCode: "HV-101", name: "Catalogue Fog", hexCode: "#d9c7ae" },
       accentHex: "#a9714b",
       // NOT in the catalogue — must still apply via the constructed fallback.
-      accentShade: { id: 2, shadeCode: "AP-202", name: "Terracotta Ray", hexCode: "#a9714b", brand: "Asian Paints" },
+      accentShade: { id: 2, shadeCode: "HV-202", name: "Terracotta Ray", hexCode: "#a9714b", brand: "Sample palette" },
       trimHex: "#4a3527",
-      trimShade: { id: 3, shadeCode: "AP-303", name: "Deep Walnut", hexCode: "#4a3527" },
+      trimShade: { id: 3, shadeCode: "HV-303", name: "Deep Walnut", hexCode: "#4a3527" },
     },
   ],
 };
@@ -59,7 +59,7 @@ function renderGrid(overrides: Partial<Parameters<typeof ShadeGrid>[0]> = {}) {
   return { onSelect, onApplyToRegion };
 }
 
-describe("Claude's picks (AI Suggest tab)", () => {
+describe("Suggested colours (AI Suggest tab)", () => {
   it("fetches nothing until Ask is clicked, then applies a whole palette to the mapped regions", async () => {
     const user = userEvent.setup();
     const fetchPalettes = vi.fn(async () => RESPONSE);
@@ -68,7 +68,7 @@ describe("Claude's picks (AI Suggest tab)", () => {
     await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
     expect(fetchPalettes).not.toHaveBeenCalled(); // costs a preview — never automatic
 
-    await user.click(screen.getByRole("button", { name: /Ask Claude/ }));
+    await user.click(screen.getByRole("button", { name: /Suggest colours/ }));
     expect(await screen.findByText("Morning Chai")).toBeInTheDocument();
     expect(fetchPalettes).toHaveBeenCalledTimes(1);
 
@@ -78,8 +78,8 @@ describe("Claude's picks (AI Suggest tab)", () => {
     const calls = onApplyToRegion.mock.calls;
     expect(calls.map(([regionId]) => regionId)).toEqual(["main", "accent", "trim"]);
     // Catalogue hit resolved to the real entry; the unmatched one fell back.
-    expect(calls[0]![1]).toMatchObject({ code: "AP-101", lrv: 60 });
-    expect(calls[1]![1]).toMatchObject({ code: "AP-202", hex: "#a9714b" });
+    expect(calls[0]![1]).toMatchObject({ code: "HV-101", lrv: 60 });
+    expect(calls[1]![1]).toMatchObject({ code: "HV-202", hex: "#a9714b" });
   });
 
   it("shows the closed-window message on 402 instead of a generic error", async () => {
@@ -90,20 +90,20 @@ describe("Claude's picks (AI Suggest tab)", () => {
     renderGrid({ onFetchAiPalettes: fetchPalettes });
 
     await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
-    await user.click(screen.getByRole("button", { name: /Ask Claude/ }));
+    await user.click(screen.getByRole("button", { name: /Suggest colours/ }));
 
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent(/access window has closed/),
     );
     // The button stays usable for a retry after the reset/upgrade.
-    expect(screen.getByRole("button", { name: /Ask Claude/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Suggest colours/ })).toBeEnabled();
   });
 
   it("hides the section entirely when no fetcher is provided (guest / unsaved project)", async () => {
     const user = userEvent.setup();
     renderGrid();
     await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
-    expect(screen.queryByRole("button", { name: /Ask Claude/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Suggest colours/ })).not.toBeInTheDocument();
   });
 });
 
@@ -114,12 +114,12 @@ describe("Claude's picks (AI Suggest tab)", () => {
  * scope purely from the swatch labels the cards render.
  */
 const TWO_BRAND_SHADES: PaintShade[] = [
-  { code: "AP-1", name: "Blush Zephyr", hex: "#d98c8c", family: "Reds", lrv: 45, brand: "Asian Paints", finishes: [] },
-  { code: "AP-2", name: "Sun Zephyr", hex: "#d9c78c", family: "Yellows", lrv: 62, brand: "Asian Paints", finishes: [] },
-  { code: "AP-3", name: "Leaf Zephyr", hex: "#8cd98c", family: "Greens", lrv: 58, brand: "Asian Paints", finishes: [] },
-  { code: "AP-4", name: "Sky Zephyr", hex: "#8cc7d9", family: "Blues", lrv: 55, brand: "Asian Paints", finishes: [] },
-  { code: "AP-5", name: "Plum Zephyr", hex: "#c78cd9", family: "Purples", lrv: 40, brand: "Asian Paints", finishes: [] },
-  { code: "AP-6", name: "Chalk Zephyr", hex: "#f4f1ea", family: "Whites", lrv: 88, brand: "Asian Paints", finishes: [] },
+  { code: "HV-1", name: "Blush Zephyr", hex: "#d98c8c", family: "Reds", lrv: 45, brand: "Sample palette", finishes: [] },
+  { code: "HV-2", name: "Sun Zephyr", hex: "#d9c78c", family: "Yellows", lrv: 62, brand: "Sample palette", finishes: [] },
+  { code: "HV-3", name: "Leaf Zephyr", hex: "#8cd98c", family: "Greens", lrv: 58, brand: "Sample palette", finishes: [] },
+  { code: "HV-4", name: "Sky Zephyr", hex: "#8cc7d9", family: "Blues", lrv: 55, brand: "Sample palette", finishes: [] },
+  { code: "HV-5", name: "Plum Zephyr", hex: "#c78cd9", family: "Purples", lrv: 40, brand: "Sample palette", finishes: [] },
+  { code: "HV-6", name: "Chalk Zephyr", hex: "#f4f1ea", family: "Whites", lrv: 88, brand: "Sample palette", finishes: [] },
   { code: "BG-1", name: "Blush Quartz", hex: "#cf7f7f", family: "Reds", lrv: 42, brand: "Berger", finishes: [] },
   { code: "BG-2", name: "Sun Quartz", hex: "#cfbf7f", family: "Yellows", lrv: 60, brand: "Berger", finishes: [] },
   { code: "BG-3", name: "Leaf Quartz", hex: "#7fcf7f", family: "Greens", lrv: 56, brand: "Berger", finishes: [] },
@@ -137,7 +137,7 @@ describe("Company filter (AI Suggest tab)", () => {
 
     // Both companies are offered as pills; unfiltered, both brands' shades can
     // surface in the palettes.
-    expect(screen.getByRole("button", { name: "Asian Paints" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sample palette" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Berger" })).toBeInTheDocument();
     expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
 
@@ -155,7 +155,7 @@ describe("Company filter (AI Suggest tab)", () => {
     const user = userEvent.setup();
     render(<ShadeGrid onSelect={vi.fn()} shades={SHADES} />);
     await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
-    expect(screen.queryByRole("button", { name: "Asian Paints" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sample palette" })).not.toBeInTheDocument();
   });
 });
 
@@ -217,7 +217,7 @@ describe("Palette card role swap (drag a colour onto another role)", () => {
     const { onApplyToRegion } = renderGrid({ onFetchAiPalettes: fetchPalettes });
 
     await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
-    await user.click(screen.getByRole("button", { name: /Ask Claude/ }));
+    await user.click(screen.getByRole("button", { name: /Suggest colours/ }));
     await screen.findByText("Morning Chai");
 
     const mainSwatch = screen.getAllByRole("button", { name: /^Main: Catalogue Fog/ })[0]!;
@@ -240,9 +240,9 @@ describe("Palette card role swap (drag a colour onto another role)", () => {
     // Apply all delivers the SWAPPED arrangement to the mapped regions.
     await user.click(screen.getAllByRole("button", { name: "Apply all" })[0]!);
     const byRegion = new Map(onApplyToRegion.mock.calls.map(([regionId, shade]) => [regionId, shade]));
-    expect(byRegion.get("main")).toMatchObject({ code: "AP-303" });
-    expect(byRegion.get("trim")).toMatchObject({ code: "AP-101" });
-    expect(byRegion.get("accent")).toMatchObject({ code: "AP-202" });
+    expect(byRegion.get("main")).toMatchObject({ code: "HV-303" });
+    expect(byRegion.get("trim")).toMatchObject({ code: "HV-101" });
+    expect(byRegion.get("accent")).toMatchObject({ code: "HV-202" });
   });
 
   it("a plain tap still applies the swatch to the active wall (no accidental swap)", async () => {
@@ -251,10 +251,10 @@ describe("Palette card role swap (drag a colour onto another role)", () => {
     const { onSelect } = renderGrid({ onFetchAiPalettes: fetchPalettes });
 
     await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
-    await user.click(screen.getByRole("button", { name: /Ask Claude/ }));
+    await user.click(screen.getByRole("button", { name: /Suggest colours/ }));
     await screen.findByText("Morning Chai");
 
     await user.click(screen.getAllByRole("button", { name: /^Main: Catalogue Fog/ })[0]!);
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ code: "AP-101" }));
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ code: "HV-101" }));
   });
 });
