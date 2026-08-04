@@ -73,9 +73,47 @@ const ROLE_LABEL: Record<string, string> = {
   DISTRIBUTOR: "Distributor",
   RETAILER: "Shop",
   PAINTER: "Painter",
+  CUSTOMER: "Customer",
 };
 
 type FlatRow = { node: NetworkNode; parent: NetworkNode | null };
+
+/**
+ * A customer with both levels above them: the shop that onboarded them, and that
+ * shop's distributor.
+ *
+ * The whole point of the customers view is reading the chain end to end, and a
+ * customer's parent alone only reaches the shop — the question an admin actually
+ * asks is "which distributor's shops are bringing customers in?", which needs the
+ * grandparent.
+ */
+type CustomerRow = { node: NetworkNode; shop: NetworkNode | null; distributor: NetworkNode | null };
+
+/** Every customer in the tree, carrying its shop and distributor. */
+function collectCustomers(roots: NetworkNode[]): CustomerRow[] {
+  const rows: CustomerRow[] = [];
+  const walk = (node: NetworkNode, shop: NetworkNode | null, distributor: NetworkNode | null) => {
+    if (node.role === "CUSTOMER") rows.push({ node, shop, distributor });
+    const nextShop = node.role === "RETAILER" ? node : shop;
+    const nextDistributor = node.role === "DISTRIBUTOR" ? node : distributor;
+    node.children.forEach((c) => walk(c, nextShop, nextDistributor));
+  };
+  roots.forEach((r) => walk(r, null, null));
+  return rows;
+}
+
+/** "3 / 5" with the pair's meaning in the title, or a dash when it does not apply. */
+function usageLabel(node: NetworkNode): string {
+  if (node.projectAllowance == null) return "—";
+  return `${node.projectsUsed ?? 0} / ${node.projectAllowance}`;
+}
+
+/** True once a customer's access window has closed. */
+function isLapsed(iso?: string | null): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
+}
 
 /** Every node of the given role across the tree, with its parent for context. */
 function collectByRole(roots: NetworkNode[], role: UserRole): FlatRow[] {
@@ -100,13 +138,14 @@ type EditorKind = "brands" | "pages" | "distributor";
 
 /**
  * The role-scoped network report: headline totals, the downline tree, and flat
- * per-role tables (distributors / shops / painters) — one place to read the
- * whole admin → distributor → retailer → painter chain.
+ * per-role tables (distributors / shops / painters / customers) — one place to
+ * read the whole chain, from the distributor down to the walk-in a shop signed up.
  */
 export function NetworkReportView({ report }: NetworkReportViewProps) {
   const distributors = useMemo(() => (report ? collectByRole(report.roots, "DISTRIBUTOR") : []), [report]);
   const retailers = useMemo(() => (report ? collectByRole(report.roots, "RETAILER") : []), [report]);
   const painters = useMemo(() => (report ? collectByRole(report.roots, "PAINTER") : []), [report]);
+  const customers = useMemo(() => (report ? collectCustomers(report.roots) : []), [report]);
 
   const tabs = useMemo(() => {
     if (!report) return [];
@@ -115,8 +154,9 @@ export function NetworkReportView({ report }: NetworkReportViewProps) {
     if (report.viewerRole === "ADMIN") t.push({ id: "distributors", label: `Distributors · ${distributors.length}` });
     if (report.viewerRole !== "RETAILER") t.push({ id: "retailers", label: `Shops · ${retailers.length}` });
     t.push({ id: "painters", label: `Painters · ${painters.length}` });
+    t.push({ id: "customers", label: `Customers · ${customers.length}` });
     return t;
-  }, [report, distributors.length, retailers.length, painters.length]);
+  }, [report, distributors.length, retailers.length, painters.length, customers.length]);
 
   const [tab, setTab] = useState<string | null>(null);
   const activeTab = tab ?? tabs[0]?.id ?? "painters";
@@ -205,6 +245,9 @@ export function NetworkReportView({ report }: NetworkReportViewProps) {
         />
       )}
       {activeTab === "painters" && <PainterTable rows={painters} />}
+      {activeTab === "customers" && (
+        <CustomerTable rows={customers} showDistributor={report.viewerRole !== "RETAILER"} />
+      )}
 
       {editing?.kind === "brands" && (
         <BrandEditor
@@ -264,6 +307,7 @@ export function NetworkReportView({ report }: NetworkReportViewProps) {
         .net-chip { font: 400 9px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-mute); white-space: nowrap; }
         .net-chip.distributor { color: var(--accent-soft); border-color: var(--accent-soft); }
         .net-chip.retailer { color: var(--fg-soft); }
+        .net-chip.customer { color: var(--sage); border-color: var(--sage); }
         .net-brands { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
         .net-brand-tag { font: 400 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-soft); background: var(--surface); white-space: nowrap; }
         .net-brand-tag.all { color: var(--fg-mute); border-style: dashed; }
@@ -330,7 +374,11 @@ function Tree({ roots, accessFor }: { roots: NetworkNode[]; accessFor: (n: Netwo
 }
 
 function TreeNode({ node, accessFor }: { node: NetworkNode; accessFor: (n: NetworkNode) => ShopAccess }) {
-  const roleClass = node.role === "DISTRIBUTOR" ? "distributor" : node.role === "RETAILER" ? "retailer" : "painter";
+  const roleClass =
+    node.role === "DISTRIBUTOR" ? "distributor"
+      : node.role === "RETAILER" ? "retailer"
+        : node.role === "CUSTOMER" ? "customer"
+          : "painter";
   const access = node.role === "RETAILER" ? accessFor(node) : null;
   return (
     <div className="net-branch">
@@ -357,9 +405,21 @@ function TreeNode({ node, accessFor }: { node: NetworkNode; accessFor: (n: Netwo
           </span>
         )}
         <span style={{ marginLeft: "auto", font: "400 11px/1 var(--mono)", color: "var(--fg-mute)", whiteSpace: "nowrap" }}>
-          {node.role === "DISTRIBUTOR" && <>{node.retailerCount} shops · {node.painterCount} painters</>}
-          {node.role === "RETAILER" && <>{node.painterCount} painters · {node.codesRedeemed}/{node.codesIssued} codes</>}
+          {node.role === "DISTRIBUTOR" && (
+            <>{node.retailerCount} shops · {node.painterCount} painters · {node.customerCount} customers</>
+          )}
+          {node.role === "RETAILER" && (
+            <>{node.painterCount} painters · {node.customerCount} customers · {node.codesRedeemed}/{node.codesIssued} codes</>
+          )}
           {node.role === "PAINTER" && <>joined {formatDate(node.joinedAt)}</>}
+          {node.role === "CUSTOMER" && (
+            <>
+              {usageLabel(node)} projects
+              {node.accessExpiresAt && (
+                <>{" · "}{isLapsed(node.accessExpiresAt) ? "lapsed" : `until ${formatDate(node.accessExpiresAt)}`}</>
+              )}
+            </>
+          )}
         </span>
         {node.role === "RETAILER" && access && (
           <div className="net-brands" style={{ flexBasis: "100%", marginTop: 4 }}>
@@ -426,7 +486,7 @@ function DistributorTable({ rows }: { rows: FlatRow[] }) {
         <thead>
           <tr>
             <th>Company</th><th>Owner</th><th>Contact</th><th>Location</th>
-            <th>Shops</th><th>Painters</th><th>Codes used</th><th>Joined</th>
+            <th>Shops</th><th>Painters</th><th>Customers</th><th>Codes used</th><th>Joined</th>
           </tr>
         </thead>
         <tbody>
@@ -438,6 +498,7 @@ function DistributorTable({ rows }: { rows: FlatRow[] }) {
               <td>{[node.city, node.state].filter(Boolean).join(", ") || "—"}</td>
               <td className="net-num">{node.retailerCount}</td>
               <td className="net-num">{node.painterCount}</td>
+              <td className="net-num">{node.customerCount}</td>
               <td className="net-num">{node.codesRedeemed} / {node.codesIssued}</td>
               <td>{formatDate(node.joinedAt)}</td>
             </tr>
@@ -558,7 +619,7 @@ function RetailerTable({
           <tr>
             <th>Shop</th><th>Owner</th><th>Contact</th><th>Location</th>
             {showDistributor && <th>Distributor</th>}
-            <th>Painters</th><th>Codes used</th><th>Brands</th><th>Pages</th><th>Joined</th>
+            <th>Painters</th><th>Customers</th><th>Codes used</th><th>Brands</th><th>Pages</th><th>Joined</th>
           </tr>
         </thead>
         <tbody>
@@ -599,6 +660,7 @@ function RetailerTable({
                   </td>
                 )}
                 <td className="net-num">{node.painterCount}</td>
+                <td className="net-num">{node.customerCount}</td>
                 <td className="net-num">{node.codesRedeemed} / {node.codesIssued}</td>
                 <td>
                   <div className="net-brands" style={{ marginBottom: canManageAccess ? 8 : 0 }}>
@@ -962,6 +1024,146 @@ function BrandEditor({
         </div>
       </div>
     </div>
+  );
+}
+
+/* ── Customers ────────────────────────────────────────────────────────── */
+
+/**
+ * The end of the chain: every walk-in a shop signed up, with the shop and the
+ * distributor above them.
+ *
+ * Customers were only ever a code count on the shop's row — which says how many
+ * codes were handed out, not who holds one or whether it did anything. Two shops
+ * with "40 issued" can be a busy counter and a stack of dead codes, and the
+ * report gave no way to tell them apart. Reading the projects column does: a
+ * customer at 0 / 1 redeemed a code and never came back.
+ */
+function CustomerTable({
+  rows,
+  showDistributor,
+}: {
+  rows: CustomerRow[];
+  showDistributor: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [distributor, setDistributor] = useState(ALL);
+  const [shop, setShop] = useState(ALL);
+  const [activity, setActivity] = useState(ALL);
+
+  const shopName = (r: CustomerRow) => (r.shop ? (r.shop.orgName ?? r.shop.name) : "—");
+  const distributorName = (r: CustomerRow) =>
+    r.distributor ? (r.distributor.orgName ?? r.distributor.name) : "—";
+
+  const distributorOptions = useMemo(() => facetOptionsFrom(rows, distributorName), [rows]);
+  // Shop options follow the distributor filter, so picking a distributor narrows
+  // the shop list to theirs instead of leaving every shop on the platform in it.
+  const shopOptions = useMemo(
+    () =>
+      facetOptionsFrom(
+        distributor === ALL ? rows : rows.filter((r) => distributorName(r) === distributor),
+        shopName,
+      ),
+    [rows, distributor],
+  );
+
+  /** The three states worth separating: never started, working, out of access. */
+  const activityOf = (r: CustomerRow): string => {
+    if (isLapsed(r.node.accessExpiresAt)) return "Lapsed";
+    return (r.node.projectsUsed ?? 0) > 0 ? "Active" : "Not started";
+  };
+  const activityOptions = useMemo(() => facetOptionsFrom(rows, activityOf), [rows]);
+
+  const filtered = useMemo(
+    () =>
+      rows.filter((r) => {
+        if (distributor !== ALL && distributorName(r) !== distributor) return false;
+        if (shop !== ALL && shopName(r) !== shop) return false;
+        if (activity !== ALL && activityOf(r) !== activity) return false;
+        return matchesQuery(query, r.node.name, r.node.email, r.node.phone, shopName(r), distributorName(r));
+      }),
+    [rows, query, distributor, shop, activity],
+  );
+
+  if (rows.length === 0) {
+    return (
+      <p className="net-empty">
+        No customers yet. They appear here once someone redeems a shop&apos;s access code.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <FilterBar
+        query={query}
+        onQueryChange={setQuery}
+        searchPlaceholder="Search customers, shops, distributors…"
+        shown={filtered.length}
+        total={rows.length}
+        noun="customer"
+        facets={[
+          ...(showDistributor
+            ? [{ id: "distributor", label: "Distributor", value: distributor, onChange: setDistributor, options: distributorOptions }]
+            : []),
+          { id: "shop", label: "Shop", value: shop, onChange: setShop, options: shopOptions },
+          { id: "activity", label: "Activity", value: activity, onChange: setActivity, options: activityOptions },
+        ]}
+      />
+      {filtered.length === 0 ? (
+        <p className="net-empty">No customers match those filters.</p>
+      ) : (
+        <div className="net-table-wrap">
+          <table className="net-table">
+            <thead>
+              <tr>
+                <th>Customer</th><th>Contact</th><th>Shop</th>
+                {showDistributor && <th>Distributor</th>}
+                <th>Projects used</th><th>Access until</th><th>Joined</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r) => {
+                const lapsed = isLapsed(r.node.accessExpiresAt);
+                return (
+                  <tr key={r.node.userId ?? `${shopName(r)}-${r.node.name}`}>
+                    <td className="strong">{r.node.name}</td>
+                    <td>
+                      {r.node.email ? <Mono>{r.node.email}</Mono> : null}
+                      {r.node.phone ? <>{r.node.email ? <br /> : null}<Mono>{r.node.phone}</Mono></> : null}
+                      {/* An account created by redeeming a code has no real address —
+                          the stored one is synthesised from the code, and the backend
+                          withholds it rather than present a machine id as a contact. */}
+                      {!r.node.email && !r.node.phone ? "—" : null}
+                    </td>
+                    <td>{shopName(r)}</td>
+                    {showDistributor && <td>{distributorName(r)}</td>}
+                    <td
+                      className="net-num"
+                      title="Projects used of the allowance their shop gave them. Deleting a project does not give the slot back."
+                    >
+                      {usageLabel(r.node)}
+                    </td>
+                    <td style={lapsed ? { color: "var(--fg-mute)" } : undefined}>
+                      {formatDate(r.node.accessExpiresAt)}
+                      {lapsed && (
+                        <>
+                          <br />
+                          <span style={{ font: "400 9px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
+                            lapsed
+                          </span>
+                        </>
+                      )}
+                    </td>
+                    <td>{formatDate(r.node.joinedAt)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }
 
