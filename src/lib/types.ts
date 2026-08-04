@@ -40,6 +40,15 @@ export interface NetworkNode {
   orgName?: string | null;
   city?: string | null;
   state?: string | null;
+  /**
+   * DISTRIBUTOR nodes: the platform's own "house" distributor, which carries every
+   * shop no partner distributor brought in.
+   *
+   * It is a real distributor organization in the tree but not a distributor ACCOUNT,
+   * which is why the distributor total does not count it — the flag is what lets the
+   * report say so instead of showing an unexplained extra branch.
+   */
+  house?: boolean;
   retailerCount: number;
   painterCount: number;
   codesIssued: number;

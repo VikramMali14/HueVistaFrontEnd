@@ -733,6 +733,51 @@ export async function getDistributorOptions(): Promise<DistributorOption[] | nul
   }
 }
 
+/** The same list, in the result shape the network editors use. */
+export async function listDistributorsAction(): Promise<{
+  options?: DistributorOption[];
+  error?: string;
+}> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { options: await adminApi.listDistributors(token) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Could not load the distributors. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: move a shop to another distributor — blank means the house one.
+ *
+ * The previous distributor's brand and page grants are cleared server-side: they
+ * were that distributor's to make, and a restriction whose author no longer
+ * supplies the shop is one nobody can lift.
+ */
+export async function moveShopDistributorAction(
+  retailerOrgId: string,
+  distributorOrgId?: string,
+): Promise<{ ok?: true; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    await adminApi.moveRetailer(token, retailerOrgId, distributorOrgId || undefined);
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Could not move the shop. Please try again." };
+  }
+}
+
 /** ADMIN: the wallet payout queue (all requests, newest first). NULL on any
  *  failure — this is a money queue, and an expired session or backend outage
  *  must never read as "the queue is clear". */

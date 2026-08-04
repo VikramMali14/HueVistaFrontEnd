@@ -12,6 +12,8 @@ import {
 import {
   getRetailerBrandsAction,
   getRetailerFeaturesAction,
+  listDistributorsAction,
+  moveShopDistributorAction,
   setRetailerBrandsAction,
   setRetailerFeaturesAction,
 } from "@/lib/auth";
@@ -22,6 +24,7 @@ import type {
   RetailerFeatureOption,
   UserRole,
 } from "@/lib/types";
+import type { DistributorOption } from "@/lib/api";
 
 /**
  * Facet value isolating shops that carry the whole catalogue (no brand restriction).
@@ -92,6 +95,9 @@ function formatDate(iso?: string | null): string {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** Which editor the shops table opened for a row. */
+type EditorKind = "brands" | "pages" | "distributor";
+
 /**
  * The role-scoped network report: headline totals, the downline tree, and flat
  * per-role tables (distributors / shops / painters) — one place to read the
@@ -120,7 +126,10 @@ export function NetworkReportView({ report }: NetworkReportViewProps) {
   // the new selection immediately without re-fetching the whole report.
   const canManageAccess = report?.viewerRole === "DISTRIBUTOR" || report?.viewerRole === "ADMIN";
   const [accessOverrides, setAccessOverrides] = useState<Record<string, ShopAccess>>({});
-  const [editing, setEditing] = useState<{ orgId: string; name: string; kind: "brands" | "pages" } | null>(null);
+  const [editing, setEditing] = useState<{ orgId: string; name: string; kind: EditorKind } | null>(null);
+  // Only an admin re-files a shop: a distributor moving one would be taking it
+  // off a peer, which is that peer's to release.
+  const canMoveShops = report?.viewerRole === "ADMIN";
   const accessFor = (node: NetworkNode): ShopAccess =>
     (node.orgId && accessOverrides[node.orgId]) || {
       brands: node.assignedBrands ?? [],
@@ -190,6 +199,7 @@ export function NetworkReportView({ report }: NetworkReportViewProps) {
           rows={retailers}
           showDistributor={report.viewerRole === "ADMIN"}
           canManageAccess={canManageAccess}
+          canMoveShops={canMoveShops}
           accessFor={accessFor}
           onEdit={(orgId, name, kind) => setEditing({ orgId, name, kind })}
         />
@@ -208,6 +218,13 @@ export function NetworkReportView({ report }: NetworkReportViewProps) {
             mergeAccess(orgId, { brands: names, brandsRestricted: restricted });
             setEditing(null);
           }}
+        />
+      )}
+      {editing?.kind === "distributor" && (
+        <MoveShopEditor
+          orgId={editing.orgId}
+          shopName={editing.name}
+          onClose={() => setEditing(null)}
         />
       )}
       {editing?.kind === "pages" && (
@@ -325,6 +342,14 @@ function TreeNode({ node, accessFor }: { node: NetworkNode; accessFor: (n: Netwo
         {node.orgName && (
           <span style={{ font: "300 14px/1.3 var(--serif)", color: "var(--fg-soft)" }}>{node.name}</span>
         )}
+        {node.house && (
+          <span
+            title="HueVista's own distributor — it carries every shop no partner distributor brought in, so it is a branch of the tree but not a distributor account."
+            style={{ font: "400 9px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--accent-soft)", border: "1px solid var(--rule-brass)", borderRadius: 4, padding: "3px 6px" }}
+          >
+            ours
+          </span>
+        )}
         {node.email && <Mono>{node.email}</Mono>}
         {(node.city || node.state) && (
           <span style={{ font: "300 14px/1.3 var(--serif)", color: "var(--fg-mute)" }}>
@@ -429,6 +454,7 @@ function RetailerTable({
   rows,
   showDistributor,
   canManageAccess,
+  canMoveShops,
   accessFor,
   onEdit,
 }: {
@@ -436,15 +462,19 @@ function RetailerTable({
   showDistributor: boolean;
   canManageAccess: boolean;
   accessFor: (n: NetworkNode) => ShopAccess;
-  onEdit: (orgId: string, name: string, kind: "brands" | "pages") => void;
+  canMoveShops: boolean;
+  onEdit: (orgId: string, name: string, kind: EditorKind) => void;
 }) {
   const [query, setQuery] = useState("");
   const [company, setCompany] = useState(ALL);
   const [distributor, setDistributor] = useState(ALL);
   const [state, setState] = useState(ALL);
 
+  // Every shop has a distributor now — the house one where no partner brought them
+  // in — so "Direct" as a stand-in for "none" is gone. A dash only shows for a row
+  // whose parent the report could not resolve.
   const distributorName = (parent: NetworkNode | null) =>
-    parent && parent.role === "DISTRIBUTOR" ? (parent.orgName ?? parent.name) : "Direct";
+    parent && parent.role === "DISTRIBUTOR" ? (parent.orgName ?? parent.name) : "—";
 
   /**
    * Company options come from the brands actually assigned across the network.
@@ -541,7 +571,32 @@ function RetailerTable({
                 <td><Mono>{node.email}</Mono>{node.phone ? <><br /><Mono>{node.phone}</Mono></> : null}</td>
                 <td>{[node.city, node.state].filter(Boolean).join(", ") || "—"}</td>
                 {showDistributor && (
-                  <td>{parent && parent.role === "DISTRIBUTOR" ? (parent.orgName ?? parent.name) : "Direct"}</td>
+                  <td>
+                    {parent && parent.role === "DISTRIBUTOR"
+                      ? (parent.orgName ?? parent.name)
+                      : "—"}
+                    {parent?.house && (
+                      <>
+                        <br />
+                        <span style={{ font: "400 9px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+                          ours
+                        </span>
+                      </>
+                    )}
+                    {canMoveShops && node.orgId && (
+                      <>
+                        <br />
+                        <button
+                          type="button"
+                          className="net-brand-edit"
+                          style={{ marginTop: 6 }}
+                          onClick={() => onEdit(node.orgId!, node.orgName ?? node.name, "distributor")}
+                        >
+                          Move
+                        </button>
+                      </>
+                    )}
+                  </td>
                 )}
                 <td className="net-num">{node.painterCount}</td>
                 <td className="net-num">{node.codesRedeemed} / {node.codesIssued}</td>
@@ -903,6 +958,136 @@ function BrandEditor({
           </button>
           <button type="button" className="btn btn-sm" onClick={save} disabled={saving || !options || Boolean(loadError)}>
             {saving ? "Saving…" : "Save brands"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Move a shop to another distributor ───────────────────────────────── */
+
+/**
+ * ADMIN-only editor for which distributor a shop belongs under.
+ *
+ * The distributor picked when a shop was created used to be permanent: the
+ * distributor-facing link endpoint demands ownership of both organizations, which
+ * an admin never has, so a shop filed under the wrong one — or one that changed
+ * supplier — was stuck there forever.
+ *
+ * Reloads the page on success rather than patching the row: moving a shop changes
+ * its position in the tree, its old distributor's counts and its access tags, and
+ * stitching all of that locally would be three chances to show something the server
+ * no longer agrees with.
+ */
+function MoveShopEditor({
+  orgId,
+  shopName,
+  onClose,
+}: {
+  orgId: string;
+  shopName: string;
+  onClose: () => void;
+}) {
+  const [options, setOptions] = useState<DistributorOption[] | null>(null);
+  const [choice, setChoice] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, startSaving] = useTransition();
+
+  useEffect(() => {
+    let live = true;
+    listDistributorsAction().then((res) => {
+      if (!live) return;
+      if (res.error || !res.options) {
+        setLoadError(res.error ?? "Could not load the distributors.");
+        return;
+      }
+      setOptions(res.options);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const save = () => {
+    setError(null);
+    startSaving(async () => {
+      const res = await moveShopDistributorAction(orgId, choice || undefined);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      window.location.reload();
+    });
+  };
+
+  return (
+    <div
+      className="net-modal-scrim"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Move ${shopName} to another distributor`}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="net-modal">
+        <Mono brass>Move shop</Mono>
+        <h3 className="display" style={{ fontSize: "clamp(22px, 3vw, 30px)", margin: "8px 0 4px" }}>
+          {shopName}
+        </h3>
+        <p style={{ font: "300 15px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "0 0 16px" }}>
+          Choose the distributor this shop belongs under. It moves into their network and out of
+          the previous one&apos;s — and the paint companies and pages the old distributor had
+          granted are cleared, because those were theirs to decide and the new one never chose
+          them. The shop opens with everything until its new distributor narrows it.
+        </p>
+
+        {loadError ? (
+          <p className="field-error" role="alert">{loadError}</p>
+        ) : !options ? (
+          <p className="net-empty">Loading distributors…</p>
+        ) : (
+          <div className="field">
+            <label className="field-label" htmlFor="move-distributor">Distributor</label>
+            <select
+              id="move-distributor"
+              value={choice}
+              onChange={(e) => setChoice(e.target.value)}
+            >
+              {options.map((d) => (
+                <option key={d.orgId} value={d.house ? "" : d.orgId}>
+                  {d.house ? `${d.name} — ours` : d.name}
+                  {d.city ? ` · ${d.city}` : ""}
+                  {` · ${d.shopCount} shop${d.shopCount === 1 ? "" : "s"}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {error && <p className="field-error" role="alert" style={{ marginTop: 12 }}>{error}</p>}
+
+        <div className="net-modal-actions">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={save}
+            disabled={saving || !options || Boolean(loadError)}
+          >
+            {saving ? "Moving…" : "Move shop"}
           </button>
         </div>
       </div>
