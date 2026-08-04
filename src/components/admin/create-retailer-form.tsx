@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { createRetailerAction } from "@/lib/auth";
+import type { DistributorOption } from "@/lib/api";
 
 const STATES = [
   "Andhra Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi", "Goa", "Gujarat", "Haryana",
@@ -12,9 +13,23 @@ const STATES = [
   "West Bengal", "Other",
 ];
 
-export function CreateRetailerForm() {
+interface CreateRetailerFormProps {
+  /** Distributors the shop can be filed under; null when the list failed to load. */
+  distributors: DistributorOption[] | null;
+}
+
+/**
+ * Create a shop account directly, without waiting for the shop to ask.
+ *
+ * Two things are worth knowing about this form. The distributor picker decides
+ * where the shop sits in the network — leaving it on the house distributor is a
+ * real choice, not a blank, and it is what keeps every shop inside somebody's
+ * downline. And there is no plan to pick: the shop opens free, and buys a plan
+ * itself if it wants one.
+ */
+export function CreateRetailerForm({ distributors }: CreateRetailerFormProps) {
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ shop: string; distributor: string } | null>(null);
   const [showPw, setShowPw] = useState(false);
   const [pending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
@@ -27,13 +42,16 @@ export function CreateRetailerForm() {
         if (!e.currentTarget.reportValidity()) return;
         const fd = new FormData(e.currentTarget);
         const shop = String(fd.get("shopName") ?? "");
+        const orgId = String(fd.get("distributorOrgId") ?? "");
+        const distributor =
+          distributors?.find((d) => (d.house ? "" : d.orgId) === orgId)?.name ?? "HueVista Direct";
         startTransition(async () => {
           setError(null);
           setCreated(null);
           const res = await createRetailerAction(fd);
           if (res.error) setError(res.error);
           else {
-            setCreated(shop);
+            setCreated({ shop, distributor });
             formRef.current?.reset();
           }
         });
@@ -56,6 +74,9 @@ export function CreateRetailerForm() {
               {showPw ? "Hide" : "Show"}
             </button>
           </div>
+          <p style={{ margin: "8px 0 0", font: "300 italic 15px/1.4 var(--serif)", color: "var(--fg-mute)" }}>
+            Hand this over yourself — it is not emailed, and once saved nobody can read it back.
+          </p>
         </div>
         <Field label="Phone · WhatsApp" name="phone" type="tel" placeholder="+91 98 2210 4476" autoComplete="off" />
         <Field label="Shop name" name="shopName" required placeholder="Mehta Paint House" full autoComplete="off" />
@@ -64,19 +85,32 @@ export function CreateRetailerForm() {
           <label className="field-label" htmlFor="state">State</label>
           <select id="state" name="state" defaultValue="Karnataka">{STATES.map((s) => <option key={s}>{s}</option>)}</select>
         </div>
-        <div className="field">
-          <label className="field-label" htmlFor="tier">Plan tier</label>
-          <select id="tier" name="tier" defaultValue="pro">
-            <option value="starter">Starter</option>
-            <option value="pro">Professional</option>
-            <option value="business">Business</option>
+        <div className="field full">
+          <label className="field-label" htmlFor="distributorOrgId">Distributor this shop belongs under</label>
+          <select id="distributorOrgId" name="distributorOrgId" defaultValue="" disabled={distributors === null}>
+            {distributors === null ? (
+              <option value="">Could not load distributors — the shop will go to HueVista Direct</option>
+            ) : (
+              distributors.map((d) => (
+                <option key={d.orgId} value={d.house ? "" : d.orgId}>
+                  {d.house ? `${d.name} — ours, the default` : d.name}
+                  {d.city ? ` · ${d.city}` : ""}
+                  {` · ${d.shopCount} shop${d.shopCount === 1 ? "" : "s"}`}
+                </option>
+              ))
+            )}
           </select>
+          <p style={{ margin: "8px 0 0", font: "300 italic 15px/1.4 var(--serif)", color: "var(--fg-mute)" }}>
+            The shop appears in this distributor&apos;s network and reports. Leave it on HueVista
+            Direct for shops you look after yourself.
+          </p>
         </div>
       </div>
 
       {created && (
         <div role="status" style={{ marginTop: 24, padding: "14px 16px", border: "1px solid var(--sage)", color: "var(--fg)", font: "400 15px/1.5 var(--sans)", borderRadius: "var(--radius)" }}>
-          ✓ Shop account created for <strong>{created}</strong>. We&apos;ve emailed them their login — email, password and a sign-in link.
+          ✓ Shop account created for <strong>{created.shop}</strong> under <strong>{created.distributor}</strong>,
+          on the free plan. We&apos;ve emailed them a sign-in link — give them the password yourself.
         </div>
       )}
       {error && <div className="field-error" role="alert" aria-live="assertive" style={{ marginTop: 24 }}>{error}</div>}

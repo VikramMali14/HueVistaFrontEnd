@@ -1,19 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { validatePhone } from "@/lib/validation";
+import type { ShopRequestStatus } from "@/lib/api";
+
+type StepResult = { status?: ShopRequestStatus; error?: string };
 
 interface ShopLeadFormProps {
-  action: (formData: FormData) => Promise<{ ok?: true; error?: string }>;
+  action: (formData: FormData) => Promise<StepResult>;
+  verifyAction: (requestId: string, code: string) => Promise<StepResult>;
+  resendAction: (requestId: string) => Promise<StepResult>;
 }
-
-const TIERS = [
-  { v: "starter", l: "Starter · ₹999", d: "Single counter. 15 projects a month — AI clean-up and AI wall detection on every one." },
-  { v: "pro", l: "Professional · ₹2,499", d: "Recommended. 15 + 30 = 45 projects a month, per-wall recolouring, cheaper extras." },
-  { v: "business", l: "Business · ₹4,999", d: "Multi-shop. 45 + 55 = 100 projects a month, extras at the lowest rate." },
-];
 
 const STATES = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh", "Chhattisgarh", "Delhi", "Goa",
@@ -24,51 +23,168 @@ const STATES = [
 ];
 
 /**
- * Public "request a shop account" form. Shops are provisioned by an admin, so
- * this captures a lead (no account, no password, no card) and promises a call
- * back — replacing the retired self-serve trial signup the old CTAs pointed at.
+ * The public "request a shop account" form.
+ *
+ * Two stages on one page. First the shop's details and the password the owner
+ * will sign in with, typed twice — a mistyped password would otherwise lock them
+ * out of their own counter, and there is nobody who can read it back to them.
+ * Then the 6-digit code we email, which is what turns a form submission into a
+ * real request: an unverified one is never seen by an admin and never becomes an
+ * account.
+ *
+ * No plan is chosen here. Every shop opens on the free plan; buying one happens
+ * later, from inside the app, and nowhere else.
  */
-export function ShopLeadForm({ action }: ShopLeadFormProps) {
+export function ShopLeadForm({ action, verifyAction, resendAction }: ShopLeadFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [pwError, setPwError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [sent, setSent] = useState<ShopRequestStatus | null>(null);
+  const [code, setCode] = useState("");
   const [done, setDone] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  // Counts the resend cooldown down so the button says when it will work again
+  // instead of failing with a server-side "please wait 43s".
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   if (done) {
     return (
       <div role="status" style={{ textAlign: "center", padding: "48px 0" }}>
         <span aria-hidden style={{ fontSize: 44, color: "var(--accent)" }}>✓</span>
         <h2 className="display" style={{ fontSize: "clamp(32px, 4.5vw, 52px)", margin: "12px 0 12px" }}>
-          Request received.
+          Email confirmed.
         </h2>
-        <p style={{ font: "300 18px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "46ch", margin: "0 auto" }}>
-          We&apos;ll call you within a working day to set up your shop account —
-          your login, your organisation, and a 7-day trial, ready to use at the counter.
+        <p style={{ font: "300 18px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "48ch", margin: "0 auto" }}>
+          Your shop account is being set up. It opens within 24 hours at the latest —
+          usually much sooner — and we&apos;ll email you the moment it does.
+        </p>
+        <p style={{ font: "300 italic 17px/1.6 var(--serif)", color: "var(--fg-mute)", maxWidth: "48ch", margin: "20px auto 0" }}>
+          You&apos;ll sign in with this email and the password you just chose. We store it only
+          in a scrambled form that nobody — including us — can read back, so keep it somewhere safe.
         </p>
       </div>
     );
   }
 
+  // ── Stage two: the emailed code ──────────────────────────────────────────
+  if (sent) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          startTransition(async () => {
+            setError(null);
+            const res = await verifyAction(sent.requestId, code);
+            if (res.error) setError(res.error);
+            else setDone(true);
+          });
+        }}
+        aria-busy={pending}
+      >
+        <Step num="II." title={<>Confirm <i>your email.</i></>}>
+          <p style={{ font: "300 18px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "50ch", marginBottom: 28 }}>
+            We&apos;ve sent a 6-digit code to <strong>{sent.email}</strong>. Enter it below and your
+            account is on its way. Nothing has been created yet — the code is how we know the
+            address is really yours.
+          </p>
+          <div className="field" style={{ maxWidth: 280 }}>
+            <label className="field-label" htmlFor="code">Your 6-digit code</label>
+            <input
+              id="code"
+              name="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              required
+              value={code}
+              onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); setError(null); }}
+              placeholder="000000"
+              style={{ font: "400 26px/1 var(--mono)", letterSpacing: ".4em" }}
+            />
+          </div>
+        </Step>
+
+        {error && <div className="field-error" role="alert" aria-live="assertive" style={{ marginTop: 8 }}>{error}</div>}
+
+        <div style={{ marginTop: 32, display: "flex", alignItems: "center", gap: 28, flexWrap: "wrap" }}>
+          <Button variant="brass" type="submit" disabled={pending || code.length < 6}>
+            {pending ? (
+              <><Spinner size={14} color="currentColor" /><span>Checking…</span></>
+            ) : (
+              <>Confirm and finish <span className="arr">→</span></>
+            )}
+          </Button>
+          <button
+            type="button"
+            disabled={pending || cooldown > 0}
+            onClick={() => {
+              startTransition(async () => {
+                setError(null);
+                const res = await resendAction(sent.requestId);
+                if (res.error) setError(res.error);
+                else setCooldown(res.status?.cooldownSeconds ?? 60);
+              });
+            }}
+            style={{
+              background: "transparent", border: "none", padding: 0,
+              cursor: cooldown > 0 ? "default" : "pointer",
+              color: cooldown > 0 ? "var(--fg-mute)" : "var(--accent-soft)",
+              font: "300 italic 16px/1.4 var(--serif)",
+              borderBottom: cooldown > 0 ? "none" : "1px solid var(--rule-brass)",
+            }}
+          >
+            {cooldown > 0 ? `Send another code in ${cooldown}s` : "Send another code"}
+          </button>
+        </div>
+        <style>{stepStyles}</style>
+      </form>
+    );
+  }
+
+  // ── Stage one: the shop and the password ─────────────────────────────────
   return (
     <form
       style={{ display: "flex", flexDirection: "column", gap: 0 }}
       onSubmit={(e) => {
         e.preventDefault();
         if (!e.currentTarget.reportValidity()) return;
-        const fd = new FormData(e.currentTarget);
+        const form = e.currentTarget;
+        const fd = new FormData(form);
+
         const phone = String(fd.get("phone") ?? "");
         const phoneMsg = phone ? validatePhone(phone) : null;
         if (phoneMsg) {
           setPhoneError(phoneMsg);
-          (e.currentTarget.elements.namedItem("phone") as HTMLInputElement | null)?.focus();
+          (form.elements.namedItem("phone") as HTMLInputElement | null)?.focus();
           return;
         }
+        // Checked here as well as on the server: a mismatch caught in the browser
+        // costs nothing, and the round trip would come back with the form's
+        // password fields already cleared.
+        const password = String(fd.get("password") ?? "");
+        const confirm = String(fd.get("confirmPassword") ?? "");
+        if (password !== confirm) {
+          setPwError("The two passwords don't match. Type the same one twice.");
+          (form.elements.namedItem("confirmPassword") as HTMLInputElement | null)?.focus();
+          return;
+        }
+
         startTransition(async () => {
           setError(null);
           try {
             const res = await action(fd);
             if (res.error) setError(res.error);
-            else setDone(true);
+            else if (res.status) {
+              setSent(res.status);
+              setCooldown(res.status.cooldownSeconds);
+            }
           } catch (err) {
             setError(err instanceof Error ? err.message : "Could not send your request.");
           }
@@ -96,78 +212,107 @@ export function ShopLeadForm({ action }: ShopLeadFormProps) {
               aria-describedby={phoneError ? "phone-error" : undefined}
               onChange={() => setPhoneError(null)}
             />
-            {phoneError && (
-              <p id="phone-error" className="field-error" role="alert">{phoneError}</p>
-            )}
+            {phoneError && <p id="phone-error" className="field-error" role="alert">{phoneError}</p>}
           </div>
           <Field label="City" name="city" required placeholder="Pune" />
           <Select label="State" name="state" defaultValue="Karnataka">{STATES.map((s) => <option key={s}>{s}</option>)}</Select>
         </div>
       </Step>
-      <Step num="II." title={<>The tier that <i>fits.</i></>}>
-        <div className="seg">
-          {TIERS.map((t, i) => (
-            <label key={t.v}>
-              <input type="radio" name="tier" value={t.v} defaultChecked={i === 1} />
-              <span className="l">{t.l}</span>
-              <span className="d">{t.d}</span>
-            </label>
-          ))}
-        </div>
-        <p style={{ marginTop: 20, fontFamily: "var(--serif)", fontSize: 17, color: "var(--fg-mute)" }}>
-          Nothing is charged now. Every new shop starts with a 7-day trial — we set it up with you.
+
+      <Step num="II." title={<>The password you&apos;ll <i>sign in with.</i></>}>
+        <p style={{ font: "300 18px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+          Choose it now and it&apos;s yours from the first day — no temporary password handed
+          over by someone else. We store it scrambled, so nobody at HueVista can read it,
+          which is also why we ask you to type it twice.
         </p>
+        <div className="form-grid">
+          <div className="field">
+            <label className="field-label" htmlFor="password">Password</label>
+            <div style={{ position: "relative" }}>
+              <input
+                id="password"
+                name="password"
+                type={showPw ? "text" : "password"}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                placeholder="At least eight characters"
+                style={{ paddingRight: 56 }}
+                onChange={() => setPwError(null)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw((v) => !v)}
+                aria-pressed={showPw}
+                aria-label={showPw ? "Hide password" : "Show password"}
+                style={{ position: "absolute", right: 0, bottom: 8, background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase" }}
+              >
+                {showPw ? "Hide" : "Show"}
+              </button>
+            </div>
+            <p style={{ margin: "8px 0 0", font: "300 italic 15px/1.4 var(--serif)", color: "var(--fg-mute)" }}>
+              At least eight characters, with a letter and a number.
+            </p>
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="confirmPassword">Type it again</label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type={showPw ? "text" : "password"}
+              required
+              minLength={8}
+              autoComplete="new-password"
+              placeholder="The same password"
+              aria-invalid={pwError ? "true" : undefined}
+              aria-describedby={pwError ? "confirm-error" : undefined}
+              onChange={() => setPwError(null)}
+            />
+            {pwError && <p id="confirm-error" className="field-error" role="alert">{pwError}</p>}
+          </div>
+        </div>
       </Step>
+
       <Step num="III." title={<>A word, <i>if you&apos;d like.</i></>}>
         <div className="field">
           <label className="field-label" htmlFor="notes">Anything we should know? · optional</label>
           <textarea id="notes" name="notes" rows={3} placeholder="Counter footfall, catalogues you stock, languages your customers speak." style={{ resize: "vertical" }} />
         </div>
+        <p style={{ marginTop: 24, fontFamily: "var(--serif)", fontSize: 17, color: "var(--fg-mute)" }}>
+          Your account opens on the free plan. No card, nothing to choose, nothing charged —
+          if you later want more projects a month, you buy a plan from inside the app.
+        </p>
       </Step>
+
       {error && <div className="field-error" role="alert" aria-live="assertive" style={{ marginTop: 24 }}>{error}</div>}
+
       <div style={{ marginTop: 40, display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
         <Button variant="brass" type="submit" disabled={pending}>
           {pending ? (
-            <>
-              <Spinner size={14} color="currentColor" />
-              <span>Sending…</span>
-            </>
+            <><Spinner size={14} color="currentColor" /><span>Sending…</span></>
           ) : (
-            <>
-              Request my shop account <span className="arr">→</span>
-            </>
+            <>Create my shop account <span className="arr">→</span></>
           )}
         </Button>
         <span style={{ font: "300 italic 16px/1.4 var(--serif)", color: "var(--fg-mute)" }}>
-          We call back within a working day.
+          We&apos;ll email you a code to confirm this address.
         </span>
       </div>
-      <style>{`
-        .step { padding: 56px 0; border-top: 1px solid var(--rule); }
-        .step:first-of-type { border-top: none; padding-top: 0; }
-        .step-head { display: flex; align-items: baseline; gap: 24px; margin-bottom: 40px; }
-        .step-num { font: 300 italic 22px/1 var(--serif); color: var(--accent); }
-        .step-title { font-family: var(--serif); font-weight: 300; font-size: 36px; line-height: 1; color: var(--fg); }
-        .step-title i { color: var(--accent-soft); }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-        .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .seg label { position: relative; display: flex; flex-direction: column; padding: 18px 20px; border: 1px solid var(--rule-strong); cursor: pointer; transition: background .25s var(--ease), border-color .25s var(--ease); background: var(--surface); }
-        .seg label:hover { border-color: var(--accent); }
-        .seg input[type="radio"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-        .seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-        .seg label:has(input:checked) { background: var(--accent); border-color: var(--accent); }
-        .seg label:has(input:checked) .l, .seg label:has(input:checked) .d { color: var(--bg); }
-        .seg .l { font: 400 10px/1 var(--mono); letter-spacing: .28em; text-transform: uppercase; color: var(--fg); }
-        .seg .d { font: 300 italic 16px/1.3 var(--serif); color: var(--fg-soft); margin-top: 8px; }
-        .seg .l, .seg .d { transition: color .25s var(--ease); }
-        @media (max-width: 1100px) {
-          .form-grid { grid-template-columns: 1fr; gap: 24px; }
-          .seg { grid-template-columns: 1fr; }
-        }
-      `}</style>
+      <style>{stepStyles}</style>
     </form>
   );
 }
+
+const stepStyles = `
+  .step { padding: 56px 0; border-top: 1px solid var(--rule); }
+  .step:first-of-type { border-top: none; padding-top: 0; }
+  .step-head { display: flex; align-items: baseline; gap: 24px; margin-bottom: 40px; }
+  .step-num { font: 300 italic 22px/1 var(--serif); color: var(--accent); }
+  .step-title { font-family: var(--serif); font-weight: 300; font-size: 36px; line-height: 1; color: var(--fg); }
+  .step-title i { color: var(--accent-soft); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  @media (max-width: 1100px) { .form-grid { grid-template-columns: 1fr; gap: 24px; } }
+`;
 
 function Step({ num, title, children }: { num: string; title: React.ReactNode; children: React.ReactNode }) {
   return (
