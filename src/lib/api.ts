@@ -445,7 +445,115 @@ export const adminApi = {
       `/api/admin/users/${encodeURIComponent(userId)}/subscription`,
       { method: "PATCH", accessToken, body: JSON.stringify(body) },
     ),
+
+  // ─── Free-project library ──────────────────────────────────────────────────
+  // Ready-made rooms: published once from a real segmented project, then opened
+  // by anyone. Starting one creates a project from stored rows and files — no
+  // upload, no wall detection, nothing charged.
+  listFreeProjects: (accessToken: string, includeUnpublished = true) =>
+    serverFetch<FreeProjectTemplate[]>(
+      `/api/admin/free-projects?includeUnpublished=${includeUnpublished}`,
+      { accessToken },
+    ),
+  // The admin's own projects, each marked with whether it has walls to copy.
+  listFreeProjectSources: (accessToken: string) =>
+    serverFetch<PublishableProject[]>("/api/admin/free-projects/sources", { accessToken }),
+  publishFreeProject: (accessToken: string, body: PublishFreeProjectBody) =>
+    serverFetch<FreeProjectTemplate>("/api/admin/free-projects", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify(body),
+    }),
+  startFreeProject: (accessToken: string, templateId: string) =>
+    serverFetch<StartedFreeProject>(
+      `/api/admin/free-projects/${encodeURIComponent(templateId)}/start`,
+      { method: "POST", accessToken },
+    ),
+  setFreeProjectPublished: (accessToken: string, templateId: string, published: boolean) =>
+    serverFetch<FreeProjectTemplate>(
+      `/api/admin/free-projects/${encodeURIComponent(templateId)}/published?published=${published}`,
+      { method: "PATCH", accessToken },
+    ),
+  // purgeFiles deletes the shared photo and masks, which blanks out every copy
+  // anyone already started — left false unless explicitly asked for.
+  deleteFreeProject: (accessToken: string, templateId: string, purgeFiles = false) =>
+    serverFetch<void>(
+      `/api/admin/free-projects/${encodeURIComponent(templateId)}?purgeFiles=${purgeFiles}`,
+      { method: "DELETE", accessToken },
+    ),
 };
+
+/** Interiors are shelved by room; exteriors by style. */
+export type TemplateSpace = "INTERIOR" | "EXTERIOR";
+
+/** One wall of a template — a mask PNG made once, at publish time. */
+export interface FreeProjectTemplateRegion {
+  id: number;
+  label?: string | null;
+  category?: string | null;
+  maskUrl: string;
+  appliedHexCode?: string | null;
+  appliedShadeCode?: string | null;
+  displayOrder: number;
+}
+
+/** A ready-made room on the shelf. */
+export interface FreeProjectTemplate {
+  id: string;
+  slug: string;
+  title: string;
+  space: TemplateSpace;
+  /** "LIVING_ROOM", "KITCHEN", "TRADITIONAL"… */
+  roomKey: string;
+  roomLabel: string;
+  description?: string | null;
+  imageUrl: string;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  published: boolean;
+  displayOrder: number;
+  timesUsed: number;
+  regionCount: number;
+  regions: FreeProjectTemplateRegion[];
+  sourceProjectId?: string | null;
+  createdAt?: string | null;
+}
+
+/** One of the admin's projects, offered as the source for a new template. */
+export interface PublishableProject {
+  id: string;
+  name: string;
+  roomType?: string | null;
+  status: string;
+  imageUrl: string;
+  regionCount: number;
+  /** False when it has no masks yet — the picker greys it out and says why. */
+  eligible: boolean;
+  ineligibleReason?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface PublishFreeProjectBody {
+  projectId: string;
+  title: string;
+  space: TemplateSpace;
+  roomKey: string;
+  roomLabel?: string;
+  slug?: string;
+  description?: string;
+  displayOrder?: number;
+  published?: boolean;
+}
+
+/** What "start a copy" hands back — enough to jump straight to the studio. */
+export interface StartedFreeProject {
+  projectId: string;
+  name: string;
+  status: string;
+  regionCount: number;
+  templateId: string;
+  templateTitle: string;
+}
 
 /**
  * Hierarchy / network API — the admin → distributor → retailer → painter chain.
