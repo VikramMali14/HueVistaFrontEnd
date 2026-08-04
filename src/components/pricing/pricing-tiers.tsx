@@ -86,7 +86,7 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
     <>
       <div className="reveal d2" style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 8 }}>
         <span style={{ font: "400 16px/1.4 var(--serif)", color: "var(--fg-soft)" }}>
-          Billed monthly · cancel any time · every new shop starts with a 7-day trial we set up for you.
+          Billed monthly · cancel any time · every new shop starts with a 7-day trial, no card asked for.
         </span>
         <span style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
           One project is one photo turned into a room you can paint, and it covers the

@@ -41,7 +41,7 @@ export function PricingPreview() {
           </div>
         ))}
       </div>
-      <Mono style={{ display: "block", marginTop: 24 }}>Every new shop starts with a 7-day trial · no card · we set you up</Mono>
+      <Mono style={{ display: "block", marginTop: 24 }}>Every new shop starts with a 7-day trial · no card · open within a day</Mono>
     </section>
   );
 }

@@ -12,7 +12,7 @@ const services = (shades: number | null) => [
   {
     kicker: "Pricing",
     title: "Priced for paint shops",
-    desc: `A ${TRIAL_DAYS}-day trial to start — no card needed, and we set it up for you.`,
+    desc: `A ${TRIAL_DAYS}-day trial to start — no card needed, and the account opens within a day.`,
     tone: "terracotta",
     href: "/pricing",
   },

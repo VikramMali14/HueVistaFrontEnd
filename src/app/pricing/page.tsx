@@ -105,7 +105,7 @@ export default async function PricingPage() {
     : "Every shade, every code intact";
   return (
     <>
-      <Marquee items={["Pricing · For retailers, not consumers", `${TRIAL_DAYS}-day trial · no card · we set you up`, catalogueLine]} />
+      <Marquee items={["Pricing · For retailers, not consumers", `${TRIAL_DAYS}-day trial · no card · open within a day`, catalogueLine]} />
       <SiteHeader />
       <main>
         <RevealMount />
@@ -115,7 +115,7 @@ export default async function PricingPage() {
             <Mono>Built for retailers · not consumers</Mono>
           </div>
           <h1 className="display">For retailers,<br /><i>not consumers.</i></h1>
-          <Lead className="page-lead">Three tiers, each tuned to a different counter. Every new shop starts with {TRIAL_DAYS} unbilled days — request an account and we set you up. Cancel quietly when you wish.</Lead>
+          <Lead className="page-lead">Three tiers, each tuned to a different counter. Every new shop starts with {TRIAL_DAYS} unbilled days — request an account, confirm your email, and it opens within a day. Cancel quietly when you wish.</Lead>
           <PricingTiers isCustomer={isCustomer} />
         </header>
 
@@ -177,12 +177,17 @@ export default async function PricingPage() {
                     )),
                   ])}
                   {/* This row lives on the always-dark band, so the buttons use
-                      fixed ivory/brass values rather than tokens. */}
+                      fixed ivory/brass values rather than tokens.
+
+                      Labelled "Start free", not "Request account": every column
+                      leads to the same free account, and a per-tier "Request"
+                      button reads as a way to ask for that tier. You buy the tier
+                      from inside the app once you have the account. */}
                   <tr key="cta">
                     <td style={ctaCellStyle} />
-                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Request account</Link></td>
-                    <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#0a0a0f" }}>Request account</Link></td>
-                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Request account</Link></td>
+                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
+                    <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#0a0a0f" }}>Start free</Link></td>
+                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
                   </tr>
                 </tbody>
                 </table>

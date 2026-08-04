@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, networkApi, HttpError } from "./api";
-import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult, ShadeUploadResult, ShopLeadRow, ShopLeadStatus, UploadBrand } from "./api";
+import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult, DistributorOption, ShadeUploadResult, ShopLeadRow, UploadBrand } from "./api";
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import { canUseFeature } from "./features";
@@ -392,7 +392,9 @@ export async function createRetailerAction(
       city: str("city"),
       state: str("state"),
       phone: str("phone"),
-      tier: str("tier"),
+      // Blank = the house distributor. No tier is sent: every shop is created
+      // free and buys a plan from inside the app if it wants one.
+      distributorOrgId: str("distributorOrgId"),
     });
     return { ok: true };
   } catch (err) {
@@ -487,7 +489,6 @@ export async function createNetworkRetailerAction(
       city: str("city"),
       state: str("state"),
       phone: str("phone"),
-      tier: str("tier"),
       brandsUnrestricted,
       brandIds: brandsUnrestricted ? [] : brandIds,
       featuresUnrestricted,
@@ -678,19 +679,57 @@ export async function getShopLeads(): Promise<ShopLeadRow[] | null> {
   }
 }
 
-/** ADMIN: work a lead — mark it contacted / converted / dismissed. */
-export async function updateShopLeadStatusAction(
+/**
+ * ADMIN: create the account a verified request asked for — the one-click path.
+ * Everything comes off the request itself; the only decision is which
+ * distributor the shop belongs under (omitted = the house one).
+ */
+export async function approveShopLeadAction(
   leadId: string,
-  status: ShopLeadStatus,
+  distributorOrgId?: string,
 ): Promise<{ lead?: ShopLeadRow; error?: string }> {
   "use server";
   const token = await getAccessToken();
   if (!token) return { error: "Your session expired — please sign in again." };
   try {
-    return { lead: await adminApi.updateShopLeadStatus(token, leadId, status) };
+    return { lead: await adminApi.approveShopLead(token, leadId, distributorOrgId || undefined) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 409) return { error: err.message };
+      return { error: err.message };
+    }
+    return { error: "Could not create the account. Please try again." };
+  }
+}
+
+/** ADMIN: turn a request down. Nothing is created and the stored hash is dropped. */
+export async function dismissShopLeadAction(
+  leadId: string,
+): Promise<{ lead?: ShopLeadRow; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { lead: await adminApi.dismissShopLead(token, leadId) };
   } catch (err) {
     if (err instanceof HttpError) return { error: err.message };
-    return { error: "Could not update the lead. Please try again." };
+    return { error: "Could not dismiss the request. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: the distributors a shop can be filed under, house org first. NULL on
+ * failure so the form can say the picker is unavailable rather than silently
+ * offering nothing and filing every shop under the house distributor.
+ */
+export async function getDistributorOptions(): Promise<DistributorOption[] | null> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    return await adminApi.listDistributors(token);
+  } catch {
+    return null;
   }
 }
 

@@ -112,14 +112,9 @@ export function NetworkCreateRetailerForm() {
           <label className="field-label" htmlFor="nr-state">State</label>
           <select id="nr-state" name="state" defaultValue="Karnataka">{STATES.map((s) => <option key={s}>{s}</option>)}</select>
         </div>
-        <div className="field">
-          <label className="field-label" htmlFor="nr-tier">Plan tier</label>
-          <select id="nr-tier" name="tier" defaultValue="pro">
-            <option value="starter">Starter</option>
-            <option value="pro">Professional</option>
-            <option value="business">Business</option>
-          </select>
-        </div>
+        {/* No plan tier is chosen here. Every shop opens on the free plan and buys
+            one itself from inside the app — a creation form that could hand out paid
+            quota is a way to give the product away by accident. */}
       </div>
 
       {(brands.length > 0 || features.length > 0) && (

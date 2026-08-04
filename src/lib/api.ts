@@ -228,7 +228,12 @@ export const entitlementApi = {
     serverFetch<CustomerEntitlement | null>("/api/me/entitlement", { accessToken }),
 };
 
-/** A shop owner's request for a retailer account (public lead form on /trial). */
+/**
+ * A shop owner's request for a retailer account (public form on /trial).
+ *
+ * Carries the password they will sign in with, typed twice. No plan is asked
+ * for — every shop is created free and buys a plan later if it wants one.
+ */
 export interface ShopLeadPayload {
   name: string;
   email: string;
@@ -236,21 +241,52 @@ export interface ShopLeadPayload {
   shopName: string;
   city?: string;
   state?: string;
-  tier?: string;
+  password: string;
+  confirmPassword: string;
   notes?: string;
 }
 
+/** What the request funnel reports back after each step. */
+export interface ShopRequestStatus {
+  requestId: string;
+  /** Masked, e.g. `p***@mehtapaints.in`. */
+  email: string;
+  expiresInSeconds: number;
+  cooldownSeconds: number;
+  status: "PENDING_EMAIL" | "AWAITING_APPROVAL" | string;
+}
+
 /**
- * Public shop-account lead submission — server action only (no auth). The
- * backend stores the lead for the admin queue and pings the admin inbox.
+ * Public shop-account request funnel — server actions only (no auth).
+ *
+ * Three steps: submit stores the request and emails a code, verify confirms the
+ * mailbox and queues it, resend sends another code. No account exists until an
+ * admin approves the queued request (or the 24-hour deadline does).
  */
 export const leadApi = {
   submitShopLead: (body: ShopLeadPayload, clientIp?: string) =>
-    serverFetch<{ id: string; status: string }>("/api/leads/shop", {
+    serverFetch<ShopRequestStatus>("/api/leads/shop", {
       method: "POST",
       body: JSON.stringify(body),
       headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
     }),
+  verifyShopRequest: (requestId: string, code: string, clientIp?: string) =>
+    serverFetch<ShopRequestStatus>(
+      `/api/leads/shop/${encodeURIComponent(requestId)}/verify`,
+      {
+        method: "POST",
+        body: JSON.stringify({ code }),
+        headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+      },
+    ),
+  resendShopRequestCode: (requestId: string, clientIp?: string) =>
+    serverFetch<ShopRequestStatus>(
+      `/api/leads/shop/${encodeURIComponent(requestId)}/resend`,
+      {
+        method: "POST",
+        headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+      },
+    ),
 };
 
 /**
@@ -290,7 +326,9 @@ export const adminApi = {
       city?: string;
       state?: string;
       phone?: string;
-      tier?: string;
+      // Which distributor the shop belongs under. Omitted = the house distributor,
+      // so a shop is never created outside the network.
+      distributorOrgId?: string;
     },
   ) =>
     serverFetch<{ id: string; name: string; email: string; role: string }>("/api/admin/retailers", {
@@ -364,12 +402,22 @@ export const adminApi = {
   // Shop-account request queue (public /trial form feeds it).
   listShopLeads: (accessToken: string) =>
     serverFetch<ShopLeadRow[]>("/api/admin/leads", { accessToken }),
-  updateShopLeadStatus: (accessToken: string, leadId: string, status: ShopLeadStatus) =>
-    serverFetch<ShopLeadRow>(`/api/admin/leads/${encodeURIComponent(leadId)}/status`, {
-      method: "PATCH",
+  // One click: turn a verified request into a shop account under `distributorOrgId`
+  // (omitted = the house distributor).
+  approveShopLead: (accessToken: string, leadId: string, distributorOrgId?: string) =>
+    serverFetch<ShopLeadRow>(`/api/admin/leads/${encodeURIComponent(leadId)}/approve`, {
+      method: "POST",
       accessToken,
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(distributorOrgId ? { distributorOrgId } : {}),
     }),
+  dismissShopLead: (accessToken: string, leadId: string) =>
+    serverFetch<ShopLeadRow>(`/api/admin/leads/${encodeURIComponent(leadId)}/dismiss`, {
+      method: "POST",
+      accessToken,
+    }),
+  // Distributors a shop can be filed under, house org first.
+  listDistributors: (accessToken: string) =>
+    serverFetch<DistributorOption[]>("/api/admin/distributors", { accessToken }),
   // A user's active (or most recent) subscription. 404 (HttpError) when they have none.
   getUserSubscription: (accessToken: string, userId: string) =>
     serverFetch<import("./types").SubscriptionSummary>(
@@ -418,7 +466,6 @@ export const networkApi = {
       city?: string;
       state?: string;
       phone?: string;
-      tier?: string;
       // Access granted as part of setting the shop up. Both default to
       // unrestricted on the backend, so omitting them creates a shop with the
       // run of the whole product — the behaviour before this existed.
@@ -519,8 +566,22 @@ export interface AuditLogRow {
   createdAt?: string | null;
 }
 
-/** A shop-account request as the admin queue sees it. */
-export type ShopLeadStatus = "NEW" | "CONTACTED" | "CONVERTED" | "DISMISSED";
+/**
+ * A shop-account request as the admin queue sees it. Carries everything the
+ * owner filled in — the queue exists so an admin reads it and presses one
+ * button, rather than retyping it into the creation form.
+ *
+ * NEW / CONTACTED / CONVERTED are the statuses of the old call-back funnel and
+ * only appear on rows written before the current flow existed.
+ */
+export type ShopLeadStatus =
+  | "PENDING_EMAIL"
+  | "AWAITING_APPROVAL"
+  | "APPROVED"
+  | "DISMISSED"
+  | "NEW"
+  | "CONTACTED"
+  | "CONVERTED";
 export interface ShopLeadRow {
   id: string;
   name: string;
@@ -529,10 +590,36 @@ export interface ShopLeadRow {
   shopName: string;
   city?: string | null;
   state?: string | null;
+  /** Legacy — the old funnel asked which plan they wanted; this one does not. */
   tier?: string | null;
   notes?: string | null;
   status: ShopLeadStatus;
   createdAt?: string;
+  emailVerified: boolean;
+  /** True when "Create account" is the only thing left to do. */
+  readyToCreate: boolean;
+  /** When the request provisions itself if nobody acts. */
+  autoApproveAt?: string | null;
+  hoursUntilAutoCreate?: number | null;
+  distributorOrgId?: string | null;
+  distributorName?: string | null;
+  createdUserId?: string | null;
+  approvedAt?: string | null;
+  /** True when the 24-hour deadline created the account, not a person. */
+  autoApproved: boolean;
+}
+
+/** A distributor an admin can file a shop under. */
+export interface DistributorOption {
+  orgId: string;
+  name: string;
+  city?: string | null;
+  state?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  shopCount: number;
+  /** The platform's own distributor — the default, listed first. */
+  house: boolean;
 }
 
 /** A company as shown in the shade-upload dropdown. */
