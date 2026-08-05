@@ -49,7 +49,28 @@ function demoPainterNode(name: string, email: string, joinedAt: string): Network
   return {
     userId: `usr_${email}`, name, email, phone: null, role: "PAINTER", joinedAt,
     orgId: null, orgName: null, city: null, state: null,
-    retailerCount: 0, painterCount: 0, codesIssued: 0, codesRedeemed: 0, children: [],
+    retailerCount: 0, painterCount: 0, customerCount: 0, codesIssued: 0, codesRedeemed: 0, children: [],
+  };
+}
+
+/**
+ * A walk-in the demo shop signed up. The three below are deliberately one of each
+ * state the customers table separates — working, never started, lapsed — so the
+ * demo shows what the Activity filter is for rather than three identical rows.
+ */
+function demoCustomerNode(
+  name: string,
+  joinedAt: string,
+  used: number,
+  allowance: number,
+  accessExpiresAt: string,
+): NetworkNode {
+  return {
+    userId: `usr_cust_${name.toLowerCase().replace(/\s+/g, "_")}`,
+    name, email: null, phone: null, role: "CUSTOMER", joinedAt,
+    orgId: null, orgName: null, city: null, state: null,
+    retailerCount: 0, painterCount: 0, customerCount: 0, codesIssued: 0, codesRedeemed: 0,
+    projectAllowance: allowance, projectsUsed: used, accessExpiresAt, children: [],
   };
 }
 
@@ -58,12 +79,18 @@ function demoShopNode(): NetworkNode {
     demoPainterNode("Santosh Pawar", "santosh.pawar@gmail.com", "2026-03-14T10:00:00+05:30"),
     demoPainterNode("Imran Shaikh", "imran.shaikh@gmail.com", "2026-04-02T10:00:00+05:30"),
   ];
+  const customers = [
+    demoCustomerNode("Anjali Deshpande", "2026-06-18T11:00:00+05:30", 2, 3, "2026-09-18T11:00:00+05:30"),
+    demoCustomerNode("Farhan Qureshi", "2026-07-02T16:20:00+05:30", 0, 1, "2026-10-02T16:20:00+05:30"),
+    demoCustomerNode("Meera Nair", "2026-01-09T13:45:00+05:30", 1, 1, "2026-04-09T13:45:00+05:30"),
+  ];
   return {
     userId: "usr_mehta", name: "Rajesh Mehta", email: "rajesh@mehtapaints.in", phone: "+91 98860 12345",
     role: "RETAILER", joinedAt: "2025-11-02T09:30:00+05:30",
     orgId: "org_demo", orgName: "Mehta Paints", city: "Pune", state: "Maharashtra",
-    retailerCount: 0, painterCount: painters.length, codesIssued: 3, codesRedeemed: 1,
-    assignedBrands: assignedBrandNames("org_demo"), children: painters,
+    retailerCount: 0, painterCount: painters.length, customerCount: customers.length,
+    codesIssued: 3, codesRedeemed: 1,
+    assignedBrands: assignedBrandNames("org_demo"), children: [...painters, ...customers],
   };
 }
 
@@ -72,7 +99,10 @@ function demoNetworkReport(role: DemoRole): NetworkReport {
   if (role === "RETAILER") {
     return {
       viewerRole: "RETAILER",
-      totals: { painters: shop.painterCount, codesIssued: shop.codesIssued, codesRedeemed: shop.codesRedeemed },
+      totals: {
+        painters: shop.painterCount, customers: shop.customerCount,
+        codesIssued: shop.codesIssued, codesRedeemed: shop.codesRedeemed,
+      },
       roots: [shop],
     };
   }
@@ -81,12 +111,13 @@ function demoNetworkReport(role: DemoRole): NetworkReport {
     userId: "usr_vaibhav", name: "Vaibhav Kulkarni", email: "vaibhav@apexdistributors.in",
     phone: "+91 98220 33445", role: "DISTRIBUTOR", joinedAt: "2025-10-01T09:00:00+05:30",
     orgId: "org_dist_demo", orgName: "Apex Paint Distributors", city: "Pune", state: "Maharashtra",
-    retailerCount: 1, painterCount: shop.painterCount, codesIssued: shop.codesIssued,
-    codesRedeemed: shop.codesRedeemed, children: [shop],
+    retailerCount: 1, painterCount: shop.painterCount, customerCount: shop.customerCount,
+    codesIssued: shop.codesIssued, codesRedeemed: shop.codesRedeemed, children: [shop],
   };
   return {
     viewerRole: "ADMIN",
-    totals: { distributors: 1, retailers: 1, painters: shop.painterCount, customers: 3,
+    totals: { distributors: 1, retailers: 1, painters: shop.painterCount,
+      customers: shop.customerCount,
       codesIssued: shop.codesIssued, codesRedeemed: shop.codesRedeemed },
     roots: [distributor],
   };

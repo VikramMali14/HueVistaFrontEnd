@@ -40,10 +40,33 @@ export interface NetworkNode {
   orgName?: string | null;
   city?: string | null;
   state?: string | null;
+  /**
+   * DISTRIBUTOR nodes: the platform's own "house" distributor, which carries every
+   * shop no partner distributor brought in.
+   *
+   * It is a real distributor organization in the tree but not a distributor ACCOUNT,
+   * which is why the distributor total does not count it — the flag is what lets the
+   * report say so instead of showing an unexplained extra branch.
+   */
+  house?: boolean;
   retailerCount: number;
   painterCount: number;
+  /** Customers in this subtree — the walk-ins a shop onboarded with an access code. */
+  customerCount: number;
   codesIssued: number;
   codesRedeemed: number;
+
+  /**
+   * CUSTOMER nodes: projects the shop gave them, and how many they have used.
+   *
+   * Read as a pair — it is what tells a working customer from a code that was
+   * redeemed and never touched. `projectsUsed` never falls: deleting a project
+   * does not hand the slot back.
+   */
+  projectAllowance?: number | null;
+  projectsUsed?: number | null;
+  /** CUSTOMER nodes: when their access lapses. Past dates are shown, not hidden. */
+  accessExpiresAt?: string | null;
   /**
    * Paint brands a distributor granted this shop (RETAILER nodes). Read it with
    * `brandsRestricted` — an empty list means "all brands" when the shop is

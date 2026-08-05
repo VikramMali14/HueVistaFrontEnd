@@ -418,6 +418,17 @@ export const adminApi = {
   // Distributors a shop can be filed under, house org first.
   listDistributors: (accessToken: string) =>
     serverFetch<DistributorOption[]>("/api/admin/distributors", { accessToken }),
+  // Re-file a shop under another distributor (omit = the house one). The previous
+  // distributor's brand/page grants are cleared server-side — they were theirs to make.
+  moveRetailer: (accessToken: string, retailerOrgId: string, distributorOrgId?: string) =>
+    serverFetch<OrgResponse>(
+      `/api/admin/retailers/${encodeURIComponent(retailerOrgId)}/distributor`,
+      {
+        method: "PUT",
+        accessToken,
+        body: JSON.stringify(distributorOrgId ? { distributorOrgId } : {}),
+      },
+    ),
   // A user's active (or most recent) subscription. 404 (HttpError) when they have none.
   getUserSubscription: (accessToken: string, userId: string) =>
     serverFetch<import("./types").SubscriptionSummary>(
