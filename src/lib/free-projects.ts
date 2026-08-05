@@ -6,6 +6,7 @@ import type {
   PublishFreeProjectBody,
   PublishableProject,
   StartedFreeProject,
+  TemplateDeletionResult,
 } from "./api";
 import { getAccessToken } from "./auth";
 
@@ -101,20 +102,29 @@ export async function setFreeProjectPublishedAction(
 }
 
 /**
- * Take a template off the shelf. The stored photo and masks are KEPT: copies
- * already in people's accounts point at those exact files and would go blank.
+ * Take one or more templates off the shelf.
+ *
+ * {@code purgeFiles} is the whole decision. Left off (the default) the stored
+ * photo and masks stay where they are, so every copy anyone already opened keeps
+ * working — the template is simply no longer on the shelf. Turned on, those
+ * shared files go, and every copy pointing at them loses its picture. The caller
+ * has to pass it deliberately; there is no way to purge by accident.
  */
-export async function deleteFreeProjectAction(
-  templateId: string,
-): Promise<{ ok?: true; error?: string }> {
+export async function deleteFreeProjectsAction(
+  templateIds: string[],
+  purgeFiles: boolean,
+): Promise<{ result?: TemplateDeletionResult; error?: string }> {
   const token = await getAccessToken();
   if (!token) return { error: "Your session expired — please sign in again." };
+  if (templateIds.length === 0) return { error: "Nothing selected." };
   try {
-    await adminApi.deleteFreeProject(token, templateId, false);
-    return { ok: true };
+    return { result: await adminApi.deleteFreeProjects(token, templateIds, purgeFiles) };
   } catch (err) {
-    if (err instanceof HttpError) return { error: err.message };
-    return { error: "Could not delete the template. Please try again." };
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "Admin access is required." };
+      return { error: err.message };
+    }
+    return { error: "Could not remove the rooms. Please try again." };
   }
 }
 

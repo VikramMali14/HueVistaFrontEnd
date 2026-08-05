@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import {
-  deleteFreeProjectAction,
+  deleteFreeProjectsAction,
   getFreeProjectSources,
   getFreeProjects,
   publishFreeProjectAction,
@@ -79,6 +79,12 @@ export default async function AdminFreeProjectsPage() {
             Copies are ordinary projects once opened — people repaint, save and share them
             normally, and deleting a copy leaves the library untouched.
           </li>
+          <li>
+            Removing a room asks which you mean: <strong>take it off the shelf</strong> and the
+            stored files stay, so every copy already open keeps working; <strong>delete the
+            files too</strong> and the storage is freed, but the copies pointing at them lose
+            their picture. The count of live copies is shown before you choose.
+          </li>
         </ul>
       </div>
 
@@ -88,7 +94,7 @@ export default async function AdminFreeProjectsPage() {
         publishAction={publishFreeProjectAction}
         startAction={startFreeProjectAction}
         setPublishedAction={setFreeProjectPublishedAction}
-        deleteAction={deleteFreeProjectAction}
+        deleteAction={deleteFreeProjectsAction}
       />
     </div>
   );

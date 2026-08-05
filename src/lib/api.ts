@@ -477,10 +477,18 @@ export const adminApi = {
   // purgeFiles deletes the shared photo and masks, which blanks out every copy
   // anyone already started — left false unless explicitly asked for.
   deleteFreeProject: (accessToken: string, templateId: string, purgeFiles = false) =>
-    serverFetch<void>(
+    serverFetch<TemplateRemoved>(
       `/api/admin/free-projects/${encodeURIComponent(templateId)}?purgeFiles=${purgeFiles}`,
       { method: "DELETE", accessToken },
     ),
+  // The same over a selection. Each is removed independently, so one that has
+  // already gone is reported rather than abandoning the rest.
+  deleteFreeProjects: (accessToken: string, templateIds: string[], purgeFiles = false) =>
+    serverFetch<TemplateDeletionResult>("/api/admin/free-projects/delete", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({ templateIds, purgeFiles }),
+    }),
 };
 
 /** Interiors are shelved by room; exteriors by style. */
@@ -512,11 +520,33 @@ export interface FreeProjectTemplate {
   imageHeight?: number | null;
   published: boolean;
   displayOrder: number;
+  /** Only ever counts up — includes copies people have since deleted. */
   timesUsed: number;
   regionCount: number;
+  /**
+   * Copies alive right now still pointing at this template's stored files — so,
+   * exactly how many rooms would go blank if those files were deleted.
+   */
+  copiesInUse: number;
   regions: FreeProjectTemplateRegion[];
   sourceProjectId?: string | null;
   createdAt?: string | null;
+}
+
+/** One template removed, and what it cost. */
+export interface TemplateRemoved {
+  id: string;
+  title: string;
+  filesPurged: number;
+  copiesBroken: number;
+}
+
+/** The outcome of removing a selection. */
+export interface TemplateDeletionResult {
+  removed: TemplateRemoved[];
+  failed: { id: string; reason: string }[];
+  filesPurged: number;
+  copiesBroken: number;
 }
 
 /** One of the admin's projects, offered as the source for a new template. */

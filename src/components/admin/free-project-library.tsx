@@ -11,6 +11,7 @@ import type {
   PublishFreeProjectBody,
   PublishableProject,
   StartedFreeProject,
+  TemplateDeletionResult,
   TemplateSpace,
 } from "@/lib/api";
 
@@ -22,7 +23,10 @@ interface FreeProjectLibraryProps {
   publishAction: (input: PublishFreeProjectBody) => Promise<{ template?: FreeProjectTemplate; error?: string }>;
   startAction: (templateId: string) => Promise<{ started?: StartedFreeProject; error?: string }>;
   setPublishedAction: (templateId: string, published: boolean) => Promise<{ template?: FreeProjectTemplate; error?: string }>;
-  deleteAction: (templateId: string) => Promise<{ ok?: true; error?: string }>;
+  deleteAction: (
+    templateIds: string[],
+    purgeFiles: boolean,
+  ) => Promise<{ result?: TemplateDeletionResult; error?: string }>;
 }
 
 const SPACES: readonly TemplateSpace[] = ["INTERIOR", "EXTERIOR"];
@@ -79,6 +83,11 @@ export function FreeProjectLibrary({
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Ticked rooms. Survives switching between interiors and exteriors, so a
+  // selection can span both — the toolbar always says how many are held.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  /** The rooms a confirmation is currently open for. Null = no dialog. */
+  const [confirming, setConfirming] = useState<FreeProjectTemplate[] | null>(null);
 
   const eligibleSources = useMemo(() => (sources ?? []).filter((p) => p.eligible), [sources]);
 
@@ -141,20 +150,54 @@ export function FreeProjectLibrary({
     });
   }
 
-  function handleDelete(template: FreeProjectTemplate) {
-    const ok = window.confirm(
-      `Remove "${template.title}" from the library?\n\n` +
-        "Anyone who already opened a copy keeps it, and their room keeps working — " +
-        "the stored photo and masks stay where they are. This only takes it off the shelf.",
-    );
-    if (!ok) return;
-    run(template.id, () => deleteAction(template.id), (res) => {
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const selectedTemplates = useMemo(
+    () => templates.filter((t) => selected.has(t.id)),
+    [templates, selected],
+  );
+
+  /** Confirm before anything is removed — one room or a whole selection. */
+  function askToRemove(items: FreeProjectTemplate[]) {
+    if (items.length === 0) return;
+    setError(null);
+    setNotice(null);
+    setConfirming(items);
+  }
+
+  function handleRemove(items: FreeProjectTemplate[], purgeFiles: boolean) {
+    const ids = items.map((t) => t.id);
+    run(ids.length === 1 ? (ids[0] ?? null) : null, () => deleteAction(ids, purgeFiles), (res) => {
+      setConfirming(null);
       if (res.error) {
         setError(res.error);
         return;
       }
-      setTemplates((prev) => prev.filter((t) => t.id !== template.id));
-      setNotice(`"${template.title}" is off the shelf.`);
+      const result = res.result;
+      if (!result) return;
+      const goneIds = new Set(result.removed.map((r) => r.id));
+      setTemplates((prev) => prev.filter((t) => !goneIds.has(t.id)));
+      setSelected((prev) => new Set([...prev].filter((id) => !goneIds.has(id))));
+
+      const count = result.removed.length;
+      const roomWord = `${count} room${count === 1 ? "" : "s"}`;
+      let message = purgeFiles
+        ? `${roomWord} removed, along with ${result.filesPurged} stored file${result.filesPurged === 1 ? "" : "s"}.`
+        : `${roomWord} off the shelf. The stored files stayed, so every copy already opened still works.`;
+      if (purgeFiles && result.copiesBroken > 0) {
+        message += ` ${result.copiesBroken} copy/copies that were pointing at those files have lost their picture.`;
+      }
+      if (result.failed.length > 0) {
+        message += ` ${result.failed.length} could not be removed.`;
+      }
+      setNotice(message);
     });
   }
 
@@ -207,6 +250,40 @@ export function FreeProjectLibrary({
           </Mono>
         </div>
 
+        {confirming && (
+          <RemoveConfirm
+            items={confirming}
+            busy={pending}
+            onCancel={() => setConfirming(null)}
+            onConfirm={(purgeFiles) => handleRemove(confirming, purgeFiles)}
+          />
+        )}
+
+        {selected.size > 0 && !confirming && (
+          <div
+            style={{
+              marginTop: 20,
+              padding: "12px 16px",
+              border: "1px solid var(--accent-soft)",
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: "10px 16px",
+              flexWrap: "wrap",
+            }}
+          >
+            <Mono style={{ color: "var(--fg-soft)" }}>
+              {selected.size} selected
+            </Mono>
+            <Button size="sm" onClick={() => askToRemove(selectedTemplates)} disabled={pending}>
+              Remove selected
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={pending}>
+              Clear
+            </Button>
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
           {SPACES.map((s) => {
             const count = templates.filter((t) => t.space === s).length;
@@ -246,6 +323,32 @@ export function FreeProjectLibrary({
               >
                 {shelf.items.length} of {TARGET_PER_SHELF}
               </Mono>
+              {shelf.items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ids = shelf.items.map((t) => t.id);
+                    const allHeld = ids.every((id) => selected.has(id));
+                    setSelected((prev) => {
+                      const next = new Set(prev);
+                      ids.forEach((id) => (allHeld ? next.delete(id) : next.add(id)));
+                      return next;
+                    });
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    font: "500 11px/1 var(--mono)",
+                    letterSpacing: ".1em",
+                    textTransform: "uppercase",
+                    color: "var(--accent-soft)",
+                  }}
+                >
+                  {shelf.items.every((t) => selected.has(t.id)) ? "Deselect all" : "Select all"}
+                </button>
+              )}
             </div>
 
             {shelf.items.length === 0 ? (
@@ -269,9 +372,11 @@ export function FreeProjectLibrary({
                     template={t}
                     busy={pending && busyId === t.id}
                     disabled={pending}
+                    selected={selected.has(t.id)}
+                    onToggleSelect={() => toggleSelect(t.id)}
                     onStart={() => handleStart(t)}
                     onTogglePublished={() => handleTogglePublished(t)}
-                    onDelete={() => handleDelete(t)}
+                    onDelete={() => askToRemove([t])}
                   />
                 ))}
               </div>
@@ -287,6 +392,8 @@ function TemplateCard({
   template,
   busy,
   disabled,
+  selected,
+  onToggleSelect,
   onStart,
   onTogglePublished,
   onDelete,
@@ -294,14 +401,42 @@ function TemplateCard({
   template: FreeProjectTemplate;
   busy: boolean;
   disabled: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
   onStart: () => void;
   onTogglePublished: () => void;
   onDelete: () => void;
 }) {
   const src = resolveMediaUrl(template.imageUrl);
   return (
-    <article style={CARD}>
+    <article style={{ ...CARD, outline: selected ? "2px solid var(--accent-soft)" : undefined }}>
       <div style={{ position: "relative", aspectRatio: "4 / 3", background: "var(--surface)" }}>
+        <label
+          title="Select this room"
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            zIndex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 30,
+            height: 30,
+            borderRadius: 6,
+            cursor: "pointer",
+            background: "var(--surface)",
+            border: `1px solid ${selected ? "var(--accent-soft)" : "var(--rule-strong)"}`,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            aria-label={`Select ${template.title}`}
+            style={{ cursor: "pointer", margin: 0 }}
+          />
+        </label>
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element -- backend-signed URL, not a static asset
           <img
@@ -337,6 +472,7 @@ function TemplateCard({
           <h4 style={{ font: "400 18px/1.3 var(--serif)", margin: 0 }}>{template.title}</h4>
           <Mono style={{ color: "var(--fg-mute)", display: "block", marginTop: 6 }}>
             {template.regionCount} wall{template.regionCount === 1 ? "" : "s"} · opened {template.timesUsed}×
+            {template.copiesInUse > 0 && ` · ${template.copiesInUse} copy/copies live`}
           </Mono>
         </div>
 
@@ -359,6 +495,125 @@ function TemplateCard({
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * The removal choice, spelled out rather than hidden behind a checkbox.
+ *
+ * There are two different operations here and only one of them is reversible in
+ * any practical sense. Taking a room off the shelf stops anyone opening a new
+ * copy and changes nothing for the people already holding one. Deleting the
+ * stored files ALSO takes the picture away from every one of those copies —
+ * they share the file, that is the entire point of the design — so the count of
+ * live copies is put in front of the button, and that button is the second one,
+ * not the default.
+ */
+function RemoveConfirm({
+  items,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  items: FreeProjectTemplate[];
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (purgeFiles: boolean) => void;
+}) {
+  const copies = items.reduce((sum, t) => sum + t.copiesInUse, 0);
+  const files = items.reduce((sum, t) => sum + t.regionCount + 1, 0);
+  const what =
+    items.length === 1 ? `“${items[0]?.title ?? ""}”` : `${items.length} rooms`;
+
+  return (
+    <div
+      role="alertdialog"
+      aria-label="Remove from the library"
+      style={{
+        marginTop: 20,
+        padding: "20px 22px",
+        border: "1px solid var(--rule-strong)",
+        borderRadius: 8,
+        background: "var(--surface-soft)",
+      }}
+    >
+      <h3 style={{ font: "400 20px/1.3 var(--serif)", margin: "0 0 8px" }}>Remove {what}?</h3>
+      <p style={{ margin: "0 0 18px", font: "300 15px/1.7 var(--serif)", color: "var(--fg-soft)", maxWidth: "62ch" }}>
+        {copies > 0 ? (
+          <>
+            {copies} copy/copies of {items.length === 1 ? "this room" : "these rooms"} {copies === 1 ? "is" : "are"}{" "}
+            open in people&apos;s accounts right now, sharing the same stored photo and masks.
+          </>
+        ) : (
+          <>Nobody is holding a copy of {items.length === 1 ? "this room" : "these rooms"} at the moment.</>
+        )}
+      </p>
+
+      <div style={{ display: "grid", gap: 12 }}>
+        <div
+          style={{
+            padding: "14px 16px",
+            border: "1px solid var(--rule)",
+            borderRadius: 6,
+            background: "var(--surface)",
+          }}
+        >
+          <Button onClick={() => onConfirm(false)} disabled={busy}>
+            {busy ? "Removing…" : "Take off the shelf"}
+          </Button>
+          <p style={{ margin: "10px 0 0", font: "300 14px/1.6 var(--serif)", color: "var(--fg-soft)" }}>
+            Keeps the stored files. Nobody can start a new copy, and every copy already
+            open carries on working exactly as it does now. This is almost always the one
+            you want.
+          </p>
+        </div>
+
+        <div
+          style={{
+            padding: "14px 16px",
+            border: `1px solid ${copies > 0 ? "var(--accent-soft)" : "var(--rule)"}`,
+            borderRadius: 6,
+            background: "var(--surface)",
+          }}
+        >
+          <Button variant="ghost" onClick={() => onConfirm(true)} disabled={busy}>
+            {busy ? "Removing…" : `Delete the stored files too (${files})`}
+          </Button>
+          <p style={{ margin: "10px 0 0", font: "300 14px/1.6 var(--serif)", color: "var(--fg-soft)" }}>
+            Frees the storage by deleting the photo and every mask.{" "}
+            {copies > 0 ? (
+              <strong>
+                The {copies} open cop{copies === 1 ? "y" : "ies"} point at these exact files and
+                will lose {copies === 1 ? "its" : "their"} picture.
+              </strong>
+            ) : (
+              <>Safe here — no copies are pointing at them.</>
+            )}{" "}
+            There is no undo.
+          </p>
+        </div>
+      </div>
+
+      <p style={{ marginTop: 16 }}>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            font: "500 12px/1 var(--mono)",
+            letterSpacing: ".1em",
+            textTransform: "uppercase",
+            color: "var(--fg-mute)",
+          }}
+        >
+          Cancel
+        </button>
+      </p>
+    </div>
   );
 }
 
