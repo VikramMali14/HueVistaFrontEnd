@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { HttpError, storeServerApi } from "@/lib/api";
 import { hasGuestSession } from "@/lib/auth";
 import type { StorePublicInfo } from "@/lib/types";
+import { Footer } from "@/components/layout/footer";
 import { StoreKiosk } from "./store-kiosk";
 
 export const metadata: Metadata = {
@@ -34,8 +35,19 @@ export default async function StoreKioskPage({ params }: Props) {
   // A customer who already paid (guest cookie still valid) can jump straight back in.
   const hasSession = await hasGuestSession();
   return (
-    <main style={{ maxWidth: 760, margin: "0 auto", padding: "64px var(--gutter) 120px" }}>
-      <StoreKiosk info={info} hasGuestSession={hasSession} />
-    </main>
+    <>
+      <main style={{ maxWidth: 760, margin: "0 auto", padding: "64px var(--gutter) 120px" }}>
+        <StoreKiosk info={info} hasGuestSession={hasSession} />
+      </main>
+      {/* The one page on this site where a member of the public — no account, nobody at
+          the counter to ask — hands over money. It carried no merchant identity and no
+          policy links at all: whose business is taking this payment, what the refund terms
+          are, how to reach a human. The footer is where all of that already lives, so it
+          belongs here more than on any other page.
+
+          Deliberately the footer and NOT SiteHeader: a kiosk should not offer a walk-in
+          customer a navigation bar to wander off into mid-purchase. */}
+      <Footer />
+    </>
   );
 }

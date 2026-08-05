@@ -130,8 +130,16 @@ export async function openStoreCheckout(
       amount: order.amount,
       currency: order.currency,
       order_id: order.orderId,
-      name: order.shopName || "HueVista",
-      description: "One room visualisation",
+      // ALWAYS the merchant of record, never the shop. HueVista sets this price,
+      // collects this payment and keeps all of it — the shop earns reward points, not a
+      // share (see the Terms, "In-store kiosk and reward points"). Putting the shop's
+      // name in the merchant slot said the shop was being paid, which is both untrue and
+      // exactly what a payment processor reads as collecting on behalf of third parties.
+      // The shop still names itself in the description, where it belongs.
+      name: "HueVista",
+      description: order.shopName
+        ? `One room visualisation · ${order.shopName}`
+        : "One room visualisation",
       theme: { color: "#7c5cff" },
       handler: async (resp: CheckoutSuccess) => {
         try {
