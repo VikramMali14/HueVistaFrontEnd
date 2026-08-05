@@ -47,7 +47,7 @@ export default function DeliveryPage() {
         </h1>
         <Lead style={{ marginTop: 20 }}>
           HueVista is delivered electronically and instantly. Nothing is shipped. Last updated
-          July 2026.
+          August 2026.
         </Lead>
         <div style={{ marginTop: 56, display: "flex", flexDirection: "column", gap: 36 }}>
           {SECTIONS.map((s) => (

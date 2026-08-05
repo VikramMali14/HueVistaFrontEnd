@@ -124,7 +124,13 @@ export default async function PricingPage() {
           <span aria-hidden>·</span>
           <span>UPI · cards · netbanking</span>
           <span aria-hidden>·</span>
-          <span>Cancel anytime — scenes kept 30 days</span>
+          {/* "scenes kept 30 days" was the only place on the site using that word, and it
+              did not match what the policies promise. The thirty days is an extra
+              project's EDIT window (Terms §8), not a retention period after cancelling —
+              and what the terms actually guarantee past that window is more generous:
+              the project stays viewable with its colours intact. State that instead;
+              a trust bar next to a price is the worst place to invent a term. */}
+          <span>Cancel anytime — projects stay viewable</span>
           <span aria-hidden>·</span>
           {/* Plan.GST_PERCENT is 0 — this runs as a non-GST-registered proprietorship,
               so the price on the card is the whole price. Say so rather than leave a

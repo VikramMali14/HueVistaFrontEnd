@@ -24,6 +24,7 @@ const COLUMNS = [
             { href: "/journal", label: "Journal" },
           ]
         : []),
+      { href: "/legal/about", label: "About us" },
       { href: "/legal/contact", label: "Contact" },
     ],
   },

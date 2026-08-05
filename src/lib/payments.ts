@@ -39,6 +39,28 @@ function loadCheckout(): Promise<void> {
   });
 }
 
+/**
+ * The card was charged, but confirming it with our server failed.
+ *
+ * This is the one failure in here that must never be told to "try again": the money has
+ * already left. Razorpay has the payment and the webhook will settle it, so a retry buys
+ * the same thing twice. Every verification step below raises THIS rather than a bare
+ * Error so callers can say so — the panel used to surface the raw message next to a
+ * live Pay button, which is how a failed activation turns into a double charge.
+ */
+export class PaymentVerificationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PaymentVerificationError";
+  }
+}
+
+function verificationFailed(e: unknown): PaymentVerificationError {
+  return new PaymentVerificationError(
+    e instanceof Error ? e.message : "Payment verification failed.",
+  );
+}
+
 interface SubscriptionCheckoutSuccess {
   razorpay_payment_id: string;
   razorpay_subscription_id: string;
@@ -91,7 +113,7 @@ export async function subscribeToPlan(plan: PurchasablePlan): Promise<boolean> {
           });
           resolve(true);
         } catch (e) {
-          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+          reject(verificationFailed(e));
         }
       },
       modal: { ondismiss: () => resolve(false) },
@@ -130,8 +152,16 @@ export async function openStoreCheckout(
       amount: order.amount,
       currency: order.currency,
       order_id: order.orderId,
-      name: order.shopName || "HueVista",
-      description: "One room visualisation",
+      // ALWAYS the merchant of record, never the shop. HueVista sets this price,
+      // collects this payment and keeps all of it — the shop earns reward points, not a
+      // share (see the Terms, "In-store kiosk and reward points"). Putting the shop's
+      // name in the merchant slot said the shop was being paid, which is both untrue and
+      // exactly what a payment processor reads as collecting on behalf of third parties.
+      // The shop still names itself in the description, where it belongs.
+      name: "HueVista",
+      description: order.shopName
+        ? `One room visualisation · ${order.shopName}`
+        : "One room visualisation",
       theme: { color: "#7c5cff" },
       handler: async (resp: CheckoutSuccess) => {
         try {
@@ -142,7 +172,7 @@ export async function openStoreCheckout(
           });
           resolve(true);
         } catch (e) {
-          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+          reject(verificationFailed(e));
         }
       },
       modal: { ondismiss: () => resolve(false) },
@@ -187,7 +217,7 @@ export async function buyPoints(
           });
           resolve(true);
         } catch (e) {
-          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+          reject(verificationFailed(e));
         }
       },
       modal: { ondismiss: () => resolve(false) },
@@ -235,7 +265,7 @@ export async function buyOneProject(
             }),
           );
         } catch (e) {
-          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+          reject(verificationFailed(e));
         }
       },
       modal: { ondismiss: () => resolve(null) },
@@ -282,7 +312,7 @@ export async function reopenProjectWithMoney(
             }),
           );
         } catch (e) {
-          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+          reject(verificationFailed(e));
         }
       },
       modal: { ondismiss: () => resolve(null) },
