@@ -39,6 +39,28 @@ function loadCheckout(): Promise<void> {
   });
 }
 
+/**
+ * The card was charged, but confirming it with our server failed.
+ *
+ * This is the one failure in here that must never be told to "try again": the money has
+ * already left. Razorpay has the payment and the webhook will settle it, so a retry buys
+ * the same thing twice. Every verification step below raises THIS rather than a bare
+ * Error so callers can say so — the panel used to surface the raw message next to a
+ * live Pay button, which is how a failed activation turns into a double charge.
+ */
+export class PaymentVerificationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PaymentVerificationError";
+  }
+}
+
+function verificationFailed(e: unknown): PaymentVerificationError {
+  return new PaymentVerificationError(
+    e instanceof Error ? e.message : "Payment verification failed.",
+  );
+}
+
 interface SubscriptionCheckoutSuccess {
   razorpay_payment_id: string;
   razorpay_subscription_id: string;
@@ -91,7 +113,7 @@ export async function subscribeToPlan(plan: PurchasablePlan): Promise<boolean> {
           });
           resolve(true);
         } catch (e) {
-          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+          reject(verificationFailed(e));
         }
       },
       modal: { ondismiss: () => resolve(false) },
@@ -150,7 +172,7 @@ export async function openStoreCheckout(
           });
           resolve(true);
         } catch (e) {
-          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+          reject(verificationFailed(e));
         }
       },
       modal: { ondismiss: () => resolve(false) },
@@ -195,7 +217,7 @@ export async function buyPoints(
           });
           resolve(true);
         } catch (e) {
-          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+          reject(verificationFailed(e));
         }
       },
       modal: { ondismiss: () => resolve(false) },
@@ -243,7 +265,7 @@ export async function buyOneProject(
             }),
           );
         } catch (e) {
-          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+          reject(verificationFailed(e));
         }
       },
       modal: { ondismiss: () => resolve(null) },
@@ -290,7 +312,7 @@ export async function reopenProjectWithMoney(
             }),
           );
         } catch (e) {
-          reject(e instanceof Error ? e : new Error("Payment verification failed."));
+          reject(verificationFailed(e));
         }
       },
       modal: { ondismiss: () => resolve(null) },

@@ -4,10 +4,30 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { HttpError } from "@/lib/http-error";
-import { buyPoints, subscribeToPlan } from "@/lib/payments";
+import { buyPoints, PaymentVerificationError, subscribeToPlan } from "@/lib/payments";
 import { formatLimit, isUnlimited } from "@/lib/plan-quota";
 import { PROJECT_VALID_DAYS } from "@/lib/project-validity";
+import { contact } from "@/lib/config";
 import type { PlanOption, PurchasablePlan, RewardPointsSummary, SubscriptionSummary } from "@/lib/types";
+
+/**
+ * What to put on screen when a purchase fails.
+ *
+ * The distinction that matters is whether the card was charged. Checkout never opening is
+ * a "try again"; the charge landing and only the CONFIRMATION failing is emphatically not
+ * — Razorpay already has the money and the webhook settles it, so paying again buys the
+ * same month twice. That second case used to surface as a bare error message beside a
+ * live Pay button, which is the worst possible thing to show someone who has just paid.
+ */
+function paymentErrorText(e: unknown, fallback: string): string {
+  if (e instanceof PaymentVerificationError) {
+    return `Your payment went through, but we couldn't confirm it here. Please do NOT pay
+            again — it will be applied automatically, usually within a few minutes. Refresh
+            this page shortly, and if it still hasn't appeared write to ${contact.billing}
+            with your payment reference and we'll sort it out.`.replace(/\s+/g, " ");
+  }
+  return e instanceof Error ? e.message : fallback;
+}
 
 interface SubscriptionPanelProps {
   initialSubscription: SubscriptionSummary | null;
@@ -263,7 +283,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
         window.location.assign(`/sign-in?next=${encodeURIComponent("/subscription")}`);
         return;
       }
-      setError(e instanceof Error ? e.message : "Could not start checkout. Please try again.");
+      setError(paymentErrorText(e, "Could not start checkout. Please try again."));
     } finally {
       setBusyPlan(null);
     }
@@ -284,7 +304,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
         router.refresh();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not complete the purchase.");
+      setError(paymentErrorText(e, "Could not complete the purchase."));
     } finally {
       setToppingUp(false);
     }
