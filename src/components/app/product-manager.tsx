@@ -390,7 +390,7 @@ export function ProductManager() {
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             {(["INTERIOR", "EXTERIOR"] as ProductCategory[]).map((c) => (
               <button key={c} type="button" onClick={() => setCategory(c)} aria-pressed={category === c}
-                style={{ padding: "8px 18px", cursor: "pointer", background: category === c ? "var(--accent)" : "transparent", color: category === c ? "var(--bg)" : "var(--fg-soft)", border: "1px solid " + (category === c ? "var(--accent)" : "var(--rule-strong)"), font: "400 11px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>
+                style={{ padding: "8px 18px", cursor: "pointer", background: category === c ? "var(--accent)" : "transparent", color: category === c ? "var(--bg)" : "var(--fg-soft)", border: "1px solid " + (category === c ? "var(--accent)" : "var(--rule-strong)"), font: "400 12px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>
                 {c === "INTERIOR" ? "Interior" : "Exterior"}
               </button>
             ))}
@@ -550,7 +550,7 @@ export function ProductManager() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label style={{ display: "block" }}>
-      <span style={{ display: "block", marginBottom: 4, font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>{label}</span>
+      <span style={{ display: "block", marginBottom: 4, font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>{label}</span>
       {children}
     </label>
   );
@@ -683,8 +683,8 @@ function ProductCard({ product, editing, onEdit, onDelete }: { product: ShopProd
             {product.price != null ? `₹${product.price.toLocaleString("en-IN")}` : "—"}{product.priceUnit ? <span style={{ fontSize: 13, color: "var(--fg-mute)" }}> /{product.priceUnit}</span> : null}
           </span>
           <div style={{ display: "flex", gap: 14, alignItems: "baseline" }}>
-            <button type="button" onClick={onEdit} disabled={editing} style={{ background: "transparent", border: "none", cursor: editing ? "default" : "pointer", color: editing ? "var(--accent)" : "var(--fg-soft)", font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>{editing ? "Editing…" : "Edit"}</button>
-            <button type="button" onClick={onDelete} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>Remove</button>
+            <button type="button" onClick={onEdit} disabled={editing} style={{ background: "transparent", border: "none", cursor: editing ? "default" : "pointer", color: editing ? "var(--accent)" : "var(--fg-soft)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>{editing ? "Editing…" : "Edit"}</button>
+            <button type="button" onClick={onDelete} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>Remove</button>
           </div>
         </div>
       </div>

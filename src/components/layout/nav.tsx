@@ -32,6 +32,8 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
   const [open, setOpen] = useState(false);
   const [panelVisible, setPanelVisible] = useState(false);
   const [hidden, setHidden] = useState(false);
+  // Mirrors `hidden` so the scroll handler can compare without re-subscribing.
+  const hiddenRef = useRef(false);
   const openRef = useRef(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLElement | null>(null);
@@ -82,6 +84,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
   // "First section" = the first child of <main>, measured live (falls back to one
   // viewport). Re-showing on any upward scroll makes it "come down" again.
   useEffect(() => {
+    hiddenRef.current = false;
     setHidden(false); // never start a new page tucked away
     let firstSectionH = window.innerHeight;
     const measure = () => {
@@ -97,12 +100,16 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
       const y = window.scrollY;
       const delta = y - lastY;
       // Menu open, or still within the first section → always visible.
-      if (openRef.current || y < firstSectionH - 72) {
-        setHidden(false);
-      } else if (delta > 4) {
-        setHidden(true);          // scrolling down past the first section → tuck up
-      } else if (delta < -4) {
-        setHidden(false);         // scrolling up → bring it back down
+      // `next` is compared before setting: this runs on every animation frame
+      // of every scroll, and a setState per frame is scheduling work for a
+      // value that changes a handful of times in a whole page.
+      let next: boolean | null = null;
+      if (openRef.current || y < firstSectionH - 72) next = false;
+      else if (delta > 4) next = true;
+      else if (delta < -4) next = false;
+      if (next !== null && next !== hiddenRef.current) {
+        hiddenRef.current = next;
+        setHidden(next);
       }
       lastY = y;
     };
@@ -123,7 +130,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
   const mobileLinks = authed
     ? [
         { href: "/dashboard", label: "Dashboard" },
-        { href: "/atelier", label: "Studio" },
+        { href: "/studio", label: "Studio" },
         ...PUBLIC_LINKS,
       ]
     : [
@@ -150,12 +157,13 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
                 key={l.href}
                 href={l.href}
                 className={`cnav-link${isActive(l.href) ? " active" : ""}`}
+                aria-current={isActive(l.href) ? "page" : undefined}
               >
                 {l.label}
               </Link>
             ))}
             {authed && (
-              <Link href="/atelier" className={`cnav-link${isActive("/atelier") ? " active" : ""}`}>
+              <Link href="/studio" className={`cnav-link${isActive("/studio") ? " active" : ""}`} aria-current={isActive("/studio") ? "page" : undefined}>
                 Studio
               </Link>
             )}
@@ -211,6 +219,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
                 key={`${l.href}-${i}`}
                 href={l.href}
                 className={`cnav-panel-link${isActive(l.href) ? " active" : ""}`}
+                aria-current={isActive(l.href) ? "page" : undefined}
                 tabIndex={open ? 0 : -1}
                 onClick={close}
               >

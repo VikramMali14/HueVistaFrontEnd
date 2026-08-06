@@ -24,13 +24,18 @@ export function Stats({ shades }: { shades?: number | null }) {
   ];
 
   return (
-    <section className="hv-stats full-bleed">
+    <section className="hv-stats full-bleed" aria-label="HueVista in numbers">
       <div className={`hv-stats-grid${STATS.length === 2 ? " is-two" : ""}`}>
         {STATS.map((s, i) => (
           <div key={s.label} className="hv-stat">
             <div className="hv-stat-num">
               <CountUp value={s.value} duration={900} />
-              {s.suffix}
+              {/* Its own span with white-space:pre. .hv-stat-num is a flex
+                  container, so a bare " days" text node became an anonymous
+                  flex item and had its leading space stripped — the stat read
+                  "7days". "20s" wants no space, so the space stays part of the
+                  suffix string rather than becoming a flex gap. */}
+              <span className="hv-stat-suffix">{s.suffix}</span>
             </div>
             {/* Labels blur in on scroll, alternating bottom/top so the row reads
                 as the numbers settling between two lines of text. */}

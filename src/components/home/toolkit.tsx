@@ -8,10 +8,10 @@ import { site } from "@/lib/config";
  */
 export function Toolkit() {
   return (
-    <section id="toolkit">
+    <section id="toolkit" aria-labelledby="toolkit-title">
       <div className="reveal hv-tk-head">
         <Eyebrow>The toolkit</Eyebrow>
-        <h2 className="display hv-tk-title">Small things,<br /><i>done properly.</i></h2>
+        <h2 id="toolkit-title" className="display hv-tk-title">Small things,{" "}<br /><i>done properly.</i></h2>
       </div>
 
       <div className="reveal d1 hv-tk-grid">

@@ -63,7 +63,7 @@ export function UserSearch({ searchAction }: UserSearchProps) {
             padding: "10px 16px",
             cursor: "pointer",
             color: "var(--fg-soft)",
-            font: "400 10px/1 var(--mono)",
+            font: "400 12px/1 var(--mono)",
             letterSpacing: ".18em",
             textTransform: "uppercase",
           }}
@@ -101,7 +101,7 @@ export function UserSearch({ searchAction }: UserSearchProps) {
               <Mono brass>{u.role}</Mono>
               <span
                 style={{
-                  font: "400 10px/1 var(--mono)",
+                  font: "400 12px/1 var(--mono)",
                   letterSpacing: ".2em",
                   textTransform: "uppercase",
                   color: u.emailVerified ? "var(--accent)" : "var(--fg-mute)",

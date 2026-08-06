@@ -36,7 +36,7 @@ export default async function StoreKioskPage({ params }: Props) {
   const hasSession = await hasGuestSession();
   return (
     <>
-      <main style={{ maxWidth: 760, margin: "0 auto", padding: "64px var(--gutter) 120px" }}>
+      <main id="main" style={{ maxWidth: 760, margin: "0 auto", padding: "64px var(--gutter) 120px" }}>
         <StoreKiosk info={info} hasGuestSession={hasSession} />
       </main>
       {/* The one page on this site where a member of the public — no account, nobody at

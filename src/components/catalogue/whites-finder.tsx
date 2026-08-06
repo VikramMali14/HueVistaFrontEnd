@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { isWhiteShade, whiteTint, WHITE_TINTS, type WhiteTint } from "@/lib/color-science";
+import { readableInk } from "@/lib/color";
 import { FullscreenSwatch } from "./fullscreen-swatch";
 import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import type { PaintShade } from "@/lib/types";
@@ -97,7 +98,7 @@ export function WhitesFinder({ shades }: { shades: ReadonlyArray<PaintShade> }) 
                 }}
               >
                 {sel && (
-                  <span style={{ position: "absolute", top: 8, right: 8, font: "600 11px/1 var(--sans)", color: "rgba(26,22,18,.7)" }}>
+                  <span style={{ position: "absolute", top: 8, right: 8, font: "600 13px/1 var(--sans)", color: readableInk(s.hex).strong }}>
                     {picked.findIndex((p) => p.code === s.code) === 0 ? "A" : "B"}
                   </span>
                 )}

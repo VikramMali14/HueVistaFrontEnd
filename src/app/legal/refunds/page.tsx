@@ -56,7 +56,7 @@ export default function RefundsPage() {
   return (
     <>
       <SiteHeader />
-      <main style={{ maxWidth: 760, margin: "0 auto", padding: "96px var(--gutter) 140px" }}>
+      <main id="main" style={{ maxWidth: 760, margin: "0 auto", padding: "96px var(--gutter) 140px" }}>
         <Eyebrow>Legal</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 72px)", marginTop: 16 }}>
           Refund &amp; cancellation <i>policy.</i>

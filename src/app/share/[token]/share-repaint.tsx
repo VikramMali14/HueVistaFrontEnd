@@ -325,7 +325,7 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
                 border: "1px solid rgba(247,247,245,.28)",
                 borderRadius: 999,
                 cursor: "pointer",
-                font: "400 10px/1 var(--mono)",
+                font: "400 12px/1 var(--mono)",
                 letterSpacing: ".22em",
                 textTransform: "uppercase",
               }}
@@ -373,7 +373,7 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
           </p>
         ) : (
           <>
-            <span style={{ display: "block", font: "400 10px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "var(--brass, var(--accent-soft))", marginBottom: 10 }}>
+            <span style={{ display: "block", font: "400 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "var(--brass, var(--accent-soft))", marginBottom: 10 }}>
               Try your own colours
             </span>
             <p style={{ font: "300 15px/1.6 var(--serif)", color: "var(--fg-soft)", margin: "0 0 14px" }}>

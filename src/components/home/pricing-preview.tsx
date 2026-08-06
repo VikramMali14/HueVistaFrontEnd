@@ -9,13 +9,13 @@ interface Tier { name: string; price: string; feature: string; featured?: boolea
 // answer, so it is gone until there is a real tier to put a shop on.
 const TIERS: ReadonlyArray<Tier> = [
   { name: "Starter", price: "₹999", feature: "15 projects / mo · AI clean-up + walls" },
-  { name: "Professional", price: "₹2,499", feature: "15 + 30 = 45 projects / mo · extras at ₹55", featured: true },
-  { name: "Business", price: "₹4,999", feature: "45 + 55 = 100 projects / mo · extras at ₹45" },
+  { name: "Professional", price: "₹2,499", feature: "45 projects / mo · extras at ₹55", featured: true },
+  { name: "Business", price: "₹4,999", feature: "100 projects / mo · extras at ₹45" },
 ];
 
 export function PricingPreview() {
   return (
-    <section>
+    <section aria-label="Plans and pricing">
       <div className="reveal" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 56, flexWrap: "wrap", gap: 24 }}>
         <h2 className="display" style={{ fontSize: "clamp(48px, 7vw, 84px)", maxWidth: "14ch" }}>For retailers, <i>not consumers.</i></h2>
         <LinkButton href="/pricing" size="lg">See all tiers <span className="arr">→</span></LinkButton>
@@ -37,7 +37,7 @@ export function PricingPreview() {
               <span style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 56, lineHeight: 1 }}>{t.price}</span>
               <span style={{ fontFamily: "var(--serif)", fontSize: 16, marginLeft: 6, opacity: 0.6 }}>/ month</span>
             </div>
-            <div style={{ font: "400 10px/1.5 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.8)" : "var(--fg-mute)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.2)" : "var(--rule)"), paddingTop: 16, marginTop: 8 }}>{t.feature}</div>
+            <div style={{ font: "400 12px/1.5 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.8)" : "var(--fg-mute)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.2)" : "var(--rule)"), paddingTop: 16, marginTop: 8 }}>{t.feature}</div>
           </div>
         ))}
       </div>

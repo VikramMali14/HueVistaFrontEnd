@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { fanDeck } from "@/lib/color-science";
+import { readableInk } from "@/lib/color";
 import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import { UndertoneTag } from "./undertone-tag";
 import type { PaintShade } from "@/lib/types";
@@ -80,7 +81,7 @@ export function FanDeck({ shade, catalogue, onClose, onHoldToWall, hideCodes = f
         <div style={{ display: "flex", flexDirection: "column" }}>
           {strip.map((s) => {
             const isFocus = s.code === focused.code;
-            const ink = s.lrv >= 45 ? "rgba(26,22,18,.78)" : "rgba(255,255,255,.85)";
+            const { strong: ink, soft: inkSoft } = readableInk(s.hex);
             return (
               <button
                 key={s.code}
@@ -105,7 +106,7 @@ export function FanDeck({ shade, catalogue, onClose, onHoldToWall, hideCodes = f
               >
                 <span style={{ font: `${isFocus ? 600 : 500} 14px/1.2 var(--sans)`, color: ink }}>{nameOf(s)}</span>
                 {!hideCodes && (
-                  <span style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".14em", color: ink, opacity: 0.85, whiteSpace: "nowrap" }}>
+                  <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", color: inkSoft, whiteSpace: "nowrap" }}>
                     {codeOf(s.code)}
                   </span>
                 )}

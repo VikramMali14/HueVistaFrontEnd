@@ -58,7 +58,7 @@ export default function GoogleCallbackPage() {
   }, []);
 
   return (
-    <main
+    <main id="main"
       style={{
         display: "flex",
         minHeight: "60vh",

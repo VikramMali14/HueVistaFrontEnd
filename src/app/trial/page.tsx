@@ -28,7 +28,7 @@ export default function TrialPage() {
   return (
     <>
       <SiteHeader showSignIn />
-      <main style={{ maxWidth: 860, margin: "0 auto", padding: "72px var(--gutter) 140px" }}>
+      <main id="main" style={{ maxWidth: 860, margin: "0 auto", padding: "72px var(--gutter) 140px" }}>
         <Eyebrow>For paint shops · free account</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 68px)", margin: "16px 0 14px" }}>
           Bring it to <i>your counter.</i>

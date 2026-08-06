@@ -74,7 +74,7 @@ export function DashboardProjects() {
       <DashboardStats projects={projects} />
       <section style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
         <h2 className="display" style={{ fontSize: 48 }}>Recent projects</h2>
-        <LinkButton href="/atelier" variant="ghost" size="sm">New project <span className="arr">→</span></LinkButton>
+        <LinkButton href="/studio" variant="ghost" size="sm">New project <span className="arr">→</span></LinkButton>
       </section>
 
       {showFilter && (

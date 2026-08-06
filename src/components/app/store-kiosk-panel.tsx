@@ -149,7 +149,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
                       background: "transparent",
                       border: "1px solid " + (validDays === d ? "var(--accent)" : "var(--rule)"),
                       color: validDays === d ? "var(--accent)" : "var(--fg-mute)",
-                      font: "400 11px/1 var(--mono)",
+                      font: "400 12px/1 var(--mono)",
                       letterSpacing: ".18em",
                     }}
                   >
@@ -173,7 +173,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyUrl(link)}>
                     {copied === link.id ? "Copied" : "Copy URL"}
                   </button>
-                  <span style={{ font: "500 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: link.active ? "var(--accent)" : "var(--fg-mute-deep)", border: "1px solid " + (link.active ? "var(--accent)" : "var(--rule)"), borderRadius: 999, padding: "5px 10px" }}>
+                  <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: link.active ? "var(--accent)" : "var(--fg-mute-deep)", border: "1px solid " + (link.active ? "var(--accent)" : "var(--rule)"), borderRadius: 999, padding: "5px 10px" }}>
                     {link.active ? "Live" : "Paused"}
                   </span>
                 </div>

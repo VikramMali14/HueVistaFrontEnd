@@ -35,7 +35,7 @@ export default async function StudioPage() {
   return (
     <>
       <SiteHeader />
-      <main className="hv-studio-page">
+      <main id="main" className="hv-studio-page">
         <Visualizer guest shades={shades} />
       </main>
     </>

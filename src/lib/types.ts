@@ -108,7 +108,7 @@ export type AppFeatureKey =
 export interface RetailerFeatureOption {
   key: AppFeatureKey;
   label: string;
-  /** The route this option gates, e.g. "/color-finder". */
+  /** The route this option gates, e.g. "/colour-finder". */
   path: string;
   description: string;
   assigned: boolean;

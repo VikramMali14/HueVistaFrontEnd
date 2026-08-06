@@ -137,7 +137,7 @@ export function SectionNav({ items }: { items: SectionNavItem[] }) {
         .hv-sidenav-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .hv-sidenav-tab-label {
           writing-mode: vertical-rl;
-          font: 400 10px/1 var(--mono);
+          font: 400 12px/1 var(--mono);
           letter-spacing: .26em;
           text-transform: uppercase;
         }
@@ -170,7 +170,7 @@ export function SectionNav({ items }: { items: SectionNavItem[] }) {
           transform: none;
         }
         .hv-sidenav-heading {
-          font: 400 9px/1 var(--mono);
+          font: 400 12px/1 var(--mono);
           letter-spacing: .28em;
           text-transform: uppercase;
           color: var(--fg-mute);
@@ -192,7 +192,7 @@ export function SectionNav({ items }: { items: SectionNavItem[] }) {
           display: flex;
           justify-content: space-between;
           gap: 8px;
-          font: 400 11px/1.2 var(--mono);
+          font: 400 12px/1.2 var(--mono);
           letter-spacing: .14em;
           text-transform: uppercase;
           color: var(--fg);

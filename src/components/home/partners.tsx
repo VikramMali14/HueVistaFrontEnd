@@ -13,7 +13,7 @@ const BRANDS = [
 
 export function Partners() {
   return (
-    <section id="partners" className="hv-partners full-bleed">
+    <section id="partners" className="hv-partners full-bleed" aria-label="Paint companies in the catalogue">
       <div className="hv-partners-inner reveal">
         <span className="hv-partners-label">Shade cards we work from</span>
         <div className="hv-partners-brands">

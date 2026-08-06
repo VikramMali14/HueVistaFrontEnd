@@ -28,7 +28,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     entry("/method", 0.8, "monthly"),
     entry("/pricing", 0.9, "monthly"),
     entry("/catalogue", 0.8, "weekly"),
-    entry("/studio", 0.7, "monthly"),
+    entry("/guest-studio", 0.7, "monthly"),
     entry("/trial", 0.7, "monthly"),
     entry("/redeem", 0.6, "monthly"),
     entry("/legal/about", 0.6, "yearly"),

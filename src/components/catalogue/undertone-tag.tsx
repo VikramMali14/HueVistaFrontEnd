@@ -33,7 +33,7 @@ export function UndertoneTag({ hex, prefix = false }: { hex: string; prefix?: bo
         display: "inline-flex",
         alignItems: "center",
         gap: 5,
-        font: "400 10px/1 var(--mono)",
+        font: "400 12px/1 var(--mono)",
         letterSpacing: ".14em",
         textTransform: "uppercase",
         color: "var(--fg-mute)",

@@ -145,7 +145,7 @@ export function ShopCombos({ shades, org: orgProp }: { shades: ReadonlyArray<Pai
                   background: "transparent",
                   border: "1px solid " + (scope === s ? "var(--accent)" : "var(--rule)"),
                   color: scope === s ? "var(--accent)" : "var(--fg-mute)",
-                  font: "400 11px/1 var(--mono)",
+                  font: "400 12px/1 var(--mono)",
                   letterSpacing: ".18em",
                 }}
               >
@@ -200,7 +200,7 @@ export function ShopCombos({ shades, org: orgProp }: { shades: ReadonlyArray<Pai
                           onClick={() => void remove(combo.id)}
                           disabled={deleting === combo.id}
                           aria-label={`Remove ${combo.name}`}
-                          style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}
+                          style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}
                         >
                           {deleting === combo.id ? "Removing…" : "Remove"}
                         </button>
@@ -284,7 +284,7 @@ function SlotPicker({
             type="button"
             onClick={() => onChange(null)}
             aria-label={`Clear ${label} shade`}
-            style={{ background: "transparent", border: "1px solid var(--rule)", borderRadius: 6, cursor: "pointer", color: "var(--fg-mute)", padding: "6px 9px", font: "400 11px/1 var(--mono)" }}
+            style={{ background: "transparent", border: "1px solid var(--rule)", borderRadius: 6, cursor: "pointer", color: "var(--fg-mute)", padding: "6px 9px", font: "400 12px/1 var(--mono)" }}
           >
             ✕
           </button>

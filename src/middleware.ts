@@ -13,7 +13,7 @@ import { SHOWCASE_CONTENT } from "@/lib/showcase";
 // from either one stops refreshing its access cookie and starts bouncing people
 // to /sign-in; src/lib/__tests__/protected-routes.test.ts checks both against
 // the pages that actually exist under (app).
-const PROTECTED_PREFIXES = ["/atelier", "/dashboard", "/portal", "/inbox", "/products", "/assigned-products", "/color-finder", "/account", "/admin", "/subscription", "/network"];
+const PROTECTED_PREFIXES = ["/studio", "/dashboard", "/portal", "/inbox", "/products", "/assigned-products", "/colour-finder", "/account", "/admin", "/plan", "/network"];
 // Pages that only make sense for a signed-OUT visitor. A signed-in user landing
 // here is bounced home — they can't register or sign in again without signing
 // out first. The Google OAuth callback at /sign-in/google is deliberately NOT
@@ -109,6 +109,17 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // /studio used to BE the guest studio; it is now the signed-in one, with the
+  // guest version at /guest-studio. A customer holding a redeemed shop code —
+  // possibly from a QR sticker printed before the rename, and with no account
+  // to sign in to — must not be bounced to /sign-in for a page they are
+  // entitled to. Send them to the guest studio instead.
+  if (pathname === "/studio" && !access && req.cookies.get(GUEST_COOKIE)?.value) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/guest-studio";
+    return NextResponse.redirect(url);
+  }
+
   // Browser still holds a (non-expired) access cookie → let it through.
   if (access) return NextResponse.next();
 
@@ -201,16 +212,16 @@ export const config = {
   // KEEP IN SYNC with PROTECTED_PREFIXES / GUEST_ONLY_PATHS at the top — the
   // matcher must be a static literal, so it can't be built from those consts.
   matcher: [
-    "/atelier/:path*",
+    "/studio/:path*",
     "/dashboard/:path*",
     "/portal/:path*",
     "/inbox/:path*",
     "/products/:path*",
     "/assigned-products/:path*",
-    "/color-finder/:path*",
+    "/colour-finder/:path*",
     "/account/:path*",
     "/admin/:path*",
-    "/subscription/:path*",
+    "/plan/:path*",
     "/network/:path*",
     "/bff/:path*",
     // Rewritten-to-backend auth endpoints — X-Forwarded-For normalisation only.

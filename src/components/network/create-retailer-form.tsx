@@ -100,7 +100,7 @@ export function NetworkCreateRetailerForm() {
               placeholder="At least eight characters" autoComplete="new-password" style={{ paddingRight: 56 }} />
             <button type="button" onClick={() => setShowPw((v) => !v)} aria-pressed={showPw}
               aria-label={showPw ? "Hide password" : "Show password"}
-              style={{ position: "absolute", right: 0, bottom: 8, background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase" }}>
+              style={{ position: "absolute", right: 0, bottom: 8, background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase" }}>
               {showPw ? "Hide" : "Show"}
             </button>
           </div>
@@ -225,7 +225,7 @@ export function NetworkCreateRetailerForm() {
         .nr-grid .field.full { grid-column: span 2; }
         @media (max-width: 720px) { .nr-grid { grid-template-columns: 1fr; } .nr-grid .field.full { grid-column: span 1; } }
         .nr-access { margin-top: 36px; padding-top: 28px; border-top: 1px solid var(--rule); }
-        .nr-access-title { font: 400 11px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; color: var(--fg-mute); margin: 0 0 10px; }
+        .nr-access-title { font: 400 12px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; color: var(--fg-mute); margin: 0 0 10px; }
         .nr-access-lead { font: 300 15px/1.5 var(--serif); color: var(--fg-soft); margin: 0 0 18px; max-width: 60ch; }
         .nr-access-block { margin-bottom: 18px; }
         .nr-all { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--rule-strong); border-radius: 6px; cursor: pointer; font: 400 14px/1.2 var(--sans); color: var(--fg-soft); }

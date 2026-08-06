@@ -9,7 +9,7 @@ import { clearSession } from "@/lib/auth";
 import type { AuthUser } from "@/lib/types";
 
 const label: React.CSSProperties = {
-  font: "400 10px/1 var(--mono)",
+  font: "400 12px/1 var(--mono)",
   letterSpacing: ".22em",
   textTransform: "uppercase",
   color: "var(--fg-mute)",

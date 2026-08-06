@@ -87,7 +87,7 @@ export function MobileUpload({ sessionId }: { sessionId: string }) {
   }, [file, sessionId]);
 
   return (
-    <main
+    <main id="main"
       style={{
         minHeight: "100dvh",
         display: "flex",
@@ -101,7 +101,7 @@ export function MobileUpload({ sessionId }: { sessionId: string }) {
         textAlign: "center",
       }}
     >
-      <span style={{ font: "400 11px/1 var(--mono)", letterSpacing: ".32em", textTransform: "uppercase", color: "var(--accent)" }}>
+      <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".32em", textTransform: "uppercase", color: "var(--accent)" }}>
         HueVista · send a photo
       </span>
 

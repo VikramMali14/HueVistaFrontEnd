@@ -64,7 +64,7 @@ export function RedeemForm() {
       <header style={{ marginBottom: 32 }}>
         <Eyebrow>Redeem · access code</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(40px, 5vw, 72px)", marginTop: 12 }}>
-          Have a code from<br /><i>your paint shop?</i>
+          Have a code from{" "}<br /><i>your paint shop?</i>
         </h1>
         <Lead style={{ marginTop: 20, maxWidth: "52ch" }}>
           Enter it below — no account, no password. We&apos;ll set you up and sign you straight in.

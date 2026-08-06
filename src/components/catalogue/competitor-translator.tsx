@@ -125,7 +125,7 @@ export function CompetitorTranslator({ shades }: { shades: ReadonlyArray<PaintSh
                   <div
                     style={{
                       marginTop: 6,
-                      font: "500 10px/1 var(--mono)",
+                      font: "500 12px/1 var(--mono)",
                       letterSpacing: ".14em",
                       textTransform: "uppercase",
                       color: rating === "Very close" ? "var(--sage)" : rating === "Close" ? "var(--fg-soft)" : "var(--terracotta)",

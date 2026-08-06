@@ -23,7 +23,14 @@ describe("ProjectDetailsGate", () => {
     await user.click(screen.getByRole("button", { name: /Continue to photo/ }));
 
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent("Please enter a name to continue.");
+    expect(screen.getByRole("status")).toHaveTextContent("Please enter a name to continue.");
+
+    // Saying which field is wrong, not only that something is: focus moves to
+    // the input and the input is marked invalid, so the message is actionable
+    // rather than an announcement with nowhere to go.
+    const nameField = screen.getByLabelText("Project name");
+    expect(nameField).toHaveFocus();
+    expect(nameField).toHaveAttribute("aria-invalid", "true");
 
     // Whitespace-only names are still invalid.
     await user.type(screen.getByLabelText("Project name"), "   ");

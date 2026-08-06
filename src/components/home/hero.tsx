@@ -4,7 +4,7 @@ import { CompareSlider } from "./compare-slider";
 
 export function Hero() {
   return (
-    <section className="hv-hero2 full-bleed">
+    <section className="hv-hero2 full-bleed" aria-labelledby="hero-title">
       {/* Cinematic background. The gradient + grain reads as a warm-lit room and
           needs no asset. To use a real photo or video instead, drop the file in
           /public and uncomment ONE of the blocks below — it layers under the scrim.
@@ -15,13 +15,19 @@ export function Hero() {
       <div className="hv-hero2-bg" aria-hidden />
 
       <div className="hv-hero2-inner">
-        <p className="mono hv-rise" style={{ font: "500 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "rgba(247,247,245,.5)", margin: 0, display: "inline-flex", alignItems: "center", gap: 10 }}>
+        <p className="mono hv-rise" style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--hero-ink-mute)", margin: 0, display: "inline-flex", alignItems: "center", gap: 10 }}>
           <span style={{ display: "inline-block", width: 18, height: 1, background: "var(--accent)", flexShrink: 0 }} aria-hidden />
           Paint visualiser · Indian counters
         </p>
-        <h1 className="display hv-hero2-title hv-rise">
-          See any paint colour
-          <span style={{ color: "rgba(247,247,245,.58)" }}>on your walls.</span>
+        <h1 id="hero-title" className="display hv-hero2-title hv-rise">
+          {/* The space is explicit: JSX drops the newline between a text node and the
+              next element, so without it the heading's real text content — what a
+              screen reader reads, what a search engine indexes, what a copy-paste
+              produces — was "See any paint colouron your walls." */}
+          See any paint colour{" "}
+          {/* Weight, not lightness — a pale second half reads as disabled text
+              rather than as emphasis, and it has to invert with the theme. */}
+          <span style={{ color: "var(--hero-ink-soft)", fontWeight: 400 }}>on your walls.</span>
         </h1>
         <p className="hv-hero2-sub reveal" style={{ maxWidth: "46ch" }}>Upload a photo of a room and see any paint colour on the walls in seconds. Made for paint shops and their customers.</p>
         <div className="hv-hero2-cta reveal d1">

@@ -229,7 +229,7 @@ export function ShadeUploadForm({ initialBrands }: { initialBrands: UploadBrand[
                     border: "1px solid var(--rule)",
                   }}
                 />
-                <p style={{ font: "400 10px/1.3 var(--mono)", color: "var(--fg-mute)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <p style={{ font: "400 12px/1.3 var(--mono)", color: "var(--fg-mute)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {str(s.name) || str(s.code) || "—"}
                 </p>
               </div>

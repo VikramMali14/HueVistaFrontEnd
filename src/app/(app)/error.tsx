@@ -32,7 +32,7 @@ export default function AppError({
     >
       <span
         style={{
-          font: "400 10.5px/1 var(--mono, ui-monospace, monospace)",
+          font: "400 12px/1 var(--mono, ui-monospace, monospace)",
           letterSpacing: ".3em",
           textTransform: "uppercase",
           color: "var(--accent)",

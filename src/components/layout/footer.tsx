@@ -10,7 +10,7 @@ const COLUMNS = [
     title: "Product",
     links: [
       { href: "/method", label: "How it works" },
-      { href: "/catalogue", label: "Colour library" },
+      { href: "/catalogue", label: "Catalogue" },
       ...(SHOWCASE_CONTENT ? [{ href: "/gallery", label: "Gallery" }] : []),
       { href: "/pricing", label: "Pricing" },
     ],
@@ -49,7 +49,7 @@ export function Footer() {
                 style={{
                   display: "block",
                   marginTop: 5,
-                  font: "400 9.5px/1 var(--mono)",
+                  font: "400 12px/1 var(--mono)",
                   letterSpacing: ".2em",
                   textTransform: "uppercase",
                   color: "var(--fg-mute)",
@@ -66,7 +66,7 @@ export function Footer() {
           <address style={{ fontStyle: "normal", fontSize: 12.5, lineHeight: 1.6, marginTop: 18, color: "var(--fg-mute)", maxWidth: "34ch" }}>
             <div style={{ fontWeight: 600, color: "var(--fg-soft)" }}>HueVista</div>
             <div>Proprietor: Vikram Mali</div>
-            <div>Mount Road, Manpur, Abu Road,<br />Sirohi, Rajasthan 307026, India</div>
+            <div>Mount Road, Manpur, Abu Road,{" "}<br />Sirohi, Rajasthan 307026, India</div>
             <div style={{ marginTop: 6 }}>
               <a href={`mailto:${contact.general}`} style={{ color: "inherit" }}>{contact.general}</a>
             </div>

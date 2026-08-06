@@ -59,13 +59,13 @@ export function FullscreenSwatch({ shades, onClose, hideCodes = false }: Fullscr
               display: "flex",
               flexDirection: "column",
               gap: 3,
-              background: "linear-gradient(transparent, rgba(10,9,8,.55))",
+              background: "linear-gradient(rgba(10,9,8,0), rgba(10,9,8,.86) 45%)",
               color: "rgba(247,247,245,.92)",
             }}
           >
             <span style={{ font: "600 16px/1.2 var(--sans)" }}>{nameOf(s)}</span>
             {!hideCodes && (
-              <span style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", opacity: 0.8 }}>
+              <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", opacity: 0.8 }}>
                 {codeOf(s.code)}
               </span>
             )}
@@ -87,7 +87,7 @@ export function FullscreenSwatch({ shades, onClose, hideCodes = false }: Fullscr
       >
         <span
           style={{
-            font: "400 9px/1.4 var(--mono)",
+            font: "400 12px/1.4 var(--mono)",
             letterSpacing: ".18em",
             textTransform: "uppercase",
             color: "rgba(247,247,245,.85)",

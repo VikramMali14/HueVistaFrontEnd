@@ -127,12 +127,12 @@ export function FilterBar({
         .hv-filter-search input::placeholder { color: var(--fg-mute); }
         .hv-filter-search input::-webkit-search-cancel-button { filter: grayscale(1) opacity(.5); cursor: pointer; }
         .hv-filter-facet { display: flex; flex-direction: column; gap: 5px; }
-        .hv-filter-facet-label { font: 400 9.5px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--fg-mute); }
+        .hv-filter-facet-label { font: 400 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--fg-mute); }
         .hv-filter-facet select { height: 38px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--surface); color: var(--fg-soft); font: 400 14px/1 var(--sans); padding: 0 30px 0 10px; cursor: pointer; max-width: 220px; appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--fg-mute) 50%), linear-gradient(135deg, var(--fg-mute) 50%, transparent 50%); background-position: calc(100% - 15px) 17px, calc(100% - 10px) 17px; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
         .hv-filter-facet select.is-active { border-color: var(--accent); color: var(--fg); }
-        .hv-filter-clear { height: 38px; border: 1px solid var(--rule-strong); border-radius: 6px; background: transparent; color: var(--accent); cursor: pointer; padding: 0 14px; font: 400 10px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; }
+        .hv-filter-clear { height: 38px; border: 1px solid var(--rule-strong); border-radius: 6px; background: transparent; color: var(--accent); cursor: pointer; padding: 0 14px; font: 400 12px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; }
         .hv-filter-clear:hover { border-color: var(--accent); }
-        .hv-filter-count { font: 400 10px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; color: var(--fg-mute); padding-bottom: 12px; white-space: nowrap; }
+        .hv-filter-count { font: 400 12px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; color: var(--fg-mute); padding-bottom: 12px; white-space: nowrap; }
         @media (max-width: 620px) {
           .hv-filter-controls { width: 100%; }
           .hv-filter-search { max-width: none; }

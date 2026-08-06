@@ -35,7 +35,7 @@ export default async function NewsletterUnsubscribePage({
   return (
     <>
       <SiteHeader />
-      <main style={{ maxWidth: 640, margin: "0 auto", padding: "120px var(--gutter) 160px" }}>
+      <main id="main" style={{ maxWidth: 640, margin: "0 auto", padding: "120px var(--gutter) 160px" }}>
         <Eyebrow>Monthly letter</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(38px, 6vw, 68px)", marginTop: 16 }}>
           {result.ok ? <>You&rsquo;re <i>unsubscribed.</i></> : <>Something&rsquo;s <i>off.</i></>}

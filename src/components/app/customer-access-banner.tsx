@@ -22,7 +22,7 @@ const bannerStyle = (highlight: boolean): React.CSSProperties => ({
 const redeemLink = (
   <Link
     href="/redeem"
-    style={{ color: "var(--accent)", font: "400 11px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+    style={{ color: "var(--accent)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
   >
     Redeem a code →
   </Link>

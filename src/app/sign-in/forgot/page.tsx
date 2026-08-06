@@ -14,7 +14,7 @@ export default function ForgotPage() {
   return (
     <>
       <SiteHeader showSignIn={false} />
-      <main style={{ maxWidth: 640, margin: "0 auto", padding: "120px 24px 160px" }}>
+      <main id="main" style={{ maxWidth: 640, margin: "0 auto", padding: "120px 24px 160px" }}>
         <Eyebrow>Reset</Eyebrow>
         <h1
           className="display"

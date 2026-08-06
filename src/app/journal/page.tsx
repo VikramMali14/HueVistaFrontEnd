@@ -24,14 +24,14 @@ export default function JournalPage() {
     <>
       <Marquee items={["The Journal · Letters from the studio", "Monthly · India", "On colour, on craft, on the counter"]} />
       <SiteHeader />
-      <main>
+      <main id="main">
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
             <Eyebrow>The Journal</Eyebrow>
             <Mono>Letters · Essays · Field notes</Mono>
           </div>
-          <h1 className="display">Letters from<br /><i>the studio.</i></h1>
+          <h1 className="display">Letters from{" "}<br /><i>the studio.</i></h1>
           <Lead className="page-lead">On colour, on craft, on the quiet economics of the Indian paint counter. A monthly journal, written by the people who built HueVista — and by the retailers who use it.</Lead>
 
           <div className="reveal d2 r-stack-md" style={{ marginTop: 80, display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 64, alignItems: "center" }}>

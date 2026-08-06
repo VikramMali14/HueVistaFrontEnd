@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 
 export interface ProjectDetails {
@@ -34,11 +34,17 @@ export function ProjectDetailsGate({
   const [roomType, setRoomType] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [touched, setTouched] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   const valid = name.trim().length > 0;
   const submit = () => {
     if (!valid) {
+      // The message alone left the field untouched and the caret wherever it
+      // was: nothing said WHICH input was wrong, and a screen-reader user got
+      // an announcement with no way to act on it. Mark the field, move to it,
+      // and let the live region carry the sentence.
       setTouched(true);
+      nameRef.current?.focus();
       return;
     }
     onSubmit({ name: name.trim(), roomType: roomType || undefined, notes: notes.trim() || undefined });
@@ -94,19 +100,29 @@ export function ProjectDetailsGate({
         <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <Mono>Project name *</Mono>
           <input
+            ref={nameRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder="e.g. Sharma residence — hall"
             aria-label="Project name"
+            aria-invalid={touched && !valid ? true : undefined}
+            aria-describedby={touched && !valid ? "project-name-error" : undefined}
             autoFocus
-            style={fieldStyle}
+            style={touched && !valid ? { ...fieldStyle, borderColor: "var(--terracotta)" } : fieldStyle}
           />
-          {touched && !valid && (
-            <span className="field-error" role="alert" style={{ font: "400 12px/1.3 var(--sans, system-ui)" }}>
-              Please enter a name to continue.
-            </span>
-          )}
+          {/* The live region exists whether or not there is a message in it, so
+              the message is announced when it appears rather than only if the
+              user happens to be reading here. */}
+          <span
+            id="project-name-error"
+            className="field-error"
+            role="status"
+            aria-live="polite"
+            style={{ font: "400 13px/1.35 var(--sans, system-ui)", minHeight: touched && !valid ? undefined : 0 }}
+          >
+            {touched && !valid ? "Please enter a name to continue." : ""}
+          </span>
         </label>
 
         <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>

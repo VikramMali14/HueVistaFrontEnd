@@ -74,7 +74,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
         .auth-art { position: relative; overflow: hidden; isolation: isolate; background: #2a100e; border-right: 1px solid var(--rule); padding: 56px; color: #ebe5d7; display: flex; flex-direction: column; justify-content: space-between; }
         .auth-art > * { position: relative; z-index: 2; }
         .auth-art > .auth-art-layers { position: absolute; z-index: 0; }
-        .auth-art .corner { display: flex; justify-content: space-between; align-items: baseline; font: 400 10px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; color: rgba(235,229,215,.6); }
+        .auth-art .corner { display: flex; justify-content: space-between; align-items: baseline; font: 400 12px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; color: rgba(235,229,215,.6); }
         .auth-form-wrap { display: flex; flex-direction: column; justify-content: center; padding: 80px; background: var(--bg); color: var(--fg); }
         .auth-form-wrap h1 { font-family: var(--serif); font-weight: 650; font-size: clamp(40px, 4.5vw, 60px); line-height: 1; letter-spacing: -.02em; margin: 16px 0 12px; color: var(--fg); }
         .auth-form-wrap h1 i { color: var(--accent-soft); }

@@ -8,6 +8,7 @@ import { Placeholder } from "@/components/ui/placeholder";
 import { RevealMount } from "@/components/ui/reveal-mount";
 import { AiPreviewNote } from "@/components/shared/accuracy-note";
 import { fetchCatalogueSize } from "@/lib/catalogue";
+import { METHOD_FIGURES } from "@/lib/method-figures";
 
 export const metadata: Metadata = {
   title: "How it works",
@@ -77,14 +78,14 @@ export default async function MethodPage() {
     <>
       <Marquee items={["How it works", "A photo in, a painted wall back · in seconds", "Six steps, at your counter"]} />
       <SiteHeader />
-      <main>
+      <main id="main">
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
             <Eyebrow>How it works</Eyebrow>
             <Mono>Made in India</Mono>
           </div>
-          <h1 className="display">From a photo,<br /><i>a painted wall.</i></h1>
+          <h1 className="display">From a photo,{" "}<br /><i>a painted wall.</i></h1>
           {/* The count is read from the catalogue rather than written out — the prose
               said "two thousand" while the site's other pages said "10,000+", and
               neither matched what the backend actually serves. */}
@@ -104,7 +105,17 @@ export default async function MethodPage() {
               <Lead>{c.body}</Lead>
             </div>
             <div>
-              <Placeholder tone={c.tone} grain corners tag={c.tag} style={{ aspectRatio: "4 / 5" }} />
+              {/* A real photograph or screenshot when one exists for this step,
+                  the coloured plate until then. See lib/method-figures. */}
+              <Placeholder
+                tone={c.tone}
+                grain
+                corners
+                tag={c.tag}
+                src={METHOD_FIGURES[c.num]?.src}
+                alt={METHOD_FIGURES[c.num]?.alt}
+                style={{ aspectRatio: "4 / 5" }}
+              />
             </div>
           </article>
         ))}

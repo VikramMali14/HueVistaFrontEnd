@@ -30,11 +30,11 @@ export default async function CataloguePage() {
     <>
       <Marquee items={["The Catalogue", "Every code intact · finishes preserved", `${brandLine} · more to follow`]} />
       <SiteHeader />
-      <main>
+      <main id="main">
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
-            <Eyebrow>Colour library</Eyebrow>
+            <Eyebrow>Catalogue</Eyebrow>
             <Mono>{shades.length.toLocaleString("en-IN")} shades · {brandLine} · more to follow</Mono>
           </div>
           <h1 className="display">Every shade.<br /><i>Codes intact.</i></h1>

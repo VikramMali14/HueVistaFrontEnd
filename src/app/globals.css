@@ -18,6 +18,14 @@
 ========================================================= */
 
 :root {
+  /* Sticky-header height, single source of truth for scroll-padding so an
+     in-page jump never parks its target under the glass bar. .nav is 12px of
+     padding either side of a ~38px row. */
+  --nav-h: 62px;
+  /* The studio's slim persistent bar (logo → dashboard, Menu). The workspace
+     below it is sized against this, so the two cannot overlap. */
+  --studio-bar-h: 44px;
+
   /* ----- 1. Raw palette (theme-invariant) ----- */
   --charcoal:        #0f0e14;
   --charcoal-soft:   #1a1922;
@@ -51,7 +59,11 @@
   --nav-bg-strong:   rgba(10,9,15,.92);
   --surface-overlay: rgba(10,9,15,.65);
   --terracotta:      #c2402a;   /* errors / destructive */
-  --sage:            #4e7a52;   /* success */
+  --sage:            #4e7a52;   /* success — FILLS (ivory text sits on it) */
+  /* Success as TEXT. #4e7a52 on the dark surface is 3.7:1, which is what made
+     "saved just now" hard to read; this lifts it clear of AA while staying the
+     same green. Light theme keeps the darker cut, which already passes there. */
+  --sage-text:       #6fae76;
   --band:            #0d0c14;
   --band-rule:       rgba(124,92,255,.16);
 
@@ -99,6 +111,7 @@ html[data-theme="light"] {
   --surface-overlay: rgba(244,243,248,.65);
   --terracotta:      #a83b22;
   --sage:            #3f6a45;
+  --sage-text:       #3f6a45;
   --band:            #1a1922;
   --band-rule:       rgba(124,92,255,.20);
   --brass:           #7c5cff;
@@ -119,17 +132,55 @@ html, body {
 /* Page base colour + ambient purple glow live on <html>. <body> stays
    transparent so this base layer reads through page content. */
 html {
-  background:
-    radial-gradient(120% 85% at 72% 12%, rgba(124,92,255,.10), transparent 55%),
-    radial-gradient(95% 75% at 12% 90%, rgba(80,170,255,.07), transparent 60%),
-    var(--bg);
-  background-attachment: fixed;
+  background: var(--bg);
+  /* Every in-page jump lands under the sticky glass bar without this: on
+     /pricing the tier row ("₹999 / ₹2,499 / ₹4,999") sat behind it, and on
+     /catalogue so did "Codes intact.". --nav-h is the bar's own height, so
+     the two cannot drift apart. */
+  scroll-padding-top: calc(var(--nav-h) + 16px);
 }
+@media (max-width: 900px) { :root { --nav-h: 58px; } }
 body {
   overflow-x: hidden;
   background: transparent;
 }
+/* The page's two ambient gradients, as a fixed compositor layer.
+   They used to live on <html> with `background-attachment: fixed`, which is
+   one of the most reliable ways to make a long page scroll badly: a fixed
+   background cannot be composited, so the browser repaints the full viewport
+   — two large radial gradients — on every single scroll frame. As a fixed,
+   painted-once pseudo-element the compositor just moves it. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 85% at 72% 12%, rgba(124,92,255,.10), transparent 55%),
+    radial-gradient(95% 75% at 12% 90%, rgba(80,170,255,.07), transparent 60%);
+}
 ::selection { background: var(--fg); color: var(--bg); }
+
+/* Skip link — off-screen until focused, then a real target at the top left.
+   Not display:none and not visibility:hidden: both would take it out of the
+   tab order, which is the one thing it exists to be in. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 1000;
+  transform: translateY(calc(-100% - 16px));
+  padding: 12px 18px;
+  border-radius: 8px;
+  background: var(--fg);
+  color: var(--bg);
+  font: 600 15px/1 var(--sans);
+  text-decoration: none;
+  transition: transform .18s var(--ease);
+}
+.skip-link:focus-visible { transform: none; outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .skip-link { transition: none; } }
 
 /* ====== 3D SWATCH CUBE  ·  decorative spinning paint chip ====== */
 .hv-cube { perspective: 760px; margin: 0 auto; }
@@ -174,11 +225,17 @@ button { font-family: inherit; }
   background: var(--fg);
   color: var(--bg);
   overflow: hidden;
+  /* A 60s infinite transform animation runs whether or not the strip is on
+     screen. content-visibility skips the whole subtree — layout, paint AND its
+     animations — once it scrolls away. The intrinsic size keeps the scrollbar
+     honest while it is skipped. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 36px;
 }
 .marquee-track {
   display: flex; gap: 64px;
   padding: 10px 0;
-  font: 500 11px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   letter-spacing: .08em; text-transform: uppercase;
   white-space: nowrap;
   animation: marquee 60s linear infinite;
@@ -248,7 +305,7 @@ button { font-family: inherit; }
 .nav-panel-cols { display: flex; gap: 48px; flex: 1; }
 .nav-col { display: flex; flex-direction: column; min-width: 184px; }
 .nav-col-title {
-  font: 600 10px/1 var(--sans); letter-spacing: .18em; text-transform: uppercase;
+  font: 600 12px/1 var(--sans); letter-spacing: .18em; text-transform: uppercase;
   color: rgba(var(--fg-rgb), .42); margin-bottom: 14px;
 }
 .nav-leaf {
@@ -326,7 +383,7 @@ button { font-family: inherit; }
   .nav-menu-toggle { display: inline-flex; }
   .nav-links { display: none; }
   .nav-actions .nav-signin { display: none; }          /* relocated into the drawer */
-  .nav-actions .nav-cta { padding: 11px 16px; font-size: 11px; letter-spacing: .1em; }
+  .nav-actions .nav-cta { padding: 11px 16px; font-size: 12px; letter-spacing: .1em; }
   .nav-inner { gap: 12px; }
 
   .nav-mobile {
@@ -356,7 +413,7 @@ button { font-family: inherit; }
   .nav-mobile-link.active { color: var(--fg-mute); }
   .nav-mobile-group { display: flex; flex-direction: column; }
   .nav-mobile-group-title {
-    font: 600 11px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase;
+    font: 600 12px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase;
     color: var(--fg-mute); padding: 22px 2px 4px;
   }
   .nav-mobile-link.is-sub { font: 500 17px/1.2 var(--sans); padding: 11px 2px; border-bottom: 1px solid var(--rule); }
@@ -392,15 +449,24 @@ section + section { border-top: var(--hairline) solid var(--rule); }
   color: var(--fg);
   font-feature-settings: 'lnum' 1, 'kern' 1;
 }
-.display i { font-style: normal; font-weight: 650; color: var(--fg-mute); letter-spacing: -.035em; }
-.display .thin { color: var(--fg-mute); font-weight: 500; }
+/* Two-tone headings take their contrast from WEIGHT, not lightness.
+   The second half used --fg-mute — the same token as disabled controls and
+   meta text — so "on your walls.", "not consumers." and "in one place." read
+   as greyed out rather than as the emphasis they are. A lighter cut of the
+   same reading colour says the same thing without dimming half the sentence. */
+.display i { font-style: normal; font-weight: 400; color: var(--fg-soft); letter-spacing: -.035em; }
+.display .thin { color: var(--fg-soft); font-weight: 400; }
 .lead { font: 400 19px/1.55 var(--sans); font-style: normal; color: var(--fg-soft); max-width: 56ch; margin: 0; }
 .body { font: 400 16px/1.6 var(--sans); color: var(--fg-soft); max-width: 60ch; }
 .small { font: 400 13px/1.55 var(--sans); color: var(--fg-mute); }
-.mono { font: 500 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-mute); }
+.mono { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-mute); }
 .mono.brass { color: var(--fg); }
+/* System messages: counts, empty states, hints, statuses. Sentence case at a
+   size meant for reading — the mono-caps treatment above is for two- or
+   three-word labels, not sentences. */
+.note { font: 400 14px/1.5 var(--sans); letter-spacing: 0; text-transform: none; color: var(--fg-soft); }
 .roman { font: 500 12px/1 var(--mono); font-style: normal; color: var(--fg-mute); letter-spacing: .08em; }
-.eyebrow { display: inline-flex; align-items: center; gap: 10px; font: 600 11px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-mute); }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; font: 600 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-mute); }
 .eyebrow::before { content: ''; width: 18px; height: 1px; background: var(--accent); flex-shrink: 0; }
 
 /* ====== BUTTONS ====== */
@@ -458,7 +524,7 @@ section + section { border-top: var(--hairline) solid var(--rule); }
 .ph[data-tone="walnut"]     { background: radial-gradient(ellipse at 30% 22%, rgba(255,220,180,.2), transparent 60%), linear-gradient(150deg, #8a6446 0%, #5a4030 55%, #2c1d12 100%); }
 .ph-grain::after { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); mix-blend-mode: overlay; }
 .ph-label { position: absolute; bottom: 18px; left: 18px; font: 500 13px/1 var(--sans); color: rgba(255,255,255,.78); z-index: 2; }
-.ph-tag { position: absolute; top: 18px; left: 18px; font: 500 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); z-index: 2; }
+.ph-tag { position: absolute; top: 18px; left: 18px; font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); z-index: 2; }
 /* Light-toned placeholders (ivory/brass gradients) need dark ink — white labels
    were invisible on the pale top-left where the tag sits. */
 .ph[data-tone="ivory"] .ph-label, .ph[data-tone="brass"] .ph-label { color: rgba(20,20,18,.82); }
@@ -483,10 +549,13 @@ section + section { border-top: var(--hairline) solid var(--rule); }
 /* ====== FOOTER ====== */
 footer { background: var(--bg-deep); border-top: 1px solid var(--rule); padding: 64px 0 36px; }
 .footer-inner { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 56px; }
-.footer-col-title { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--fg-mute); margin-bottom: 18px; }
+.footer-col-title { font: 600 12px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--fg-mute); margin-bottom: 18px; }
 .footer-col a { display: block; font-family: var(--sans); font-size: 14px; font-weight: 500; color: var(--fg-soft); padding: 5px 0; transition: color .2s var(--ease); }
 .footer-col a:hover { color: var(--fg); }
-.footer-note { max-width: var(--max); margin: 52px auto 0; padding: 20px var(--gutter) 0; border-top: 1px solid var(--rule); font: 400 11.5px/1.65 var(--sans); color: var(--fg-mute); }
+/* The two claims the site has to stand behind. It is prose the reader is meant
+   to actually read, so it sits at reading size and reading contrast rather than
+   at the size of a caption. */
+.footer-note { max-width: var(--max); margin: 52px auto 0; padding: 20px var(--gutter) 0; border-top: 1px solid var(--rule); font: 400 14px/1.65 var(--sans); color: var(--fg-soft); }
 .footer-note + .footer-bottom { margin-top: 20px; border-top: none; padding-top: 0; }
 .footer-bottom { max-width: var(--max); margin: 52px auto 0; padding: 24px var(--gutter) 0; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
 
@@ -636,11 +705,11 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   section { padding: 40px 0; }
   .display { font-size: clamp(28px, 9.5vw, 48px); line-height: 1.02; }
   .page-head h1 { font-size: clamp(30px, 11vw, 56px); }
-  .marquee-track { font-size: 9px; }
+  .marquee-track { font-size: 12px; }
   .lead { font-size: 16px; }
   .brand { font-size: 19px; }
   .footer-inner { grid-template-columns: 1fr; }
-  .footer-bottom .mono { font-size: 9px; letter-spacing: .1em; }
+  .footer-bottom .mono { font-size: 12px; letter-spacing: .1em; }
   .btn, .btn-ghost, .btn-brass { width: 100%; justify-content: center; }
 }
 
@@ -729,7 +798,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   padding: 6px 10px;
   cursor: pointer;
   color: var(--fg-soft);
-  font: 400 9.5px/1 var(--mono, ui-monospace);
+  font: 400 12px/1 var(--mono, ui-monospace);
   letter-spacing: .18em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -755,7 +824,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   .hv-cust-row > [data-label]::before {
     content: attr(data-label);
     color: var(--fg-mute);
-    font: 500 10px/1 var(--mono, ui-monospace);
+    font: 500 12px/1 var(--mono, ui-monospace);
     letter-spacing: .1em;
     text-transform: uppercase;
     flex-shrink: 0;
@@ -797,7 +866,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 @media (max-width: 768px) {
   .hv-matrix-hint {
     display: block;
-    font: 500 10px/1.4 var(--mono);
+    font: 500 12px/1.4 var(--mono);
     letter-spacing: .1em;
     text-transform: uppercase;
   }
@@ -904,7 +973,19 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 /* =========================================================
    HOME · HERO (cinematic, full-bleed)
 ========================================================= */
+/* Hero ink is tokenised so the section can flip with the theme.
+   It used to be hardcoded ivory-on-near-black, which meant switching to the
+   light theme lit the header and left the hero dark — and the page then
+   alternated light → dark → light → dark down its length, reading as sections
+   that had failed to load rather than as a design. */
 .hv-hero2 {
+  --hero-ink: var(--ivory);
+  --hero-ink-soft: rgba(247,247,245,.78);
+  --hero-ink-mute: rgba(247,247,245,.62);
+  --hero-btn-bg: var(--ivory);
+  --hero-btn-fg: #141413;
+  --hero-rule: rgba(247,247,245,.4);
+  --hero-wash: rgba(247,247,245,.08);
   position: relative;
   min-height: min(92vh, 880px);
   padding-top: 96px; padding-bottom: 84px;       /* left/right come from .full-bleed */
@@ -937,18 +1018,44 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   display: flex; flex-direction: column; align-items: center; gap: 24px;
 }
 .hv-hero2-title {
-  color: var(--ivory);
+  color: var(--hero-ink);
   font-size: clamp(52px, 8.5vw, 120px);
   line-height: .95; letter-spacing: -.045em;
 }
 .hv-hero2-title span { display: block; }
 .hv-hero2-cta { display: inline-flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
-/* On the dark hero the primary button is ivory; the ghost reads light. */
-.hv-hero2 .btn { background: var(--ivory); color: #141413; border-color: var(--ivory); }
+/* Buttons follow the hero's ink, so they invert with it. */
+.hv-hero2 .btn { background: var(--hero-btn-bg); color: var(--hero-btn-fg); border-color: var(--hero-btn-bg); }
 .hv-hero2 .btn:hover { opacity: .9; }
-.hv-hero2 .btn-ghost { background: transparent; color: var(--ivory); border-color: rgba(247,247,245,.4); }
-.hv-hero2 .btn-ghost:hover { background: rgba(247,247,245,.08); border-color: var(--ivory); color: var(--ivory); }
-.hv-hero2-sub { font: 400 15px/1.5 var(--sans); color: rgba(247,247,245,.72); margin: 0; }
+.hv-hero2 .btn-ghost { background: transparent; color: var(--hero-ink); border-color: var(--hero-rule); }
+.hv-hero2 .btn-ghost:hover { background: var(--hero-wash); border-color: var(--hero-ink); color: var(--hero-ink); }
+.hv-hero2-sub { font: 400 16px/1.55 var(--sans); color: var(--hero-ink-soft); margin: 0; }
+.hv-hero2 .mono { color: var(--hero-ink-mute); }
+
+/* The genuine light hero: a warm paper wash with the same purple/blue lift the
+   dark one has, and ink dark enough to read on it. Same composition, opposite
+   polarity — so the light theme is a theme rather than a half-applied one. */
+html[data-theme="light"] .hv-hero2 {
+  --hero-ink: #14121f;
+  --hero-ink-soft: rgba(20,18,31,.78);
+  --hero-ink-mute: rgba(20,18,31,.62);
+  --hero-btn-bg: #14121f;
+  --hero-btn-fg: #f7f7f5;
+  --hero-rule: rgba(20,18,31,.32);
+  --hero-wash: rgba(20,18,31,.06);
+}
+html[data-theme="light"] .hv-hero2-bg {
+  background:
+    radial-gradient(120% 85% at 72% 12%, rgba(124,92,255,.20), transparent 55%),
+    radial-gradient(95% 75% at 12% 90%, rgba(80,170,255,.16), transparent 60%),
+    linear-gradient(158deg, #fbfaff 0%, #f1eff8 46%, #e7e4f2 100%);
+}
+/* The grain overlay and the darkening vignette are both built for a dark
+   plate; on paper they read as dirt and as a shadow round the edge. */
+html[data-theme="light"] .hv-hero2-bg::before { opacity: .22; mix-blend-mode: multiply; }
+html[data-theme="light"] .hv-hero2-bg::after {
+  background: radial-gradient(125% 120% at 50% 32%, transparent 44%, rgba(20,18,31,.10) 100%);
+}
 .hv-hero2-demo { position: relative; z-index: 2; margin: 60px auto 0; width: min(1040px, 100%); }
 .hv-hero2-demo .compare {
   margin-top: 0 !important;
@@ -968,12 +1075,19 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 /* =========================================================
    HOME · STATS band (big numbers, dark)
 ========================================================= */
-/* This is an intentionally dark band in BOTH themes (white figures on near-black),
-   like the partners/room bands. Use the theme-invariant --charcoal-deep so the
-   background stays dark in light theme too — otherwise --bg-deep flips to a pale
-   lavender and the hardcoded --ivory text becomes near-invisible. */
+/* ── One dark band, not three ────────────────────────────────────────────
+   Stats, Partners and the paint-room demo were each hardcoded dark in both
+   themes. In the light theme the page then went light → dark → light → dark
+   down its length, which reads as sections that failed to load rather than as
+   a design. The paint-room demo KEEPS its dark plate in both themes — colour
+   chips need it, and one committed accent is the point — while Stats and
+   Partners follow the theme. Their ink is tokenised here so a single pair of
+   overrides flips the whole band. */
 .hv-stats {
-  background: var(--charcoal-deep); color: var(--ivory);
+  --band-ink: var(--ivory);
+  --band-ink-soft: rgba(247,247,245,.72);
+  --band-rule-hair: rgba(247,247,245,.12);
+  background: var(--charcoal-deep); color: var(--band-ink);
   padding-top: 88px; padding-bottom: 88px;
   text-align: center;
   border-top: 1px solid rgba(234,232,227,.08);
@@ -989,16 +1103,17 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 /* Hairline dividers between the three figures, so the row reads as aligned. */
 .hv-stat + .hv-stat::before {
   content: ""; position: absolute; left: 0; top: 10%; bottom: 10%;
-  width: 1px; background: rgba(247,247,245,.12);
+  width: 1px; background: var(--band-rule-hair);
 }
 .hv-stat-num {
   font-family: var(--serif); font-weight: 600; font-size: clamp(48px, 7vw, 100px);
-  line-height: .9; letter-spacing: -.04em; color: var(--ivory);
+  line-height: .9; letter-spacing: -.04em; color: var(--band-ink);
   display: flex; align-items: baseline; justify-content: center;
   font-variant-numeric: tabular-nums;
 }
+.hv-stat-suffix { white-space: pre; }
 /* BlurText renders a flex <p>; centre its words and clear the default margin. */
-.hv-stat-label { font: 400 14px/1.45 var(--sans); color: rgba(247,247,245,.62); margin: 0; justify-content: center; max-width: 24ch; }
+.hv-stat-label { font: 400 14px/1.45 var(--sans); color: var(--band-ink-soft); margin: 0; justify-content: center; max-width: 24ch; }
 @media (max-width: 768px) {
   .hv-stats { padding-top: 64px; padding-bottom: 64px; }
   .hv-stats-grid, .hv-stats-grid.is-two { grid-template-columns: 1fr; gap: 0; }
@@ -1010,17 +1125,30 @@ canvas { image-rendering: -webkit-optimize-contrast; }
    HOME · PARTNERS band (dark)
 ========================================================= */
 .hv-partners {
-  background: var(--charcoal-deep); color: var(--ivory);
+  --band-ink: var(--ivory);
+  --band-ink-soft: rgba(247,247,245,.72);
+  --band-rule-hair: rgba(244,244,242,.08);
+  background: var(--charcoal-deep); color: var(--band-ink);
   padding-top: 44px; padding-bottom: 44px;
-  border-top: 1px solid rgba(244,244,242,.08);
-  border-bottom: 1px solid rgba(244,244,242,.08);
+  border-top: 1px solid var(--band-rule-hair);
+  border-bottom: 1px solid var(--band-rule-hair);
 }
 .hv-partners-inner { display: flex; align-items: baseline; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
-.hv-partners-label { font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(247,247,245,.5); }
+.hv-partners-label { font: 500 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--band-ink-soft); }
 .hv-partners-brands { display: flex; gap: 48px; align-items: baseline; flex-wrap: wrap; }
-.hv-partners-brand { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 3vw, 34px); color: rgba(247,247,245,.5); }
-.hv-partners-brand.is-lead { color: var(--ivory); }
-.hv-partners-note { font: 400 10px/1.5 var(--mono); letter-spacing: .08em; color: rgba(247,247,245,.62); flex-basis: 100%; }
+.hv-partners-brand { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 3vw, 34px); color: var(--band-ink-soft); }
+.hv-partners-brand.is-lead { color: var(--band-ink); }
+.hv-partners-note { font: 400 12px/1.5 var(--mono); letter-spacing: .08em; color: var(--band-ink-soft); flex-basis: 100%; }
+
+/* The light-theme variants. One override pair per band, because every colour
+   inside them goes through --band-ink / --band-ink-soft. */
+html[data-theme="light"] .hv-stats,
+html[data-theme="light"] .hv-partners {
+  --band-ink: #14121f;
+  --band-ink-soft: rgba(20,18,31,.72);
+  --band-rule-hair: rgba(20,18,31,.12);
+  background: var(--bg-deep);
+}
 @media (max-width: 700px) { .hv-partners-brands { gap: 22px 30px; } }
 
 /* =========================================================
@@ -1048,7 +1176,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-svc-card::after { z-index: 2; }          /* keep .ph-grain above the scrim */
 .hv-svc-card > * { position: relative; z-index: 3; }
 .hv-svc-card:hover { transform: translateY(-6px); box-shadow: 0 30px 60px -28px rgba(0,0,0,.6); }
-.hv-svc-eyebrow { font: 500 10px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: rgba(247,247,245,.82); }
+.hv-svc-eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: rgba(247,247,245,.82); }
 .hv-svc-title { font-family: var(--serif); font-weight: 600; font-size: clamp(22px, 2.2vw, 28px); line-height: 1.05; letter-spacing: -.02em; color: var(--ivory); margin-top: 14px; }
 .hv-svc-desc { font: 400 14px/1.5 var(--sans); color: rgba(247,247,245,.8); margin-top: 12px; max-width: 30ch; }
 .hv-svc-arrow { margin-top: auto; font: 400 24px/1 var(--sans); color: var(--ivory); transition: transform .3s var(--ease); }
@@ -1085,6 +1213,9 @@ canvas { image-rendering: -webkit-optimize-contrast; }
    Click a chip → a keyed coat layer wipes the new colour across
    the wall with a clip-path circle (hv-paint-spread).
 ========================================================= */
+/* THE one deliberately dark section, in both themes. Colour chips and a wall
+   preview need a dark surround to read honestly, and a single committed accent
+   is a design; three scattered ones were the banding. */
 .hv-room {
   background: var(--band); color: var(--ivory);
   border-top: 1px solid var(--band-rule);
@@ -1147,7 +1278,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-room-grain { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .hv-room-tag {
   position: absolute; left: 18px; bottom: 16px; z-index: 4;
-  font: 500 10px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase;
+  font: 500 12px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase;
   color: rgba(247,247,245,.78);
   background: rgba(14,13,12,.55);
   border: 1px solid rgba(247,247,245,.18);
@@ -1262,7 +1393,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-tk-strip { flex-direction: row; align-items: center; gap: 18px; padding: 22px 26px; }
 .hv-tk-strip .hv-tk-card-title { margin: 0; font-size: 19px; }
 .hv-tk-strip .hv-tk-card-desc { margin: 0; }
-.hv-tk-saved { margin-left: auto; color: var(--sage); }
+.hv-tk-saved { margin-left: auto; color: var(--sage-text); }
 .hv-tk-pulse { position: relative; width: 10px; height: 10px; border-radius: 50%; background: var(--sage); flex-shrink: 0; }
 .hv-tk-pulse::after { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 1px solid var(--sage); opacity: 0; animation: hv-tk-ring 2.4s var(--ease) infinite; }
 @keyframes hv-tk-ring { 0% { transform: scale(.4); opacity: .9; } 70% { transform: scale(1.25); opacity: 0; } 100% { opacity: 0; } }
@@ -1332,7 +1463,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   .hv-mood-strip { gap: 6px; }
   .hv-mood-swatch { padding: 12px; height: clamp(140px, 24vw, 220px); }
   .hv-mood-swatch-name { font-size: 13.5px; }
-  .hv-mood-swatch .mono { font-size: 9px; letter-spacing: .08em; }
+  .hv-mood-swatch .mono { font-size: 12px; letter-spacing: .08em; }
 }
 @media (max-width: 560px) {
   .hv-mood-pills { gap: 8px; margin-top: 28px; }
@@ -1393,7 +1524,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-work-card:focus-visible { outline: 2px solid #f4f4f2; outline-offset: 3px; }
 .hv-work-card-tag {
   position: absolute; top: 16px; left: 22px;
-  font: 500 9.5px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase;
+  font: 500 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase;
   color: rgba(247,247,245,.78);
 }
 .hv-work-card-title {
@@ -1409,7 +1540,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   display: flex; flex-direction: column; gap: 8px; pointer-events: none;
 }
 .hv-work-head-title { font-family: var(--serif); font-weight: 600; font-size: 22px; letter-spacing: -.02em; color: var(--ivory); }
-.hv-work-head-sub { font: 500 10px/1.4 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: rgba(247,247,245,.45); }
+.hv-work-head-sub { font: 500 12px/1.4 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: rgba(247,247,245,.45); }
 .hv-work-count {
   position: fixed; bottom: 36px; left: var(--gutter); z-index: 40;
   font: 400 12px/1 var(--mono); letter-spacing: .14em; color: rgba(247,247,245,.5);
@@ -1418,7 +1549,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-work-count span { font: 600 30px/1 var(--serif); letter-spacing: -.02em; color: var(--ivory); margin-right: 4px; }
 .hv-work-hint {
   position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%); z-index: 40;
-  font: 500 10px/1 var(--mono); letter-spacing: .34em; text-transform: uppercase;
+  font: 500 12px/1 var(--mono); letter-spacing: .34em; text-transform: uppercase;
   color: rgba(247,247,245,.45);
   pointer-events: none;
   animation: hv-work-nudge 2.4s var(--ease) infinite;
@@ -1471,7 +1602,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-work-row-num { font: 400 12px/1 var(--mono); color: rgba(247,247,245,.4); }
 .hv-work-row-swatch { width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(244,244,242,.2); }
 .hv-work-row-title { font-family: var(--serif); font-weight: 600; font-size: clamp(20px, 2.4vw, 30px); letter-spacing: -.02em; color: var(--ivory); }
-.hv-work-row-code { font: 500 11px/1 var(--mono); letter-spacing: .14em; color: rgba(247,247,245,.55); }
+.hv-work-row-code { font: 500 12px/1 var(--mono); letter-spacing: .14em; color: rgba(247,247,245,.55); }
 .hv-work-row-loc { font: 400 13px/1 var(--sans); color: rgba(247,247,245,.5); }
 .hv-work-row-arr { font: 400 20px/1 var(--sans); color: var(--ivory); justify-self: end; transition: transform .25s var(--ease); }
 .hv-work-row:hover .hv-work-row-arr { transform: translateX(5px); }
@@ -1602,7 +1733,7 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
 
 .hv-loader-label {
   display: inline-flex; align-items: center; gap: 8px;
-  font: 400 10.5px/1 var(--mono);
+  font: 400 12px/1 var(--mono);
   letter-spacing: .32em; text-transform: uppercase;
   color: var(--accent);
   padding-left: .32em;   /* optically recentre the tracked type */
@@ -1780,7 +1911,26 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
 }
 
 /* ====== PRICING · tier cards & matrix ====== */
-.hv-tier { transition: transform .4s var(--ease), box-shadow .4s var(--ease); }
+/* The tier cards are a deliberate dark plate in BOTH themes, so nothing inside
+   them may read theme-dependent ink.
+   --mute (#5a5870) on the charcoal card was 2.54:1, and the buttons inherited
+   .btn's `background: var(--fg)` — which in the light theme painted a
+   near-black pill onto a near-black card. That is why Starter and Business
+   looked like plain text with an arrow while Professional, which overrides its
+   colours inline, looked like a real button. Same component, same affordance,
+   now in both themes. */
+.hv-tier { --tier-ink-soft: #b8b6c8; transition: transform .4s var(--ease), box-shadow .4s var(--ease); }
+.hv-tier .btn { background: var(--ivory); color: #141413; border-color: var(--ivory); }
+.hv-tier .btn:hover { opacity: .9; }
+.hv-tier .btn-ghost { background: transparent; color: var(--ivory); border-color: rgba(247,247,245,.45); }
+.hv-tier .btn-ghost:hover { background: rgba(247,247,245,.10); border-color: var(--ivory); color: var(--ivory); }
+.hv-tier--featured { --tier-ink-soft: rgba(255,255,255,.88); }
+.hv-tier-detail {
+  text-decoration: underline dotted currentColor;
+  text-underline-offset: 4px;
+  cursor: help;
+}
+.hv-tier-detail:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .hv-tier:hover { transform: translateY(-4px); box-shadow: 0 24px 48px rgba(0,0,0,.35); }
 .hv-tier--featured { outline: 1px solid var(--brass); outline-offset: -1px; box-shadow: 0 16px 56px rgba(124,92,255,.12); }
 .hv-tier--featured:hover { box-shadow: 0 24px 64px rgba(124,92,255,.18); }
@@ -1841,7 +1991,7 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
    (a clickable-looking row that goes nowhere is worse than a quiet one). */
 
 /* Loading shimmer (dashboard project placeholders) */
-.hv-skel { background: linear-gradient(90deg, var(--surface) 25%, var(--surface-soft) 37%, var(--surface) 63%); background-size: 400% 100%; animation: hv-shimmer 1.4s linear infinite; }
+.hv-skel { display: block; border-radius: 4px; background: linear-gradient(90deg, var(--surface) 25%, var(--surface-soft) 37%, var(--surface) 63%); background-size: 400% 100%; animation: hv-shimmer 1.4s linear infinite; }
 @keyframes hv-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
 /* Dashboard project cards: thumb zoom + reactive "New project" tile */
@@ -1852,7 +2002,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-proj-new:hover { border-color: var(--accent); }
 
 /* Form errors rise in (sign-in / trial) */
-.field-error[role="alert"] { animation: hv-rise .35s var(--ease) both; }
+.field-error[role="alert"], .field-error[role="status"]:not(:empty) { animation: hv-rise .35s var(--ease) both; }
 
 /* Keyed label swap (journal newsletter submit) */
 .hv-fade-swap { display: inline-block; animation: hv-rise .4s var(--ease) both; }
@@ -1894,25 +2044,186 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-shade-card:active { transform: translateY(-1px); transition-duration: .12s; }
 
 /* Shade-card tool row: heart · compare · strip · hold-to-wall */
+/* ---- Catalogue: family filter, status bar, back-to-top -------------------
+   The family row wraps instead of scrolling sideways. A horizontal scroller
+   showed a scrollbar even at 1400px and cut its last chip mid-word ("DARK…"),
+   which is the worst of both: it hides options AND looks broken. */
+.hv-family-row {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hv-family-row.is-sub { margin-top: 10px; }
+.hv-family-chip {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 12px 18px;
+  min-height: 44px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  color: var(--fg-soft);
+  font: 400 12px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
+}
+.hv-family-chip:hover { color: var(--fg); border-color: var(--rule-strong); }
+.hv-family-chip.is-active { background: var(--surface-soft); color: var(--fg); border-color: var(--fg-mute); }
+/* The company's own family names, one level down — quieter, and sentence case,
+   because they are proper nouns ("Whispering Whites"), not labels. */
+.hv-family-chip.is-sub {
+  padding: 9px 14px; min-height: 38px;
+  font: 400 13px/1 var(--sans); letter-spacing: 0; text-transform: none;
+  border-radius: 8px;
+}
+.hv-family-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--rule-strong); flex-shrink: 0; }
+
+/* The count + sort row sticks, so a shopper 400 shades deep into an infinite
+   list can still see where they are and re-sort without scrolling back up. */
+.hv-cat-statusbar {
+  position: sticky;
+  top: calc(var(--nav-h) + 4px);
+  z-index: 12;
+  margin-top: 32px;
+  padding: 10px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--rule);
+}
+.hv-back-to-top {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 90;
+  width: 48px; height: 48px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--rule-strong);
+  background: var(--nav-bg-strong);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  color: var(--fg);
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 18px 40px -20px rgba(0,0,0,.5);
+}
+.hv-back-to-top:hover { border-color: var(--fg-mute); }
+
+/* Card titles occupy a fixed two-line block whatever the name's length.
+   Without it, "Springtime in Mexico" and "Penchant for dreams" wrapped to two
+   lines and pushed their meta row and action buttons below their neighbours',
+   so a row of cards lost its baseline. */
+.hv-shade-card-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.1em;
+}
+
+/* Dashboard empty state: a tile that fills the row next to "New project",
+   rather than one centred line inside a card-height grid row. */
+.hv-proj-empty {
+  grid-column: 2 / -1;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+@media (max-width: 900px) { .hv-proj-empty { grid-column: 1 / -1; } }
+
+/* ---- Dashboard plan strip -----------------------------------------------
+   One labelled chip per figure. The strip used to be a single monospace
+   run-on with nothing to say where one number stopped and the next began. */
+.hv-plan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  align-items: flex-start;
+}
+.hv-plan-chip {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.hv-plan-chip strong { font: 600 16px/1.2 var(--sans); color: var(--fg); }
+.hv-plan-chip small { font: 400 12px/1.3 var(--sans); color: var(--fg-mute); }
+.hv-plan-chip.is-plan strong { color: var(--fg); }
+
+/* A real photograph in a slot the coloured plates used to hold. */
+.ph-photo { position: relative; margin: 0; border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+.ph-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ph-photo figcaption {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 10px 14px;
+  background: linear-gradient(rgba(10,9,8,0), rgba(10,9,8,.86) 55%);
+  color: var(--ivory);
+  font: 400 13px/1.4 var(--sans);
+}
+
+/* ---- Touch targets ------------------------------------------------------
+   A shop counter is a tablet operated with paint on someone's fingers. WCAG 2.2
+   asks 24x24; that room wants 44x44. Both helpers grow the HIT area with a
+   pseudo-element, so a control can stay visually small and still be easy to
+   land on.
+
+   .tap-target  — grows both axes. For icon buttons that stand alone.
+   .tap-row     — grows the vertical axis only, keeping the horizontal extent
+                  as-is. For text controls sitting side by side in a row, where
+                  a 44px-wide box would overlap its neighbour and start
+                  swallowing its clicks. */
+.tap-target { position: relative; }
+.tap-target::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+.tap-row { position: relative; }
+.tap-row::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: max(100%, 44px);
+  transform: translateY(-50%);
+}
+
 .hv-card-action {
-  width: 28px; height: 28px; min-height: 28px;
+  position: relative;
+  width: 36px; height: 36px; min-height: 36px;
   display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--rule);
   border-radius: 6px;
   background: transparent;
   color: var(--fg-mute);
-  font: 400 13px/1 var(--sans);
+  font: 400 15px/1 var(--sans);
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
   transition: color .2s var(--ease), border-color .2s var(--ease);
 }
+/* 44x44 of tappable area around the 36px chip, on every pointer type. */
+.hv-card-action::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 44px; height: 44px;
+  transform: translate(-50%, -50%);
+}
 .hv-card-action:hover { color: var(--fg); border-color: var(--rule-strong); }
 /* Pressed = filled, so "on" reads distinctly from hover and isn't color-only. */
 .hv-card-action[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
-/* Fingers need more than 28px — grow the targets where there's no mouse. */
+/* Fingers want the visible chip bigger too, not only its hit area. */
 @media (hover: none) and (pointer: coarse) {
-  .hv-card-action { width: 34px; height: 34px; min-height: 34px; font-size: 15px; }
+  .hv-card-action { width: 44px; height: 44px; min-height: 44px; font-size: 17px; }
 }
 
 /* ----- Colour finder + fabric palette: tighter framing on phones ----- */
@@ -1953,7 +2264,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 /* Reduced motion: neutralise everything in this section */
 @media (prefers-reduced-motion: reduce) {
   .hv-rise, .hv-card-in, .hv-page, .hv-dd, .hv-fade-swap, .hv-chat-pop,
-  .hv-grid-swap, .hv-skel, .field-error[role="alert"] { animation: none !important; }
+  .hv-grid-swap, .hv-skel, .field-error[role="alert"], .field-error[role="status"] { animation: none !important; }
   .hv-skel { background: var(--surface); }
   .hv-chip, .hv-dd-opt, .hv-journal-row, .hv-journal-row > :last-child,
   .hv-proj-thumb img, .hv-proj-new, .hv-chat-fab, .hv-shade-card,
@@ -2022,7 +2333,10 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   transition: color .18s var(--ease), background .18s var(--ease);
 }
 .cnav-link:hover { color: var(--fg); background: rgba(var(--fg-rgb), .07); }
-.cnav-link.active { color: var(--fg); }
+/* Current page reads as a filled pill, not as colour alone — and never as
+   the same shape the focus ring draws. */
+.cnav-link.active { color: var(--bg); background: var(--fg); }
+.cnav-link.active:hover { color: var(--bg); background: var(--fg); }
 
 .cnav-actions { display: inline-flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .cnav-signin {
@@ -2033,7 +2347,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .cnav-signin:hover { color: var(--fg); }
 .cnav-cta {
   display: inline-flex; align-items: center; gap: 5px;
-  font: 600 11px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase;
+  font: 600 12px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase;
   /* Pair with the bg token, not a hardcoded near-black: background is var(--fg),
      so the label must be var(--bg). In light theme --fg is dark, and the old
      fixed #0a0a0f made this primary CTA near-black-on-near-black (invisible). */
@@ -2106,7 +2420,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 @media (max-width: 480px) {
   .cnav-wrap { padding: 10px 14px; }
-  .cnav-cta { padding: 9px 14px; font-size: 10px; }
+  .cnav-cta { padding: 9px 14px; font-size: 12px; }
 }
 
 /* =========================================================
@@ -2119,7 +2433,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-mood-hint {
   text-align: center; margin: 22px 0 0;
-  font: 400 10px/1.6 var(--mono); letter-spacing: .18em; text-transform: uppercase;
+  font: 400 12px/1.6 var(--mono); letter-spacing: .18em; text-transform: uppercase;
   color: var(--fg-mute);
 }
 @media (max-width: 760px) {
@@ -2161,15 +2475,19 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
     width: 100vw;
     margin-left: calc(50% - 50vw);
     margin-right: calc(50% - 50vw);
-    margin-top: -40px;               /* cancel ALL of the app <main> top padding */
+    /* Cancel the app <main> top padding, then step back down past the studio's
+       persistent bar so the workspace starts below it instead of under it —
+       which is what let the "0/32 projects" badge collide with the nav. */
+    margin-top: calc(-40px + var(--studio-bar-h));
     margin-bottom: -96px;            /* cancel the app <main> bottom padding */
   }
   .hv-atelier-page .hv-visualizer {
     display: flex;
     flex-direction: column;
-    /* The navbar is an auto-hide overlay on the studio (see AppNav), so the
-       workspace owns the entire viewport — image and colour panel fullscreen. */
-    height: 100vh;
+    /* Everything below the persistent bar belongs to the workspace — image and
+       colour panel fullscreen. The full navbar is still an auto-hide overlay
+       that slides down over this (see AppNav). */
+    height: calc(100vh - var(--studio-bar-h));
     min-height: 420px;
     overflow: hidden;
     /* Edge-to-edge: drop the rounded frame so it reads as a full workspace. */
@@ -2285,7 +2603,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   white-space: nowrap;
 }
 .hv-status-pill.is-accent { color: var(--accent); border-color: var(--rule-brass); }
-.hv-status-pill.is-success { color: var(--sage); border-color: rgba(78,122,82,.45); }
+.hv-status-pill.is-success { color: var(--sage-text); border-color: rgba(78,122,82,.45); }
 .hv-status-pill.is-error { color: var(--terracotta); border-color: rgba(194,64,42,.45); cursor: pointer; }
 .hv-status-pill.is-error:hover { background: rgba(194,64,42,.08); }
 .hv-status-pill .dot {
@@ -2364,7 +2682,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-radius: var(--radius-pill);
   background: transparent;
   color: rgba(247,247,245,.62);
-  font: 500 11px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   cursor: pointer;
   white-space: nowrap;
   transition: background .15s var(--ease), color .15s var(--ease);
@@ -2476,7 +2794,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-legend-region {
   flex: 0 0 auto;
-  font: 500 9px/1 var(--mono);
+  font: 500 12px/1 var(--mono);
   letter-spacing: .14em;
   text-transform: uppercase;
   color: rgba(247,247,245,.55);
@@ -2488,7 +2806,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-legend-code {
   flex: 0 0 auto;
-  font: 500 10px/1 var(--mono);
+  font: 500 12px/1 var(--mono);
   letter-spacing: .08em;
   color: rgba(247,247,245,.72);
 }
@@ -2503,7 +2821,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   margin: 10px auto 0;
   max-width: 62ch;
   text-align: center;
-  font: 400 11.5px/1.5 var(--sans);
+  font: 400 12px/1.5 var(--sans);
   color: var(--fg-mute);
 }
 
@@ -2616,7 +2934,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-pdf-thumb-remove:hover { background: var(--terracotta, #c2402a); border-color: var(--terracotta, #c2402a); }
 .hv-pdf-notice {
   margin: 0;
-  font: 500 11.5px/1.3 var(--sans);
+  font: 500 12px/1.3 var(--sans);
   color: rgba(247,247,245,.82);
   text-align: center;
   max-width: 280px;
@@ -2674,7 +2992,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-progress-step[data-state="pending"] .hv-studio-progress-ico { border-color: rgba(247,247,245,.22); }
 .hv-studio-progress-bullet { width: 5px; height: 5px; border-radius: 50%; background: rgba(247,247,245,.4); }
 .hv-studio-progress-label {
-  font: 600 9.5px/1 var(--mono);
+  font: 600 12px/1 var(--mono);
   letter-spacing: .14em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -2696,8 +3014,8 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   width: 14px; height: 14px; border-radius: 50%;
   border: 1px solid rgba(255,255,255,.35); flex-shrink: 0;
 }
-.hv-studio-progress-shade-name { font: 600 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(247,247,245,.95); }
-.hv-studio-progress-shade-code { font: 500 10px/1 var(--mono); letter-spacing: .1em; color: rgba(247,247,245,.55); }
+.hv-studio-progress-shade-name { font: 600 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(247,247,245,.95); }
+.hv-studio-progress-shade-code { font: 500 12px/1 var(--mono); letter-spacing: .1em; color: rgba(247,247,245,.55); }
 @media (max-width: 560px) {
   .hv-studio-progress { left: 10px; right: 10px; bottom: 10px; padding: 8px 10px; gap: 8px; }
   .hv-studio-progress-label { letter-spacing: .1em; }
@@ -2739,7 +3057,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   flex-shrink: 0;
 }
 .hv-studio-palette-label { font: 500 12px/1 var(--sans); color: var(--fg); }
-.hv-studio-palette-shade { font: 400 11px/1 var(--mono); color: var(--fg-mute); }
+.hv-studio-palette-shade { font: 400 12px/1 var(--mono); color: var(--fg-mute); }
 .hv-studio-copy-palette {
   margin-left: auto;
   padding: 6px 12px;
@@ -2810,7 +3128,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   gap: 2px;
 }
 .hv-studio-region-title { font: 500 13px/1 var(--sans); color: var(--fg); }
-.hv-studio-region-shade { font: 400 11px/1 var(--sans); color: var(--fg-mute); }
+.hv-studio-region-shade { font: 400 12px/1 var(--sans); color: var(--fg-mute); }
 .hv-studio-add-wall {
   margin-left: auto;
   padding: 8px 12px;
@@ -2839,6 +3157,30 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-sidebar .hv-studio-panel {
   border-left: none;
   height: 100%;
+}
+/* No photo yet: the panel stays visible so the shop can see what is coming,
+   but everything except the gate and the dock's call to action is dimmed and
+   inert. Dimming without inert would be the same silent no-op in a paler
+   colour; inert without dimming would look broken. */
+.hv-studio-gate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface-soft);
+}
+.hv-studio-gate-text {
+  margin: 0;
+  font: 400 13.5px/1.45 var(--sans);
+  color: var(--fg-soft);
+  max-width: 42ch;
+}
+.hv-studio-panel.is-awaiting-photo [inert] { opacity: .38; }
+@media (prefers-reduced-transparency: reduce) {
+  .hv-studio-panel.is-awaiting-photo [inert] { opacity: .55; }
 }
 .hv-studio-tabs {
   display: flex;
@@ -2902,7 +3244,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-pill {
   padding: 3px 9px;
-  font: 500 10.5px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   border: 1px solid var(--rule);
   border-radius: var(--radius-pill);
   color: var(--fg-mute);
@@ -2920,7 +3262,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   justify-content: space-between;
   gap: 12px;
 }
-.hv-studio-filter-row .mono { font-size: 10px; }
+.hv-studio-filter-row .mono { font-size: 12px; }
 .hv-studio-filter-row > .hv-studio-search { flex: 1; min-width: 0; }
 
 /* "Filters" toggle — family/depth/company pills fold away so the fixed header
@@ -2934,7 +3276,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-radius: 7px;
   background: var(--surface);
   color: var(--fg-mute);
-  font: 500 11.5px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   cursor: pointer;
   flex-shrink: 0;
   transition: color .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease);
@@ -2966,7 +3308,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   background: transparent;
   padding: 4px 11px;
   border-radius: var(--radius-pill);
-  font: 500 11px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   color: var(--fg-mute);
   cursor: pointer;
   transition: color .15s var(--ease), background .15s var(--ease);
@@ -3118,51 +3460,70 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-add-wall-chip:hover:not(:disabled) { background: var(--surface-soft); border-color: var(--fg-mute); }
 .hv-studio-add-wall-chip:disabled { opacity: .45; cursor: not-allowed; }
 
-/* Swatch grid — rectangular tiles. Denser tiles so ~8–9 rows of colours are
-   visible at once instead of ~5 (smaller minmax = more columns AND more rows). */
+/* Swatch grid — a colour chip with its name and code UNDER it.
+   Six dense columns fit more colours on screen and made every one of them
+   unusable: names arrived as "Bright Lim…", "Zinnia Blo…", "Shocking …", and
+   the code — the thing that goes on the bill — was not on the tile at all.
+   Four columns, two lines of name, and the code always printed. */
 .hv-studio-swatches {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 10px;
+}
+/* Very narrow panels (stacked mobile layout) would make four columns thinner
+   than a readable name; drop to three there rather than clipping again. */
+@media (max-width: 380px) {
+  .hv-studio-swatches { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .hv-studio-swatch {
-  position: relative;
-  aspect-ratio: 3 / 2;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   padding: 0;
   background: transparent;
-  transition: transform .15s var(--ease), box-shadow .15s var(--ease);
-  overflow: hidden;
+  text-align: left;
+  transition: transform .15s var(--ease);
   /* 10k-shade catalogues: skip layout + paint for tiles far off-screen. */
   content-visibility: auto;
-  contain-intrinsic-size: auto 96px auto 64px;
+  contain-intrinsic-size: auto 150px auto 110px;
 }
 /* Hover-lift only on devices with a real pointer — on touch screens the :hover
    state sticks after a tap, leaving the tapped tile raised on top of its
    neighbours (the "card stays up" bug). */
 @media (hover: hover) {
-  .hv-studio-swatch:hover { transform: translateY(-2px); z-index: 2; box-shadow: 0 8px 18px -10px rgba(0,0,0,.5); }
+  .hv-studio-swatch:hover { transform: translateY(-2px); }
+  .hv-studio-swatch:hover .hv-studio-swatch-color { box-shadow: 0 8px 18px -10px rgba(0,0,0,.5); }
 }
-.hv-studio-swatch.is-selected { box-shadow: 0 0 0 2px var(--accent); }
 .hv-studio-swatch-color {
-  position: absolute; inset: 0;
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
   border-radius: 8px;
   border: 1px solid var(--rule-strong);
+  transition: box-shadow .15s var(--ease);
 }
-.hv-studio-swatch-label {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 6px 7px 5px;
-  background: linear-gradient(transparent, rgba(0,0,0,.62));
-  font: 500 9.5px/1.2 var(--sans);
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0,0,0,.5);
-  text-align: left;
-  pointer-events: none;
+.hv-studio-swatch.is-selected .hv-studio-swatch-color { box-shadow: 0 0 0 2px var(--accent); }
+/* The name sits on the panel background, not on the colour — so its contrast
+   no longer depends on which shade happens to be underneath it. Two lines,
+   with the block held at two lines high so tiles stay on a grid whether the
+   name wraps or not. */
+.hv-studio-swatch-name {
+  font: 500 13px/1.3 var(--sans);
+  color: var(--fg);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.6em;
+}
+.hv-studio-swatch-code {
+  font: 400 12px/1 var(--mono);
+  letter-spacing: .06em;
+  color: var(--fg-mute);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3204,7 +3565,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: var(--fg);
 }
 .hv-studio-detail-meta {
-  font: 500 11px/1 var(--mono);
+  font: 500 12px/1 var(--mono);
   letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--fg-mute);
@@ -3285,18 +3646,32 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
    colour + recent strip) so picking a colour from ANY tab shows feedback in the
    same place, and the layout never jumps as sections come and go. */
 .hv-studio-dock {
+  position: relative;
   flex-shrink: 0;
   border-top: 1px solid var(--rule);
   background: var(--surface);
   display: flex;
   flex-direction: column;
 }
+/* Tips float OVER the grid rather than growing the dock.
+   As a block inside the dock it added up to 320px of height to a flex-shrink:0
+   footer, and every one of those pixels came out of the scroll area above it —
+   opening a two-item tip panel collapsed the colour grid to a single sliver of
+   a row. As an overlay the grid keeps its size and comes straight back when
+   the panel closes. */
 .hv-studio-dock-tips {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
   max-height: min(320px, 38vh);
   overflow-y: auto;
   padding: 12px;
+  border-top: 1px solid var(--rule-strong);
   border-bottom: 1px solid var(--rule);
   background: var(--surface-soft);
+  box-shadow: 0 -18px 40px -22px rgba(0,0,0,.55);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -3338,13 +3713,23 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   text-overflow: ellipsis;
 }
 .hv-studio-dock-meta {
-  font: 500 10px/1.2 var(--mono);
+  font: 500 12px/1.2 var(--mono);
   letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--fg-mute);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* The empty-state hint is a sentence, not a label. */
+.hv-studio-dock-meta.is-hint {
+  font: 400 13px/1.35 var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--fg-soft);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 /* Narrow screens: the dock's buttons squeeze the info column until
    "No colour selected" ellipsizes into "No co…" — wrap instead of clipping.
@@ -3382,7 +3767,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-radius: 6px;
   background: var(--surface);
   color: var(--fg-soft);
-  font: 500 11px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   cursor: pointer;
   transition: background .15s var(--ease), color .15s var(--ease);
 }
@@ -3404,7 +3789,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-radius: 7px;
   background: transparent;
   color: var(--fg-mute);
-  font: 500 11.5px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   cursor: pointer;
   transition: color .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease);
 }
@@ -3443,7 +3828,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-dock-recent-swatch.is-current { box-shadow: 0 0 0 2px var(--accent); }
 .hv-studio-dock-recent-empty {
-  font: 400 11.5px/1.2 var(--sans);
+  font: 400 12px/1.2 var(--sans);
   color: var(--fg-mute);
 }
 
@@ -3561,13 +3946,13 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .hv-ai-swatch:hover .hv-ai-swatch-color { box-shadow: 0 0 0 2px var(--accent); }
 }
 .hv-ai-swatch-role {
-  font: 400 9px/1 var(--mono);
+  font: 400 12px/1 var(--mono);
   letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--fg-mute);
 }
 .hv-ai-swatch-name {
-  font: 400 11px/1.25 var(--sans);
+  font: 400 12px/1.25 var(--sans);
   color: var(--fg-soft);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3575,7 +3960,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   width: 100%;
 }
 .hv-ai-swatch-code {
-  font: 500 10px/1 var(--mono);
+  font: 500 12px/1 var(--mono);
   letter-spacing: .06em;
   color: var(--fg-mute);
   overflow: hidden;
@@ -3717,7 +4102,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
     gap: 0;
   }
   .hv-studio-tool { padding: 6px 8px; }
-  .hv-studio-compare { top: 12px; right: 12px; padding: 7px 10px; font-size: 11px; }
+  .hv-studio-compare { top: 12px; right: 12px; padding: 7px 10px; font-size: 12px; }
   .hv-studio-region-shade { display: none; }
   .hv-studio-region { padding: 7px 10px; }
 }
@@ -3826,6 +4211,6 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   margin: 18px 0 4px;
   padding-top: 14px;
   border-top: 1px solid var(--rule);
-  font: 400 11px/1.6 var(--sans);
+  font: 400 12px/1.6 var(--sans);
   color: var(--fg-mute);
 }

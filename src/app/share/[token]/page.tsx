@@ -80,7 +80,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     return (
       <>
         <SiteHeader />
-        <main style={{ maxWidth: 640, margin: "0 auto", padding: "120px 24px 160px", textAlign: "center" }}>
+        <main id="main" style={{ maxWidth: 640, margin: "0 auto", padding: "120px 24px 160px", textAlign: "center" }}>
           <Eyebrow>Shared preview</Eyebrow>
           <h1 className="display" style={{ fontSize: "clamp(36px, 5vw, 56px)", marginTop: 16 }}>
             This link has <i>expired.</i>
@@ -107,7 +107,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   return (
     <>
       <SiteHeader />
-      <main style={{ maxWidth: 1040, margin: "0 auto", padding: "64px var(--gutter) 120px" }}>
+      <main id="main" style={{ maxWidth: 1040, margin: "0 auto", padding: "64px var(--gutter) 120px" }}>
         <header style={{ marginBottom: 32 }}>
           <Eyebrow>Shared colour preview</Eyebrow>
           <h1 className="display" style={{ fontSize: "clamp(36px, 5vw, 64px)", marginTop: 12 }}>{project.name}</h1>

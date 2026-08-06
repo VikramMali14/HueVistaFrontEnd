@@ -1008,7 +1008,7 @@ export async function requireActiveSubscription(): Promise<void> {
   if (user?.role === "CUSTOMER") redirect("/redeem");
   // The in-app subscription page shows why access is paused AND the renew
   // buttons — a better landing than the public pricing pitch.
-  redirect("/subscription?need=subscription");
+  redirect("/plan?need=subscription");
 }
 
 /**

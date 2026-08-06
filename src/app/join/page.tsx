@@ -29,7 +29,7 @@ export default async function JoinPage({ searchParams }: PageProps) {
   return (
     <>
       <SiteHeader showSignIn />
-      <main style={{ maxWidth: 560, margin: "0 auto", padding: "72px var(--gutter) 140px" }}>
+      <main id="main" style={{ maxWidth: 560, margin: "0 auto", padding: "72px var(--gutter) 140px" }}>
         <Eyebrow>Create account · for you</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 68px)", margin: "16px 0 14px" }}>
           Keep your <i>colours.</i>

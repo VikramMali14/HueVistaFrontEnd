@@ -2,7 +2,7 @@ import { Mono } from "@/components/ui/eyebrow";
 
 export function Testimonial() {
   return (
-    <section style={{ textAlign: "center" }}>
+    <section style={{ textAlign: "center" }} aria-label="What shops say">
       <div className="reveal" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 28, maxWidth: 800, margin: "0 auto" }}>
         <Mono>The problem we solve</Mono>
 

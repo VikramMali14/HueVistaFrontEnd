@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 const label: React.CSSProperties = {
-  font: "500 10px/1 var(--mono)",
+  font: "500 12px/1 var(--mono)",
   letterSpacing: ".22em",
   textTransform: "uppercase",
   color: "var(--fg-mute)",
@@ -28,7 +28,7 @@ export default function ContactPage() {
   return (
     <>
       <SiteHeader />
-      <main style={{ maxWidth: 760, margin: "0 auto", padding: "96px var(--gutter) 140px" }}>
+      <main id="main" style={{ maxWidth: 760, margin: "0 auto", padding: "96px var(--gutter) 140px" }}>
         <Eyebrow>Legal</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 72px)", marginTop: 16 }}>
           Contact <i>us.</i>

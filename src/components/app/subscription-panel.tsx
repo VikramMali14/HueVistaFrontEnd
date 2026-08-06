@@ -87,7 +87,7 @@ const card: React.CSSProperties = {
 };
 
 const fieldLabel: React.CSSProperties = {
-  font: "400 10px/1 var(--mono)",
+  font: "400 12px/1 var(--mono)",
   letterSpacing: ".2em",
   textTransform: "uppercase",
   color: "var(--fg-mute)",
@@ -102,7 +102,7 @@ const buttonStyle: React.CSSProperties = {
   padding: "10px 16px",
   cursor: "pointer",
   color: "var(--fg-soft)",
-  font: "400 10px/1 var(--mono)",
+  font: "400 12px/1 var(--mono)",
   letterSpacing: ".18em",
   textTransform: "uppercase",
 };
@@ -280,7 +280,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
       }
     } catch (e) {
       if (e instanceof HttpError && e.status === 401) {
-        window.location.assign(`/sign-in?next=${encodeURIComponent("/subscription")}`);
+        window.location.assign(`/sign-in?next=${encodeURIComponent("/plan")}`);
         return;
       }
       setError(paymentErrorText(e, "Could not start checkout. Please try again."));
@@ -377,7 +377,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
               </h2>
               <span
                 style={{
-                  font: "500 11px/1 var(--mono)",
+                  font: "500 12px/1 var(--mono)",
                   letterSpacing: ".2em",
                   textTransform: "uppercase",
                   color: statusLabel(sub).color,
@@ -775,12 +775,12 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                               : "Get this plan"}
                 </button>
                 {isUpgrade && (
-                  <span style={{ font: "400 11px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
+                  <span style={{ font: "400 12px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
                     Starts immediately · old plan cancelled automatically
                   </span>
                 )}
                 {isScheduled && (
-                  <span style={{ font: "400 11px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
+                  <span style={{ font: "400 12px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
                     {sub?.currentPeriodEnd
                       ? `Starts ${fmtDate(sub.currentPeriodEnd)} · no double billing`
                       : "Starts when your current plan ends · no double billing"}
@@ -816,7 +816,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                   {h.planDisplayName}
                   {h.trial ? " (trial)" : ""}
                 </span>
-                <span style={{ font: "500 11px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: statusLabel(h).color }}>
+                <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: statusLabel(h).color }}>
                   {statusLabel(h).text}
                 </span>
                 <span style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", color: "var(--fg-mute)" }}>

@@ -22,9 +22,11 @@ type Section = { title: string; rows: ReadonlyArray<Row> };
 
 // Every cell states what ships today; unbuilt items say "Soon" (never "●").
 //
-// The quota rows show the arithmetic ("15 + 30 = 45"), matching the tier cards above.
-// A bare total under an "everything in the tier below, plus" framing was read as
-// cumulative — 15 AND 45 — which is the one thing it never meant.
+// The quota rows state totals, matching the tier cards above. They briefly showed
+// the arithmetic ("15 + 30 = 45") because a bare total under an "everything in the
+// tier below, plus" framing had been read as cumulative — 15 AND 45. In a table the
+// columns sit side by side, so the progression is visible without a sum in each cell;
+// the cards carry the derivation as a footnote for the reading that needs it.
 //
 // Three columns, not four: Enterprise is not offered for now, and the backend does not
 // serve it from /api/billing/plans, so a fifth "On request" column would be quoting a
@@ -33,11 +35,11 @@ const MATRIX: ReadonlyArray<Section> = [
   {
     title: "The preview",
     rows: [
-      ["Projects per month (clean-up + walls found for you)", "15", "15 + 30 = 45", "45 + 55 = 100"],
+      ["Projects per month (clean-up + walls found for you)", "15", "45", "100"],
       ["Marking walls yourself", "Unlimited", "Unlimited", "Unlimited"],
-      ["Extra project — points / card", "60 pts / ₹65", "50 pts / ₹55", "40 pts / ₹45"],
+      ["Extra project — by card, or with points (HueVista credit bought up front)", "₹65 or 60 pts", "₹55 or 50 pts", "₹45 or 40 pts"],
       ["Unused projects carried over when you upgrade", "●", "●", "●"],
-      ["Colour boards (PDF) per month", "25 (4 photos)", "25 + 75 = 100 (8 photos)", "100 + 200 = 300 (12 photos)"],
+      ["Colour boards (PDF) per month", "25 (4 photos)", "100 (8 photos)", "300 (12 photos)"],
       ["Paint each wall its own colour", "●", "●", "●"],
       ["Colour scheme suggestions", "—", "●", "●"],
     ],
@@ -76,7 +78,7 @@ const MATRIX: ReadonlyArray<Section> = [
 const cellStyle: React.CSSProperties = { textAlign: "left", padding: "22px 24px", borderBottom: "1px solid var(--rule)", fontFamily: "var(--sans)", fontWeight: 400, fontSize: 15, color: "var(--ivory-soft)", verticalAlign: "top" };
 const featCellStyle: React.CSSProperties = { ...cellStyle, color: "var(--ivory)", fontFamily: "var(--serif)", fontSize: 19 };
 const featuredColStyle: React.CSSProperties = { background: "rgba(124,92,255,.05)", color: "var(--ivory)" };
-const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px", borderBottom: "1px solid var(--rule-strong)", font: "400 10px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", color: "var(--brass)" };
+const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px", borderBottom: "1px solid var(--rule-strong)", font: "400 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", color: "var(--brass)" };
 const sectionHeadStyle: React.CSSProperties = { font: "400 22px/1 var(--serif)", color: "var(--brass-soft)", padding: "56px 24px 12px" };
 const yesStyle: React.CSSProperties = { color: "var(--brass)", fontFamily: "var(--mono)", fontSize: 13 };
 const noStyle: React.CSSProperties = { color: "var(--mute-deep)", fontFamily: "var(--mono)", fontSize: 13 };
@@ -107,19 +109,19 @@ export default async function PricingPage() {
     <>
       <Marquee items={["Pricing · For retailers, not consumers", `${TRIAL_DAYS}-day trial · no card · open within a day`, catalogueLine]} />
       <SiteHeader />
-      <main>
+      <main id="main">
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
             <Eyebrow>Pricing</Eyebrow>
             <Mono>Built for retailers · not consumers</Mono>
           </div>
-          <h1 className="display">For retailers,<br /><i>not consumers.</i></h1>
+          <h1 className="display">For retailers,{" "}<br /><i>not consumers.</i></h1>
           <Lead className="page-lead">Three tiers, each tuned to a different counter. Every new shop starts with {TRIAL_DAYS} unbilled days — request an account, confirm your email, and it opens within a day. Cancel quietly when you wish.</Lead>
           <PricingTiers isCustomer={isCustomer} />
         </header>
 
-        <div className="reveal" style={{ borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", padding: "22px 0", marginTop: 64, display: "flex", flexWrap: "wrap", gap: "12px 36px", justifyContent: "center", font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+        <div className="reveal" style={{ borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", padding: "22px 0", marginTop: 64, display: "flex", flexWrap: "wrap", gap: "12px 36px", justifyContent: "center", font: "400 12px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
           <span>Payment receipt for every order</span>
           <span aria-hidden>·</span>
           <span>UPI · cards · netbanking</span>
@@ -228,7 +230,7 @@ export default async function PricingPage() {
               <Link href="/trial" className="btn btn-brass">Request a shop account <span className="arr">→</span></Link>
               <Link href="/redeem" className="btn btn-ghost">Have a shop code? <span className="arr">→</span></Link>
             </div>
-            <div style={{ marginTop: 24, font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+            <div style={{ marginTop: 24, font: "400 12px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
               Payment receipt for every order · UPI accepted · cancel anytime
             </div>
           </div>

@@ -151,7 +151,7 @@ export function BoardsPanel({
                 type="button"
                 onClick={() => { deleteBoard(b.id); refresh(); }}
                 aria-label={`Delete board ${b.name}`}
-                style={{ background: "transparent", border: "none", color: "var(--fg-mute)", cursor: "pointer", font: "400 10px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", padding: "6px 2px" }}
+                style={{ background: "transparent", border: "none", color: "var(--fg-mute)", cursor: "pointer", font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", padding: "6px 2px" }}
               >
                 Delete
               </button>
@@ -168,7 +168,7 @@ export function BoardsPanel({
                     style={{ display: "flex", flexDirection: "column", gap: 4, background: "transparent", border: "none", cursor: "pointer", padding: 0, width: 64 }}
                   >
                     <span style={{ display: "block", width: 64, height: 44, background: s.hex, border: "1px solid var(--rule-strong)", borderRadius: 6 }} />
-                    <span style={{ font: "400 9px/1.3 var(--mono)", color: "var(--fg-mute)", textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>
+                    <span style={{ font: "400 12px/1.3 var(--mono)", color: "var(--fg-mute)", textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>
                       {hideCodes ? nameOf(s) : codeOf(s.code)}
                     </span>
                   </button>

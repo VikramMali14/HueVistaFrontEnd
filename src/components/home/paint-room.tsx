@@ -38,11 +38,11 @@ export function PaintRoom() {
   };
 
   return (
-    <section id="paint-room" className="hv-room full-bleed">
+    <section id="paint-room" className="hv-room full-bleed" aria-labelledby="paint-room-title">
       <div className="hv-room-inner">
         <div className="hv-room-copy reveal">
           <Eyebrow>Try it here</Eyebrow>
-          <h2 className="display hv-room-title">Go on —<br /><i>paint it.</i></h2>
+          <h2 id="paint-room-title" className="display hv-room-title">Go on —{" "}<br /><i>paint it.</i></h2>
           <p className="hv-room-lead">
             Tap a colour. The wall changes; the light and shadows stay as they
             were. This is what your customer sees at the counter, with a photo

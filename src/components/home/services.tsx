@@ -52,10 +52,10 @@ const services = (shades: number | null) => [
 export function Services({ shades }: { shades?: number | null }) {
   const SERVICES = services(shades ?? null);
   return (
-    <section id="services" className="hv-services">
+    <section id="services" className="hv-services" aria-labelledby="services-title">
       <header className="hv-services-head reveal">
-        <h2 className="display hv-services-title">
-          Everything you need,<br /><i>in one place.</i>
+        <h2 id="services-title" className="display hv-services-title">
+          Everything you need,{" "}<br /><i>in one place.</i>
         </h2>
         <p className="hv-services-lead">
           From the first photo to the shade code on the bill — every step of selling colour,
@@ -68,7 +68,7 @@ export function Services({ shades }: { shades?: number | null }) {
             <TiltCard style={{ height: "100%" }}>
               <Link href={s.href} className="hv-svc-card ph ph-grain" data-tone={s.tone}>
                 <span className="hv-svc-eyebrow">{s.kicker}</span>
-                <span className="hv-svc-title">{s.title}</span>
+                <h3 className="hv-svc-title">{s.title}</h3>
                 <span className="hv-svc-desc">{s.desc}</span>
                 <span className="hv-svc-arrow" aria-hidden>→</span>
               </Link>
