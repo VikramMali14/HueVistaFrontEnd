@@ -59,7 +59,11 @@
   --nav-bg-strong:   rgba(10,9,15,.92);
   --surface-overlay: rgba(10,9,15,.65);
   --terracotta:      #c2402a;   /* errors / destructive */
-  --sage:            #4e7a52;   /* success */
+  --sage:            #4e7a52;   /* success — FILLS (ivory text sits on it) */
+  /* Success as TEXT. #4e7a52 on the dark surface is 3.7:1, which is what made
+     "saved just now" hard to read; this lifts it clear of AA while staying the
+     same green. Light theme keeps the darker cut, which already passes there. */
+  --sage-text:       #6fae76;
   --band:            #0d0c14;
   --band-rule:       rgba(124,92,255,.16);
 
@@ -107,6 +111,7 @@ html[data-theme="light"] {
   --surface-overlay: rgba(244,243,248,.65);
   --terracotta:      #a83b22;
   --sage:            #3f6a45;
+  --sage-text:       #3f6a45;
   --band:            #1a1922;
   --band-rule:       rgba(124,92,255,.20);
   --brass:           #7c5cff;
@@ -406,8 +411,13 @@ section + section { border-top: var(--hairline) solid var(--rule); }
   color: var(--fg);
   font-feature-settings: 'lnum' 1, 'kern' 1;
 }
-.display i { font-style: normal; font-weight: 650; color: var(--fg-mute); letter-spacing: -.035em; }
-.display .thin { color: var(--fg-mute); font-weight: 500; }
+/* Two-tone headings take their contrast from WEIGHT, not lightness.
+   The second half used --fg-mute — the same token as disabled controls and
+   meta text — so "on your walls.", "not consumers." and "in one place." read
+   as greyed out rather than as the emphasis they are. A lighter cut of the
+   same reading colour says the same thing without dimming half the sentence. */
+.display i { font-style: normal; font-weight: 400; color: var(--fg-soft); letter-spacing: -.035em; }
+.display .thin { color: var(--fg-soft); font-weight: 400; }
 .lead { font: 400 19px/1.55 var(--sans); font-style: normal; color: var(--fg-soft); max-width: 56ch; margin: 0; }
 .body { font: 400 16px/1.6 var(--sans); color: var(--fg-soft); max-width: 60ch; }
 .small { font: 400 13px/1.55 var(--sans); color: var(--fg-mute); }
@@ -925,7 +935,19 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 /* =========================================================
    HOME · HERO (cinematic, full-bleed)
 ========================================================= */
+/* Hero ink is tokenised so the section can flip with the theme.
+   It used to be hardcoded ivory-on-near-black, which meant switching to the
+   light theme lit the header and left the hero dark — and the page then
+   alternated light → dark → light → dark down its length, reading as sections
+   that had failed to load rather than as a design. */
 .hv-hero2 {
+  --hero-ink: var(--ivory);
+  --hero-ink-soft: rgba(247,247,245,.78);
+  --hero-ink-mute: rgba(247,247,245,.62);
+  --hero-btn-bg: var(--ivory);
+  --hero-btn-fg: #141413;
+  --hero-rule: rgba(247,247,245,.4);
+  --hero-wash: rgba(247,247,245,.08);
   position: relative;
   min-height: min(92vh, 880px);
   padding-top: 96px; padding-bottom: 84px;       /* left/right come from .full-bleed */
@@ -958,18 +980,44 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   display: flex; flex-direction: column; align-items: center; gap: 24px;
 }
 .hv-hero2-title {
-  color: var(--ivory);
+  color: var(--hero-ink);
   font-size: clamp(52px, 8.5vw, 120px);
   line-height: .95; letter-spacing: -.045em;
 }
 .hv-hero2-title span { display: block; }
 .hv-hero2-cta { display: inline-flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
-/* On the dark hero the primary button is ivory; the ghost reads light. */
-.hv-hero2 .btn { background: var(--ivory); color: #141413; border-color: var(--ivory); }
+/* Buttons follow the hero's ink, so they invert with it. */
+.hv-hero2 .btn { background: var(--hero-btn-bg); color: var(--hero-btn-fg); border-color: var(--hero-btn-bg); }
 .hv-hero2 .btn:hover { opacity: .9; }
-.hv-hero2 .btn-ghost { background: transparent; color: var(--ivory); border-color: rgba(247,247,245,.4); }
-.hv-hero2 .btn-ghost:hover { background: rgba(247,247,245,.08); border-color: var(--ivory); color: var(--ivory); }
-.hv-hero2-sub { font: 400 15px/1.5 var(--sans); color: rgba(247,247,245,.72); margin: 0; }
+.hv-hero2 .btn-ghost { background: transparent; color: var(--hero-ink); border-color: var(--hero-rule); }
+.hv-hero2 .btn-ghost:hover { background: var(--hero-wash); border-color: var(--hero-ink); color: var(--hero-ink); }
+.hv-hero2-sub { font: 400 16px/1.55 var(--sans); color: var(--hero-ink-soft); margin: 0; }
+.hv-hero2 .mono { color: var(--hero-ink-mute); }
+
+/* The genuine light hero: a warm paper wash with the same purple/blue lift the
+   dark one has, and ink dark enough to read on it. Same composition, opposite
+   polarity — so the light theme is a theme rather than a half-applied one. */
+html[data-theme="light"] .hv-hero2 {
+  --hero-ink: #14121f;
+  --hero-ink-soft: rgba(20,18,31,.78);
+  --hero-ink-mute: rgba(20,18,31,.62);
+  --hero-btn-bg: #14121f;
+  --hero-btn-fg: #f7f7f5;
+  --hero-rule: rgba(20,18,31,.32);
+  --hero-wash: rgba(20,18,31,.06);
+}
+html[data-theme="light"] .hv-hero2-bg {
+  background:
+    radial-gradient(120% 85% at 72% 12%, rgba(124,92,255,.20), transparent 55%),
+    radial-gradient(95% 75% at 12% 90%, rgba(80,170,255,.16), transparent 60%),
+    linear-gradient(158deg, #fbfaff 0%, #f1eff8 46%, #e7e4f2 100%);
+}
+/* The grain overlay and the darkening vignette are both built for a dark
+   plate; on paper they read as dirt and as a shadow round the edge. */
+html[data-theme="light"] .hv-hero2-bg::before { opacity: .22; mix-blend-mode: multiply; }
+html[data-theme="light"] .hv-hero2-bg::after {
+  background: radial-gradient(125% 120% at 50% 32%, transparent 44%, rgba(20,18,31,.10) 100%);
+}
 .hv-hero2-demo { position: relative; z-index: 2; margin: 60px auto 0; width: min(1040px, 100%); }
 .hv-hero2-demo .compare {
   margin-top: 0 !important;
@@ -989,12 +1037,19 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 /* =========================================================
    HOME · STATS band (big numbers, dark)
 ========================================================= */
-/* This is an intentionally dark band in BOTH themes (white figures on near-black),
-   like the partners/room bands. Use the theme-invariant --charcoal-deep so the
-   background stays dark in light theme too — otherwise --bg-deep flips to a pale
-   lavender and the hardcoded --ivory text becomes near-invisible. */
+/* ── One dark band, not three ────────────────────────────────────────────
+   Stats, Partners and the paint-room demo were each hardcoded dark in both
+   themes. In the light theme the page then went light → dark → light → dark
+   down its length, which reads as sections that failed to load rather than as
+   a design. The paint-room demo KEEPS its dark plate in both themes — colour
+   chips need it, and one committed accent is the point — while Stats and
+   Partners follow the theme. Their ink is tokenised here so a single pair of
+   overrides flips the whole band. */
 .hv-stats {
-  background: var(--charcoal-deep); color: var(--ivory);
+  --band-ink: var(--ivory);
+  --band-ink-soft: rgba(247,247,245,.72);
+  --band-rule-hair: rgba(247,247,245,.12);
+  background: var(--charcoal-deep); color: var(--band-ink);
   padding-top: 88px; padding-bottom: 88px;
   text-align: center;
   border-top: 1px solid rgba(234,232,227,.08);
@@ -1010,16 +1065,17 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 /* Hairline dividers between the three figures, so the row reads as aligned. */
 .hv-stat + .hv-stat::before {
   content: ""; position: absolute; left: 0; top: 10%; bottom: 10%;
-  width: 1px; background: rgba(247,247,245,.12);
+  width: 1px; background: var(--band-rule-hair);
 }
 .hv-stat-num {
   font-family: var(--serif); font-weight: 600; font-size: clamp(48px, 7vw, 100px);
-  line-height: .9; letter-spacing: -.04em; color: var(--ivory);
+  line-height: .9; letter-spacing: -.04em; color: var(--band-ink);
   display: flex; align-items: baseline; justify-content: center;
   font-variant-numeric: tabular-nums;
 }
+.hv-stat-suffix { white-space: pre; }
 /* BlurText renders a flex <p>; centre its words and clear the default margin. */
-.hv-stat-label { font: 400 14px/1.45 var(--sans); color: rgba(247,247,245,.62); margin: 0; justify-content: center; max-width: 24ch; }
+.hv-stat-label { font: 400 14px/1.45 var(--sans); color: var(--band-ink-soft); margin: 0; justify-content: center; max-width: 24ch; }
 @media (max-width: 768px) {
   .hv-stats { padding-top: 64px; padding-bottom: 64px; }
   .hv-stats-grid, .hv-stats-grid.is-two { grid-template-columns: 1fr; gap: 0; }
@@ -1031,17 +1087,30 @@ canvas { image-rendering: -webkit-optimize-contrast; }
    HOME · PARTNERS band (dark)
 ========================================================= */
 .hv-partners {
-  background: var(--charcoal-deep); color: var(--ivory);
+  --band-ink: var(--ivory);
+  --band-ink-soft: rgba(247,247,245,.72);
+  --band-rule-hair: rgba(244,244,242,.08);
+  background: var(--charcoal-deep); color: var(--band-ink);
   padding-top: 44px; padding-bottom: 44px;
-  border-top: 1px solid rgba(244,244,242,.08);
-  border-bottom: 1px solid rgba(244,244,242,.08);
+  border-top: 1px solid var(--band-rule-hair);
+  border-bottom: 1px solid var(--band-rule-hair);
 }
 .hv-partners-inner { display: flex; align-items: baseline; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
-.hv-partners-label { font: 500 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(247,247,245,.5); }
+.hv-partners-label { font: 500 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--band-ink-soft); }
 .hv-partners-brands { display: flex; gap: 48px; align-items: baseline; flex-wrap: wrap; }
-.hv-partners-brand { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 3vw, 34px); color: rgba(247,247,245,.5); }
-.hv-partners-brand.is-lead { color: var(--ivory); }
-.hv-partners-note { font: 400 12px/1.5 var(--mono); letter-spacing: .08em; color: rgba(247,247,245,.62); flex-basis: 100%; }
+.hv-partners-brand { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 3vw, 34px); color: var(--band-ink-soft); }
+.hv-partners-brand.is-lead { color: var(--band-ink); }
+.hv-partners-note { font: 400 12px/1.5 var(--mono); letter-spacing: .08em; color: var(--band-ink-soft); flex-basis: 100%; }
+
+/* The light-theme variants. One override pair per band, because every colour
+   inside them goes through --band-ink / --band-ink-soft. */
+html[data-theme="light"] .hv-stats,
+html[data-theme="light"] .hv-partners {
+  --band-ink: #14121f;
+  --band-ink-soft: rgba(20,18,31,.72);
+  --band-rule-hair: rgba(20,18,31,.12);
+  background: var(--bg-deep);
+}
 @media (max-width: 700px) { .hv-partners-brands { gap: 22px 30px; } }
 
 /* =========================================================
@@ -1106,6 +1175,9 @@ canvas { image-rendering: -webkit-optimize-contrast; }
    Click a chip → a keyed coat layer wipes the new colour across
    the wall with a clip-path circle (hv-paint-spread).
 ========================================================= */
+/* THE one deliberately dark section, in both themes. Colour chips and a wall
+   preview need a dark surround to read honestly, and a single committed accent
+   is a design; three scattered ones were the banding. */
 .hv-room {
   background: var(--band); color: var(--ivory);
   border-top: 1px solid var(--band-rule);
@@ -1283,7 +1355,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-tk-strip { flex-direction: row; align-items: center; gap: 18px; padding: 22px 26px; }
 .hv-tk-strip .hv-tk-card-title { margin: 0; font-size: 19px; }
 .hv-tk-strip .hv-tk-card-desc { margin: 0; }
-.hv-tk-saved { margin-left: auto; color: var(--sage); }
+.hv-tk-saved { margin-left: auto; color: var(--sage-text); }
 .hv-tk-pulse { position: relative; width: 10px; height: 10px; border-radius: 50%; background: var(--sage); flex-shrink: 0; }
 .hv-tk-pulse::after { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 1px solid var(--sage); opacity: 0; animation: hv-tk-ring 2.4s var(--ease) infinite; }
 @keyframes hv-tk-ring { 0% { transform: scale(.4); opacity: .9; } 70% { transform: scale(1.25); opacity: 0; } 100% { opacity: 0; } }
@@ -1801,7 +1873,26 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
 }
 
 /* ====== PRICING · tier cards & matrix ====== */
-.hv-tier { transition: transform .4s var(--ease), box-shadow .4s var(--ease); }
+/* The tier cards are a deliberate dark plate in BOTH themes, so nothing inside
+   them may read theme-dependent ink.
+   --mute (#5a5870) on the charcoal card was 2.54:1, and the buttons inherited
+   .btn's `background: var(--fg)` — which in the light theme painted a
+   near-black pill onto a near-black card. That is why Starter and Business
+   looked like plain text with an arrow while Professional, which overrides its
+   colours inline, looked like a real button. Same component, same affordance,
+   now in both themes. */
+.hv-tier { --tier-ink-soft: #b8b6c8; transition: transform .4s var(--ease), box-shadow .4s var(--ease); }
+.hv-tier .btn { background: var(--ivory); color: #141413; border-color: var(--ivory); }
+.hv-tier .btn:hover { opacity: .9; }
+.hv-tier .btn-ghost { background: transparent; color: var(--ivory); border-color: rgba(247,247,245,.45); }
+.hv-tier .btn-ghost:hover { background: rgba(247,247,245,.10); border-color: var(--ivory); color: var(--ivory); }
+.hv-tier--featured { --tier-ink-soft: rgba(255,255,255,.88); }
+.hv-tier-detail {
+  text-decoration: underline dotted currentColor;
+  text-underline-offset: 4px;
+  cursor: help;
+}
+.hv-tier-detail:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .hv-tier:hover { transform: translateY(-4px); box-shadow: 0 24px 48px rgba(0,0,0,.35); }
 .hv-tier--featured { outline: 1px solid var(--brass); outline-offset: -1px; box-shadow: 0 16px 56px rgba(124,92,255,.12); }
 .hv-tier--featured:hover { box-shadow: 0 24px 64px rgba(124,92,255,.18); }
@@ -1915,6 +2006,83 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-shade-card:active { transform: translateY(-1px); transition-duration: .12s; }
 
 /* Shade-card tool row: heart · compare · strip · hold-to-wall */
+/* ---- Catalogue: family filter, status bar, back-to-top -------------------
+   The family row wraps instead of scrolling sideways. A horizontal scroller
+   showed a scrollbar even at 1400px and cut its last chip mid-word ("DARK…"),
+   which is the worst of both: it hides options AND looks broken. */
+.hv-family-row {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hv-family-row.is-sub { margin-top: 10px; }
+.hv-family-chip {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 12px 18px;
+  min-height: 44px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  color: var(--fg-soft);
+  font: 400 12px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
+}
+.hv-family-chip:hover { color: var(--fg); border-color: var(--rule-strong); }
+.hv-family-chip.is-active { background: var(--surface-soft); color: var(--fg); border-color: var(--fg-mute); }
+/* The company's own family names, one level down — quieter, and sentence case,
+   because they are proper nouns ("Whispering Whites"), not labels. */
+.hv-family-chip.is-sub {
+  padding: 9px 14px; min-height: 38px;
+  font: 400 13px/1 var(--sans); letter-spacing: 0; text-transform: none;
+  border-radius: 8px;
+}
+.hv-family-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--rule-strong); flex-shrink: 0; }
+
+/* The count + sort row sticks, so a shopper 400 shades deep into an infinite
+   list can still see where they are and re-sort without scrolling back up. */
+.hv-cat-statusbar {
+  position: sticky;
+  top: calc(var(--nav-h) + 4px);
+  z-index: 12;
+  margin-top: 32px;
+  padding: 10px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--rule);
+}
+.hv-back-to-top {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 90;
+  width: 48px; height: 48px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--rule-strong);
+  background: var(--nav-bg-strong);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  color: var(--fg);
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 18px 40px -20px rgba(0,0,0,.5);
+}
+.hv-back-to-top:hover { border-color: var(--fg-mute); }
+
+/* Card titles occupy a fixed two-line block whatever the name's length.
+   Without it, "Springtime in Mexico" and "Penchant for dreams" wrapped to two
+   lines and pushed their meta row and action buttons below their neighbours',
+   so a row of cards lost its baseline. */
+.hv-shade-card-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.1em;
+}
+
 /* ---- Touch targets ------------------------------------------------------
    A shop counter is a tablet operated with paint on someone's fingers. WCAG 2.2
    asks 24x24; that room wants 44x44. Both helpers grow the HIT area with a
@@ -2348,7 +2516,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   white-space: nowrap;
 }
 .hv-status-pill.is-accent { color: var(--accent); border-color: var(--rule-brass); }
-.hv-status-pill.is-success { color: var(--sage); border-color: rgba(78,122,82,.45); }
+.hv-status-pill.is-success { color: var(--sage-text); border-color: rgba(78,122,82,.45); }
 .hv-status-pill.is-error { color: var(--terracotta); border-color: rgba(194,64,42,.45); cursor: pointer; }
 .hv-status-pill.is-error:hover { background: rgba(194,64,42,.08); }
 .hv-status-pill .dot {

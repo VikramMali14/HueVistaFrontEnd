@@ -307,7 +307,7 @@ export function NetworkReportView({ report }: NetworkReportViewProps) {
         .net-chip { font: 400 12px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-mute); white-space: nowrap; }
         .net-chip.distributor { color: var(--accent-soft); border-color: var(--accent-soft); }
         .net-chip.retailer { color: var(--fg-soft); }
-        .net-chip.customer { color: var(--sage); border-color: var(--sage); }
+        .net-chip.customer { color: var(--sage-text); border-color: var(--sage); }
         .net-brands { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
         .net-brand-tag { font: 400 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-soft); background: var(--surface); white-space: nowrap; }
         .net-brand-tag.all { color: var(--fg-mute); border-style: dashed; }

@@ -132,7 +132,7 @@ export function CompareOverlay({
         style={{ "--cols": shades.length, "--cols-sm": Math.min(2, shades.length) } as React.CSSProperties}
       >
         {shades.map((s) => {
-          const { strong: ink, soft: inkSoft } = readableInk(s.hex);
+          const { soft: inkSoft } = readableInk(s.hex);
           const shift = lightShift(s.hex);
           return (
             <div key={s.code} className="hv-compare-col" style={{ minWidth: 0, display: "flex", flexDirection: "column", borderRight: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>

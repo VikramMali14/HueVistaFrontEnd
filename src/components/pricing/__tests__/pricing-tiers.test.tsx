@@ -6,11 +6,18 @@ import { PricingTiers } from "../pricing-tiers";
 vi.mock("@/lib/payments", () => ({ subscribeToPlan: vi.fn() }));
 
 /**
- * The pricing cards are the page a shop decides on, so the two things that were wrong
+ * The pricing cards are the page a shop decides on, so the things that were wrong
  * with them are worth pinning:
  *
  *  - The quota read as cumulative. Under "Everything in Starter, plus", a bare "45
- *    projects" was read as Starter's 15 AND another 45. The cards now state the sum.
+ *    projects" was read as Starter's 15 AND another 45. The fix for that put the
+ *    sum in the line ("15 + 30 = 45 projects"), which traded one problem for
+ *    another: the maths ended up doing the copywriting. The card now states the
+ *    total and keeps the derivation as a footnote on the same element, so both
+ *    readings stay closed off.
+ *  - "Points" were priced on the cards before anything said what they are — the
+ *    definition was the seventh FAQ answer, far below. The rupee price leads now,
+ *    and the credit is explained where it is first mentioned.
  *  - Enterprise was a fourth card with no price, no checkout path and no tier a shop
  *    could actually be put on. It is gone, and the backend no longer serves it from
  *    /api/billing/plans either — this test fails if it creeps back into one and not the
@@ -19,18 +26,30 @@ vi.mock("@/lib/payments", () => ({ subscribeToPlan: vi.fn() }));
 describe("PricingTiers", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("spells out the project maths on every tier above the first", () => {
+  it("states the project total, with the derivation as a footnote", () => {
     render(<PricingTiers />);
-    expect(screen.getByText(/15 \+ 30 = 45 projects a month/)).toBeTruthy();
-    expect(screen.getByText(/45 \+ 55 = 100 projects a month/)).toBeTruthy();
-    // Starter is the base — there is nothing to add to, so it stays a plain number.
+    // The number on the card is the number the shop gets — no sum to solve.
+    expect(screen.getByText("45 projects a month")).toBeTruthy();
+    expect(screen.getByText("100 projects a month")).toBeTruthy();
     expect(screen.getByText(/^15 projects a month/)).toBeTruthy();
+    // …and the cumulative misreading stays closed off, one level down.
+    expect(screen.getByText("45 projects a month").getAttribute("title"))
+      .toMatch(/15 plus 30 more/);
   });
 
-  it("spells out the colour-board maths too", () => {
+  it("does the same for colour boards", () => {
     render(<PricingTiers />);
-    expect(screen.getByText(/25 \+ 75 = 100 colour boards a month/)).toBeTruthy();
-    expect(screen.getByText(/100 \+ 200 = 300 colour boards a month/)).toBeTruthy();
+    expect(screen.getByText("100 colour boards a month (8 photos each)")).toBeTruthy();
+    expect(screen.getByText("300 colour boards a month (12 photos each)")).toBeTruthy();
+    expect(screen.getByText("300 colour boards a month (12 photos each)").getAttribute("title"))
+      .toMatch(/100 plus 200 more/);
+  });
+
+  it("leads extras with the rupee price and explains points where they first appear", () => {
+    render(<PricingTiers />);
+    const starterExtras = screen.getByText(/Extra projects ₹65 each, or 60 points/);
+    expect(starterExtras).toBeTruthy();
+    expect(starterExtras.getAttribute("title")).toMatch(/credit/i);
   });
 
   it("offers exactly the three buyable tiers, and no Enterprise card", () => {

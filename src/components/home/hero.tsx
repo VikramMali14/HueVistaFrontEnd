@@ -15,7 +15,7 @@ export function Hero() {
       <div className="hv-hero2-bg" aria-hidden />
 
       <div className="hv-hero2-inner">
-        <p className="mono hv-rise" style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "rgba(247,247,245,.5)", margin: 0, display: "inline-flex", alignItems: "center", gap: 10 }}>
+        <p className="mono hv-rise" style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--hero-ink-mute)", margin: 0, display: "inline-flex", alignItems: "center", gap: 10 }}>
           <span style={{ display: "inline-block", width: 18, height: 1, background: "var(--accent)", flexShrink: 0 }} aria-hidden />
           Paint visualiser · Indian counters
         </p>
@@ -25,7 +25,9 @@ export function Hero() {
               screen reader reads, what a search engine indexes, what a copy-paste
               produces — was "See any paint colouron your walls." */}
           See any paint colour{" "}
-          <span style={{ color: "rgba(247,247,245,.58)" }}>on your walls.</span>
+          {/* Weight, not lightness — a pale second half reads as disabled text
+              rather than as emphasis, and it has to invert with the theme. */}
+          <span style={{ color: "var(--hero-ink-soft)", fontWeight: 400 }}>on your walls.</span>
         </h1>
         <p className="hv-hero2-sub reveal" style={{ maxWidth: "46ch" }}>Upload a photo of a room and see any paint colour on the walls in seconds. Made for paint shops and their customers.</p>
         <div className="hv-hero2-cta reveal d1">

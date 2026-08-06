@@ -6,11 +6,18 @@ import { subscribeToPlan } from "@/lib/payments";
 import { HttpError } from "@/lib/http-error";
 import type { PurchasablePlan } from "@/lib/types";
 
+/**
+ * One line in a tier's feature list. A plain string is the whole line; the
+ * object form carries a `detail` shown on hover/focus, for the arithmetic and
+ * the jargon that used to live in the line itself.
+ */
+type Feature = string | { text: string; detail: string };
+
 interface Tier {
   name: string;
   monthlyN: number;
   lede: string;
-  features: ReadonlyArray<string>;
+  features: ReadonlyArray<Feature>;
   inherits?: string;
   note?: string;
   featured: boolean;
@@ -30,12 +37,17 @@ interface Tier {
 // mid-month? Extras are bought one at a time at the tier's own rate — cheaper the
 // bigger the plan — with points or by card.
 //
-// Every quota on a higher tier states the ARITHMETIC, not just the total: "15 + 30 =
-// 45 projects". The "Everything in Starter, plus" heading above the list is doing real
-// work — the features genuinely accumulate — but read together with a bare "45
-// projects" it says the opposite of what is meant, and shops were reading the
-// Professional card as Starter's 15 AND another 45. Spelling the sum out costs a few
-// characters and removes the only reading that was wrong.
+// Quotas state the TOTAL, with the arithmetic behind it available on hover.
+// Both extremes have been wrong here. A bare "45 projects" under "Everything in
+// Starter, plus" was read as Starter's 15 AND another 45 — so the cards started
+// printing "15 + 30 = 45 projects a month" instead, and then the maths was doing
+// the copywriting: nobody deciding on a plan wants to solve a sum to find out
+// what they get. The number a shop is buying is the number on the card; the
+// derivation is a footnote, and is now written like one.
+//
+// Points are introduced on first use for the same reason. They appeared on the
+// cards as a price ("60 points or ₹65") seven FAQ answers before anything said
+// what a point was. The rupee price leads, and the detail explains the credit.
 //
 // Enterprise is deliberately absent. It was a fourth card with no price, no checkout
 // path and no tier behind it that a shop could actually be put on, so every question it
@@ -43,9 +55,33 @@ interface Tier {
 // from /api/billing/plans either — the two must agree, or this page advertises a plan
 // the subscription page cannot sell.
 const TIERS: ReadonlyArray<Tier> = [
-  { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Photos cleaned up and walls found for you on every project.", featured: false, features: ["15 projects a month — clean-up and walls included", "Extra projects 60 points or ₹65 each", "Mark walls yourself as often as you like — no extra charge", "25 colour boards a month (4 photos each)", "The full colour library and shade search", "Send by link or WhatsApp", "Codes for your customers", "Email support"] },
-  { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. Three times the projects, and extras cost less.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: ["15 + 30 = 45 projects a month", "Extra projects 50 points or ₹55 each", "Paint each wall its own colour", "25 + 75 = 100 colour boards a month (8 photos each)", "Colour scheme suggestions", "Priority support"] },
-  { name: "Business", plan: "BUSINESS", monthlyN: 4999, lede: "For dealers running more than one counter on one account.", featured: false, inherits: "Everything in Professional, plus", note: "Your own web address and the painter portal are on the way — Business shops get them first.", features: ["45 + 55 = 100 projects a month", "Extra projects 40 points or ₹45 each — the lowest rate", "100 + 200 = 300 colour boards a month (12 photos each)", "Project allowance that suits several counters", "Your own web address (coming soon)", "Painter portal (coming soon)", "A named person to call"] },
+  { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Photos cleaned up and walls found for you on every project.", featured: false, features: [
+    "15 projects a month — clean-up and walls included",
+    { text: "Extra projects ₹65 each, or 60 points", detail: "Points are HueVista credit bought up front — they buy extras at a lower rate than paying by card." },
+    "Mark walls yourself as often as you like — no extra charge",
+    "25 colour boards a month (4 photos each)",
+    "The full colour library and shade search",
+    "Send by link or WhatsApp",
+    "Codes for your customers",
+    "Email support",
+  ] },
+  { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. Three times the projects, and extras cost less.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: [
+    { text: "45 projects a month", detail: "Starter's 15 plus 30 more on this plan — 45 in total, not 15 and another 45." },
+    { text: "Extra projects ₹55 each, or 50 points", detail: "Points are HueVista credit bought up front — they buy extras at a lower rate than paying by card." },
+    "Paint each wall its own colour",
+    { text: "100 colour boards a month (8 photos each)", detail: "Starter's 25 plus 75 more on this plan — 100 in total." },
+    "Colour scheme suggestions",
+    "Priority support",
+  ] },
+  { name: "Business", plan: "BUSINESS", monthlyN: 4999, lede: "For dealers running more than one counter on one account.", featured: false, inherits: "Everything in Professional, plus", note: "Your own web address and the painter portal are on the way — Business shops get them first.", features: [
+    { text: "100 projects a month", detail: "Professional's 45 plus 55 more on this plan — 100 in total." },
+    { text: "Extra projects ₹45 each, or 40 points — the lowest rate", detail: "Points are HueVista credit bought up front — they buy extras at a lower rate than paying by card." },
+    { text: "300 colour boards a month (12 photos each)", detail: "Professional's 100 plus 200 more on this plan — 300 in total." },
+    "Project allowance that suits several counters",
+    "Your own web address (coming soon)",
+    "Painter portal (coming soon)",
+    "A named person to call",
+  ] },
 ];
 
 const inr = (n: number) => n.toLocaleString("en-IN");
@@ -112,31 +148,43 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
       <section style={{ paddingTop: 60 }}>
         <div className="reveal r-cols-lg-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
           {TIERS.map((t) => (
-            <div key={t.name} className={t.featured ? "hv-tier hv-tier--featured" : "hv-tier"} style={{ background: t.featured ? "var(--accent)" : "var(--charcoal-soft)", color: t.featured ? "#fff" : "var(--ivory)", padding: "56px 36px", display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
+            <div key={t.name} className={t.featured ? "hv-tier hv-tier--featured" : "hv-tier"} style={{ background: t.featured ? "var(--accent-deep)" : "var(--charcoal-soft)", color: t.featured ? "#fff" : "var(--ivory)", padding: "56px 36px", display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
               {t.ribbon && (<span style={{ position: "absolute", top: 0, right: 24, background: "#fff", color: "var(--accent-deep)", font: "500 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", padding: "8px 14px", transform: "translateY(-50%)" }}>{t.ribbon}</span>)}
               <div style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".3em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.85)" : "var(--brass)" }}>{t.name}</div>
               <div style={{ minHeight: 84 }}>
                 <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "#fff" : "var(--ivory)" }}>
                   ₹{inr(t.monthlyN)}
-                  <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)", marginLeft: 6 }}>/ month</span>
+                  <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)", marginLeft: 6 }}>/ month</span>
                 </div>
-                <div style={{ marginTop: 8, font: "400 12px/1.4 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)" }}>
+                <div style={{ marginTop: 8, font: "400 12px/1.4 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)" }}>
                   Billed monthly · cancel anytime
                 </div>
               </div>
               <p style={{ font: "400 17px/1.5 var(--serif)", color: t.featured ? "rgba(255,255,255,.85)" : "var(--ivory-soft)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.25)" : "var(--rule)"), paddingTop: 18 }}>{t.lede}</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
                 {t.inherits && (
-                  <div style={{ font: "italic 400 14px/1.45 var(--serif)", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)" }}>{t.inherits}</div>
+                  <div style={{ font: "italic 400 14px/1.45 var(--serif)", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)" }}>{t.inherits}</div>
                 )}
-                {t.features.map((f) => (
-                  <div key={f} style={{ display: "flex", gap: 10, font: "300 15px/1.45 var(--sans)", color: t.featured ? "#fff" : "var(--ivory-soft)" }}>
-                    <span aria-hidden style={{ color: t.featured ? "#fff" : "var(--brass)", fontFamily: "var(--mono)", fontSize: 12, lineHeight: "22px" }}>✓</span>
-                    <span>{f}</span>
-                  </div>
-                ))}
+                {t.features.map((f) => {
+                  const text = typeof f === "string" ? f : f.text;
+                  const detail = typeof f === "string" ? null : f.detail;
+                  return (
+                    <div key={text} style={{ display: "flex", gap: 10, font: "300 15px/1.45 var(--sans)", color: t.featured ? "#fff" : "var(--ivory-soft)" }}>
+                      <span aria-hidden style={{ color: t.featured ? "#fff" : "var(--brass)", fontFamily: "var(--mono)", fontSize: 12, lineHeight: "22px" }}>✓</span>
+                      {detail ? (
+                        // The derivation (and what a "point" is) sits behind a
+                        // dotted underline rather than inside the sentence, so
+                        // the card states what you get and the footnote stays a
+                        // footnote. tabIndex makes it reachable without a mouse.
+                        <span className="hv-tier-detail" title={detail} tabIndex={0}>{text}</span>
+                      ) : (
+                        <span>{text}</span>
+                      )}
+                    </div>
+                  );
+                })}
                 {t.note && (
-                  <div style={{ font: "italic 400 13px/1.5 var(--serif)", color: t.featured ? "rgba(255,255,255,.72)" : "var(--mute)", marginTop: 4 }}>{t.note}</div>
+                  <div style={{ font: "italic 400 13px/1.5 var(--serif)", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)", marginTop: 4 }}>{t.note}</div>
                 )}
               </div>
               <div style={{ marginTop: "auto" }}>
@@ -173,7 +221,7 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
                     {payError.message}
                   </div>
                 )}
-                <div style={{ marginTop: 12, font: "400 12px/1.5 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--mute-deep)" }}>
+                <div style={{ marginTop: 12, font: "400 12px/1.5 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--tier-ink-soft)" }}>
                   Billed monthly · cancel anytime
                 </div>
               </div>

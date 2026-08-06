@@ -9,8 +9,8 @@ interface Tier { name: string; price: string; feature: string; featured?: boolea
 // answer, so it is gone until there is a real tier to put a shop on.
 const TIERS: ReadonlyArray<Tier> = [
   { name: "Starter", price: "₹999", feature: "15 projects / mo · AI clean-up + walls" },
-  { name: "Professional", price: "₹2,499", feature: "15 + 30 = 45 projects / mo · extras at ₹55", featured: true },
-  { name: "Business", price: "₹4,999", feature: "45 + 55 = 100 projects / mo · extras at ₹45" },
+  { name: "Professional", price: "₹2,499", feature: "45 projects / mo · extras at ₹55", featured: true },
+  { name: "Business", price: "₹4,999", feature: "100 projects / mo · extras at ₹45" },
 ];
 
 export function PricingPreview() {

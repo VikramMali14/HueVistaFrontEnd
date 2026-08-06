@@ -22,9 +22,11 @@ type Section = { title: string; rows: ReadonlyArray<Row> };
 
 // Every cell states what ships today; unbuilt items say "Soon" (never "●").
 //
-// The quota rows show the arithmetic ("15 + 30 = 45"), matching the tier cards above.
-// A bare total under an "everything in the tier below, plus" framing was read as
-// cumulative — 15 AND 45 — which is the one thing it never meant.
+// The quota rows state totals, matching the tier cards above. They briefly showed
+// the arithmetic ("15 + 30 = 45") because a bare total under an "everything in the
+// tier below, plus" framing had been read as cumulative — 15 AND 45. In a table the
+// columns sit side by side, so the progression is visible without a sum in each cell;
+// the cards carry the derivation as a footnote for the reading that needs it.
 //
 // Three columns, not four: Enterprise is not offered for now, and the backend does not
 // serve it from /api/billing/plans, so a fifth "On request" column would be quoting a
@@ -33,11 +35,11 @@ const MATRIX: ReadonlyArray<Section> = [
   {
     title: "The preview",
     rows: [
-      ["Projects per month (clean-up + walls found for you)", "15", "15 + 30 = 45", "45 + 55 = 100"],
+      ["Projects per month (clean-up + walls found for you)", "15", "45", "100"],
       ["Marking walls yourself", "Unlimited", "Unlimited", "Unlimited"],
-      ["Extra project — points / card", "60 pts / ₹65", "50 pts / ₹55", "40 pts / ₹45"],
+      ["Extra project — by card, or with points (HueVista credit bought up front)", "₹65 or 60 pts", "₹55 or 50 pts", "₹45 or 40 pts"],
       ["Unused projects carried over when you upgrade", "●", "●", "●"],
-      ["Colour boards (PDF) per month", "25 (4 photos)", "25 + 75 = 100 (8 photos)", "100 + 200 = 300 (12 photos)"],
+      ["Colour boards (PDF) per month", "25 (4 photos)", "100 (8 photos)", "300 (12 photos)"],
       ["Paint each wall its own colour", "●", "●", "●"],
       ["Colour scheme suggestions", "—", "●", "●"],
     ],

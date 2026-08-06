@@ -7,6 +7,7 @@ import { matchesQuery } from "@/components/atelier/shade-grid";
 import { useCopied } from "@/hooks/use-copied";
 import { hexToHsv, readableInk } from "@/lib/color";
 import { PAINT_BRANDS, type PaintShade } from "@/lib/types";
+import { PARENT_FAMILIES, parentFamilyOf, type ParentFamily } from "@/lib/colour-families";
 import { UndertoneTag } from "./undertone-tag";
 import { CompareTray, CompareOverlay, COMPARE_MAX } from "./compare-shades";
 import { FanDeck } from "./fan-deck";
@@ -96,6 +97,9 @@ function FilterDropdown({ id, label, value, options, onChange, soon, openId, set
 
 export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade> }) {
   const [query, setQuery] = useState("");
+  // Two levels: the parent family a person shops by, and (optionally) the
+  // company's own name for a sub-family inside it.
+  const [parentFamily, setParentFamily] = useState<ParentFamily | typeof ALL_FAMILIES>(ALL_FAMILIES);
   const [family, setFamily] = useState(ALL_FAMILIES);
   const [brand, setBrand] = useState<string>(ALL_BRANDS);
   const [finish, setFinish] = useState<string>("All");
@@ -122,21 +126,41 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
     return { brandOptions: [ALL_BRANDS, ...present, ...soon], brandsSoon: soon };
   }, [shades]);
 
-  // Family chips come from whatever families the shades table holds; each chip's
-  // dot is that family's mid-lightness shade so the row previews the palette.
-  const familyOptions = useMemo(() => {
-    const groups = new Map<string, PaintShade[]>();
+  // Family chips come from whatever families the shades table holds, folded into
+  // the parent families people actually shop by; each chip's dot is that group's
+  // mid-lightness shade so the row previews the palette.
+  const { parentOptions, subFamiliesByParent } = useMemo(() => {
+    const byFamily = new Map<string, PaintShade[]>();
     for (const s of shades) {
-      const list = groups.get(s.family);
+      const list = byFamily.get(s.family);
       if (list) list.push(s);
-      else groups.set(s.family, [s]);
+      else byFamily.set(s.family, [s]);
     }
-    const options = Array.from(groups, ([id, list]) => {
+    const midHex = (list: PaintShade[]) => {
       const byLrv = [...list].sort((a, b) => a.lrv - b.lrv);
-      return { id, dot: byLrv[Math.floor(byLrv.length / 2)]!.hex };
-    }).sort((a, b) => a.id.localeCompare(b.id));
-    return [{ id: ALL_FAMILIES, dot: "var(--ivory)" }, ...options];
+      return byLrv[Math.floor(byLrv.length / 2)]!.hex;
+    };
+    const subs = new Map<ParentFamily, Array<{ id: string; dot: string; count: number }>>();
+    const parentShades = new Map<ParentFamily, PaintShade[]>();
+    for (const [id, list] of byFamily) {
+      const parent = parentFamilyOf(id);
+      const bucket = subs.get(parent) ?? [];
+      bucket.push({ id, dot: midHex(list), count: list.length });
+      subs.set(parent, bucket);
+      parentShades.set(parent, (parentShades.get(parent) ?? []).concat(list));
+    }
+    for (const bucket of subs.values()) bucket.sort((a, b) => b.count - a.count || a.id.localeCompare(b.id));
+    // Fixed order, not alphabetical: the row reads as a spectrum, and it does not
+    // reshuffle when a company's catalogue is loaded.
+    const parents = PARENT_FAMILIES.filter((p) => parentShades.has(p)).map((p) => ({
+      id: p,
+      dot: midHex(parentShades.get(p)!),
+      count: parentShades.get(p)!.length,
+    }));
+    return { parentOptions: parents, subFamiliesByParent: subs };
   }, [shades]);
+
+  const subFamilies = parentFamily === ALL_FAMILIES ? [] : (subFamiliesByParent.get(parentFamily) ?? []);
 
   // Finish filter from the finishes actually recommended in the data.
   const finishOptions = useMemo(() => {
@@ -165,7 +189,11 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
     const q = deferredQuery.trim().toLowerCase();
     const range = LRV_RANGES.find((r) => r.id === lrv) ?? LRV_RANGES[0]!;
     return shades.filter((s) => {
-      if (family !== ALL_FAMILIES && s.family !== family) return false;
+      if (family !== ALL_FAMILIES) {
+        if (s.family !== family) return false;
+      } else if (parentFamily !== ALL_FAMILIES && parentFamilyOf(s.family) !== parentFamily) {
+        return false;
+      }
       if (brand !== ALL_BRANDS && s.brand !== brand) return false;
       if (finish !== "All" && !s.finishes.includes(finish)) return false;
       if (s.lrv < range.min || s.lrv > range.max) return false;
@@ -175,7 +203,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
         encodeCode: patterned ? codeOf : undefined,
       });
     });
-  }, [shades, deferredQuery, family, brand, finish, lrv, patterned, showNames, codeOf]);
+  }, [shades, deferredQuery, family, parentFamily, brand, finish, lrv, patterned, showNames, codeOf]);
 
   const sorted = useMemo(() => {
     if (sortBy === "hue") {
@@ -196,7 +224,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   }, [filtered, sortBy]);
 
   const clearAll = () => {
-    setQuery(""); setFamily(ALL_FAMILIES); setBrand(ALL_BRANDS); setFinish("All"); setLrv("All"); setVisible(PAGE_SIZE);
+    setQuery(""); setFamily(ALL_FAMILIES); setParentFamily(ALL_FAMILIES); setBrand(ALL_BRANDS); setFinish("All"); setLrv("All"); setVisible(PAGE_SIZE);
   };
 
   const shown = sorted.slice(0, visible);
@@ -221,6 +249,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
 
   const emptyCause =
     family !== ALL_FAMILIES ? family
+    : parentFamily !== ALL_FAMILIES ? parentFamily
     : finish !== "All" ? finish
     : query.trim() ? `“${query.trim()}”`
     : lrv !== "All" ? `${lrv.toLowerCase()} shades`
@@ -245,19 +274,61 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
         <button type="button" onClick={clearAll} style={{ padding: "18px 20px", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase" }}>Clear</button>
       </div>
 
-      <div className="reveal d1 r-scroll-x" style={{ marginTop: 24, display: "flex", border: "1px solid var(--rule)", background: "var(--rule)", gap: 1 }}>
-        {familyOptions.map((f) => {
-          const active = f.id === family;
+      {/* Families, in two levels and on as many lines as it takes.
+          This was one long sideways scroller of raw brand taxonomy — "Blues",
+          "Blue-greens", "Blue Greens & Greens", "Neutrals", "Classic Neutrals",
+          "Neutrals: Browns & Greys", "Off Whites", "Whispering Whites" and
+          "Whites" as peers — with a visible scrollbar even at 1400px and the
+          last chip cut mid-word. Nine parents wrap onto two lines; the
+          company's own name for a family is one click deeper, never lost. */}
+      <div className="reveal d1 hv-family-row">
+        {[{ id: ALL_FAMILIES, dot: "var(--ivory)", count: shades.length }, ...parentOptions].map((f) => {
+          const active = f.id === parentFamily || (f.id === ALL_FAMILIES && parentFamily === ALL_FAMILIES);
           return (
-            <button key={f.id} type="button" className="hv-chip" onClick={() => { setFamily(f.id); setVisible(PAGE_SIZE); }} style={{ flexShrink: 0, padding: "16px 22px", border: "none", background: active ? "var(--surface-soft)" : "var(--bg)", color: active ? "var(--fg)" : "var(--fg-soft)", font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", cursor: "pointer" }}>
-              <span style={{ width: 10, height: 10, background: f.dot, border: "1px solid var(--rule-strong)", boxShadow: active ? "0 0 0 2px var(--accent-soft)" : "none" }} />
+            <button
+              key={f.id}
+              type="button"
+              className={`hv-family-chip${active ? " is-active" : ""}`}
+              aria-pressed={active}
+              onClick={() => {
+                setParentFamily(f.id as ParentFamily | typeof ALL_FAMILIES);
+                setFamily(ALL_FAMILIES);
+                setVisible(PAGE_SIZE);
+              }}
+            >
+              <span aria-hidden className="hv-family-dot" style={{ background: f.dot }} />
               {f.id}
             </button>
           );
         })}
       </div>
 
-      <div className="reveal d2" style={{ marginTop: 32, display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 16 }}>
+      {subFamilies.length > 1 && (
+        <div className="hv-family-row is-sub">
+          <button
+            type="button"
+            className={`hv-family-chip is-sub${family === ALL_FAMILIES ? " is-active" : ""}`}
+            aria-pressed={family === ALL_FAMILIES}
+            onClick={() => { setFamily(ALL_FAMILIES); setVisible(PAGE_SIZE); }}
+          >
+            All {parentFamily.toLowerCase()}
+          </button>
+          {subFamilies.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className={`hv-family-chip is-sub${f.id === family ? " is-active" : ""}`}
+              aria-pressed={f.id === family}
+              onClick={() => { setFamily(f.id); setVisible(PAGE_SIZE); }}
+              title={`${f.id} — the company's own name for this group (${f.count} shades)`}
+            >
+              <span aria-hidden className="hv-family-dot" style={{ background: f.dot }} />
+              {f.id}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="reveal d2 hv-cat-statusbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 16 }}>
         <Note>Showing <span style={{ color: "var(--fg)", fontWeight: 600 }}>{shown.length}</span> of {sorted.length.toLocaleString("en-IN")} shades · sorted by {sortBy}</Note>
         <div style={{ display: "flex", alignItems: "baseline", gap: 2, flexWrap: "wrap" }}>
           <Mono style={{ marginRight: 6 }}>Sort:</Mono>
@@ -301,7 +372,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
                     <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: inkSoft }}>{s.brand}</span>
                   </div>
                   <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
-                    <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{nameOf(s)}</span>
+                    <span className="hv-shade-card-title" title={nameOf(s)} style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{nameOf(s)}</span>
                     <Mono>{copied === codeOf(s.code) ? `${codeOf(s.code)} · copied` : codeOf(s.code)}</Mono>
                   </div>
                 </button>
@@ -320,16 +391,16 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
                       title={comparing ? "Remove from compare" : compareCodes.length >= COMPARE_MAX ? `Compare is full (${COMPARE_MAX})` : "Add to compare"}
                       style={comparing ? { color: "var(--accent)", borderColor: "var(--accent)" } : undefined}
                     >
-                      ⇄
+                      <CompareIcon />
                     </button>
                     <button
                       type="button"
                       className="hv-card-action"
                       onClick={() => setFanShade(s)}
                       aria-label={`Open the lighter-to-darker strip around ${nameOf(s)}, with a full-screen hold-to-wall view`}
-                      title="Shade strip · hold to wall"
+                      title="Shade strip · lighter to darker, hold to wall"
                     >
-                      ☰
+                      <StripIcon />
                     </button>
                   </span>
                 </div>
@@ -379,6 +450,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
         />
       )}
       {wallShade && <FullscreenSwatch shades={[wallShade]} onClose={() => setWallShade(null)} />}
+      <BackToTop />
 
       <style>{`
         /* 10k-shade catalogues: skip layout + paint for cards far off-screen. */
@@ -396,5 +468,58 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
         }
       `}</style>
     </>
+  );
+}
+
+/** Two swatches side by side — what "compare" actually does. */
+function CompareIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="5" width="7.5" height="14" rx="1.5" />
+      <rect x="13.5" y="5" width="7.5" height="14" rx="1.5" />
+    </svg>
+  );
+}
+
+/** A stack of bands, lightest at the top — the paper shade card. */
+function StripIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
+      {/* Three bands getting darker down the card. */}
+      <rect x="5" y="9" width="14" height="6" fill="currentColor" opacity=".3" stroke="none" />
+      <rect x="5" y="15" width="14" height="6" fill="currentColor" opacity=".6" stroke="none" />
+      <rect x="5" y="3" width="14" height="18" rx="1.5" />
+      <path d="M5 9h14" />
+      <path d="M5 15h14" />
+    </svg>
+  );
+}
+
+/**
+ * Back to the top of an infinite list.
+ *
+ * With no pagination and 10k shades there was no way back short of a long
+ * flick, and nothing said how deep you were. Appears once the reader is well
+ * past the first screen.
+ */
+function BackToTop() {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShown(window.scrollY > 1200);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  if (!shown) return null;
+  return (
+    <button
+      type="button"
+      className="hv-back-to-top"
+      aria-label="Back to the top of the catalogue"
+      title="Back to top"
+      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+    >
+      ↑
+    </button>
   );
 }
