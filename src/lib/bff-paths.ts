@@ -45,6 +45,11 @@ export const BFF_ALLOWED_PREFIXES = [
   "api/billing/projects",
   "api/billing/pdf-allowance",
   "api/billing/pdf-downloads",
+  // Checkout telemetry: the browser reporting that a Razorpay window opened, was
+  // closed without paying, or was refused. Nothing else can see those — no order is
+  // placed and no webhook fires — so without this the payment audit could only ever
+  // show the checkouts that worked.
+  "api/billing/attempts",
   "api/organizations",
   "api/access-codes",
   // Retailer kiosk-link updates (create/list live under api/organizations).

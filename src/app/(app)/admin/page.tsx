@@ -121,6 +121,9 @@ export default async function AdminPage() {
         <Link href="/admin/site-assets" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Site images →
         </Link>
+        <Link href="/admin/payments" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          Payment audit →
+        </Link>
       </p>
 
       {/* Fixed side menu — the working sections are a long scroll apart. */}

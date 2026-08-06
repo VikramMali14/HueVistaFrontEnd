@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { CheckoutEventBody } from "./api";
 import type {
   ProjectPurchaseOptions,
   ProjectReopenResult,
@@ -6,10 +7,45 @@ import type {
   StoreOrder,
 } from "./types";
 
+/**
+ * How a checkout outcome gets back to the server.
+ *
+ * Injectable because the kiosk cannot use the default. Every other flow reports through
+ * the BFF, which authenticates with the buyer's session — but a walk-in at a shop counter
+ * has no session at all until AFTER they have paid, so the BFF answers 401 and the one
+ * flow most likely to be abandoned would be the one flow with no record of it. The kiosk
+ * passes a server action instead, which also carries the counter's real IP through.
+ *
+ * Must never reject: these run alongside live payment code.
+ */
+export type CheckoutReporter = (reference: string, body: CheckoutEventBody) => void | Promise<void>;
+
 declare global {
   interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+    Razorpay?: new (options: Record<string, unknown>) => RazorpayInstance;
   }
+}
+
+/**
+ * The bits of a Razorpay Checkout instance we use. `on` is how the gateway reports a
+ * REFUSED payment — a declined card, a UPI collect that timed out — which arrives on the
+ * `payment.failed` event and nowhere else. Nothing in this file listened for it before,
+ * so those buyers simply vanished: no handler, no dismiss, no record anywhere.
+ */
+interface RazorpayInstance {
+  open: () => void;
+  on?: (event: string, handler: (payload: RazorpayFailure) => void) => void;
+}
+
+interface RazorpayFailure {
+  error?: {
+    code?: string;
+    description?: string;
+    source?: string;
+    step?: string;
+    reason?: string;
+    metadata?: { order_id?: string; payment_id?: string };
+  };
 }
 
 const CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
@@ -37,6 +73,74 @@ function loadCheckout(): Promise<void> {
     s.onerror = () => reject(new Error("Could not load the payment library."));
     document.body.appendChild(s);
   });
+}
+
+/**
+ * Follows one Checkout and reports what became of it.
+ *
+ * Three of the outcomes a payment can have exist only in this browser — the window
+ * opening, the buyer closing it, the gateway refusing the card. None of them reaches our
+ * server on its own, so without this the admin payment audit could only ever list the
+ * checkouts that worked, which is the opposite of what an audit is for.
+ *
+ * `settled` is the important part. Razorpay calls `ondismiss` when the modal closes, and
+ * in some flows that includes the automatic close after a SUCCESSFUL payment — reporting
+ * that as abandonment would file a completed sale under "buyer walked away". Once the
+ * success handler has run, the dismissal is no longer news.
+ */
+function track(reference: string, report: CheckoutReporter = api.reportCheckoutEvent) {
+  let settled = false;
+  const context = () => ({
+    pageUrl: typeof window === "undefined" ? undefined : window.location.href,
+    referrer: typeof document === "undefined" || !document.referrer ? undefined : document.referrer,
+  });
+
+  return {
+    /** Call as soon as the success handler fires, before any awaiting. */
+    settle() {
+      settled = true;
+    },
+    opened() {
+      void report(reference, { status: "OPENED", ...context() });
+    },
+    dismissed() {
+      if (settled) return;
+      void report(reference, { status: "ABANDONED", ...context() });
+    },
+    /** Razorpay refused the payment — its error object says why, so pass it all on. */
+    failed(payload: RazorpayFailure) {
+      settled = true;
+      const e = payload?.error ?? {};
+      void report(reference, {
+        status: "FAILED",
+        ...context(),
+        paymentId: e.metadata?.payment_id,
+        errorCode: e.code,
+        errorDescription: e.description,
+        errorSource: e.source,
+        errorStep: e.step,
+        errorReason: e.reason,
+      });
+    },
+    /** The charge went through but our own verification did not. */
+    verifyFailed(paymentId: string, message: string) {
+      void report(reference, {
+        status: "VERIFY_FAILED",
+        ...context(),
+        paymentId,
+        errorDescription: message,
+      });
+    },
+  };
+}
+
+type Tracker = ReturnType<typeof track>;
+
+/** Wire the tracker to the instance and open it, so no flow can forget a listener. */
+function openTracked(rzp: RazorpayInstance, tracker: Tracker) {
+  rzp.on?.("payment.failed", (payload) => tracker.failed(payload));
+  tracker.opened();
+  rzp.open();
 }
 
 /**
@@ -96,6 +200,9 @@ export async function subscribeToPlan(plan: PurchasablePlan): Promise<boolean> {
 
   const keyId = sub.razorpayKeyId;
   const subscriptionId = sub.razorpaySubscriptionId;
+  // A plan checkout is keyed by the SUBSCRIPTION id — that is what the backend opened
+  // the audit row under, since a subscription has no order to name it by.
+  const tracker = track(subscriptionId);
 
   return new Promise<boolean>((resolve, reject) => {
     const rzp = new window.Razorpay!({
@@ -105,6 +212,7 @@ export async function subscribeToPlan(plan: PurchasablePlan): Promise<boolean> {
       description: `${sub.planDisplayName} plan`,
       theme: { color: "#7c5cff" },
       handler: async (resp: SubscriptionCheckoutSuccess) => {
+        tracker.settle();
         try {
           await api.verifySubscription({
             subscriptionId: resp.razorpay_subscription_id,
@@ -113,12 +221,13 @@ export async function subscribeToPlan(plan: PurchasablePlan): Promise<boolean> {
           });
           resolve(true);
         } catch (e) {
+          tracker.verifyFailed(resp.razorpay_payment_id, String(e));
           reject(verificationFailed(e));
         }
       },
-      modal: { ondismiss: () => resolve(false) },
+      modal: { ondismiss: () => { tracker.dismissed(); resolve(false); } },
     });
-    rzp.open();
+    openTracked(rzp, tracker);
   });
 }
 
@@ -142,9 +251,12 @@ export async function openStoreCheckout(
     paymentId: string;
     signature: string;
   }) => Promise<void>,
+  report?: CheckoutReporter,
 ): Promise<boolean> {
   await loadCheckout();
   if (!window.Razorpay) throw new Error("Payment library unavailable.");
+
+  const tracker = track(order.orderId, report);
 
   return new Promise<boolean>((resolve, reject) => {
     const rzp = new window.Razorpay!({
@@ -164,6 +276,7 @@ export async function openStoreCheckout(
         : "One room visualisation",
       theme: { color: "#7c5cff" },
       handler: async (resp: CheckoutSuccess) => {
+        tracker.settle();
         try {
           await onSuccess({
             orderId: resp.razorpay_order_id,
@@ -172,12 +285,13 @@ export async function openStoreCheckout(
           });
           resolve(true);
         } catch (e) {
+          tracker.verifyFailed(resp.razorpay_payment_id, String(e));
           reject(verificationFailed(e));
         }
       },
-      modal: { ondismiss: () => resolve(false) },
+      modal: { ondismiss: () => { tracker.dismissed(); resolve(false); } },
     });
-    rzp.open();
+    openTracked(rzp, tracker);
   });
 }
 
@@ -198,6 +312,8 @@ export async function buyPoints(
   await loadCheckout();
   if (!window.Razorpay) throw new Error("Payment library unavailable.");
 
+  const tracker = track(order.orderId);
+
   return new Promise<boolean>((resolve, reject) => {
     const rzp = new window.Razorpay!({
       key: order.razorpayKeyId,
@@ -209,6 +325,7 @@ export async function buyPoints(
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
       theme: { color: "#7c5cff" },
       handler: async (resp: CheckoutSuccess) => {
+        tracker.settle();
         try {
           await api.verifyPointsPurchase({
             orderId: resp.razorpay_order_id,
@@ -217,12 +334,13 @@ export async function buyPoints(
           });
           resolve(true);
         } catch (e) {
+          tracker.verifyFailed(resp.razorpay_payment_id, String(e));
           reject(verificationFailed(e));
         }
       },
-      modal: { ondismiss: () => resolve(false) },
+      modal: { ondismiss: () => { tracker.dismissed(); resolve(false); } },
     });
-    rzp.open();
+    openTracked(rzp, tracker);
   });
 }
 
@@ -245,6 +363,8 @@ export async function buyOneProject(
   await loadCheckout();
   if (!window.Razorpay) throw new Error("Payment library unavailable.");
 
+  const tracker = track(order.orderId);
+
   return new Promise<ProjectPurchaseOptions | null>((resolve, reject) => {
     const rzp = new window.Razorpay!({
       key: order.razorpayKeyId,
@@ -256,6 +376,7 @@ export async function buyOneProject(
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
       theme: { color: "#7c5cff" },
       handler: async (resp: CheckoutSuccess) => {
+        tracker.settle();
         try {
           resolve(
             await api.verifyProjectPurchase({
@@ -265,12 +386,13 @@ export async function buyOneProject(
             }),
           );
         } catch (e) {
+          tracker.verifyFailed(resp.razorpay_payment_id, String(e));
           reject(verificationFailed(e));
         }
       },
-      modal: { ondismiss: () => resolve(null) },
+      modal: { ondismiss: () => { tracker.dismissed(); resolve(null); } },
     });
-    rzp.open();
+    openTracked(rzp, tracker);
   });
 }
 
@@ -292,6 +414,8 @@ export async function reopenProjectWithMoney(
   await loadCheckout();
   if (!window.Razorpay) throw new Error("Payment library unavailable.");
 
+  const tracker = track(order.orderId);
+
   return new Promise<ProjectReopenResult | null>((resolve, reject) => {
     const rzp = new window.Razorpay!({
       key: order.razorpayKeyId,
@@ -303,6 +427,7 @@ export async function reopenProjectWithMoney(
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
       theme: { color: "#7c5cff" },
       handler: async (resp: CheckoutSuccess) => {
+        tracker.settle();
         try {
           resolve(
             await api.verifyReopen({
@@ -312,11 +437,12 @@ export async function reopenProjectWithMoney(
             }),
           );
         } catch (e) {
+          tracker.verifyFailed(resp.razorpay_payment_id, String(e));
           reject(verificationFailed(e));
         }
       },
-      modal: { ondismiss: () => resolve(null) },
+      modal: { ondismiss: () => { tracker.dismissed(); resolve(null); } },
     });
-    rzp.open();
+    openTracked(rzp, tracker);
   });
 }

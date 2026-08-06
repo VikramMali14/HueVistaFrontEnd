@@ -7,7 +7,11 @@ import { ShadeAccuracyNote } from "@/components/shared/accuracy-note";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { openStoreCheckout } from "@/lib/payments";
-import { createStoreOrderAction, verifyStorePaymentAction } from "@/lib/store";
+import {
+  createStoreOrderAction,
+  reportStoreCheckoutEventAction,
+  verifyStorePaymentAction,
+} from "@/lib/store";
 import { formatRupees } from "@/lib/money";
 import { site } from "@/lib/config";
 import type { StorePublicInfo } from "@/lib/types";
@@ -47,11 +51,17 @@ export function StoreKiosk({ info, hasGuestSession }: { info: StorePublicInfo; h
         setStatus("idle");
         return;
       }
-      const paid = await openStoreCheckout(order, async (resp) => {
-        const result = await verifyStorePaymentAction(info.slug, resp);
-        if ("error" in result) throw new Error(result.error);
-        setDone(result);
-      });
+      const paid = await openStoreCheckout(
+        order,
+        async (resp) => {
+          const result = await verifyStorePaymentAction(info.slug, resp);
+          if ("error" in result) throw new Error(result.error);
+          setDone(result);
+        },
+        // The kiosk reports through a server action, not the BFF: a walk-in has no
+        // session to authenticate with until after they have paid.
+        reportStoreCheckoutEventAction,
+      );
       setStatus(paid ? "done" : "idle");
     } catch (e) {
       setError(e instanceof Error ? e.message : "The payment could not be completed. Please try again.");
