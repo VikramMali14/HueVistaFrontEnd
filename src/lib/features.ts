@@ -1,7 +1,7 @@
 import type { AppFeatureKey, MyAccess } from "./types";
 
 /**
- * Reading a shop's page grant.
+ * Reading a shop's page access — which has two independent halves.
  *
  * These are plain functions in their own module on purpose. `auth.ts` carries a
  * `"use server"` directive, which allows only async exports, and the app nav is a
@@ -10,8 +10,14 @@ import type { AppFeatureKey, MyAccess } from "./types";
  *
  * That sharing is the point: the nav hides tabs with these, the server page guards
  * bounce with these, and a hidden tab therefore can never disagree with a blocked
- * page. Neither is the security boundary — the backend enforces the same grant on
+ * page. Neither is the security boundary — the backend enforces the same rules on
  * every endpoint behind these pages. This is what keeps the UI honest about it.
+ *
+ * Two things can close a page, and they are kept apart all the way through because
+ * they need different words: the shop's DISTRIBUTOR did not grant it (ring the
+ * distributor), or the shop's own PLAN does not include it (press subscribe). The free
+ * plan withholds exactly one page today — the Colour finder — and telling that shop to
+ * ask its distributor about it would send them somewhere nobody can help.
  */
 
 /**
@@ -28,13 +34,34 @@ import type { AppFeatureKey, MyAccess } from "./types";
  * them everything.
  */
 export function canUseFeature(access: MyAccess | null, feature: AppFeatureKey): boolean {
-  if (!access || !access.featuresRestricted) return true;
+  if (!access) return true;
+  if (planWithholds(access, feature)) return false;
+  if (!access.featuresRestricted) return true;
   return access.allowedFeatures.includes(feature);
+}
+
+/**
+ * Whether the shop's own PLAN is what closes this page.
+ *
+ * Fails OPEN on a missing list for the same reason `canUseFeature` fails open on null
+ * access: a server too old to send it, or one that could not be reached, must read as
+ * "nothing withheld" rather than as "everything withheld".
+ */
+export function planWithholds(access: MyAccess | null, feature: AppFeatureKey): boolean {
+  return access?.planLockedFeatures?.includes(feature) ?? false;
+}
+
+/** The same question keyed by route, for the nav and the denial hint. */
+export function planWithholdsPath(access: MyAccess | null, path: string): boolean {
+  const feature = FEATURE_BY_PATH[path];
+  return feature ? planWithholds(access, feature) : false;
 }
 
 /** The same question keyed by route, for nav tabs that only know their href. */
 export function canUsePath(access: MyAccess | null, path: string): boolean {
-  if (!access || !access.featuresRestricted) return true;
+  if (!access) return true;
+  if (planWithholdsPath(access, path)) return false;
+  if (!access.featuresRestricted) return true;
   const feature = FEATURE_BY_PATH[path];
   // A path with no feature behind it (dashboard, account, plan) is never
   // restrictable, so an unknown path is open rather than denied.

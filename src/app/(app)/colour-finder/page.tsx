@@ -11,11 +11,14 @@ export const metadata: Metadata = {
 };
 
 export default async function ColorFinderPage() {
-  // Subscriber-only tool: any ACTIVE subscription (trial or paid) may enter;
-  // everyone else is redirected to pricing (or sign-in if unauthenticated).
+  // Signed-in shops only: everyone else is redirected to pricing (or sign-in if
+  // unauthenticated).
   await requireActiveSubscription();
-  // Subscription is necessary but not sufficient: the shop's distributor also
-  // decides whether this tool is part of what they bought.
+  // A subscription is necessary but not sufficient, on two counts. The shop's
+  // distributor decides whether this tool is part of what they bought — AND this is
+  // the one page the shop's own TIER decides, since colour matching is not part of the
+  // free plan. requireFeature checks both and words the bounce to match whichever
+  // caught it: ask your distributor, or choose a plan.
   await requireFeature("COLOR_FINDER");
   // Live catalogue from the backend; falls back to the bundled sample if unreachable.
   const shades = await getCatalogueOrSample();

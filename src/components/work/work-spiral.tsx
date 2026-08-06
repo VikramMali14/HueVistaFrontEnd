@@ -158,11 +158,11 @@ export function WorkSpiral() {
                 data-tone="brass"
                 style={initialStyle(WORKS.length, "16 / 10")}
                 onFocus={syncOnKeyboardFocus(WORKS.length)}
-                aria-label="Your room next — start a free trial."
+                aria-label="Your room next — start on the free plan."
               >
                 <span className="hv-work-card-tag">Your room next</span>
                 <span className="hv-work-card-title">See your walls before you paint them</span>
-                <span className="hv-work-card-meta">7 days free · no card · full catalogue</span>
+                <span className="hv-work-card-meta">Free every month · no card · full catalogue</span>
               </Link>
             </div>
             <div className="hv-work-head">
@@ -201,8 +201,8 @@ export function WorkSpiral() {
               <Link href="/trial" className="hv-work-row">
                 <span className="hv-work-row-num">+</span>
                 <span className="hv-work-row-swatch" style={{ background: "#b89968" }} aria-hidden />
-                <span className="hv-work-row-title">Your room next — start a free trial</span>
-                <span className="hv-work-row-code">7 days free</span>
+                <span className="hv-work-row-title">Your room next — start on the free plan</span>
+                <span className="hv-work-row-code">Free plan</span>
                 <span className="hv-work-row-loc">no card needed</span>
                 <span className="hv-work-row-arr" aria-hidden>→</span>
               </Link>

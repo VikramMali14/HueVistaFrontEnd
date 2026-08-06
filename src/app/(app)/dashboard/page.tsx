@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getCurrentUserResult } from "@/lib/auth";
 import { FEATURE_LABELS } from "@/lib/features";
 import type { AppFeatureKey } from "@/lib/types";
@@ -58,6 +59,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           {/* Naming the distributor matters: this is the one denial the shop
               cannot resolve themselves, and without saying so it reads as a bug. */}
           {featureLabel(page)} isn&apos;t switched on for your shop. Ask your distributor to enable it.
+        </div>
+      )}
+      {denied === "plan" && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: 24,
+            padding: "12px 16px",
+            border: "1px solid var(--rule-strong)",
+            background: "var(--surface-soft)",
+            color: "var(--fg)",
+            font: "300 16px/1.4 var(--serif)",
+            borderRadius: "var(--radius)",
+          }}
+        >
+          {/* The opposite of the distributor denial above: this one the shop lifts
+              itself, so it names the button rather than a person to ring. */}
+          {featureLabel(page)} isn&apos;t part of the free plan.{" "}
+          <Link href="/plan" style={{ color: "var(--accent)" }}>Choose a plan</Link> to switch it on —
+          every paid tier includes it.
         </div>
       )}
       {subscribed === "1" && (

@@ -15,8 +15,8 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
     p: "HueVista is a subscription software service for paint retailers, billed monthly through our payment processor, Razorpay. This policy explains how cancellations are handled and when a payment is, or is not, refundable. It sits alongside our Terms of Service.",
   },
   {
-    h: "2 · Free trial",
-    p: "Every new shop starts with a seven-day trial. We do not ask for a card to begin, and nothing is charged automatically when the trial ends. There is nothing to refund for a trial — you simply choose whether to subscribe.",
+    h: "2 · The free plan",
+    p: "Every shop has a free plan: two complete projects a month, renewing monthly for as long as the account exists. We do not ask for a card for it and nothing is ever charged on it, so there is nothing to refund — you simply choose whether to subscribe for more. Cancelling a paid plan returns the account to the free plan rather than closing it.",
   },
   {
     h: "3 · Subscription cancellation",

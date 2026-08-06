@@ -28,7 +28,7 @@ const subscribeLink = (
 );
 
 /**
- * Shows the retailer's current plan / free-trial status + AI-preview usage.
+ * Shows the retailer's current plan + this cycle's usage.
  * Renders nothing only for accounts without a subscription at all (e.g.
  * customers). A lapsed or halted subscription keeps the banner visible with a
  * path to pay — that's the moment the upgrade prompt matters most.
@@ -127,6 +127,12 @@ export function PlanBanner() {
     : null;
   // Cancelled, or set to cancel: still fully usable, just not renewing.
   const windingDown = sub.status === "CANCELLED" || !!sub.cancelAtPeriodEnd;
+  // The free plan renews on its own, so its period end is a RENEWAL date, not a
+  // deadline. Counting it down as "3 days left" beside an upgrade nudge would be the
+  // seven-day trial's framing on a plan that has no end — the exact impression the tier
+  // was changed to stop giving.
+  const onFreePlan = sub.plan === "FREE" && !sub.trial;
+  const countsDown = (sub.trial || windingDown) && !onFreePlan;
 
   // Where the allowance came from, in words.
   //
@@ -148,21 +154,23 @@ export function PlanBanner() {
     : `${allowanceParts.join(" + ")} = ${limit}`;
 
   return (
-    <div style={bannerStyle(sub.trial || windingDown)}>
+    <div style={bannerStyle(countsDown)}>
       {/* Labelled chips, not one monospace run-on. This was a single unbroken
           line — "STARTER PLAN active 0/32 PROJECTS THIS MONTH 17 CARRIED OVER ·
           EXPIRE THIS CYCLE 0/25 PDFS" — with nothing separating one figure from
           the next or saying what any of them counted. */}
       <div className="hv-plan-chips">
         <span className="hv-plan-chip is-plan">
-          <Mono brass>{sub.trial ? "Free trial" : `${sub.planDisplayName} plan`}</Mono>
+          <Mono brass>{sub.trial ? "Trial" : `${sub.planDisplayName} plan`}</Mono>
           <strong>
-            {(sub.trial || windingDown) && daysLeft !== null
+            {countsDown && daysLeft !== null
               ? // daysLeft is 0 only when the period end has already passed while the
                 // status is still ACTIVE — "0 days left" reads broken at the exact
                 // moment the subscribe nudge matters most.
                 daysLeft === 0 ? "Ends today" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`
-              : "Active"}
+              : onFreePlan && daysLeft !== null
+                ? daysLeft === 0 ? "Renews today" : `Renews in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`
+                : "Active"}
           </strong>
         </span>
 
@@ -195,7 +203,11 @@ export function PlanBanner() {
           </span>
         )}
       </div>
-      {(sub.trial || windingDown) && subscribeLink}
+      {/* The free plan gets the upgrade link only once the month is actually spent.
+          Offering it beside an untouched allowance is selling to someone who has not yet
+          run into the limit; offering it at zero remaining is answering the question they
+          have just asked. */}
+      {(countsDown || (onFreePlan && sub.projectsRemaining <= 0)) && subscribeLink}
     </div>
   );
 }

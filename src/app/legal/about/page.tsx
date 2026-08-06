@@ -4,7 +4,7 @@ import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { contact } from "@/lib/config";
 import { fetchCatalogueSize } from "@/lib/catalogue";
-import { TRIAL_DAYS } from "@/lib/trial";
+import { FREE_PLAN_PROJECTS } from "@/lib/free-plan";
 
 export const metadata: Metadata = {
   title: "About Us",
@@ -83,8 +83,9 @@ export default async function AboutPage() {
               billed through Razorpay; single room visualisations bought by walk-in customers
               at a shop&rsquo;s kiosk link; and account credit — extra projects, project
               reopens and points — bought by shops on top of a plan. Everything is delivered
-              electronically and immediately. Nothing is shipped. Every new shop starts with
-              a {TRIAL_DAYS}-day trial that needs no card.
+              electronically and immediately. Nothing is shipped. Every shop has a free plan
+              that needs no card — {FREE_PLAN_PROJECTS} projects every month, for as long as
+              the account exists.
             </p>
           </section>
 

@@ -148,13 +148,19 @@ function statusLabel(s: SubscriptionSummary): { text: string; color: string } {
     return { text: `Starts ${fmtDate(s.currentPeriodStart)}`, color: "var(--accent)" };
   }
   if (s.status === "ACTIVE") {
+    // The free plan reads as what it is: a live plan that renews, not a countdown and
+    // not something winding down. It carries no cancelAtPeriodEnd meaning either —
+    // nothing renews it at a gateway, so there is nothing for that flag to stop.
+    if (s.plan === "FREE" && !s.trial) {
+      return { text: "Free plan · renews monthly", color: "var(--accent)" };
+    }
     if (s.cancelAtPeriodEnd) {
       return s.trial
-        ? { text: "Free trial · won't renew", color: "var(--accent)" }
+        ? { text: "Trial · won't renew", color: "var(--accent)" }
         : { text: "Active · ends at period close", color: "var(--accent)" };
     }
     return s.trial
-      ? { text: "Free trial", color: "var(--accent)" }
+      ? { text: "Trial", color: "var(--accent)" }
       : { text: "Active", color: "var(--accent)" };
   }
   if (s.status === "EXPIRED") return { text: "Ended", color: "var(--terracotta)" };
@@ -251,9 +257,12 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
   // offering the button there was an action that could only ever fail — the way back is
   // to subscribe again, which now starts the day this period ends.
   const resumable = windingDown && !!sub?.trial;
-  // A paid plan that is still renewing can only be changed by an upgrade; a trial, or one
-  // already set to end, can buy anything.
-  const activePaid = active && !sub?.trial && !windingDown;
+  // The free plan is not something to cancel, resume or be blocked from replacing: no
+  // card, no renewal to stop, and it is what an account falls back to anyway.
+  const onFreePlan = sub?.plan === "FREE" && !sub?.trial;
+  // A paid plan that is still renewing can only be changed by an upgrade; the free plan,
+  // a trial, or one already set to end, can buy anything.
+  const activePaid = active && !sub?.trial && !onFreePlan && !windingDown;
   const currentRank = activePaid && sub ? rankOf(plans, sub.plan) : -1;
 
   async function buy(plan: PurchasablePlan) {
@@ -349,9 +358,15 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
     }
   }
 
-  // Everything the backend serves here is buyable — it stopped listing Enterprise when
-  // that tier was withdrawn, so there is nothing left to filter out.
-  const purchasable = plans;
+  // The backend serves the free tier alongside the paid ones now, so the "choose a plan"
+  // cards below have to drop it: it is granted with the account and renewed monthly, and
+  // a card for it could only ever carry a button that answers "there's nothing to pay".
+  // The tier is still described in full on the pricing page, and the panel above already
+  // says when it is the plan you are on.
+  //
+  // `!== false` rather than a truthy test, so a server too old to send the flag keeps
+  // serving only buyable tiers and nothing disappears from this list.
+  const purchasable = plans.filter((p) => p.purchasable !== false);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
@@ -522,12 +537,21 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
               </p>
             )}
 
-            {active && (
+            {active && onFreePlan && (
+              <p style={{ margin: "20px 0 0", font: "400 13px/1.6 var(--sans)", color: "var(--fg-mute)", maxWidth: "70ch" }}>
+                Nothing to cancel and nothing to pay — the free plan stays on your account
+                and its {sub.projectsLimit} projects come back every month. Colour matching
+                is the one tool it doesn&rsquo;t carry; any paid plan below switches it on.
+              </p>
+            )}
+
+            {active && !onFreePlan && (
               <div style={{ marginTop: 24, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 {resumable ? (
                   <button type="button" onClick={resume} disabled={resuming} style={buttonStyle}>
                     {resuming ? "Resuming…" : "Keep my trial running"}
                   </button>
+
                 ) : windingDown ? null : !confirmCancel ? (
                   <button type="button" onClick={() => setConfirmCancel(true)} style={buttonStyle}>
                     {sub.trial ? "Cancel trial" : "Cancel subscription"}
@@ -705,10 +729,11 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
       {/* Plans: upgrade / renew */}
       <section>
         <h2 style={{ font: "600 20px/1.2 var(--serif)", color: "var(--fg)", margin: "0 0 6px" }}>
-          {ended || !sub ? "Choose a plan" : "Upgrade or change plan"}
+          {ended || !sub || onFreePlan ? "Choose a plan" : "Upgrade or change plan"}
         </h2>
         <p style={{ font: "300 16px/1.6 var(--serif)", color: "var(--fg-soft)", margin: "0 0 18px", maxWidth: "62ch" }}>
-          Billed monthly through Razorpay, cancel anytime.
+          Billed monthly through Razorpay, cancel anytime — and cancelling drops you back
+          to the free plan, not to nothing.
           {activePaid
             ? " Upgrading is instant: pay for the bigger plan and it starts straight away with its full allowance, and we cancel the old one for you so you are never billed twice. To move to a smaller plan, cancel first — you keep access to the end of the period — then pick the smaller one."
             : ""}
@@ -750,7 +775,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                 </ul>
                 <button
                   type="button"
-                  onClick={() => buy(p.plan)}
+                  onClick={() => buy(p.plan as PurchasablePlan)}
                   disabled={busyPlan !== null || isCurrent || isDowngrade}
                   style={{
                     ...buttonStyle,

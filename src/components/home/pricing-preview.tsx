@@ -1,16 +1,19 @@
 import { LinkButton } from "@/components/ui/button";
 import { Mono } from "@/components/ui/eyebrow";
 
-interface Tier { name: string; price: string; feature: string; featured?: boolean; }
+interface Tier { name: string; price: string; per: string; feature: string; featured?: boolean; }
 
-// The three tiers a shop can actually buy — the same three the pricing page and
-// /api/billing/plans serve. Enterprise used to sit here as a fourth "On request" card
-// with nothing behind it; a price-less card on the home page is a question with no
-// answer, so it is gone until there is a real tier to put a shop on.
+// The four tiers a shop can be on — the same four the pricing page and
+// /api/billing/plans serve. Free leads, because it is the one every shop starts on and
+// the one it returns to; a ladder that starts at ₹999 leaves the first question a shop
+// asks unanswered. Enterprise used to sit here as an "On request" card with nothing
+// behind it; a price-less card on the home page is a question with no answer, so it is
+// gone until there is a real tier to put a shop on.
 const TIERS: ReadonlyArray<Tier> = [
-  { name: "Starter", price: "₹999", feature: "15 projects / mo · AI clean-up + walls" },
-  { name: "Professional", price: "₹2,499", feature: "45 projects / mo · extras at ₹55", featured: true },
-  { name: "Business", price: "₹4,999", feature: "100 projects / mo · extras at ₹45" },
+  { name: "Free", price: "₹0", per: "for good", feature: "2 projects / mo · renews · no colour finder" },
+  { name: "Starter", price: "₹999", per: "/ month", feature: "15 projects / mo · AI clean-up + walls" },
+  { name: "Professional", price: "₹2,499", per: "/ month", feature: "45 projects / mo · extras at ₹55", featured: true },
+  { name: "Business", price: "₹4,999", per: "/ month", feature: "100 projects / mo · extras at ₹45" },
 ];
 
 export function PricingPreview() {
@@ -20,7 +23,7 @@ export function PricingPreview() {
         <h2 className="display" style={{ fontSize: "clamp(48px, 7vw, 84px)", maxWidth: "14ch" }}>For retailers, <i>not consumers.</i></h2>
         <LinkButton href="/pricing" size="lg">See all tiers <span className="arr">→</span></LinkButton>
       </div>
-      <div className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "rgba(234,232,227,.07)", border: "1px solid var(--rule)" }}>
+      <div className="r-cols-md-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "rgba(234,232,227,.07)", border: "1px solid var(--rule)" }}>
         {TIERS.map((t, i) => (
           <div
             key={t.name}
@@ -35,13 +38,13 @@ export function PricingPreview() {
             <Mono style={{ color: t.featured ? "rgba(255,255,255,.7)" : "var(--fg-mute)" }}>{t.name}</Mono>
             <div style={{ minHeight: 64, display: "flex", alignItems: "flex-end" }}>
               <span style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 56, lineHeight: 1 }}>{t.price}</span>
-              <span style={{ fontFamily: "var(--serif)", fontSize: 16, marginLeft: 6, opacity: 0.6 }}>/ month</span>
+              <span style={{ fontFamily: "var(--serif)", fontSize: 16, marginLeft: 6, opacity: 0.6 }}>{t.per}</span>
             </div>
             <div style={{ font: "400 12px/1.5 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.8)" : "var(--fg-mute)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.2)" : "var(--rule)"), paddingTop: 16, marginTop: 8 }}>{t.feature}</div>
           </div>
         ))}
       </div>
-      <Mono style={{ display: "block", marginTop: 24 }}>Every new shop starts with a 7-day trial · no card · open within a day</Mono>
+      <Mono style={{ display: "block", marginTop: 24 }}>Every shop has the free plan · no card · open within a day</Mono>
     </section>
   );
 }
