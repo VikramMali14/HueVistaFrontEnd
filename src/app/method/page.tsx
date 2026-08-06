@@ -8,6 +8,7 @@ import { Placeholder } from "@/components/ui/placeholder";
 import { RevealMount } from "@/components/ui/reveal-mount";
 import { AiPreviewNote } from "@/components/shared/accuracy-note";
 import { fetchCatalogueSize } from "@/lib/catalogue";
+import { METHOD_FIGURES } from "@/lib/method-figures";
 
 export const metadata: Metadata = {
   title: "How it works",
@@ -104,7 +105,17 @@ export default async function MethodPage() {
               <Lead>{c.body}</Lead>
             </div>
             <div>
-              <Placeholder tone={c.tone} grain corners tag={c.tag} style={{ aspectRatio: "4 / 5" }} />
+              {/* A real photograph or screenshot when one exists for this step,
+                  the coloured plate until then. See lib/method-figures. */}
+              <Placeholder
+                tone={c.tone}
+                grain
+                corners
+                tag={c.tag}
+                src={METHOD_FIGURES[c.num]?.src}
+                alt={METHOD_FIGURES[c.num]?.alt}
+                style={{ aspectRatio: "4 / 5" }}
+              />
             </div>
           </article>
         ))}

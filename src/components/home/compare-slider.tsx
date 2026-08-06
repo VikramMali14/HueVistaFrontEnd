@@ -12,6 +12,19 @@ interface CompareSliderProps {
   style?: React.CSSProperties;
 }
 
+/**
+ * Synthetic stand-ins for the real before/after.
+ *
+ * This slider is the home page's central proof — "same room, same light, only
+ * the wall colour changed" — and it is currently proving it with two gradients.
+ * Both panes take any CSS background, so a real pair is a two-line change once
+ * the photographs exist:
+ *
+ *   beforeBg="url(/home/room-before.jpg) center/cover"
+ *   afterBg="url(/home/room-after.jpg) center/cover"
+ *
+ * The same room, the same shot, one wall repainted — nothing else different.
+ */
 const DEFAULT_BEFORE = "radial-gradient(ellipse at 50% 35%, rgba(255,250,235,.16), transparent 60%), linear-gradient(165deg, #5a5044 0%, #3a3127 55%, #1c1612 100%)";
 const DEFAULT_AFTER = "radial-gradient(ellipse at 50% 35%, rgba(255,235,210,.28), transparent 60%), linear-gradient(160deg, #c87a55 0%, #9d5236 55%, #4d2618 100%)";
 
