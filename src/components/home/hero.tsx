@@ -1,8 +1,17 @@
 import { LinkButton } from "@/components/ui/button";
 import { Mono } from "@/components/ui/eyebrow";
+import type { SiteAssetMap } from "@/lib/site-assets";
 import { CompareSlider } from "./compare-slider";
 
-export function Hero() {
+/**
+ * @param assets Filled image slots, from the admin console. Empty is the normal
+ *   state of a fresh install and of a backend that could not be reached — the
+ *   slider falls back to its colour washes, so the hero is never broken by a
+ *   missing picture.
+ */
+export function Hero({ assets = {} }: { assets?: SiteAssetMap }) {
+  const before = assets["home.compare.before"]?.url;
+  const after = assets["home.compare.after"]?.url;
   return (
     <section className="hv-hero2 full-bleed" aria-labelledby="hero-title">
       {/* Cinematic background. The gradient + grain reads as a warm-lit room and
@@ -37,7 +46,13 @@ export function Hero() {
       </div>
 
       <figure className="hv-hero2-demo reveal d2">
-        <CompareSlider />
+        {/* Each pane takes an uploaded photograph when one is in its slot and
+            keeps its built-in wash otherwise, so the two halves can be replaced
+            one at a time without the hero looking half-finished in between. */}
+        <CompareSlider
+          beforeBg={before ? `url("${before}") center / cover no-repeat` : undefined}
+          afterBg={after ? `url("${after}") center / cover no-repeat` : undefined}
+        />
         <figcaption>
           <Mono>Drag to compare — same room, same light, only the wall colour changed</Mono>
         </figcaption>

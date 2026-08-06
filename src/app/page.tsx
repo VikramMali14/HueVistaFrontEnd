@@ -1,4 +1,5 @@
 import { fetchCatalogueSize } from "@/lib/catalogue";
+import { fetchSiteAssets } from "@/lib/site-assets-server";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Hero } from "@/components/home/hero";
@@ -20,12 +21,16 @@ export default async function HomePage() {
   // rather than hard-coding it — the hard-coded "10,000+" was more than twice the
   // truth. Cached for an hour; null when the backend is unreachable.
   const size = await fetchCatalogueSize();
+  // Images an admin has put in the site's slots. Empty map = nothing uploaded
+  // (or the backend is unreachable), and every consumer draws its built-in
+  // artwork for a slot it has no image for.
+  const assets = await fetchSiteAssets();
   return (
     <>
       <SiteHeader />
       <main id="main">
         <RevealMount />
-        <Hero />
+        <Hero assets={assets} />
         <Stats shades={size?.shades ?? null} />
         <MethodGrid />
         <Partners />
