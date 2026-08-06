@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import {
   ALL,
@@ -100,6 +100,91 @@ function collectCustomers(roots: NetworkNode[]): CustomerRow[] {
   };
   roots.forEach((r) => walk(r, null, null));
   return rows;
+}
+
+/**
+ * The address the backend leaves behind when an account is soft-deleted
+ * (AuthService#deleteAccount scrubs the PII and writes this shape).
+ *
+ * The report was rendering it verbatim, so a branch of the tree could be headed
+ * by "Deleted user · deleted-a1b2…@deleted.huevista.invalid" — a machine id
+ * presented as a person, at the top of a network that is still very much alive.
+ */
+const DELETED_EMAIL_DOMAIN = "@deleted.huevista.invalid";
+
+function isDeletedAccount(node: NetworkNode): boolean {
+  return Boolean(node.email?.endsWith(DELETED_EMAIL_DOMAIN));
+}
+
+/**
+ * Who to credit a node to.
+ *
+ * Three cases the report used to render identically, as whatever string the
+ * backend happened to hold:
+ *
+ *  - The house distributor has no owner to name. It is an organization the
+ *    platform runs, not somebody's account, so naming a person there is wrong
+ *    even when the row happens to have one.
+ *  - A soft-deleted owner has no name or address left worth printing.
+ *  - Everyone else is a real person and reads normally.
+ */
+function OwnerIdentity({ node, block }: { node: NetworkNode; block?: boolean }) {
+  if (node.house) {
+    return (
+      <span className="net-owner-system" title="An organization HueVista runs itself — it carries every shop no partner distributor brought in, so it heads a branch of the tree without being anybody's account.">
+        HueVista — no account owner
+      </span>
+    );
+  }
+  if (isDeletedAccount(node)) {
+    return (
+      <span className="net-owner-system" title="This account was deleted. The organization and its downline are intact; the person who owned it is gone and their details were scrubbed.">
+        Account removed
+      </span>
+    );
+  }
+  return (
+    <>
+      <span>{node.name}</span>
+      {node.email && (
+        <>
+          {block ? <br /> : " "}
+          <Mono>{node.email}</Mono>
+        </>
+      )}
+      {node.phone && (
+        <>
+          <br />
+          <Mono>{node.phone}</Mono>
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * Just who owns it, no address — the sub-line under a company name on a
+ * collapsed row. The e-mail belongs to the Contact field in the opened detail;
+ * printing it here as well put the same string on screen three times per shop.
+ */
+function OwnerName({ node }: { node: NetworkNode }) {
+  if (node.house) return <span className="net-owner-system">HueVista — no account owner</span>;
+  if (isDeletedAccount(node)) return <span className="net-owner-system">Account removed</span>;
+  return <>{node.name}</>;
+}
+
+/** Contact cell content, with the same three cases as {@link OwnerIdentity}. */
+function ContactCell({ node }: { node: NetworkNode }) {
+  if (node.house || isDeletedAccount(node)) {
+    return <span className="net-owner-system">—</span>;
+  }
+  if (!node.email && !node.phone) return <>—</>;
+  return (
+    <>
+      {node.email ? <Mono>{node.email}</Mono> : null}
+      {node.phone ? <>{node.email ? <br /> : null}<Mono>{node.phone}</Mono></> : null}
+    </>
+  );
 }
 
 /** "3 / 5" with the pair's meaning in the title, or a dash when it does not apply. */
@@ -289,29 +374,69 @@ export function NetworkReportView({ report }: NetworkReportViewProps) {
         .net-totals { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 32px; }
         .net-tile { border: 1px solid var(--rule-strong); background: var(--surface-soft); border-radius: 8px; padding: 16px 22px; display: flex; flex-direction: column; gap: 8px; min-width: 128px; }
         .net-tile-num { font: 300 32px/1 var(--serif); color: var(--fg); font-variant-numeric: tabular-nums; }
-        .net-tile-label { font: 400 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--fg-mute); }
+        /* Dense data reads in the body sans, not in tracked mono-caps. The
+           console had column headers, tab labels and every stat caption set in
+           12px JetBrains Mono at .22em — a treatment that carries an eyebrow of
+           two words and actively slows down a table you are scanning. Mono is
+           kept for the things that are genuinely machine strings: ids, codes,
+           e-mail addresses. */
+        .net-tile-label { font: 500 12px/1 var(--sans); letter-spacing: .06em; color: var(--fg-mute); }
         .net-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--rule); padding-bottom: 12px; }
-        .net-tab { background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 10px 14px; cursor: pointer; color: var(--fg-mute); font: 400 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; transition: color .2s, border-color .2s; }
-        .net-tab.active, .net-tab:hover { color: var(--fg); border-color: var(--rule-strong); }
+        .net-tab { background: transparent; border: 1px solid transparent; border-radius: var(--radius-pill); padding: 9px 14px; cursor: pointer; color: var(--fg-mute); font: 500 13px/1 var(--sans); letter-spacing: 0; transition: color .2s, border-color .2s, background .2s; }
+        .net-tab:hover { color: var(--fg); border-color: var(--rule-strong); }
+        .net-tab.active { color: var(--fg); border-color: var(--rule-strong); background: var(--surface-soft); }
         .net-table-wrap { overflow-x: auto; border: 1px solid var(--rule-strong); border-radius: 8px; }
-        .net-table { width: 100%; border-collapse: collapse; min-width: 640px; }
-        .net-table th { text-align: left; font: 400 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--fg-mute); padding: 14px 16px; border-bottom: 1px solid var(--rule-strong); background: var(--surface-soft); white-space: nowrap; }
-        .net-table td { font: 300 15px/1.4 var(--serif); color: var(--fg-soft); padding: 13px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+        /* No min-width: the point of the master-detail split is that the row
+           fits. A min-width here would re-introduce the sideways scroll it
+           exists to remove. */
+        .net-table { width: 100%; border-collapse: collapse; }
+        .net-table th { text-align: left; font: 600 12px/1 var(--sans); letter-spacing: .04em; color: var(--fg-mute); padding: 13px 14px; border-bottom: 1px solid var(--rule-strong); background: var(--surface-soft); white-space: nowrap; }
+        .net-table td { font: 400 14px/1.45 var(--sans); color: var(--fg-soft); padding: 12px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
         .net-table tr:last-child td { border-bottom: none; }
-        .net-table .strong { font-weight: 500; color: var(--fg); }
+        .net-table .strong { font-weight: 600; color: var(--fg); }
         .net-num { font-variant-numeric: tabular-nums; }
-        .net-empty { font: 300 17px/1.6 var(--serif); color: var(--fg-mute); }
+        .net-col-num { text-align: left; }
+
+        /* ── Master-detail rows ── */
+        .net-col-expand { width: 40px; padding-right: 0 !important; }
+        .net-expand {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 26px; height: 26px; padding: 0;
+          background: transparent; border: 1px solid var(--rule-strong);
+          border-radius: 6px; color: var(--fg-soft); cursor: pointer;
+          transition: color .18s, border-color .18s, background .18s;
+        }
+        .net-expand:hover { color: var(--fg); border-color: var(--fg-mute); background: var(--surface-soft); }
+        .net-expand svg { transition: transform .18s var(--ease); }
+        .net-expand[aria-expanded="true"] svg { transform: rotate(90deg); }
+        .net-row.is-open > td { background: var(--surface-soft); border-bottom-color: transparent; }
+        /* A second line under a cell's headline — the owner under a company,
+           "ours" under a distributor. */
+        .net-cell-sub { display: block; margin-top: 3px; font: 400 12.5px/1.4 var(--sans); color: var(--fg-mute); }
+        .net-detail-row > td { background: var(--surface-soft); padding: 0 14px 16px 54px !important; border-bottom: 1px solid var(--rule); }
+        .net-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px 28px; }
+        .net-detail-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+        .net-detail-field.is-wide { grid-column: 1 / -1; }
+        .net-detail-label { font: 600 11px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--fg-mute); }
+        .net-detail-value { font: 400 14px/1.5 var(--sans); color: var(--fg-soft); overflow-wrap: anywhere; }
+        /* The house distributor and deleted owners: a statement about the
+           account, not a name. Italic so it never reads as somebody's. */
+        .net-owner-system { font-style: italic; color: var(--fg-mute); }
+        @media (max-width: 640px) {
+          .net-detail-row > td { padding-left: 14px !important; }
+        }
+        .net-empty { font: 400 15px/1.6 var(--sans); color: var(--fg-mute); }
         .net-node { border: 1px solid var(--rule-strong); background: var(--surface-soft); border-radius: 8px; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
         .net-branch { display: flex; flex-direction: column; gap: 10px; }
         .net-children { display: flex; flex-direction: column; gap: 10px; margin-left: 26px; padding-left: 16px; border-left: 1px solid var(--rule-strong); }
-        .net-chip { font: 400 12px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-mute); white-space: nowrap; }
-        .net-chip.distributor { color: var(--accent-soft); border-color: var(--accent-soft); }
+        .net-chip { font: 600 11px/1 var(--sans); letter-spacing: .07em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-mute); white-space: nowrap; }
+        .net-chip.distributor { color: var(--accent-text); border-color: var(--rule-brass); }
         .net-chip.retailer { color: var(--fg-soft); }
         .net-chip.customer { color: var(--sage-text); border-color: var(--sage); }
         .net-brands { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-        .net-brand-tag { font: 400 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-soft); background: var(--surface); white-space: nowrap; }
+        .net-brand-tag { font: 500 12px/1 var(--sans); letter-spacing: 0; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-soft); background: var(--surface); white-space: nowrap; }
         .net-brand-tag.all { color: var(--fg-mute); border-style: dashed; }
-        .net-brand-edit { font: 400 12px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--rule-strong); background: transparent; color: var(--accent); cursor: pointer; white-space: nowrap; }
+        .net-brand-edit { font: 600 12px/1 var(--sans); letter-spacing: 0; padding: 7px 12px; border-radius: var(--radius-pill); border: 1px solid var(--rule-strong); background: transparent; color: var(--accent-text); cursor: pointer; white-space: nowrap; }
         .net-brand-edit:hover { border-color: var(--accent); }
         .net-modal-scrim { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
         .net-modal { background: var(--surface); border: 1px solid var(--rule-strong); border-radius: 12px; width: min(480px, 100%); max-height: 85vh; overflow-y: auto; padding: 24px; box-shadow: 0 24px 60px -20px rgba(0,0,0,.6); }
@@ -329,6 +454,56 @@ export function NetworkReportView({ report }: NetworkReportViewProps) {
         .net-page-desc { display: block; margin-top: 4px; font: 300 13px/1.4 var(--serif); color: var(--fg-mute); }
         .net-modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
       `}</style>
+    </div>
+  );
+}
+
+/* ── Master-detail plumbing ───────────────────────────────────────────── */
+
+/**
+ * Which rows are open, keyed by org/user id.
+ *
+ * The wide reports used to put every column on the row and let the wrapper
+ * scroll sideways. On the admin's own console that meant an 11-column shops
+ * table laid out at ~1470px inside a 1080px page: the last columns — Brands,
+ * Pages, Joined — sat off the right edge with no scrollbar drawn over them, so
+ * the data was not hidden by design, it was just invisible. Splitting the row
+ * into "what you scan" and "what you open" is what makes it fit at all.
+ */
+function useExpandedRows() {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  return { expanded, toggle };
+}
+
+function ExpandButton({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      className="net-expand"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-label={open ? `Hide details for ${label}` : `Show details for ${label}`}
+    >
+      <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="m9 6 6 6-6 6" />
+      </svg>
+    </button>
+  );
+}
+
+/** One labelled fact inside an opened row. */
+function DetailField({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
+  return (
+    <div className={wide ? "net-detail-field is-wide" : "net-detail-field"}>
+      <span className="net-detail-label">{label}</span>
+      <span className="net-detail-value">{children}</span>
     </div>
   );
 }
@@ -384,21 +559,32 @@ function TreeNode({ node, accessFor }: { node: NetworkNode; accessFor: (n: Netwo
     <div className="net-branch">
       <div className="net-node">
         <span className={`net-chip ${roleClass}`}>{ROLE_LABEL[node.role] ?? node.role}</span>
-        <span style={{ font: "500 16px/1.3 var(--serif)", color: "var(--fg)" }}>
-          {node.orgName ?? node.name}
-        </span>
-        {node.orgName && (
-          <span style={{ font: "300 14px/1.3 var(--serif)", color: "var(--fg-soft)" }}>{node.name}</span>
+        {/* An org-backed node (distributor / shop) leads with the company and
+            credits the owner beside it; a painter or customer IS the person, so
+            their name is the heading and only the contact follows. */}
+        {node.orgName ? (
+          <>
+            <span style={{ font: "500 16px/1.3 var(--serif)", color: "var(--fg)" }}>{node.orgName}</span>
+            <span style={{ font: "300 14px/1.3 var(--serif)", color: "var(--fg-soft)" }}>
+              <OwnerIdentity node={node} />
+            </span>
+          </>
+        ) : (
+          <>
+            <span style={{ font: "500 16px/1.3 var(--serif)", color: "var(--fg)" }}>
+              {isDeletedAccount(node) ? "Account removed" : node.name}
+            </span>
+            {!isDeletedAccount(node) && node.email && <Mono>{node.email}</Mono>}
+          </>
         )}
         {node.house && (
           <span
             title="HueVista's own distributor — it carries every shop no partner distributor brought in, so it is a branch of the tree but not a distributor account."
-            style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--accent-soft)", border: "1px solid var(--rule-brass)", borderRadius: 4, padding: "3px 6px" }}
+            style={{ font: "500 12px/1 var(--sans)", letterSpacing: ".08em", textTransform: "uppercase", color: "var(--accent-text)", border: "1px solid var(--rule-brass)", borderRadius: 4, padding: "3px 6px" }}
           >
             ours
           </span>
         )}
-        {node.email && <Mono>{node.email}</Mono>}
         {(node.city || node.state) && (
           <span style={{ font: "300 14px/1.3 var(--serif)", color: "var(--fg-mute)" }}>
             {[node.city, node.state].filter(Boolean).join(", ")}
@@ -452,6 +638,7 @@ function TreeNode({ node, accessFor }: { node: NetworkNode; accessFor: (n: Netwo
 function DistributorTable({ rows }: { rows: FlatRow[] }) {
   const [query, setQuery] = useState("");
   const [state, setState] = useState(ALL);
+  const { expanded, toggle } = useExpandedRows();
 
   const stateOptions = useMemo(() => facetOptionsFrom(rows, (r) => r.node.state), [rows]);
 
@@ -485,24 +672,51 @@ function DistributorTable({ rows }: { rows: FlatRow[] }) {
       <table className="net-table">
         <thead>
           <tr>
-            <th>Company</th><th>Owner</th><th>Contact</th><th>Location</th>
-            <th>Shops</th><th>Painters</th><th>Customers</th><th>Codes used</th><th>Joined</th>
+            <th className="net-col-expand"><span className="sr-only">Expand</span></th>
+            <th>Company</th>
+            <th className="net-col-num">Shops</th>
+            <th className="net-col-num">Painters</th>
+            <th className="net-col-num">Customers</th>
+            <th className="net-col-num">Codes used</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map(({ node }) => (
-            <tr key={node.orgId ?? node.userId ?? node.email}>
-              <td className="strong">{node.orgName ?? "—"}</td>
-              <td>{node.name}</td>
-              <td><Mono>{node.email}</Mono>{node.phone ? <><br /><Mono>{node.phone}</Mono></> : null}</td>
-              <td>{[node.city, node.state].filter(Boolean).join(", ") || "—"}</td>
-              <td className="net-num">{node.retailerCount}</td>
-              <td className="net-num">{node.painterCount}</td>
-              <td className="net-num">{node.customerCount}</td>
-              <td className="net-num">{node.codesRedeemed} / {node.codesIssued}</td>
-              <td>{formatDate(node.joinedAt)}</td>
-            </tr>
-          ))}
+          {filtered.map(({ node }) => {
+            const key = node.orgId ?? node.userId ?? node.email ?? node.name;
+            const isOpen = expanded.has(key);
+            const title = node.orgName ?? node.name;
+            return (
+              <Fragment key={key}>
+                <tr className={isOpen ? "net-row is-open" : "net-row"}>
+                  <td className="net-col-expand">
+                    <ExpandButton open={isOpen} onToggle={() => toggle(key)} label={title} />
+                  </td>
+                  <td className="strong">
+                    {node.orgName ?? "—"}
+                    <span className="net-cell-sub"><OwnerName node={node} /></span>
+                  </td>
+                  <td className="net-num">{node.retailerCount}</td>
+                  <td className="net-num">{node.painterCount}</td>
+                  <td className="net-num">{node.customerCount}</td>
+                  <td className="net-num">{node.codesRedeemed} / {node.codesIssued}</td>
+                </tr>
+                {isOpen && (
+                  <tr className="net-detail-row">
+                    <td colSpan={6}>
+                      <div className="net-detail">
+                        <DetailField label="Owner"><OwnerName node={node} /></DetailField>
+                        <DetailField label="Contact"><ContactCell node={node} /></DetailField>
+                        <DetailField label="Location">
+                          {[node.city, node.state].filter(Boolean).join(", ") || "—"}
+                        </DetailField>
+                        <DetailField label="Joined">{formatDate(node.joinedAt)}</DetailField>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -530,6 +744,7 @@ function RetailerTable({
   const [company, setCompany] = useState(ALL);
   const [distributor, setDistributor] = useState(ALL);
   const [state, setState] = useState(ALL);
+  const { expanded, toggle } = useExpandedRows();
 
   // Every shop has a distributor now — the house one where no partner brought them
   // in — so "Direct" as a stand-in for "none" is gone. A dash only shows for a row
@@ -617,91 +832,117 @@ function RetailerTable({
       <table className="net-table">
         <thead>
           <tr>
-            <th>Shop</th><th>Owner</th><th>Contact</th><th>Location</th>
+            <th className="net-col-expand"><span className="sr-only">Expand</span></th>
+            <th>Shop</th>
             {showDistributor && <th>Distributor</th>}
-            <th>Painters</th><th>Customers</th><th>Codes used</th><th>Brands</th><th>Pages</th><th>Joined</th>
+            <th className="net-col-num">Painters</th>
+            <th className="net-col-num">Customers</th>
+            <th className="net-col-num">Codes used</th>
+            <th>Access</th>
           </tr>
         </thead>
         <tbody>
           {filtered.map(({ node, parent }) => {
             const access = accessFor(node);
+            const key = node.orgId ?? node.userId ?? node.email ?? node.name;
+            const isOpen = expanded.has(key);
+            const title = node.orgName ?? node.name;
             return (
-              <tr key={node.orgId ?? node.userId ?? node.email}>
-                <td className="strong">{node.orgName ?? "—"}</td>
-                <td>{node.name}</td>
-                <td><Mono>{node.email}</Mono>{node.phone ? <><br /><Mono>{node.phone}</Mono></> : null}</td>
-                <td>{[node.city, node.state].filter(Boolean).join(", ") || "—"}</td>
-                {showDistributor && (
-                  <td>
-                    {parent && parent.role === "DISTRIBUTOR"
-                      ? (parent.orgName ?? parent.name)
-                      : "—"}
-                    {parent?.house && (
-                      <>
-                        <br />
-                        <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
-                          ours
-                        </span>
-                      </>
-                    )}
-                    {canMoveShops && node.orgId && (
-                      <>
-                        <br />
-                        <button
-                          type="button"
-                          className="net-brand-edit"
-                          style={{ marginTop: 6 }}
-                          onClick={() => onEdit(node.orgId!, node.orgName ?? node.name, "distributor")}
-                        >
-                          Move
-                        </button>
-                      </>
-                    )}
+              <Fragment key={key}>
+                <tr className={isOpen ? "net-row is-open" : "net-row"}>
+                  <td className="net-col-expand">
+                    <ExpandButton open={isOpen} onToggle={() => toggle(key)} label={title} />
                   </td>
+                  <td className="strong">
+                    {node.orgName ?? "—"}
+                    <span className="net-cell-sub"><OwnerName node={node} /></span>
+                  </td>
+                  {showDistributor && (
+                    <td>
+                      {parent && parent.role === "DISTRIBUTOR" ? (parent.orgName ?? parent.name) : "—"}
+                      {parent?.house && <span className="net-cell-sub">ours</span>}
+                    </td>
+                  )}
+                  <td className="net-num">{node.painterCount}</td>
+                  <td className="net-num">{node.customerCount}</td>
+                  <td className="net-num">{node.codesRedeemed} / {node.codesIssued}</td>
+                  <td>
+                    <div className="net-brands">
+                      <AccessTags
+                        items={access.brands}
+                        restricted={access.brandsRestricted}
+                        allLabel="All brands"
+                        noneLabel="No brands"
+                      />
+                    </div>
+                  </td>
+                </tr>
+                {isOpen && (
+                  <tr className="net-detail-row">
+                    {/* colSpan follows the header exactly — 6 fixed columns plus
+                        the distributor one only an admin sees. */}
+                    <td colSpan={showDistributor ? 7 : 6}>
+                      <div className="net-detail">
+                        <DetailField label="Owner"><OwnerName node={node} /></DetailField>
+                        <DetailField label="Contact"><ContactCell node={node} /></DetailField>
+                        <DetailField label="Location">
+                          {[node.city, node.state].filter(Boolean).join(", ") || "—"}
+                        </DetailField>
+                        <DetailField label="Joined">{formatDate(node.joinedAt)}</DetailField>
+                        <DetailField label="Paint companies" wide>
+                          <div className="net-brands">
+                            <AccessTags
+                              items={access.brands}
+                              restricted={access.brandsRestricted}
+                              allLabel="All brands"
+                              noneLabel="No brands"
+                            />
+                            {canManageAccess && node.orgId && (
+                              <button
+                                type="button"
+                                className="net-brand-edit"
+                                onClick={() => onEdit(node.orgId!, title, "brands")}
+                              >
+                                Assign brands
+                              </button>
+                            )}
+                          </div>
+                        </DetailField>
+                        <DetailField label="Pages" wide>
+                          <div className="net-brands">
+                            <AccessTags
+                              items={access.features}
+                              restricted={access.featuresRestricted}
+                              allLabel="All pages"
+                              noneLabel="No pages"
+                            />
+                            {canManageAccess && node.orgId && (
+                              <button
+                                type="button"
+                                className="net-brand-edit"
+                                onClick={() => onEdit(node.orgId!, title, "pages")}
+                              >
+                                Assign pages
+                              </button>
+                            )}
+                          </div>
+                        </DetailField>
+                        {canMoveShops && node.orgId && (
+                          <DetailField label="Distributor" wide>
+                            <button
+                              type="button"
+                              className="net-brand-edit"
+                              onClick={() => onEdit(node.orgId!, title, "distributor")}
+                            >
+                              Move to another distributor
+                            </button>
+                          </DetailField>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
                 )}
-                <td className="net-num">{node.painterCount}</td>
-                <td className="net-num">{node.customerCount}</td>
-                <td className="net-num">{node.codesRedeemed} / {node.codesIssued}</td>
-                <td>
-                  <div className="net-brands" style={{ marginBottom: canManageAccess ? 8 : 0 }}>
-                    <AccessTags
-                      items={access.brands}
-                      restricted={access.brandsRestricted}
-                      allLabel="All brands"
-                      noneLabel="No brands"
-                    />
-                  </div>
-                  {canManageAccess && node.orgId && (
-                    <button
-                      type="button"
-                      className="net-brand-edit"
-                      onClick={() => onEdit(node.orgId!, node.orgName ?? node.name, "brands")}
-                    >
-                      Assign brands
-                    </button>
-                  )}
-                </td>
-                <td>
-                  <div className="net-brands" style={{ marginBottom: canManageAccess ? 8 : 0 }}>
-                    <AccessTags
-                      items={access.features}
-                      restricted={access.featuresRestricted}
-                      allLabel="All pages"
-                      noneLabel="No pages"
-                    />
-                  </div>
-                  {canManageAccess && node.orgId && (
-                    <button
-                      type="button"
-                      className="net-brand-edit"
-                      onClick={() => onEdit(node.orgId!, node.orgName ?? node.name, "pages")}
-                    >
-                      Assign pages
-                    </button>
-                  )}
-                </td>
-                <td>{formatDate(node.joinedAt)}</td>
-              </tr>
+              </Fragment>
             );
           })}
         </tbody>
@@ -1127,14 +1368,12 @@ function CustomerTable({
                 const lapsed = isLapsed(r.node.accessExpiresAt);
                 return (
                   <tr key={r.node.userId ?? `${shopName(r)}-${r.node.name}`}>
-                    <td className="strong">{r.node.name}</td>
+                    <td className="strong">{isDeletedAccount(r.node) ? "Account removed" : r.node.name}</td>
                     <td>
-                      {r.node.email ? <Mono>{r.node.email}</Mono> : null}
-                      {r.node.phone ? <>{r.node.email ? <br /> : null}<Mono>{r.node.phone}</Mono></> : null}
                       {/* An account created by redeeming a code has no real address —
                           the stored one is synthesised from the code, and the backend
                           withholds it rather than present a machine id as a contact. */}
-                      {!r.node.email && !r.node.phone ? "—" : null}
+                      <ContactCell node={r.node} />
                     </td>
                     <td>{shopName(r)}</td>
                     {showDistributor && <td>{distributorName(r)}</td>}
@@ -1338,8 +1577,8 @@ function PainterTable({ rows }: { rows: FlatRow[] }) {
         <tbody>
           {filtered.map(({ node, parent }, i) => (
             <tr key={node.userId ?? node.email ?? i}>
-              <td className="strong">{node.name}</td>
-              <td><Mono>{node.email}</Mono>{node.phone ? <><br /><Mono>{node.phone}</Mono></> : null}</td>
+              <td className="strong">{isDeletedAccount(node) ? "Account removed" : node.name}</td>
+              <td><ContactCell node={node} /></td>
               <td>{parent ? (parent.orgName ?? parent.name) : "—"}</td>
               <td>{formatDate(node.joinedAt)}</td>
             </tr>

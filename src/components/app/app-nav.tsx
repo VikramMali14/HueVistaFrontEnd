@@ -249,7 +249,7 @@ export function AppNav({ user, access = null }: AppNavProps) {
                 background: "transparent",
                 border: "none",
                 cursor: "pointer",
-                color: "var(--fg-mute)",
+                color: "var(--fg-soft)",
                 padding: "12px 16px",
                 font: "400 12px/1 var(--mono)",
                 letterSpacing: ".26em",
@@ -281,7 +281,7 @@ export function AppNav({ user, access = null }: AppNavProps) {
               background: "transparent",
               border: "none",
               cursor: "pointer",
-              color: "var(--fg-mute)",
+              color: "var(--fg-soft)",
               padding: "12px 16px",
               font: "400 12px/1 var(--mono)",
               letterSpacing: ".26em",
@@ -309,8 +309,14 @@ export function AppNav({ user, access = null }: AppNavProps) {
         .app-nav-inner.is-hidden { transform: translateY(-160%); }
         @media (prefers-reduced-motion: reduce) { .app-nav-inner { transition: none; } }
         .app-tabs { display: flex; gap: 8px; margin-left: auto; }
-        .app-tab { font: 400 12px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; padding: 12px 16px; color: var(--fg-mute); border: 1px solid transparent; transition: color .25s var(--ease), border-color .25s var(--ease); }
-        .app-tab:hover { color: var(--fg); border-color: var(--rule-strong); }
+        /* The pill radius is on the BASE, not only on .active: every neighbour in
+           this bar is round (the active tab, the theme toggle), so a tab whose
+           hover/focus box came out a hard-cornered rectangle looked like a
+           control nobody had styled — most visibly on Sign out, which is only
+           ever seen in that state. */
+        .app-tab { font: 400 12px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; padding: 12px 16px; color: var(--fg-soft); border: 1px solid transparent; border-radius: var(--radius-pill); transition: color .25s var(--ease), border-color .25s var(--ease), background .25s var(--ease); }
+        .app-tab:hover { color: var(--fg); border-color: var(--rule-strong); background: rgba(var(--fg-rgb), .06); }
+        .app-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-pill); }
         /* Current page = a filled pill. The focus ring stays an outline, so
            "where I am" and "where focus is" can never be confused — they used
            to be the same thin rectangle. */

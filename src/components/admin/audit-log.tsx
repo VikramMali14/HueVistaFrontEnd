@@ -21,6 +21,34 @@ interface AuditLogProps {
   refreshAction: (action?: string, page?: number) => Promise<AuditLogRow[] | null>;
 }
 
+/**
+ * How loud a recorded action is.
+ *
+ * Every row used to render its action in the same accent, at the same weight,
+ * so ACCOUNT_DELETED and PLATFORM_DATA_RESET sat in a wall of LOGOUTs looking
+ * exactly like them. An audit trail is read by someone scanning for the one
+ * thing that mattered, and flat typography is the one thing that stops that
+ * working. Severity is derived from the action name rather than kept as a list
+ * of every action the backend might record — a new destructive verb should be
+ * loud on the day it ships, not on the day someone remembers to add it here.
+ */
+type Severity = "destructive" | "billing" | "routine" | "notable";
+
+function severityOf(action: string): Severity {
+  const a = action.toUpperCase();
+  if (/DELETE|RESET|REVOKE|PURGE|WIPE|REMOVE|CLEAR/.test(a)) return "destructive";
+  if (/SUBSCRIPTION|PAYMENT|REFUND|INVOICE|PLAN|CHARGE|BILLING/.test(a)) return "billing";
+  if (/LOGIN|LOGOUT|SIGNIN|SIGNOUT|TOKEN|SESSION|REFRESH/.test(a)) return "routine";
+  return "notable";
+}
+
+const SEVERITY_TITLE: Record<Severity, string> = {
+  destructive: "Destructive — this removed or reset data",
+  billing: "Subscription or payment event",
+  routine: "Routine session activity",
+  notable: "Account or role change",
+};
+
 /** Union the actions we've ever seen (plus the active filter) into a sorted,
  *  stable chip list — so selecting a filter, whose page holds only that one
  *  action, never collapses the chip bar and strands the user with no "All". */
@@ -134,51 +162,45 @@ export function AuditLog({ initial, refreshAction }: AuditLogProps) {
             aria-label="Audit log"
             style={{ border: "1px solid var(--rule)", maxHeight: LIST_MAX_HEIGHT, overflowY: "auto" }}
           >
-            {rows.map((r, i) => (
-              <div
-                key={r.id}
-                role="row"
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "baseline",
-                  gap: "4px 14px",
-                  padding: "12px 16px",
-                  borderBottom: i === rows.length - 1 ? "none" : "1px solid var(--rule)",
-                }}
-              >
-                <span role="cell" style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", color: "var(--accent)" }}>
-                  {r.action}
-                </span>
-                <span role="cell" style={{ font: "300 14px/1.4 var(--serif)", color: "var(--fg-soft)" }}>
-                  {r.actorEmail ?? r.actorUserId ?? "system"}
-                </span>
-                {r.targetType && (
-                  <Mono>
-                    {r.targetType}
-                    {r.targetId ? ` ${r.targetId.slice(0, 8)}…` : ""}
-                  </Mono>
-                )}
-                {r.detail && (
-                  <span role="cell" style={{ font: "300 italic 14px/1.4 var(--serif)", color: "var(--fg-mute)" }}>
-                    {r.detail}
+            {rows.map((r, i) => {
+              const severity = severityOf(r.action);
+              return (
+                <div
+                  key={r.id}
+                  role="row"
+                  className={`audit-row is-${severity}`}
+                  style={{ borderBottom: i === rows.length - 1 ? "none" : "1px solid var(--rule)" }}
+                >
+                  <span role="cell" className="audit-tag" title={SEVERITY_TITLE[severity]}>
+                    {r.action}
                   </span>
-                )}
-                {r.createdAt && (
-                  <span
-                    role="cell"
-                    style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", color: "var(--fg-mute)", whiteSpace: "nowrap" }}
-                  >
-                    {new Date(r.createdAt).toLocaleString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                  <span role="cell" className="audit-actor">
+                    {r.actorEmail ?? r.actorUserId ?? "system"}
                   </span>
-                )}
-              </div>
-            ))}
+                  {r.targetType && (
+                    <Mono>
+                      {r.targetType}
+                      {r.targetId ? ` ${r.targetId.slice(0, 8)}…` : ""}
+                    </Mono>
+                  )}
+                  {r.detail && (
+                    <span role="cell" className="audit-detail">
+                      {r.detail}
+                    </span>
+                  )}
+                  {r.createdAt && (
+                    <span role="cell" className="audit-time">
+                      {new Date(r.createdAt).toLocaleString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 14 }}>
@@ -208,6 +230,35 @@ export function AuditLog({ initial, refreshAction }: AuditLogProps) {
           </div>
         </>
       )}
+
+      <style>{`
+        .audit-row {
+          display: flex; flex-wrap: wrap; align-items: baseline;
+          gap: 4px 14px; padding: 11px 16px 11px 13px;
+          border-left: 3px solid transparent;
+        }
+        /* The tag carries the weight, and a left rule carries it again down the
+           edge so the destructive rows are findable while scrolling fast —
+           colour alone would leave that to whoever can see the difference. */
+        .audit-tag {
+          font: 600 11.5px/1 var(--sans); letter-spacing: .04em;
+          padding: 5px 9px; border-radius: var(--radius-pill);
+          border: 1px solid currentColor; white-space: nowrap;
+        }
+        .audit-actor { font: 400 14px/1.4 var(--sans); color: var(--fg-soft); }
+        .audit-detail { font: 400 13.5px/1.4 var(--sans); color: var(--fg-mute); }
+        .audit-time {
+          margin-left: auto; font: 400 12px/1 var(--mono);
+          color: var(--fg-mute); white-space: nowrap;
+        }
+
+        .audit-row.is-destructive { border-left-color: var(--accent-warm); background: rgba(138,58,46,.07); }
+        .audit-row.is-destructive .audit-tag { color: var(--accent-warm); }
+        .audit-row.is-billing .audit-tag { color: var(--accent-text); }
+        .audit-row.is-notable .audit-tag { color: var(--fg-soft); }
+        /* Routine session noise recedes: no border, no ring, just a label. */
+        .audit-row.is-routine .audit-tag { color: var(--fg-mute); border-color: var(--rule-strong); }
+      `}</style>
     </div>
   );
 }
