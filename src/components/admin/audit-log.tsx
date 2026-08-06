@@ -147,7 +147,7 @@ export function AuditLog({ initial, refreshAction }: AuditLogProps) {
                   borderBottom: i === rows.length - 1 ? "none" : "1px solid var(--rule)",
                 }}
               >
-                <span role="cell" style={{ font: "400 11px/1 var(--mono)", letterSpacing: ".14em", color: "var(--accent)" }}>
+                <span role="cell" style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", color: "var(--accent)" }}>
                   {r.action}
                 </span>
                 <span role="cell" style={{ font: "300 14px/1.4 var(--serif)", color: "var(--fg-soft)" }}>
@@ -167,7 +167,7 @@ export function AuditLog({ initial, refreshAction }: AuditLogProps) {
                 {r.createdAt && (
                   <span
                     role="cell"
-                    style={{ marginLeft: "auto", font: "400 11px/1 var(--mono)", color: "var(--fg-mute)", whiteSpace: "nowrap" }}
+                    style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", color: "var(--fg-mute)", whiteSpace: "nowrap" }}
                   >
                     {new Date(r.createdAt).toLocaleString("en-IN", {
                       day: "numeric",
@@ -194,7 +194,7 @@ export function AuditLog({ initial, refreshAction }: AuditLogProps) {
                   padding: "8px 18px",
                   cursor: loadingMore ? "default" : "pointer",
                   color: "var(--fg-soft)",
-                  font: "400 10px/1 var(--mono)",
+                  font: "400 12px/1 var(--mono)",
                   letterSpacing: ".18em",
                   textTransform: "uppercase",
                 }}
@@ -225,7 +225,7 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
         padding: "6px 12px",
         cursor: "pointer",
         color: active ? "var(--accent)" : "var(--fg-soft)",
-        font: "400 10px/1 var(--mono)",
+        font: "400 12px/1 var(--mono)",
         letterSpacing: ".16em",
         textTransform: "uppercase",
       }}

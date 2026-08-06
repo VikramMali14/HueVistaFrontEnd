@@ -76,7 +76,7 @@ const MATRIX: ReadonlyArray<Section> = [
 const cellStyle: React.CSSProperties = { textAlign: "left", padding: "22px 24px", borderBottom: "1px solid var(--rule)", fontFamily: "var(--sans)", fontWeight: 400, fontSize: 15, color: "var(--ivory-soft)", verticalAlign: "top" };
 const featCellStyle: React.CSSProperties = { ...cellStyle, color: "var(--ivory)", fontFamily: "var(--serif)", fontSize: 19 };
 const featuredColStyle: React.CSSProperties = { background: "rgba(124,92,255,.05)", color: "var(--ivory)" };
-const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px", borderBottom: "1px solid var(--rule-strong)", font: "400 10px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", color: "var(--brass)" };
+const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px", borderBottom: "1px solid var(--rule-strong)", font: "400 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", color: "var(--brass)" };
 const sectionHeadStyle: React.CSSProperties = { font: "400 22px/1 var(--serif)", color: "var(--brass-soft)", padding: "56px 24px 12px" };
 const yesStyle: React.CSSProperties = { color: "var(--brass)", fontFamily: "var(--mono)", fontSize: 13 };
 const noStyle: React.CSSProperties = { color: "var(--mute-deep)", fontFamily: "var(--mono)", fontSize: 13 };
@@ -114,12 +114,12 @@ export default async function PricingPage() {
             <Eyebrow>Pricing</Eyebrow>
             <Mono>Built for retailers · not consumers</Mono>
           </div>
-          <h1 className="display">For retailers,<br /><i>not consumers.</i></h1>
+          <h1 className="display">For retailers,{" "}<br /><i>not consumers.</i></h1>
           <Lead className="page-lead">Three tiers, each tuned to a different counter. Every new shop starts with {TRIAL_DAYS} unbilled days — request an account, confirm your email, and it opens within a day. Cancel quietly when you wish.</Lead>
           <PricingTiers isCustomer={isCustomer} />
         </header>
 
-        <div className="reveal" style={{ borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", padding: "22px 0", marginTop: 64, display: "flex", flexWrap: "wrap", gap: "12px 36px", justifyContent: "center", font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+        <div className="reveal" style={{ borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", padding: "22px 0", marginTop: 64, display: "flex", flexWrap: "wrap", gap: "12px 36px", justifyContent: "center", font: "400 12px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
           <span>Payment receipt for every order</span>
           <span aria-hidden>·</span>
           <span>UPI · cards · netbanking</span>
@@ -228,7 +228,7 @@ export default async function PricingPage() {
               <Link href="/trial" className="btn btn-brass">Request a shop account <span className="arr">→</span></Link>
               <Link href="/redeem" className="btn btn-ghost">Have a shop code? <span className="arr">→</span></Link>
             </div>
-            <div style={{ marginTop: 24, font: "400 10px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+            <div style={{ marginTop: 24, font: "400 12px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
               Payment receipt for every order · UPI accepted · cancel anytime
             </div>
           </div>

@@ -82,7 +82,7 @@ export default async function AdminPage() {
           borderRadius: 8,
         }}
       >
-        <p style={{ margin: 0, font: "400 11px/1.6 var(--mono)", letterSpacing: ".16em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+        <p style={{ margin: 0, font: "400 12px/1.6 var(--mono)", letterSpacing: ".16em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
           You (admin) → Distributor → Shop → Painter
         </p>
         <ul style={{ margin: "12px 0 0", paddingLeft: 20, font: "300 16px/1.7 var(--serif)", color: "var(--fg-soft)" }}>

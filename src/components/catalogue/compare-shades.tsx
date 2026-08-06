@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { lightShift, LIGHT_SHIFT_BADGE, undertoneClash } from "@/lib/color-science";
+import { readableInk } from "@/lib/color";
 import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import { UndertoneTag } from "./undertone-tag";
 import { FullscreenSwatch } from "./fullscreen-swatch";
@@ -72,7 +73,7 @@ export function CompareTray({
         type="button"
         onClick={onClear}
         aria-label="Clear comparison"
-        style={{ background: "transparent", border: "none", color: "var(--fg-mute)", cursor: "pointer", font: "400 11px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", padding: "6px 4px" }}
+        style={{ background: "transparent", border: "none", color: "var(--fg-mute)", cursor: "pointer", font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", padding: "6px 4px" }}
       >
         Clear
       </button>
@@ -131,7 +132,7 @@ export function CompareOverlay({
         style={{ "--cols": shades.length, "--cols-sm": Math.min(2, shades.length) } as React.CSSProperties}
       >
         {shades.map((s) => {
-          const ink = s.lrv >= 45 ? "rgba(26,22,18,.8)" : "rgba(255,255,255,.88)";
+          const { strong: ink, soft: inkSoft } = readableInk(s.hex);
           const shift = lightShift(s.hex);
           return (
             <div key={s.code} className="hv-compare-col" style={{ minWidth: 0, display: "flex", flexDirection: "column", borderRight: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
@@ -142,7 +143,7 @@ export function CompareOverlay({
                 aria-label={`View ${nameOf(s)} full screen`}
                 style={{ background: s.hex, border: "none", cursor: "pointer", position: "relative" }}
               >
-                <span style={{ position: "absolute", top: 12, left: 12, font: "400 10px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: ink, opacity: 0.8 }}>
+                <span style={{ position: "absolute", top: 12, left: 12, font: "400 12px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: inkSoft }}>
                   {s.brand}
                 </span>
               </button>
@@ -151,7 +152,7 @@ export function CompareOverlay({
                 <Mono>{hideCodes ? s.brand : `${codeOf(s.code)}${showNames ? ` · ${s.brand}` : ""}`}</Mono>
                 <UndertoneTag hex={s.hex} prefix />
                 {shift.score >= LIGHT_SHIFT_BADGE && (
-                  <span title="This colour changes noticeably under a warm bulb" style={{ display: "inline-flex", alignItems: "center", gap: 6, font: "400 10px/1 var(--mono)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+                  <span title="This colour changes noticeably under a warm bulb" style={{ display: "inline-flex", alignItems: "center", gap: 6, font: "400 12px/1 var(--mono)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
                     <span aria-hidden style={{ width: 14, height: 8, borderRadius: 2, background: `linear-gradient(90deg, ${s.hex} 50%, ${shift.warmHex} 50%)`, border: "1px solid var(--rule-strong)" }} />
                     shifts in lamplight
                   </span>
@@ -159,7 +160,7 @@ export function CompareOverlay({
                 <button
                   type="button"
                   onClick={() => onRemove(s.code)}
-                  style={{ alignSelf: "flex-start", marginTop: 2, background: "transparent", border: "none", color: "var(--fg-mute)", cursor: "pointer", font: "400 10px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", padding: "6px 0" }}
+                  style={{ alignSelf: "flex-start", marginTop: 2, background: "transparent", border: "none", color: "var(--fg-mute)", cursor: "pointer", font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", padding: "6px 0" }}
                 >
                   Remove
                 </button>

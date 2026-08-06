@@ -114,7 +114,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
           <div className="reveal">
             <Mono brass>Your room next</Mono>
             <h2 className="display" style={{ fontSize: "clamp(44px, 7vw, 108px)", marginTop: 24, lineHeight: 0.95 }}>
-              See your walls<br /><i>before you paint them.</i>
+              See your walls{" "}<br /><i>before you paint them.</i>
             </h2>
             <div style={{ marginTop: 48, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
               <Link href="/method" className="btn btn-brass">How it works <span className="arr">→</span></Link>

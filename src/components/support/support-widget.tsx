@@ -160,7 +160,7 @@ export function SupportWidget() {
         >
           <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--rule)", background: "var(--surface)" }}>
             <div style={{ font: "400 18px/1.1 var(--serif)", color: "var(--fg)" }}>HueVista support</div>
-            <div style={{ font: "400 10px/1.3 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: needsHuman ? "var(--accent)" : "var(--fg-mute)", marginTop: 4 }}>
+            <div style={{ font: "400 12px/1.3 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: needsHuman ? "var(--accent)" : "var(--fg-mute)", marginTop: 4 }}>
               {needsHuman ? "A team member will reply" : "AI assistant · replies instantly"}
             </div>
           </div>
@@ -199,7 +199,7 @@ export function SupportWidget() {
               </button>
             </div>
             {convo && !needsHuman && (
-              <button type="button" onClick={() => void requestHuman()} style={{ alignSelf: "flex-start", background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
+              <button type="button" onClick={() => void requestHuman()} style={{ alignSelf: "flex-start", background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
                 Talk to a human
               </button>
             )}
@@ -213,7 +213,7 @@ export function SupportWidget() {
 function Bubble({ message }: { message: SupportMessage }) {
   if (message.sender === "SYSTEM") {
     return (
-      <div style={{ alignSelf: "center", font: "400 10px/1.4 var(--mono)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--fg-mute)", textAlign: "center", maxWidth: "90%" }}>
+      <div style={{ alignSelf: "center", font: "400 12px/1.4 var(--mono)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--fg-mute)", textAlign: "center", maxWidth: "90%" }}>
         {message.body}
       </div>
     );
@@ -235,7 +235,7 @@ function Bubble({ message }: { message: SupportMessage }) {
       }}
     >
       {message.sender === "AGENT" && (
-        <span style={{ display: "block", font: "400 9px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 4 }}>Team</span>
+        <span style={{ display: "block", font: "400 12px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 4 }}>Team</span>
       )}
       {message.body}
     </div>

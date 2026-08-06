@@ -57,7 +57,7 @@ export default async function AdminFreeProjectsPage() {
         <p
           style={{
             margin: 0,
-            font: "400 11px/1.6 var(--mono)",
+            font: "400 12px/1.6 var(--mono)",
             letterSpacing: ".16em",
             textTransform: "uppercase",
             color: "var(--fg-mute)",

@@ -53,7 +53,7 @@ export function CreatePainterForm() {
               placeholder="At least eight characters" autoComplete="new-password" style={{ paddingRight: 56 }} />
             <button type="button" onClick={() => setShowPw((v) => !v)} aria-pressed={showPw}
               aria-label={showPw ? "Hide password" : "Show password"}
-              style={{ position: "absolute", right: 0, bottom: 8, background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase" }}>
+              style={{ position: "absolute", right: 0, bottom: 8, background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase" }}>
               {showPw ? "Hide" : "Show"}
             </button>
           </div>

@@ -145,7 +145,7 @@ export function CoordinateSuggestions({
                   />
                   <span
                     style={{
-                      font: "400 9px/1.2 var(--mono)",
+                      font: "400 12px/1.2 var(--mono)",
                       letterSpacing: ".04em",
                       color: "var(--fg-mute)",
                       overflow: "hidden",

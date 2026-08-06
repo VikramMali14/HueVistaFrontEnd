@@ -41,7 +41,7 @@ export function LoaderOverlay({ show, label, hint, progress, style }: LoaderOver
       <Spinner size={36} color="var(--accent)" decorative />
       <div
         style={{
-          font: "400 11px/1 var(--mono, ui-monospace, monospace)",
+          font: "400 12px/1 var(--mono, ui-monospace, monospace)",
           letterSpacing: ".28em",
           textTransform: "uppercase",
           color: "var(--accent)",

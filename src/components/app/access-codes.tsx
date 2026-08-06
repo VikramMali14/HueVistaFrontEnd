@@ -516,7 +516,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                   <span role="cell" data-label="Code" style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                     <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{c.code}</span>
                     {status === "active" && (
-                      <button type="button" onClick={() => copy(c.code)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>
+                      <button type="button" onClick={() => copy(c.code)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>
                         {copied === c.code ? "copied" : "copy"}
                       </button>
                     )}
@@ -528,14 +528,14 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                     {c.projectsUsed ?? 0} / {c.projectQuota ?? 1}
                   </span>
                   <span role="cell" className="mono" data-label="Expires">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</span>
-                  <span role="cell" data-label="Status" style={{ font: "400 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
+                  <span role="cell" data-label="Status" style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
                   <span role="cell" data-label="Rooms">
                     {c.used ? (
                       <button
                         type="button"
                         onClick={() => viewRoom(c.id)}
                         aria-expanded={expanded}
-                        style={{ background: "transparent", border: "1px solid var(--rule-strong)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--fg-soft)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+                        style={{ background: "transparent", border: "1px solid var(--rule-strong)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--fg-soft)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
                       >
                         {expanded ? "Hide" : "View rooms"}
                       </button>
@@ -577,14 +577,14 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                             type="button"
                             onClick={() => revoke(c)}
                             disabled={revoking === c.id}
-                            style={{ background: "transparent", border: "1px solid var(--terracotta)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--terracotta)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+                            style={{ background: "transparent", border: "1px solid var(--terracotta)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--terracotta)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
                           >
                             {revoking === c.id ? "…" : "Confirm"}
                           </button>
                           <button
                             type="button"
                             onClick={() => setConfirmRevoke(null)}
-                            style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+                            style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
                           >
                             Keep
                           </button>
@@ -594,7 +594,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                           type="button"
                           onClick={() => setConfirmRevoke(c.id)}
                           title="Cancel this code and put its projects back in your allowance"
-                          style={{ background: "transparent", border: "1px solid var(--rule-strong)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--fg-soft)", font: "400 9.5px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+                          style={{ background: "transparent", border: "1px solid var(--rule-strong)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--fg-soft)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
                         >
                           Cancel
                         </button>
@@ -628,7 +628,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                             <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
                               <span style={{ font: "500 17px/1.2 var(--serif)", color: "var(--fg)" }}>{project.name}</span>
                               {project.sentToShopAt && (
-                                <span style={{ font: "500 9.5px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 999, padding: "5px 10px" }}>
+                                <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 999, padding: "5px 10px" }}>
                                   ✓ Sent by customer
                                 </span>
                               )}

@@ -214,14 +214,14 @@ export function AppNav({ user, access = null }: AppNavProps) {
               <Link href="/account" style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }} title="Account settings">{user.name}</Link>
             )}
             <LogoutButton
-              className="app-tab"
+              className="app-tab tap-row"
               style={{
                 background: "transparent",
                 border: "none",
                 cursor: "pointer",
                 color: "var(--fg-mute)",
                 padding: "12px 16px",
-                font: "400 11px/1 var(--mono)",
+                font: "400 12px/1 var(--mono)",
                 letterSpacing: ".26em",
                 textTransform: "uppercase",
               }}
@@ -241,14 +241,14 @@ export function AppNav({ user, access = null }: AppNavProps) {
             <Link href="/account" style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }} title="Account settings">{user.name}</Link>
           )}
           <LogoutButton
-            className="app-tab"
+            className="app-tab tap-row"
             style={{
               background: "transparent",
               border: "none",
               cursor: "pointer",
               color: "var(--fg-mute)",
               padding: "12px 16px",
-              font: "400 11px/1 var(--mono)",
+              font: "400 12px/1 var(--mono)",
               letterSpacing: ".26em",
               textTransform: "uppercase",
             }}
@@ -274,7 +274,7 @@ export function AppNav({ user, access = null }: AppNavProps) {
         .app-nav-inner.is-hidden { transform: translateY(-160%); }
         @media (prefers-reduced-motion: reduce) { .app-nav-inner { transition: none; } }
         .app-tabs { display: flex; gap: 8px; margin-left: auto; }
-        .app-tab { font: 400 11px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; padding: 12px 16px; color: var(--fg-mute); border: 1px solid transparent; transition: color .25s var(--ease), border-color .25s var(--ease); }
+        .app-tab { font: 400 12px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; padding: 12px 16px; color: var(--fg-mute); border: 1px solid transparent; transition: color .25s var(--ease), border-color .25s var(--ease); }
         .app-tab.active, .app-tab:hover { color: var(--fg); border-color: var(--rule-strong); }
         .app-nav-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .app-tabs.is-mobile { display: none; }
@@ -301,7 +301,7 @@ export function AppNav({ user, access = null }: AppNavProps) {
           padding: 6px 16px 8px;
           background: var(--nav-bg); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
           border: 1px solid var(--rule-strong); border-top: none; border-radius: 0 0 12px 12px;
-          color: var(--fg-mute); font: 400 10px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase;
+          color: var(--fg-mute); font: 400 12px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase;
           cursor: pointer; pointer-events: auto;
           transition: color .2s var(--ease), opacity .25s var(--ease);
         }

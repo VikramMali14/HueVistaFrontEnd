@@ -1,11 +1,11 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { Mono } from "@/components/ui/eyebrow";
+import { Mono, Note } from "@/components/ui/eyebrow";
 import { useShadeLabels } from "@/hooks/use-shade-code-scheme";
 import { matchesQuery } from "@/components/atelier/shade-grid";
 import { useCopied } from "@/hooks/use-copied";
-import { hexToHsv } from "@/lib/color";
+import { hexToHsv, readableInk } from "@/lib/color";
 import { PAINT_BRANDS, type PaintShade } from "@/lib/types";
 import { UndertoneTag } from "./undertone-tag";
 import { CompareTray, CompareOverlay, COMPARE_MAX } from "./compare-shades";
@@ -63,11 +63,11 @@ function FilterDropdown({ id, label, value, options, onChange, soon, openId, set
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpenId(open ? null : id)}
-        style={{ width: "100%", height: "100%", padding: "18px 20px", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: "var(--fg-soft)" }}
+        style={{ width: "100%", height: "100%", padding: "18px 20px", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: "var(--fg-soft)" }}
       >
         <span>{label}</span>
         <span style={{ color: "var(--accent)", fontFamily: "var(--serif)", fontSize: 15, letterSpacing: ".01em", textTransform: "none" }}>{value}</span>
-        <span style={{ color: "var(--fg-mute)", fontSize: 10 }} aria-hidden>▾</span>
+        <span style={{ color: "var(--fg-mute)", fontSize: 12 }} aria-hidden>▾</span>
       </button>
       {open && (
         <div className="hv-dd" role="listbox" aria-label={label} style={{ position: "absolute", top: "100%", left: -1, right: -1, background: "var(--surface-soft)", border: "1px solid var(--rule-strong)", borderTop: "none", zIndex: 20 }}>
@@ -242,14 +242,14 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
         <FilterDropdown id="brand" label="Brand" value={brand} options={brandOptions} soon={brandsSoon} onChange={(v) => { setBrand(v); setVisible(PAGE_SIZE); }} openId={openId} setOpenId={setOpenId} />
         <FilterDropdown id="finish" label="Finish" value={finish} options={finishOptions} onChange={(v) => { setFinish(v); setVisible(PAGE_SIZE); }} openId={openId} setOpenId={setOpenId} />
         <FilterDropdown id="lrv" label="Depth" value={lrv} options={LRV_RANGES.map((r) => r.id)} onChange={(v) => { setLrv(v as never); setVisible(PAGE_SIZE); }} openId={openId} setOpenId={setOpenId} />
-        <button type="button" onClick={clearAll} style={{ padding: "18px 20px", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase" }}>Clear</button>
+        <button type="button" onClick={clearAll} style={{ padding: "18px 20px", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase" }}>Clear</button>
       </div>
 
       <div className="reveal d1 r-scroll-x" style={{ marginTop: 24, display: "flex", border: "1px solid var(--rule)", background: "var(--rule)", gap: 1 }}>
         {familyOptions.map((f) => {
           const active = f.id === family;
           return (
-            <button key={f.id} type="button" className="hv-chip" onClick={() => { setFamily(f.id); setVisible(PAGE_SIZE); }} style={{ flexShrink: 0, padding: "16px 22px", border: "none", background: active ? "var(--surface-soft)" : "var(--bg)", color: active ? "var(--fg)" : "var(--fg-soft)", font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", cursor: "pointer" }}>
+            <button key={f.id} type="button" className="hv-chip" onClick={() => { setFamily(f.id); setVisible(PAGE_SIZE); }} style={{ flexShrink: 0, padding: "16px 22px", border: "none", background: active ? "var(--surface-soft)" : "var(--bg)", color: active ? "var(--fg)" : "var(--fg-soft)", font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", cursor: "pointer" }}>
               <span style={{ width: 10, height: 10, background: f.dot, border: "1px solid var(--rule-strong)", boxShadow: active ? "0 0 0 2px var(--accent-soft)" : "none" }} />
               {f.id}
             </button>
@@ -258,7 +258,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
       </div>
 
       <div className="reveal d2" style={{ marginTop: 32, display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 16 }}>
-        <Mono>Showing <span style={{ color: "var(--fg)" }}>{shown.length}</span> of {sorted.length} · sorted by {sortBy}</Mono>
+        <Note>Showing <span style={{ color: "var(--fg)", fontWeight: 600 }}>{shown.length}</span> of {sorted.length.toLocaleString("en-IN")} shades · sorted by {sortBy}</Note>
         <div style={{ display: "flex", alignItems: "baseline", gap: 2, flexWrap: "wrap" }}>
           <Mono style={{ marginRight: 6 }}>Sort:</Mono>
           {SORTS.map((s, i) => (
@@ -266,10 +266,10 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
               {i > 0 && <span className="mono" aria-hidden style={{ padding: "0 4px" }}>·</span>}
               <button
                 type="button"
-                className="hv-chip"
+                className="hv-chip tap-row"
                 onClick={() => setSortBy(s)}
                 aria-pressed={sortBy === s}
-                style={{ background: "transparent", border: "none", cursor: "pointer", padding: "0 2px", font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: sortBy === s ? "var(--brass)" : "var(--fg-soft)" }}
+                style={{ background: "transparent", border: "none", cursor: "pointer", padding: "10px 6px", font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: sortBy === s ? "var(--brass)" : "var(--fg-soft)" }}
               >
                 {s}
               </button>
@@ -283,8 +283,10 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
       <div className="reveal d3" style={{ marginTop: 48 }}>
         <div key={[family, brand, finish, lrv, sortBy].join("|")} className="hv-grid-swap hv-cat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 24 }}>
           {shown.map((s) => {
-            const ink = s.lrv >= 45 ? "rgba(26,22,18,.72)" : "rgba(255,255,255,.75)";
-            const inkSoft = s.lrv >= 45 ? "rgba(26,22,18,.6)" : "rgba(255,255,255,.65)";
+            // Read the swatch's own hex, not the brand-reported LRV: LRV is absent or
+            // zero across a good slice of the catalogue, which is how pale chips ended
+            // up with white labels at 2.8:1.
+            const { strong: ink, soft: inkSoft } = readableInk(s.hex);
             const comparing = compareCodes.includes(s.code);
             return (
               <div key={s.code} className="hv-shade-card">
@@ -296,7 +298,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
                 >
                   <div className="hv-shade-swatch" style={{ aspectRatio: "1 / 1.1", position: "relative", background: s.hex, overflow: "hidden", boxShadow: "0 1px 0 rgba(255,255,255,.06) inset, 0 20px 40px -20px rgba(0,0,0,.6)" }}>
                     <span style={{ position: "absolute", top: 14, right: 14, font: "400 14px/1 var(--serif)", color: ink }}>{patterned ? codeOf(s.code) : s.code.split("-")[1]}</span>
-                    <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 9px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: inkSoft }}>{s.brand}</span>
+                    <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: inkSoft }}>{s.brand}</span>
                   </div>
                   <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
                     <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{nameOf(s)}</span>
@@ -344,7 +346,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
       )}
       {sorted.length === 0 && (
         <div style={{ marginTop: 80, textAlign: "center" }}>
-          <Mono style={{ display: "block", marginBottom: 24 }}>Nothing matches {emptyCause} — try clearing the filters.</Mono>
+          <Note style={{ display: "block", marginBottom: 24 }}>Nothing matches {emptyCause} — try clearing the filters.</Note>
           <button type="button" className="btn btn-ghost" onClick={clearAll}>Clear all filters</button>
         </div>
       )}

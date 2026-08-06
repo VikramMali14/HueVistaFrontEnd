@@ -51,7 +51,7 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
               onClick={() => setCategory(c)}
               style={{
                 padding: "8px 14px",
-                font: "400 10px/1 var(--mono)",
+                font: "400 12px/1 var(--mono)",
                 letterSpacing: ".26em",
                 textTransform: "uppercase",
                 background: active ? "rgba(124,92,255,.08)" : "transparent",
@@ -64,7 +64,7 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
             </button>
           );
         })}
-        <button type="button" className="hv-chip" onClick={() => setSort(sort === "latest" ? "oldest" : "latest")} style={{ marginLeft: "auto", padding: "8px 14px", font: "400 10px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", background: "transparent", color: "var(--brass)", border: "1px solid var(--rule-brass)", cursor: "pointer" }}>
+        <button type="button" className="hv-chip" onClick={() => setSort(sort === "latest" ? "oldest" : "latest")} style={{ marginLeft: "auto", padding: "8px 14px", font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", background: "transparent", color: "var(--brass)", border: "1px solid var(--rule-brass)", cursor: "pointer" }}>
           Sort: {sort}
         </button>
       </div>

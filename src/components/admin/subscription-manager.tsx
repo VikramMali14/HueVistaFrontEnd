@@ -44,13 +44,13 @@ const buttonStyle: React.CSSProperties = {
   padding: "10px 16px",
   cursor: "pointer",
   color: "var(--fg-soft)",
-  font: "400 10px/1 var(--mono)",
+  font: "400 12px/1 var(--mono)",
   letterSpacing: ".18em",
   textTransform: "uppercase",
 };
 
 const fieldLabel: React.CSSProperties = {
-  font: "400 10px/1 var(--mono)",
+  font: "400 12px/1 var(--mono)",
   letterSpacing: ".2em",
   textTransform: "uppercase",
   color: "var(--fg-mute)",
@@ -252,7 +252,7 @@ export function SubscriptionManager({
               <span style={{ font: "500 16px/1.3 var(--serif)", color: "var(--fg)" }}>{u.name}</span>
               <Mono>{u.email}</Mono>
               <Mono brass>{u.role}</Mono>
-              <span style={{ marginLeft: "auto", font: "400 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--accent-soft)" }}>
+              <span style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--accent-soft)" }}>
                 Manage →
               </span>
             </button>

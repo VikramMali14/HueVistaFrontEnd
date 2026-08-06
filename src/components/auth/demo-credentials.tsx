@@ -37,7 +37,7 @@ export function DemoCredentials() {
       }}
     >
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <span style={{ font: "500 11px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--accent)" }}>
+        <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--accent)" }}>
           Demo mode · no backend
         </span>
         <span style={{ font: "400 12px/1 var(--mono)", color: "var(--fg-mute)" }}>
@@ -68,7 +68,7 @@ export function DemoCredentials() {
           >
             <span style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
               <span style={{ font: "600 14px/1.2 var(--sans)" }}>{acc.email}</span>
-              <span style={{ font: "400 10px/1 var(--mono)", letterSpacing: ".16em", textTransform: "uppercase", color: "var(--accent)" }}>
+              <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".16em", textTransform: "uppercase", color: "var(--accent)" }}>
                 {acc.role}
               </span>
             </span>

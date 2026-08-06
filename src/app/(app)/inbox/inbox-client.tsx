@@ -158,7 +158,7 @@ export function SupportInbox() {
       <div style={{ border: "1px solid var(--rule)" }}>
         <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--rule)", background: "var(--surface-soft)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Mono>{list.length} waiting</Mono>
-          <button type="button" onClick={() => void loadList()} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 10px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>Refresh</button>
+          <button type="button" onClick={() => void loadList()} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>Refresh</button>
         </div>
         {list.length === 0 ? (
           <p style={{ padding: 20, font: "400 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>Nothing waiting — the inbox is clear.</p>
@@ -227,7 +227,7 @@ export function SupportInbox() {
                   textTransform: m.sender === "SYSTEM" ? "uppercase" : undefined,
                   whiteSpace: "pre-wrap", wordBreak: "break-word",
                 }}>
-                  <span style={{ display: "block", font: "400 9px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", opacity: .6, marginBottom: m.sender === "SYSTEM" ? 0 : 4 }}>
+                  <span style={{ display: "block", font: "400 12px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", opacity: .6, marginBottom: m.sender === "SYSTEM" ? 0 : 4 }}>
                     {SENDER_LABEL[m.sender] ?? m.sender}
                     {m.createdAt ? ` · ${new Date(m.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}` : ""}
                   </span>

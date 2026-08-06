@@ -45,7 +45,7 @@ export default async function PortalPage() {
           <Eyebrow>Customer portal</Eyebrow>
           <PortalSubdomain slug={subdomainSlug} />
         </div>
-        <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Your white-label<br />customer portal</h1>
+        <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Your white-label{" "}<br />customer portal</h1>
         <Lead style={{ marginTop: 24 }}>Issue temporary access codes for your customers. They visualise colours on your subdomain — without seeing shade codes. When they're ready, they "Send to retailer" and you receive the full project.</Lead>
       </header>
       <SectionNav

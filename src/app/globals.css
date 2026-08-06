@@ -18,6 +18,11 @@
 ========================================================= */
 
 :root {
+  /* Sticky-header height, single source of truth for scroll-padding so an
+     in-page jump never parks its target under the glass bar. .nav is 12px of
+     padding either side of a ~38px row. */
+  --nav-h: 62px;
+
   /* ----- 1. Raw palette (theme-invariant) ----- */
   --charcoal:        #0f0e14;
   --charcoal-soft:   #1a1922;
@@ -124,7 +129,13 @@ html {
     radial-gradient(95% 75% at 12% 90%, rgba(80,170,255,.07), transparent 60%),
     var(--bg);
   background-attachment: fixed;
+  /* Every in-page jump lands under the sticky glass bar without this: on
+     /pricing the tier row ("₹999 / ₹2,499 / ₹4,999") sat behind it, and on
+     /catalogue so did "Codes intact.". --nav-h is the bar's own height, so
+     the two cannot drift apart. */
+  scroll-padding-top: calc(var(--nav-h) + 16px);
 }
+@media (max-width: 900px) { :root { --nav-h: 58px; } }
 body {
   overflow-x: hidden;
   background: transparent;
@@ -178,7 +189,7 @@ button { font-family: inherit; }
 .marquee-track {
   display: flex; gap: 64px;
   padding: 10px 0;
-  font: 500 11px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   letter-spacing: .08em; text-transform: uppercase;
   white-space: nowrap;
   animation: marquee 60s linear infinite;
@@ -248,7 +259,7 @@ button { font-family: inherit; }
 .nav-panel-cols { display: flex; gap: 48px; flex: 1; }
 .nav-col { display: flex; flex-direction: column; min-width: 184px; }
 .nav-col-title {
-  font: 600 10px/1 var(--sans); letter-spacing: .18em; text-transform: uppercase;
+  font: 600 12px/1 var(--sans); letter-spacing: .18em; text-transform: uppercase;
   color: rgba(var(--fg-rgb), .42); margin-bottom: 14px;
 }
 .nav-leaf {
@@ -326,7 +337,7 @@ button { font-family: inherit; }
   .nav-menu-toggle { display: inline-flex; }
   .nav-links { display: none; }
   .nav-actions .nav-signin { display: none; }          /* relocated into the drawer */
-  .nav-actions .nav-cta { padding: 11px 16px; font-size: 11px; letter-spacing: .1em; }
+  .nav-actions .nav-cta { padding: 11px 16px; font-size: 12px; letter-spacing: .1em; }
   .nav-inner { gap: 12px; }
 
   .nav-mobile {
@@ -356,7 +367,7 @@ button { font-family: inherit; }
   .nav-mobile-link.active { color: var(--fg-mute); }
   .nav-mobile-group { display: flex; flex-direction: column; }
   .nav-mobile-group-title {
-    font: 600 11px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase;
+    font: 600 12px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase;
     color: var(--fg-mute); padding: 22px 2px 4px;
   }
   .nav-mobile-link.is-sub { font: 500 17px/1.2 var(--sans); padding: 11px 2px; border-bottom: 1px solid var(--rule); }
@@ -397,10 +408,14 @@ section + section { border-top: var(--hairline) solid var(--rule); }
 .lead { font: 400 19px/1.55 var(--sans); font-style: normal; color: var(--fg-soft); max-width: 56ch; margin: 0; }
 .body { font: 400 16px/1.6 var(--sans); color: var(--fg-soft); max-width: 60ch; }
 .small { font: 400 13px/1.55 var(--sans); color: var(--fg-mute); }
-.mono { font: 500 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-mute); }
+.mono { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-mute); }
 .mono.brass { color: var(--fg); }
+/* System messages: counts, empty states, hints, statuses. Sentence case at a
+   size meant for reading — the mono-caps treatment above is for two- or
+   three-word labels, not sentences. */
+.note { font: 400 14px/1.5 var(--sans); letter-spacing: 0; text-transform: none; color: var(--fg-soft); }
 .roman { font: 500 12px/1 var(--mono); font-style: normal; color: var(--fg-mute); letter-spacing: .08em; }
-.eyebrow { display: inline-flex; align-items: center; gap: 10px; font: 600 11px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-mute); }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; font: 600 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-mute); }
 .eyebrow::before { content: ''; width: 18px; height: 1px; background: var(--accent); flex-shrink: 0; }
 
 /* ====== BUTTONS ====== */
@@ -458,7 +473,7 @@ section + section { border-top: var(--hairline) solid var(--rule); }
 .ph[data-tone="walnut"]     { background: radial-gradient(ellipse at 30% 22%, rgba(255,220,180,.2), transparent 60%), linear-gradient(150deg, #8a6446 0%, #5a4030 55%, #2c1d12 100%); }
 .ph-grain::after { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); mix-blend-mode: overlay; }
 .ph-label { position: absolute; bottom: 18px; left: 18px; font: 500 13px/1 var(--sans); color: rgba(255,255,255,.78); z-index: 2; }
-.ph-tag { position: absolute; top: 18px; left: 18px; font: 500 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); z-index: 2; }
+.ph-tag { position: absolute; top: 18px; left: 18px; font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); z-index: 2; }
 /* Light-toned placeholders (ivory/brass gradients) need dark ink — white labels
    were invisible on the pale top-left where the tag sits. */
 .ph[data-tone="ivory"] .ph-label, .ph[data-tone="brass"] .ph-label { color: rgba(20,20,18,.82); }
@@ -483,10 +498,13 @@ section + section { border-top: var(--hairline) solid var(--rule); }
 /* ====== FOOTER ====== */
 footer { background: var(--bg-deep); border-top: 1px solid var(--rule); padding: 64px 0 36px; }
 .footer-inner { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 56px; }
-.footer-col-title { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--fg-mute); margin-bottom: 18px; }
+.footer-col-title { font: 600 12px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--fg-mute); margin-bottom: 18px; }
 .footer-col a { display: block; font-family: var(--sans); font-size: 14px; font-weight: 500; color: var(--fg-soft); padding: 5px 0; transition: color .2s var(--ease); }
 .footer-col a:hover { color: var(--fg); }
-.footer-note { max-width: var(--max); margin: 52px auto 0; padding: 20px var(--gutter) 0; border-top: 1px solid var(--rule); font: 400 11.5px/1.65 var(--sans); color: var(--fg-mute); }
+/* The two claims the site has to stand behind. It is prose the reader is meant
+   to actually read, so it sits at reading size and reading contrast rather than
+   at the size of a caption. */
+.footer-note { max-width: var(--max); margin: 52px auto 0; padding: 20px var(--gutter) 0; border-top: 1px solid var(--rule); font: 400 14px/1.65 var(--sans); color: var(--fg-soft); }
 .footer-note + .footer-bottom { margin-top: 20px; border-top: none; padding-top: 0; }
 .footer-bottom { max-width: var(--max); margin: 52px auto 0; padding: 24px var(--gutter) 0; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
 
@@ -636,11 +654,11 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   section { padding: 40px 0; }
   .display { font-size: clamp(28px, 9.5vw, 48px); line-height: 1.02; }
   .page-head h1 { font-size: clamp(30px, 11vw, 56px); }
-  .marquee-track { font-size: 9px; }
+  .marquee-track { font-size: 12px; }
   .lead { font-size: 16px; }
   .brand { font-size: 19px; }
   .footer-inner { grid-template-columns: 1fr; }
-  .footer-bottom .mono { font-size: 9px; letter-spacing: .1em; }
+  .footer-bottom .mono { font-size: 12px; letter-spacing: .1em; }
   .btn, .btn-ghost, .btn-brass { width: 100%; justify-content: center; }
 }
 
@@ -729,7 +747,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   padding: 6px 10px;
   cursor: pointer;
   color: var(--fg-soft);
-  font: 400 9.5px/1 var(--mono, ui-monospace);
+  font: 400 12px/1 var(--mono, ui-monospace);
   letter-spacing: .18em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -755,7 +773,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   .hv-cust-row > [data-label]::before {
     content: attr(data-label);
     color: var(--fg-mute);
-    font: 500 10px/1 var(--mono, ui-monospace);
+    font: 500 12px/1 var(--mono, ui-monospace);
     letter-spacing: .1em;
     text-transform: uppercase;
     flex-shrink: 0;
@@ -797,7 +815,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 @media (max-width: 768px) {
   .hv-matrix-hint {
     display: block;
-    font: 500 10px/1.4 var(--mono);
+    font: 500 12px/1.4 var(--mono);
     letter-spacing: .1em;
     text-transform: uppercase;
   }
@@ -1016,11 +1034,11 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   border-bottom: 1px solid rgba(244,244,242,.08);
 }
 .hv-partners-inner { display: flex; align-items: baseline; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
-.hv-partners-label { font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(247,247,245,.5); }
+.hv-partners-label { font: 500 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(247,247,245,.5); }
 .hv-partners-brands { display: flex; gap: 48px; align-items: baseline; flex-wrap: wrap; }
 .hv-partners-brand { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 3vw, 34px); color: rgba(247,247,245,.5); }
 .hv-partners-brand.is-lead { color: var(--ivory); }
-.hv-partners-note { font: 400 10px/1.5 var(--mono); letter-spacing: .08em; color: rgba(247,247,245,.62); flex-basis: 100%; }
+.hv-partners-note { font: 400 12px/1.5 var(--mono); letter-spacing: .08em; color: rgba(247,247,245,.62); flex-basis: 100%; }
 @media (max-width: 700px) { .hv-partners-brands { gap: 22px 30px; } }
 
 /* =========================================================
@@ -1048,7 +1066,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-svc-card::after { z-index: 2; }          /* keep .ph-grain above the scrim */
 .hv-svc-card > * { position: relative; z-index: 3; }
 .hv-svc-card:hover { transform: translateY(-6px); box-shadow: 0 30px 60px -28px rgba(0,0,0,.6); }
-.hv-svc-eyebrow { font: 500 10px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: rgba(247,247,245,.82); }
+.hv-svc-eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: rgba(247,247,245,.82); }
 .hv-svc-title { font-family: var(--serif); font-weight: 600; font-size: clamp(22px, 2.2vw, 28px); line-height: 1.05; letter-spacing: -.02em; color: var(--ivory); margin-top: 14px; }
 .hv-svc-desc { font: 400 14px/1.5 var(--sans); color: rgba(247,247,245,.8); margin-top: 12px; max-width: 30ch; }
 .hv-svc-arrow { margin-top: auto; font: 400 24px/1 var(--sans); color: var(--ivory); transition: transform .3s var(--ease); }
@@ -1147,7 +1165,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-room-grain { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .hv-room-tag {
   position: absolute; left: 18px; bottom: 16px; z-index: 4;
-  font: 500 10px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase;
+  font: 500 12px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase;
   color: rgba(247,247,245,.78);
   background: rgba(14,13,12,.55);
   border: 1px solid rgba(247,247,245,.18);
@@ -1332,7 +1350,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   .hv-mood-strip { gap: 6px; }
   .hv-mood-swatch { padding: 12px; height: clamp(140px, 24vw, 220px); }
   .hv-mood-swatch-name { font-size: 13.5px; }
-  .hv-mood-swatch .mono { font-size: 9px; letter-spacing: .08em; }
+  .hv-mood-swatch .mono { font-size: 12px; letter-spacing: .08em; }
 }
 @media (max-width: 560px) {
   .hv-mood-pills { gap: 8px; margin-top: 28px; }
@@ -1393,7 +1411,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-work-card:focus-visible { outline: 2px solid #f4f4f2; outline-offset: 3px; }
 .hv-work-card-tag {
   position: absolute; top: 16px; left: 22px;
-  font: 500 9.5px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase;
+  font: 500 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase;
   color: rgba(247,247,245,.78);
 }
 .hv-work-card-title {
@@ -1409,7 +1427,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   display: flex; flex-direction: column; gap: 8px; pointer-events: none;
 }
 .hv-work-head-title { font-family: var(--serif); font-weight: 600; font-size: 22px; letter-spacing: -.02em; color: var(--ivory); }
-.hv-work-head-sub { font: 500 10px/1.4 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: rgba(247,247,245,.45); }
+.hv-work-head-sub { font: 500 12px/1.4 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: rgba(247,247,245,.45); }
 .hv-work-count {
   position: fixed; bottom: 36px; left: var(--gutter); z-index: 40;
   font: 400 12px/1 var(--mono); letter-spacing: .14em; color: rgba(247,247,245,.5);
@@ -1418,7 +1436,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-work-count span { font: 600 30px/1 var(--serif); letter-spacing: -.02em; color: var(--ivory); margin-right: 4px; }
 .hv-work-hint {
   position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%); z-index: 40;
-  font: 500 10px/1 var(--mono); letter-spacing: .34em; text-transform: uppercase;
+  font: 500 12px/1 var(--mono); letter-spacing: .34em; text-transform: uppercase;
   color: rgba(247,247,245,.45);
   pointer-events: none;
   animation: hv-work-nudge 2.4s var(--ease) infinite;
@@ -1471,7 +1489,7 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-work-row-num { font: 400 12px/1 var(--mono); color: rgba(247,247,245,.4); }
 .hv-work-row-swatch { width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(244,244,242,.2); }
 .hv-work-row-title { font-family: var(--serif); font-weight: 600; font-size: clamp(20px, 2.4vw, 30px); letter-spacing: -.02em; color: var(--ivory); }
-.hv-work-row-code { font: 500 11px/1 var(--mono); letter-spacing: .14em; color: rgba(247,247,245,.55); }
+.hv-work-row-code { font: 500 12px/1 var(--mono); letter-spacing: .14em; color: rgba(247,247,245,.55); }
 .hv-work-row-loc { font: 400 13px/1 var(--sans); color: rgba(247,247,245,.5); }
 .hv-work-row-arr { font: 400 20px/1 var(--sans); color: var(--ivory); justify-self: end; transition: transform .25s var(--ease); }
 .hv-work-row:hover .hv-work-row-arr { transform: translateX(5px); }
@@ -1602,7 +1620,7 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
 
 .hv-loader-label {
   display: inline-flex; align-items: center; gap: 8px;
-  font: 400 10.5px/1 var(--mono);
+  font: 400 12px/1 var(--mono);
   letter-spacing: .32em; text-transform: uppercase;
   color: var(--accent);
   padding-left: .32em;   /* optically recentre the tracked type */
@@ -1894,25 +1912,63 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-shade-card:active { transform: translateY(-1px); transition-duration: .12s; }
 
 /* Shade-card tool row: heart · compare · strip · hold-to-wall */
+/* ---- Touch targets ------------------------------------------------------
+   A shop counter is a tablet operated with paint on someone's fingers. WCAG 2.2
+   asks 24x24; that room wants 44x44. Both helpers grow the HIT area with a
+   pseudo-element, so a control can stay visually small and still be easy to
+   land on.
+
+   .tap-target  — grows both axes. For icon buttons that stand alone.
+   .tap-row     — grows the vertical axis only, keeping the horizontal extent
+                  as-is. For text controls sitting side by side in a row, where
+                  a 44px-wide box would overlap its neighbour and start
+                  swallowing its clicks. */
+.tap-target { position: relative; }
+.tap-target::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+.tap-row { position: relative; }
+.tap-row::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: max(100%, 44px);
+  transform: translateY(-50%);
+}
+
 .hv-card-action {
-  width: 28px; height: 28px; min-height: 28px;
+  position: relative;
+  width: 36px; height: 36px; min-height: 36px;
   display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--rule);
   border-radius: 6px;
   background: transparent;
   color: var(--fg-mute);
-  font: 400 13px/1 var(--sans);
+  font: 400 15px/1 var(--sans);
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
   transition: color .2s var(--ease), border-color .2s var(--ease);
 }
+/* 44x44 of tappable area around the 36px chip, on every pointer type. */
+.hv-card-action::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 44px; height: 44px;
+  transform: translate(-50%, -50%);
+}
 .hv-card-action:hover { color: var(--fg); border-color: var(--rule-strong); }
 /* Pressed = filled, so "on" reads distinctly from hover and isn't color-only. */
 .hv-card-action[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
-/* Fingers need more than 28px — grow the targets where there's no mouse. */
+/* Fingers want the visible chip bigger too, not only its hit area. */
 @media (hover: none) and (pointer: coarse) {
-  .hv-card-action { width: 34px; height: 34px; min-height: 34px; font-size: 15px; }
+  .hv-card-action { width: 44px; height: 44px; min-height: 44px; font-size: 17px; }
 }
 
 /* ----- Colour finder + fabric palette: tighter framing on phones ----- */
@@ -2033,7 +2089,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .cnav-signin:hover { color: var(--fg); }
 .cnav-cta {
   display: inline-flex; align-items: center; gap: 5px;
-  font: 600 11px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase;
+  font: 600 12px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase;
   /* Pair with the bg token, not a hardcoded near-black: background is var(--fg),
      so the label must be var(--bg). In light theme --fg is dark, and the old
      fixed #0a0a0f made this primary CTA near-black-on-near-black (invisible). */
@@ -2106,7 +2162,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 @media (max-width: 480px) {
   .cnav-wrap { padding: 10px 14px; }
-  .cnav-cta { padding: 9px 14px; font-size: 10px; }
+  .cnav-cta { padding: 9px 14px; font-size: 12px; }
 }
 
 /* =========================================================
@@ -2119,7 +2175,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-mood-hint {
   text-align: center; margin: 22px 0 0;
-  font: 400 10px/1.6 var(--mono); letter-spacing: .18em; text-transform: uppercase;
+  font: 400 12px/1.6 var(--mono); letter-spacing: .18em; text-transform: uppercase;
   color: var(--fg-mute);
 }
 @media (max-width: 760px) {
@@ -2364,7 +2420,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-radius: var(--radius-pill);
   background: transparent;
   color: rgba(247,247,245,.62);
-  font: 500 11px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   cursor: pointer;
   white-space: nowrap;
   transition: background .15s var(--ease), color .15s var(--ease);
@@ -2476,7 +2532,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-legend-region {
   flex: 0 0 auto;
-  font: 500 9px/1 var(--mono);
+  font: 500 12px/1 var(--mono);
   letter-spacing: .14em;
   text-transform: uppercase;
   color: rgba(247,247,245,.55);
@@ -2488,7 +2544,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-legend-code {
   flex: 0 0 auto;
-  font: 500 10px/1 var(--mono);
+  font: 500 12px/1 var(--mono);
   letter-spacing: .08em;
   color: rgba(247,247,245,.72);
 }
@@ -2503,7 +2559,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   margin: 10px auto 0;
   max-width: 62ch;
   text-align: center;
-  font: 400 11.5px/1.5 var(--sans);
+  font: 400 12px/1.5 var(--sans);
   color: var(--fg-mute);
 }
 
@@ -2616,7 +2672,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-pdf-thumb-remove:hover { background: var(--terracotta, #c2402a); border-color: var(--terracotta, #c2402a); }
 .hv-pdf-notice {
   margin: 0;
-  font: 500 11.5px/1.3 var(--sans);
+  font: 500 12px/1.3 var(--sans);
   color: rgba(247,247,245,.82);
   text-align: center;
   max-width: 280px;
@@ -2674,7 +2730,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-progress-step[data-state="pending"] .hv-studio-progress-ico { border-color: rgba(247,247,245,.22); }
 .hv-studio-progress-bullet { width: 5px; height: 5px; border-radius: 50%; background: rgba(247,247,245,.4); }
 .hv-studio-progress-label {
-  font: 600 9.5px/1 var(--mono);
+  font: 600 12px/1 var(--mono);
   letter-spacing: .14em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -2696,8 +2752,8 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   width: 14px; height: 14px; border-radius: 50%;
   border: 1px solid rgba(255,255,255,.35); flex-shrink: 0;
 }
-.hv-studio-progress-shade-name { font: 600 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(247,247,245,.95); }
-.hv-studio-progress-shade-code { font: 500 10px/1 var(--mono); letter-spacing: .1em; color: rgba(247,247,245,.55); }
+.hv-studio-progress-shade-name { font: 600 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(247,247,245,.95); }
+.hv-studio-progress-shade-code { font: 500 12px/1 var(--mono); letter-spacing: .1em; color: rgba(247,247,245,.55); }
 @media (max-width: 560px) {
   .hv-studio-progress { left: 10px; right: 10px; bottom: 10px; padding: 8px 10px; gap: 8px; }
   .hv-studio-progress-label { letter-spacing: .1em; }
@@ -2739,7 +2795,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   flex-shrink: 0;
 }
 .hv-studio-palette-label { font: 500 12px/1 var(--sans); color: var(--fg); }
-.hv-studio-palette-shade { font: 400 11px/1 var(--mono); color: var(--fg-mute); }
+.hv-studio-palette-shade { font: 400 12px/1 var(--mono); color: var(--fg-mute); }
 .hv-studio-copy-palette {
   margin-left: auto;
   padding: 6px 12px;
@@ -2810,7 +2866,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   gap: 2px;
 }
 .hv-studio-region-title { font: 500 13px/1 var(--sans); color: var(--fg); }
-.hv-studio-region-shade { font: 400 11px/1 var(--sans); color: var(--fg-mute); }
+.hv-studio-region-shade { font: 400 12px/1 var(--sans); color: var(--fg-mute); }
 .hv-studio-add-wall {
   margin-left: auto;
   padding: 8px 12px;
@@ -2902,7 +2958,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-pill {
   padding: 3px 9px;
-  font: 500 10.5px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   border: 1px solid var(--rule);
   border-radius: var(--radius-pill);
   color: var(--fg-mute);
@@ -2920,7 +2976,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   justify-content: space-between;
   gap: 12px;
 }
-.hv-studio-filter-row .mono { font-size: 10px; }
+.hv-studio-filter-row .mono { font-size: 12px; }
 .hv-studio-filter-row > .hv-studio-search { flex: 1; min-width: 0; }
 
 /* "Filters" toggle — family/depth/company pills fold away so the fixed header
@@ -2934,7 +2990,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-radius: 7px;
   background: var(--surface);
   color: var(--fg-mute);
-  font: 500 11.5px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   cursor: pointer;
   flex-shrink: 0;
   transition: color .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease);
@@ -2966,7 +3022,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   background: transparent;
   padding: 4px 11px;
   border-radius: var(--radius-pill);
-  font: 500 11px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   color: var(--fg-mute);
   cursor: pointer;
   transition: color .15s var(--ease), background .15s var(--ease);
@@ -3118,51 +3174,70 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-add-wall-chip:hover:not(:disabled) { background: var(--surface-soft); border-color: var(--fg-mute); }
 .hv-studio-add-wall-chip:disabled { opacity: .45; cursor: not-allowed; }
 
-/* Swatch grid — rectangular tiles. Denser tiles so ~8–9 rows of colours are
-   visible at once instead of ~5 (smaller minmax = more columns AND more rows). */
+/* Swatch grid — a colour chip with its name and code UNDER it.
+   Six dense columns fit more colours on screen and made every one of them
+   unusable: names arrived as "Bright Lim…", "Zinnia Blo…", "Shocking …", and
+   the code — the thing that goes on the bill — was not on the tile at all.
+   Four columns, two lines of name, and the code always printed. */
 .hv-studio-swatches {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 10px;
+}
+/* Very narrow panels (stacked mobile layout) would make four columns thinner
+   than a readable name; drop to three there rather than clipping again. */
+@media (max-width: 380px) {
+  .hv-studio-swatches { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .hv-studio-swatch {
-  position: relative;
-  aspect-ratio: 3 / 2;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   padding: 0;
   background: transparent;
-  transition: transform .15s var(--ease), box-shadow .15s var(--ease);
-  overflow: hidden;
+  text-align: left;
+  transition: transform .15s var(--ease);
   /* 10k-shade catalogues: skip layout + paint for tiles far off-screen. */
   content-visibility: auto;
-  contain-intrinsic-size: auto 96px auto 64px;
+  contain-intrinsic-size: auto 150px auto 110px;
 }
 /* Hover-lift only on devices with a real pointer — on touch screens the :hover
    state sticks after a tap, leaving the tapped tile raised on top of its
    neighbours (the "card stays up" bug). */
 @media (hover: hover) {
-  .hv-studio-swatch:hover { transform: translateY(-2px); z-index: 2; box-shadow: 0 8px 18px -10px rgba(0,0,0,.5); }
+  .hv-studio-swatch:hover { transform: translateY(-2px); }
+  .hv-studio-swatch:hover .hv-studio-swatch-color { box-shadow: 0 8px 18px -10px rgba(0,0,0,.5); }
 }
-.hv-studio-swatch.is-selected { box-shadow: 0 0 0 2px var(--accent); }
 .hv-studio-swatch-color {
-  position: absolute; inset: 0;
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
   border-radius: 8px;
   border: 1px solid var(--rule-strong);
+  transition: box-shadow .15s var(--ease);
 }
-.hv-studio-swatch-label {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 6px 7px 5px;
-  background: linear-gradient(transparent, rgba(0,0,0,.62));
-  font: 500 9.5px/1.2 var(--sans);
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0,0,0,.5);
-  text-align: left;
-  pointer-events: none;
+.hv-studio-swatch.is-selected .hv-studio-swatch-color { box-shadow: 0 0 0 2px var(--accent); }
+/* The name sits on the panel background, not on the colour — so its contrast
+   no longer depends on which shade happens to be underneath it. Two lines,
+   with the block held at two lines high so tiles stay on a grid whether the
+   name wraps or not. */
+.hv-studio-swatch-name {
+  font: 500 13px/1.3 var(--sans);
+  color: var(--fg);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.6em;
+}
+.hv-studio-swatch-code {
+  font: 400 12px/1 var(--mono);
+  letter-spacing: .06em;
+  color: var(--fg-mute);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3204,7 +3279,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: var(--fg);
 }
 .hv-studio-detail-meta {
-  font: 500 11px/1 var(--mono);
+  font: 500 12px/1 var(--mono);
   letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--fg-mute);
@@ -3338,13 +3413,23 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   text-overflow: ellipsis;
 }
 .hv-studio-dock-meta {
-  font: 500 10px/1.2 var(--mono);
+  font: 500 12px/1.2 var(--mono);
   letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--fg-mute);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* The empty-state hint is a sentence, not a label. */
+.hv-studio-dock-meta.is-hint {
+  font: 400 13px/1.35 var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--fg-soft);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 /* Narrow screens: the dock's buttons squeeze the info column until
    "No colour selected" ellipsizes into "No co…" — wrap instead of clipping.
@@ -3382,7 +3467,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-radius: 6px;
   background: var(--surface);
   color: var(--fg-soft);
-  font: 500 11px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   cursor: pointer;
   transition: background .15s var(--ease), color .15s var(--ease);
 }
@@ -3404,7 +3489,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-radius: 7px;
   background: transparent;
   color: var(--fg-mute);
-  font: 500 11.5px/1 var(--sans);
+  font: 500 12px/1 var(--sans);
   cursor: pointer;
   transition: color .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease);
 }
@@ -3443,7 +3528,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-dock-recent-swatch.is-current { box-shadow: 0 0 0 2px var(--accent); }
 .hv-studio-dock-recent-empty {
-  font: 400 11.5px/1.2 var(--sans);
+  font: 400 12px/1.2 var(--sans);
   color: var(--fg-mute);
 }
 
@@ -3561,13 +3646,13 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .hv-ai-swatch:hover .hv-ai-swatch-color { box-shadow: 0 0 0 2px var(--accent); }
 }
 .hv-ai-swatch-role {
-  font: 400 9px/1 var(--mono);
+  font: 400 12px/1 var(--mono);
   letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--fg-mute);
 }
 .hv-ai-swatch-name {
-  font: 400 11px/1.25 var(--sans);
+  font: 400 12px/1.25 var(--sans);
   color: var(--fg-soft);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3575,7 +3660,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   width: 100%;
 }
 .hv-ai-swatch-code {
-  font: 500 10px/1 var(--mono);
+  font: 500 12px/1 var(--mono);
   letter-spacing: .06em;
   color: var(--fg-mute);
   overflow: hidden;
@@ -3717,7 +3802,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
     gap: 0;
   }
   .hv-studio-tool { padding: 6px 8px; }
-  .hv-studio-compare { top: 12px; right: 12px; padding: 7px 10px; font-size: 11px; }
+  .hv-studio-compare { top: 12px; right: 12px; padding: 7px 10px; font-size: 12px; }
   .hv-studio-region-shade { display: none; }
   .hv-studio-region { padding: 7px 10px; }
 }
@@ -3826,6 +3911,6 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   margin: 18px 0 4px;
   padding-top: 14px;
   border-top: 1px solid var(--rule);
-  font: 400 11px/1.6 var(--sans);
+  font: 400 12px/1.6 var(--sans);
   color: var(--fg-mute);
 }

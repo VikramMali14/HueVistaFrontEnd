@@ -2144,7 +2144,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       textAlign: "left",
                     }}
                   >
-                    <legend style={{ font: "500 10px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)", padding: "0 6px" }}>
+                    <legend style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)", padding: "0 6px" }}>
                       After the AI photo clean-up
                     </legend>
                     <label style={{ display: "flex", alignItems: "flex-start", gap: 8, font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", cursor: "pointer" }}>
@@ -2157,7 +2157,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       />
                       <span>
                         Let AI detect the walls
-                        <span style={{ display: "block", font: "400 11px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
+                        <span style={{ display: "block", font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
                           included in this project — no extra credit
                         </span>
                       </span>
@@ -2172,7 +2172,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       />
                       <span>
                         I&apos;ll mark the walls myself
-                        <span style={{ display: "block", font: "400 11px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
+                        <span style={{ display: "block", font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
                           same one project — click each wall after the clean-up
                         </span>
                       </span>
@@ -2196,7 +2196,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       onChange={(e) => setSegOptions((o) => ({ ...o, cleanImage: e.target.checked }))}
                     />
                     Clean the photo before mask generation
-                    <span style={{ font: "500 10px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+                    <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
                       admin · testing
                     </span>
                   </label>

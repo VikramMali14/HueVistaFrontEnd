@@ -112,7 +112,7 @@ export function ShopLeads({ initial, distributors, approveAction, dismissAction 
               <span
                 style={{
                   marginLeft: "auto",
-                  font: "400 10px/1 var(--mono)",
+                  font: "400 12px/1 var(--mono)",
                   letterSpacing: ".22em",
                   textTransform: "uppercase",
                   color: actionable ? "var(--accent)" : "var(--fg-mute)",
@@ -198,7 +198,7 @@ export function ShopLeads({ initial, distributors, approveAction, dismissAction 
                       padding: "10px 16px",
                       cursor: "pointer",
                       color: "var(--bg)",
-                      font: "400 10px/1 var(--mono)",
+                      font: "400 12px/1 var(--mono)",
                       letterSpacing: ".18em",
                       textTransform: "uppercase",
                     }}
@@ -217,7 +217,7 @@ export function ShopLeads({ initial, distributors, approveAction, dismissAction 
                     padding: "10px 14px",
                     cursor: "pointer",
                     color: "var(--fg-soft)",
-                    font: "400 10px/1 var(--mono)",
+                    font: "400 12px/1 var(--mono)",
                     letterSpacing: ".18em",
                     textTransform: "uppercase",
                   }}

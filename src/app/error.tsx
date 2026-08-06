@@ -33,7 +33,7 @@ export default function RootError({
     >
       <span
         style={{
-          font: "400 10.5px/1 var(--mono, ui-monospace, monospace)",
+          font: "400 12px/1 var(--mono, ui-monospace, monospace)",
           letterSpacing: ".32em",
           textTransform: "uppercase",
           color: "var(--accent)",
@@ -74,7 +74,7 @@ export default function RootError({
       {error?.digest && (
         <p
           style={{
-            font: "400 10px/1 var(--mono, ui-monospace, monospace)",
+            font: "400 12px/1 var(--mono, ui-monospace, monospace)",
             letterSpacing: ".2em",
             textTransform: "uppercase",
             color: "var(--fg-mute)",

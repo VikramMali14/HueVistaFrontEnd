@@ -1182,7 +1182,7 @@ export function MaskStudio({
     color: active ? "var(--fg)" : "var(--fg-soft)",
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.4 : 1,
-    font: "500 10px/1 var(--sans)",
+    font: "500 12px/1 var(--sans)",
   });
 
   const body = (
@@ -1263,7 +1263,7 @@ export function MaskStudio({
               border: "none",
               cursor: "pointer",
               color: "var(--fg-mute)",
-              font: "400 11px/1 var(--mono)",
+              font: "400 12px/1 var(--mono)",
               letterSpacing: ".22em",
               textTransform: "uppercase",
             }}
@@ -1363,7 +1363,7 @@ export function MaskStudio({
                     padding: "7px 0",
                     border: "none",
                     cursor: "pointer",
-                    font: "600 10px/1 var(--sans)",
+                    font: "600 12px/1 var(--sans)",
                     letterSpacing: ".04em",
                     background: mode === m ? (m === "add" ? SELECT_BLUE : REMOVE_RED) : "transparent",
                     color: mode === m ? "#fff" : "var(--fg-mute)",
@@ -1530,14 +1530,14 @@ export function MaskStudio({
               <button type="button" onClick={() => zoomCentre(1 / 1.3)} aria-label="Zoom out" aria-keyshortcuts="-" style={zoomBtnStyle}>
                 −
               </button>
-              <span style={{ font: "500 11px/1 var(--mono)", color: "var(--fg-mute)", minWidth: 38, textAlign: "center" }}>
+              <span style={{ font: "500 12px/1 var(--mono)", color: "var(--fg-mute)", minWidth: 38, textAlign: "center" }}>
                 {Math.round(view.s * 100)}%
               </span>
               <button type="button" onClick={() => zoomCentre(1.3)} aria-label="Zoom in" aria-keyshortcuts="+" style={zoomBtnStyle}>
                 +
               </button>
               {view.s > 1 && (
-                <button type="button" onClick={() => setView(FIT_VIEW)} aria-keyshortcuts="0" style={{ ...zoomBtnStyle, width: "auto", padding: "0 8px", font: "500 11px/1 var(--sans)" }}>
+                <button type="button" onClick={() => setView(FIT_VIEW)} aria-keyshortcuts="0" style={{ ...zoomBtnStyle, width: "auto", padding: "0 8px", font: "500 12px/1 var(--sans)" }}>
                   Fit
                 </button>
               )}
@@ -1669,7 +1669,7 @@ export function MaskStudio({
               style={{ width: 110, accentColor: "var(--accent)" }}
             />
           </label>
-          <span className="hv-ms-legend" style={{ marginLeft: "auto", font: "400 10px/1.6 var(--mono)", letterSpacing: ".08em", color: "var(--fg-mute)" }}>
+          <span className="hv-ms-legend" style={{ marginLeft: "auto", font: "400 12px/1.6 var(--mono)", letterSpacing: ".08em", color: "var(--fg-mute)" }}>
             W wand · B brush · C corners · X add/remove · Ctrl+Z undo · scroll zooms
           </span>
         </div>

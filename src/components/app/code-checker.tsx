@@ -100,7 +100,7 @@ export function CodeChecker({
                 background: "transparent",
                 border: "1px solid " + (mode === id ? "var(--accent)" : "var(--rule)"),
                 color: mode === id ? "var(--accent)" : "var(--fg-mute)",
-                font: "400 11px/1 var(--mono)",
+                font: "400 12px/1 var(--mono)",
                 letterSpacing: ".18em",
               }}
             >

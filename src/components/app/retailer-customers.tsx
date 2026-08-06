@@ -265,7 +265,7 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
             role="cell"
             data-label="Access left"
             style={{
-              font: "400 9.5px/1 var(--mono)",
+              font: "400 12px/1 var(--mono)",
               letterSpacing: ".18em",
               textTransform: "uppercase",
               color: c.expired ? "var(--fg-mute-deep)" : "var(--accent)",

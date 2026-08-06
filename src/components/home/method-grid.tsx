@@ -19,7 +19,7 @@ export function MethodGrid() {
       <div className="reveal hv-method-head r-stack-md">
         <div>
           <Eyebrow>The method</Eyebrow>
-          <h2 className="display hv-method-title">From a photograph,<br /><i>a painted wall.</i></h2>
+          <h2 className="display hv-method-title">From a photograph,{" "}<br /><i>a painted wall.</i></h2>
         </div>
         <Lead className="hv-method-lead">No studio and no waiting. Your customer&apos;s own photo, their walls in any shade, ready to send — in seconds, at your counter.</Lead>
       </div>

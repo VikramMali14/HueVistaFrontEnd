@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 const label: React.CSSProperties = {
-  font: "500 10px/1 var(--mono)",
+  font: "500 12px/1 var(--mono)",
   letterSpacing: ".22em",
   textTransform: "uppercase",
   color: "var(--fg-mute)",

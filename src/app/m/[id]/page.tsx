@@ -39,7 +39,7 @@ function ExpiredNotice() {
         textAlign: "center",
       }}
     >
-      <span style={{ font: "400 11px/1 var(--mono)", letterSpacing: ".32em", textTransform: "uppercase", color: "var(--accent)" }}>
+      <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".32em", textTransform: "uppercase", color: "var(--accent)" }}>
         HueVista · send a photo
       </span>
       <h1 style={{ font: "400 30px/1.15 var(--serif)", margin: 0, maxWidth: "16ch" }}>

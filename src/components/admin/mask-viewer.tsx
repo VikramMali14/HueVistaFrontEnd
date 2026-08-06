@@ -416,7 +416,7 @@ export function MaskViewer() {
           <div style={{ flex: "1 1 420px", minWidth: 300 }}>
             <canvas ref={canvasRef} style={{ width: "100%", height: "auto", display: "block", borderRadius: "var(--radius)", border: "1px solid var(--rule-strong)" }} />
             {meta && (
-              <div style={{ marginTop: 8, font: "400 11px/1.4 var(--mono)", color: "var(--fg-mute)" }}>{meta}</div>
+              <div style={{ marginTop: 8, font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>{meta}</div>
             )}
           </div>
 
@@ -446,7 +446,7 @@ export function MaskViewer() {
               if (inGroup.length === 0) return null;
               return (
                 <div key={key} style={{ marginBottom: 22 }}>
-                  <div style={{ font: "500 11px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)", marginBottom: 4 }}>
+                  <div style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)", marginBottom: 4 }}>
                     {title}
                   </div>
                   <div style={{ font: "300 12px/1.4 var(--serif)", color: "var(--fg-mute)", marginBottom: 10 }}>{hint}</div>
@@ -464,7 +464,7 @@ export function MaskViewer() {
                       <span style={{ flex: 1 }}>
                         {layer.label}
                         {layer.detail && (
-                          <span style={{ display: "block", font: "400 11px/1.4 var(--mono)", color: "var(--fg-mute)" }}>{layer.detail}</span>
+                          <span style={{ display: "block", font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>{layer.detail}</span>
                         )}
                       </span>
                       <span style={{ font: "400 12px/1 var(--mono)", color: "var(--fg-mute)", flexShrink: 0 }}>{layer.pct}%</span>

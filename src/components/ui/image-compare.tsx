@@ -138,7 +138,7 @@ const tagStyle = (side: "left" | "right"): React.CSSProperties => ({
   position: "absolute",
   top: 10,
   [side]: 10,
-  font: "400 8px/1 var(--mono)",
+  font: "400 12px/1 var(--mono)",
   letterSpacing: ".22em",
   textTransform: "uppercase",
   color: "var(--ivory)",

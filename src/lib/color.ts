@@ -75,6 +75,76 @@ export function luminance({ r, g, b }: RGB): number {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
+/**
+ * WCAG relative-contrast ratio between two colours, 1 (identical) to 21
+ * (black on white). 4.5 is the AA minimum for body text.
+ */
+export function contrastRatio(a: string, b: string): number {
+  const la = luminance(hexToRgb(a));
+  const lb = luminance(hexToRgb(b));
+  const [hi, lo] = la >= lb ? [la, lb] : [lb, la];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** Near-black and near-white ink. Not pure #000/#fff — those read as harsh
+ *  against a saturated swatch, and both clear AA comfortably as they are. */
+const INK_DARK = "#171310";
+const INK_LIGHT = "#ffffff";
+
+export interface ReadableInk {
+  /** Highest-contrast ink for this background — use for names and codes. */
+  strong: string;
+  /** A quieter tone for secondary text (brand tags, meta) that STILL clears
+   *  4.5:1. Softness comes from moving toward the background, never from
+   *  opacity, which is what put the old labels at 2.8:1. */
+  soft: string;
+}
+
+const inkCache = new Map<string, ReadableInk>();
+const INK_CACHE_MAX = 20000;
+
+/**
+ * Text colours guaranteed readable on `bgHex`, derived from the swatch's own
+ * luminance.
+ *
+ * Labels used to be white on every chip, with a fallback to dark ink keyed off
+ * the brand-reported LRV. Two ways that failed: LRV is missing or zero for a
+ * good part of the catalogue, so pale shades kept white text; and the ink
+ * itself was translucent (.72 / .6 alpha), which drags contrast down again even
+ * when the hue choice was right. Air Breeze, Pale Blush, Button Rose, Soft
+ * Breeze, Essence and Pink Mist all landed between 2.8:1 and 3.7:1 — invisible,
+ * on the one product where colour is the whole promise.
+ *
+ * This reads the actual hex, so it cannot disagree with what is on screen.
+ */
+export function readableInk(bgHex: string): ReadableInk {
+  const cached = inkCache.get(bgHex);
+  if (cached) return cached;
+
+  const dark = contrastRatio(bgHex, INK_DARK);
+  const light = contrastRatio(bgHex, INK_LIGHT);
+  const strong = dark >= light ? INK_DARK : INK_LIGHT;
+
+  // Walk the ink toward the background while it still clears AA. Mid-tone
+  // swatches have little headroom and simply keep the strong ink.
+  const bg = hexToRgb(bgHex);
+  const ink = hexToRgb(strong);
+  let soft = strong;
+  for (let t = 0.35; t > 0; t -= 0.05) {
+    const mixed = rgbToHex({
+      r: ink.r + (bg.r - ink.r) * t,
+      g: ink.g + (bg.g - ink.g) * t,
+      b: ink.b + (bg.b - ink.b) * t,
+    });
+    if (contrastRatio(bgHex, mixed) >= 4.5) { soft = mixed; break; }
+  }
+
+  const result: ReadableInk = { strong, soft };
+  if (inkCache.size >= INK_CACHE_MAX) inkCache.clear();
+  inkCache.set(bgHex, result);
+  return result;
+}
+
 export function nearestShade<T extends { hex: string }>(target: string, pool: ReadonlyArray<T>): T | undefined {
   if (pool.length === 0) return undefined;
   const t = hexToLab(target);

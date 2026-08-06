@@ -66,7 +66,7 @@ export function AssignedProductsView() {
           your colours.
         </Lead>
         <p style={{ marginTop: 20 }}>
-          <Link href="/redeem" style={{ color: "var(--accent)", font: "400 11px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
+          <Link href="/redeem" style={{ color: "var(--accent)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
             Redeem a code →
           </Link>
         </p>

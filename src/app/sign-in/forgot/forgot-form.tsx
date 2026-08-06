@@ -187,7 +187,7 @@ export function ForgotForm() {
               type="button"
               onClick={() => void resend()}
               disabled={busy || resending}
-              style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 11px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+              style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
             >
               {resending ? "Sending…" : "Resend code"}
             </button>

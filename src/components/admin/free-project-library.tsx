@@ -52,7 +52,7 @@ const FIELD: React.CSSProperties = {
 
 const LABEL: React.CSSProperties = {
   display: "block",
-  font: "400 11px/1.6 var(--mono)",
+  font: "400 12px/1.6 var(--mono)",
   letterSpacing: ".14em",
   textTransform: "uppercase",
   color: "var(--fg-mute)",
@@ -340,7 +340,7 @@ export function FreeProjectLibrary({
                     border: "none",
                     padding: 0,
                     cursor: "pointer",
-                    font: "500 11px/1 var(--mono)",
+                    font: "500 12px/1 var(--mono)",
                     letterSpacing: ".1em",
                     textTransform: "uppercase",
                     color: "var(--accent-soft)",
@@ -456,7 +456,7 @@ function TemplateCard({
               borderRadius: 999,
               background: "var(--surface)",
               border: "1px solid var(--rule-strong)",
-              font: "500 10px/1 var(--mono)",
+              font: "500 12px/1 var(--mono)",
               letterSpacing: ".12em",
               textTransform: "uppercase",
               color: "var(--fg-mute)",

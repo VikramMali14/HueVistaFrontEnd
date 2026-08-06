@@ -55,7 +55,7 @@ export function Services({ shades }: { shades?: number | null }) {
     <section id="services" className="hv-services">
       <header className="hv-services-head reveal">
         <h2 className="display hv-services-title">
-          Everything you need,<br /><i>in one place.</i>
+          Everything you need,{" "}<br /><i>in one place.</i>
         </h2>
         <p className="hv-services-lead">
           From the first photo to the shade code on the bill — every step of selling colour,

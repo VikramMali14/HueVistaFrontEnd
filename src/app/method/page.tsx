@@ -84,7 +84,7 @@ export default async function MethodPage() {
             <Eyebrow>How it works</Eyebrow>
             <Mono>Made in India</Mono>
           </div>
-          <h1 className="display">From a photo,<br /><i>a painted wall.</i></h1>
+          <h1 className="display">From a photo,{" "}<br /><i>a painted wall.</i></h1>
           {/* The count is read from the catalogue rather than written out — the prose
               said "two thousand" while the site's other pages said "10,000+", and
               neither matched what the backend actually serves. */}

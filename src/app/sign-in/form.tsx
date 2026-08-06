@@ -65,7 +65,7 @@ export function SignInForm({ action, otpAction, next, mode = "signin", initialEr
               alignItems: "center",
               gap: 14,
               color: "var(--fg-mute)",
-              font: "400 10px/1 var(--mono)",
+              font: "400 12px/1 var(--mono)",
               letterSpacing: ".24em",
               textTransform: "uppercase",
             }}
@@ -141,7 +141,7 @@ export function SignInForm({ action, otpAction, next, mode = "signin", initialEr
               border: "none",
               cursor: "pointer",
               color: "var(--fg-mute)",
-              font: "400 10px/1 var(--mono)",
+              font: "400 12px/1 var(--mono)",
               letterSpacing: ".22em",
               textTransform: "uppercase",
             }}
@@ -165,7 +165,7 @@ export function SignInForm({ action, otpAction, next, mode = "signin", initialEr
               display: "inline-flex",
               alignItems: "center",
               gap: 10,
-              font: "400 10px/1 var(--mono)",
+              font: "400 12px/1 var(--mono)",
               letterSpacing: ".22em",
               textTransform: "uppercase",
               color: "var(--fg-soft)",

@@ -538,21 +538,28 @@ function SwatchGrid({
     hideNames ? (codeLabel(s.code) ?? "") : s.name;
   return (
     <div className="hv-studio-swatches">
-      {shades.map((s) => (
-        <button
-          key={s.code}
-          type="button"
-          onClick={() => onSelect(s)}
-          title={hideNames ? (codeLabel(s.code) ?? "Colour") : codeLabel(s.code) ? `${s.name} · ${codeLabel(s.code)}` : s.name}
-          aria-label={hideNames ? `Colour ${codeLabel(s.code) ?? s.hex}` : codeLabel(s.code) ? `${s.name}, code ${codeLabel(s.code)}` : s.name}
-          className={`hv-studio-swatch ${selected === s.code ? "is-selected" : ""}`}
-        >
-          <span className="hv-studio-swatch-color" style={{ background: s.hex }} />
-          <span className="hv-studio-swatch-label">
-            {nameLabel(s)}
-          </span>
-        </button>
-      ))}
+      {shades.map((s) => {
+        const code = codeLabel(s.code);
+        return (
+          <button
+            key={s.code}
+            type="button"
+            onClick={() => onSelect(s)}
+            title={hideNames ? (code ?? "Colour") : code ? `${s.name} · ${code}` : s.name}
+            aria-label={hideNames ? `Colour ${code ?? s.hex}` : code ? `${s.name}, code ${code}` : s.name}
+            className={`hv-studio-swatch ${selected === s.code ? "is-selected" : ""}`}
+          >
+            <span className="hv-studio-swatch-color" style={{ background: s.hex }} />
+            <span className="hv-studio-swatch-name">{nameLabel(s)}</span>
+            {/* The code is what gets written on the bill, so it is on the tile
+                rather than one click away. Hidden only when the shop has turned
+                codes off AND has no substitute encoding to show — and when names
+                are hidden the code has already been promoted into the name slot,
+                so printing it twice would be noise. */}
+            {code && !hideNames && <span className="hv-studio-swatch-code">{code}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -718,7 +725,7 @@ function SelectionDock({
               {shiftsInLamplight && shift && (
                 <span
                   title="This colour changes noticeably under a warm evening bulb"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6, font: "400 10px/1 var(--mono)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--fg-mute)" }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, font: "400 12px/1 var(--mono)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--fg-mute)" }}
                 >
                   <span aria-hidden style={{ width: 14, height: 8, borderRadius: 2, background: `linear-gradient(90deg, ${shade.hex} 50%, ${shift.warmHex} 50%)`, border: "1px solid var(--rule-strong)" }} />
                   shifts in lamplight
@@ -794,7 +801,11 @@ function SelectionDock({
         />
         <div className="hv-studio-dock-info" aria-live="polite">
           <span className="hv-studio-dock-name">{shade ? (nameLabel(shade) || "Colour") : "No colour selected"}</span>
-          <span className="hv-studio-dock-meta">
+          {/* Two different kinds of content share this slot. A code · brand pair is
+              a label, and reads well as mono-caps. The empty-state hint is a
+              sentence, and as mono-caps it clipped to "TAP ANY SWATCH — IT PAINTS
+              THE ACT…" — so it gets sentence case and room to wrap. */}
+          <span className={`hv-studio-dock-meta${shade ? "" : " is-hint"}`}>
             {shade
               ? [codeLabel(shade.code), hideNames ? null : shade.brand].filter(Boolean).join(" · ")
                 || (hideNames ? "" : shade.family)
@@ -1597,7 +1608,7 @@ function ShopPicksSection({
             title={
               <>
                 {combo.name}
-                <span className="mono" style={{ marginLeft: 8, fontSize: 10, letterSpacing: ".14em", color: "var(--fg-mute)", textTransform: "uppercase" }}>
+                <span className="mono" style={{ marginLeft: 8, fontSize: 12, letterSpacing: ".14em", color: "var(--fg-mute)", textTransform: "uppercase" }}>
                   {combo.scope === "EXTERIOR" ? "Exterior" : "Interior"}
                 </span>
               </>

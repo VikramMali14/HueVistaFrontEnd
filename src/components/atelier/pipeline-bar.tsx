@@ -140,7 +140,7 @@ export function PipelineBar({ current, done, busy }: PipelineBarProps) {
                   background: isDone && !isBusy ? "var(--fg)" : isCurrent ? "var(--surface-soft)" : "transparent",
                   border: "1px solid " + (isBusy ? "var(--accent)" : isDone || isCurrent ? "var(--fg)" : "var(--rule-strong)"),
                   color: isDone && !isBusy ? "var(--bg)" : isCurrent ? "var(--fg)" : "var(--fg-mute)",
-                  font: "600 11px/1 var(--sans)",
+                  font: "600 12px/1 var(--sans)",
                 }}
               >
                 {isBusy ? <Spinner size={12} color="var(--accent)" /> : isDone ? "✓" : s.step}

@@ -53,7 +53,7 @@ export function JournalNewsletter() {
             disabled={submitted || pending}
             style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--ivory)", font: "400 18px/1 var(--serif)", padding: 0, transition: "opacity .3s var(--ease)", opacity: submitted ? 0.45 : 1 }}
           />
-          <button type="submit" disabled={submitted || pending} style={{ background: "transparent", border: "none", color: "var(--brass)", font: "400 11px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", cursor: submitted || pending ? "default" : "pointer", padding: "8px 12px" }}>
+          <button type="submit" disabled={submitted || pending} style={{ background: "transparent", border: "none", color: "var(--brass)", font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", cursor: submitted || pending ? "default" : "pointer", padding: "8px 12px" }}>
             <span key={submitted ? "done" : pending ? "busy" : "idle"} className="hv-fade-swap">
               {submitted ? "Thank you ✓" : pending ? "Sending…" : "Subscribe"}
             </span>

@@ -196,7 +196,7 @@ export function PhoneHandoff({ onImage }: { onImage: (file: File) => void }) {
             <button
               type="button"
               onClick={close}
-              style={{ marginTop: 4, background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 11px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase" }}
+              style={{ marginTop: 4, background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase" }}
             >
               {phase === "received" ? "Close" : "Cancel"}
             </button>

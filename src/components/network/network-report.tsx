@@ -289,13 +289,13 @@ export function NetworkReportView({ report }: NetworkReportViewProps) {
         .net-totals { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 32px; }
         .net-tile { border: 1px solid var(--rule-strong); background: var(--surface-soft); border-radius: 8px; padding: 16px 22px; display: flex; flex-direction: column; gap: 8px; min-width: 128px; }
         .net-tile-num { font: 300 32px/1 var(--serif); color: var(--fg); font-variant-numeric: tabular-nums; }
-        .net-tile-label { font: 400 10px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--fg-mute); }
+        .net-tile-label { font: 400 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--fg-mute); }
         .net-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--rule); padding-bottom: 12px; }
-        .net-tab { background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 10px 14px; cursor: pointer; color: var(--fg-mute); font: 400 11px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; transition: color .2s, border-color .2s; }
+        .net-tab { background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 10px 14px; cursor: pointer; color: var(--fg-mute); font: 400 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; transition: color .2s, border-color .2s; }
         .net-tab.active, .net-tab:hover { color: var(--fg); border-color: var(--rule-strong); }
         .net-table-wrap { overflow-x: auto; border: 1px solid var(--rule-strong); border-radius: 8px; }
         .net-table { width: 100%; border-collapse: collapse; min-width: 640px; }
-        .net-table th { text-align: left; font: 400 10px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--fg-mute); padding: 14px 16px; border-bottom: 1px solid var(--rule-strong); background: var(--surface-soft); white-space: nowrap; }
+        .net-table th { text-align: left; font: 400 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--fg-mute); padding: 14px 16px; border-bottom: 1px solid var(--rule-strong); background: var(--surface-soft); white-space: nowrap; }
         .net-table td { font: 300 15px/1.4 var(--serif); color: var(--fg-soft); padding: 13px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; }
         .net-table tr:last-child td { border-bottom: none; }
         .net-table .strong { font-weight: 500; color: var(--fg); }
@@ -304,14 +304,14 @@ export function NetworkReportView({ report }: NetworkReportViewProps) {
         .net-node { border: 1px solid var(--rule-strong); background: var(--surface-soft); border-radius: 8px; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
         .net-branch { display: flex; flex-direction: column; gap: 10px; }
         .net-children { display: flex; flex-direction: column; gap: 10px; margin-left: 26px; padding-left: 16px; border-left: 1px solid var(--rule-strong); }
-        .net-chip { font: 400 9px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-mute); white-space: nowrap; }
+        .net-chip { font: 400 12px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-mute); white-space: nowrap; }
         .net-chip.distributor { color: var(--accent-soft); border-color: var(--accent-soft); }
         .net-chip.retailer { color: var(--fg-soft); }
         .net-chip.customer { color: var(--sage); border-color: var(--sage); }
         .net-brands { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-        .net-brand-tag { font: 400 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-soft); background: var(--surface); white-space: nowrap; }
+        .net-brand-tag { font: 400 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--rule-strong); color: var(--fg-soft); background: var(--surface); white-space: nowrap; }
         .net-brand-tag.all { color: var(--fg-mute); border-style: dashed; }
-        .net-brand-edit { font: 400 10px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--rule-strong); background: transparent; color: var(--accent); cursor: pointer; white-space: nowrap; }
+        .net-brand-edit { font: 400 12px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--rule-strong); background: transparent; color: var(--accent); cursor: pointer; white-space: nowrap; }
         .net-brand-edit:hover { border-color: var(--accent); }
         .net-modal-scrim { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
         .net-modal { background: var(--surface); border: 1px solid var(--rule-strong); border-radius: 12px; width: min(480px, 100%); max-height: 85vh; overflow-y: auto; padding: 24px; box-shadow: 0 24px 60px -20px rgba(0,0,0,.6); }
@@ -393,7 +393,7 @@ function TreeNode({ node, accessFor }: { node: NetworkNode; accessFor: (n: Netwo
         {node.house && (
           <span
             title="HueVista's own distributor — it carries every shop no partner distributor brought in, so it is a branch of the tree but not a distributor account."
-            style={{ font: "400 9px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--accent-soft)", border: "1px solid var(--rule-brass)", borderRadius: 4, padding: "3px 6px" }}
+            style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--accent-soft)", border: "1px solid var(--rule-brass)", borderRadius: 4, padding: "3px 6px" }}
           >
             ours
           </span>
@@ -404,7 +404,7 @@ function TreeNode({ node, accessFor }: { node: NetworkNode; accessFor: (n: Netwo
             {[node.city, node.state].filter(Boolean).join(", ")}
           </span>
         )}
-        <span style={{ marginLeft: "auto", font: "400 11px/1 var(--mono)", color: "var(--fg-mute)", whiteSpace: "nowrap" }}>
+        <span style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", color: "var(--fg-mute)", whiteSpace: "nowrap" }}>
           {node.role === "DISTRIBUTOR" && (
             <>{node.retailerCount} shops · {node.painterCount} painters · {node.customerCount} customers</>
           )}
@@ -639,7 +639,7 @@ function RetailerTable({
                     {parent?.house && (
                       <>
                         <br />
-                        <span style={{ font: "400 9px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+                        <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
                           ours
                         </span>
                       </>
@@ -1149,7 +1149,7 @@ function CustomerTable({
                       {lapsed && (
                         <>
                           <br />
-                          <span style={{ font: "400 9px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
+                          <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
                             lapsed
                           </span>
                         </>

@@ -37,7 +37,7 @@ export function PricingPreview() {
               <span style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 56, lineHeight: 1 }}>{t.price}</span>
               <span style={{ fontFamily: "var(--serif)", fontSize: 16, marginLeft: 6, opacity: 0.6 }}>/ month</span>
             </div>
-            <div style={{ font: "400 10px/1.5 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.8)" : "var(--fg-mute)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.2)" : "var(--rule)"), paddingTop: 16, marginTop: 8 }}>{t.feature}</div>
+            <div style={{ font: "400 12px/1.5 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.8)" : "var(--fg-mute)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.2)" : "var(--rule)"), paddingTop: 16, marginTop: 8 }}>{t.feature}</div>
           </div>
         ))}
       </div>

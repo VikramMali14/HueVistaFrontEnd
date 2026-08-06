@@ -104,7 +104,7 @@ export function StoreKiosk({ info, hasGuestSession }: { info: StorePublicInfo; h
       <header style={{ marginBottom: 32 }}>
         <Eyebrow>{info.shopName} · in-store studio</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 68px)", marginTop: 12 }}>
-          See your room<br /><i>in new colours.</i>
+          See your room{" "}<br /><i>in new colours.</i>
         </h1>
         <Lead style={{ marginTop: 20, maxWidth: "52ch" }}>
           Pay once, upload one photo of your room, and try this shop&apos;s colours on your own

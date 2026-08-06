@@ -212,7 +212,7 @@ const linkBtn: React.CSSProperties = {
   border: "none",
   cursor: "pointer",
   color: "var(--fg-mute)",
-  font: "400 11px/1 var(--mono)",
+  font: "400 12px/1 var(--mono)",
   letterSpacing: ".18em",
   textTransform: "uppercase",
 };

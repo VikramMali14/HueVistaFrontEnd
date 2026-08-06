@@ -27,7 +27,7 @@ export function JournalFilters({ entries }: { entries: ReadonlyArray<JournalEntr
                 aria-pressed={active}
                 onClick={() => setCategory(c)}
                 style={{
-                  font: "400 10px/1 var(--mono)",
+                  font: "400 12px/1 var(--mono)",
                   letterSpacing: ".26em",
                   textTransform: "uppercase",
                   padding: "8px 14px",
