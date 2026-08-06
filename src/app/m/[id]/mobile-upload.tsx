@@ -87,7 +87,7 @@ export function MobileUpload({ sessionId }: { sessionId: string }) {
   }, [file, sessionId]);
 
   return (
-    <main
+    <main id="main"
       style={{
         minHeight: "100dvh",
         display: "flex",

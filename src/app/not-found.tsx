@@ -8,7 +8,7 @@ export default function NotFound() {
   return (
     <>
       <SiteHeader />
-      <main style={{ textAlign: "center", padding: "120px 0 160px" }}>
+      <main id="main" style={{ textAlign: "center", padding: "120px 0 160px" }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 56 }}>
           <SwatchCube size={120} />
         </div>

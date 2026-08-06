@@ -53,6 +53,8 @@ export function AppNav({ user, access = null }: AppNavProps) {
   // the bar hides as you scroll down and slides back in as you scroll up. Studio
   // keeps its own auto-hide overlay, so this is disabled there.
   const [hidden, setHidden] = useState(false);
+  // Mirrors `hidden` so the scroll handler can compare without re-subscribing.
+  const hiddenRef = useRef(false);
   // Debounced reveal/hide so crossing the small gap between the top hotzone and
   // the slid-down bar never flickers the navbar shut mid-move (the reported bug).
   const hideTimer = useRef<number | null>(null);
@@ -134,9 +136,11 @@ export function AppNav({ user, access = null }: AppNavProps) {
   // owns the top edge) and whenever the mobile drawer is open.
   useEffect(() => {
     if (studioMode) {
+      hiddenRef.current = false;
       setHidden(false);
       return;
     }
+    hiddenRef.current = false;
     setHidden(false); // never start a page tucked away
     let lastY = window.scrollY;
     let ticking = false;
@@ -144,9 +148,16 @@ export function AppNav({ user, access = null }: AppNavProps) {
       ticking = false;
       const y = window.scrollY;
       const delta = y - lastY;
-      if (open || y < 80) setHidden(false);        // near the top or menu open → visible
-      else if (delta > 4) setHidden(true);         // scrolling down → tuck up
-      else if (delta < -4) setHidden(false);       // scrolling up → bring it back
+      // Compared before setting: this runs every animation frame of every
+      // scroll, for a value that changes a handful of times per page.
+      let next: boolean | null = null;
+      if (open || y < 80) next = false;            // near the top or menu open → visible
+      else if (delta > 4) next = true;             // scrolling down → tuck up
+      else if (delta < -4) next = false;           // scrolling up → bring it back
+      if (next !== null && next !== hiddenRef.current) {
+        hiddenRef.current = next;
+        setHidden(next);
+      }
       lastY = y;
     };
     const onScroll = () => {
@@ -212,12 +223,18 @@ export function AppNav({ user, access = null }: AppNavProps) {
         >
           {open ? <CloseIcon /> : <MenuIcon />}
         </button>
-        <div
+        <nav
           id="app-mobile-tabs"
+          aria-label="Main"
           className={`app-tabs is-mobile ${open ? "" : "is-closed"}`}
         >
           {visibleTabs.map((t) => (
-            <Link key={t.href} href={t.href} className={`app-tab${pathname.startsWith(t.href) ? " active" : ""}`}>
+            <Link
+              key={t.href}
+              href={t.href}
+              className={`app-tab${pathname.startsWith(t.href) ? " active" : ""}`}
+              aria-current={pathname.startsWith(t.href) ? "page" : undefined}
+            >
               {t.label}
             </Link>
           ))}
@@ -240,14 +257,19 @@ export function AppNav({ user, access = null }: AppNavProps) {
               }}
             />
           </div>
-        </div>
-        <div className="app-tabs is-desktop">
+        </nav>
+        <nav aria-label="Main" className="app-tabs is-desktop">
           {visibleTabs.map((t) => (
-            <Link key={t.href} href={t.href} className={`app-tab${pathname.startsWith(t.href) ? " active" : ""}`}>
+            <Link
+              key={t.href}
+              href={t.href}
+              className={`app-tab${pathname.startsWith(t.href) ? " active" : ""}`}
+              aria-current={pathname.startsWith(t.href) ? "page" : undefined}
+            >
               {t.label}
             </Link>
           ))}
-        </div>
+        </nav>
         <div className="app-nav-meta">
           <ThemeToggle />
           {user && (
@@ -288,7 +310,17 @@ export function AppNav({ user, access = null }: AppNavProps) {
         @media (prefers-reduced-motion: reduce) { .app-nav-inner { transition: none; } }
         .app-tabs { display: flex; gap: 8px; margin-left: auto; }
         .app-tab { font: 400 12px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; padding: 12px 16px; color: var(--fg-mute); border: 1px solid transparent; transition: color .25s var(--ease), border-color .25s var(--ease); }
-        .app-tab.active, .app-tab:hover { color: var(--fg); border-color: var(--rule-strong); }
+        .app-tab:hover { color: var(--fg); border-color: var(--rule-strong); }
+        /* Current page = a filled pill. The focus ring stays an outline, so
+           "where I am" and "where focus is" can never be confused — they used
+           to be the same thin rectangle. */
+        .app-tab.active {
+          color: var(--bg);
+          background: var(--fg);
+          border-color: var(--fg);
+          border-radius: var(--radius-pill);
+        }
+        .app-tab.active:hover { color: var(--bg); }
         .app-nav-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .app-tabs.is-mobile { display: none; }
         .app-drawer-meta { display: none; }

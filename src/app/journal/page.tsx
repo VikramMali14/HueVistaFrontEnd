@@ -24,7 +24,7 @@ export default function JournalPage() {
     <>
       <Marquee items={["The Journal · Letters from the studio", "Monthly · India", "On colour, on craft, on the counter"]} />
       <SiteHeader />
-      <main>
+      <main id="main">
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">

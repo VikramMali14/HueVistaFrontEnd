@@ -4,7 +4,7 @@ import { CompareSlider } from "./compare-slider";
 
 export function Hero() {
   return (
-    <section className="hv-hero2 full-bleed">
+    <section className="hv-hero2 full-bleed" aria-labelledby="hero-title">
       {/* Cinematic background. The gradient + grain reads as a warm-lit room and
           needs no asset. To use a real photo or video instead, drop the file in
           /public and uncomment ONE of the blocks below — it layers under the scrim.
@@ -19,7 +19,7 @@ export function Hero() {
           <span style={{ display: "inline-block", width: 18, height: 1, background: "var(--accent)", flexShrink: 0 }} aria-hidden />
           Paint visualiser · Indian counters
         </p>
-        <h1 className="display hv-hero2-title hv-rise">
+        <h1 id="hero-title" className="display hv-hero2-title hv-rise">
           {/* The space is explicit: JSX drops the newline between a text node and the
               next element, so without it the heading's real text content — what a
               screen reader reads, what a search engine indexes, what a copy-paste

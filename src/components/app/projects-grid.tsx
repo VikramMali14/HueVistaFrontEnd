@@ -120,10 +120,20 @@ export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
           </p>
         )}
 
+        {/* The empty state is a tile in the row beside "New project", not a line
+            of text floating in a row sized by a tall card — which is where the
+            screen-and-a-half of blank between the heading and this message came
+            from. It fills the space it is given and says what to do next. */}
         {sorted !== null && sorted.length === 0 && !error && (
-          <p style={{ alignSelf: "center", font: "400 16px/1.4 var(--sans)", color: "var(--fg-soft)" }}>
-            No projects yet — start one with a photo.
-          </p>
+          <div className="hv-proj-empty">
+            <p style={{ margin: 0, font: "400 17px/1.45 var(--sans)", color: "var(--fg)" }}>
+              No projects yet.
+            </p>
+            <p style={{ margin: 0, font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "34ch" }}>
+              Start one with a photo of a room — the walls are found for you, then any
+              colour goes straight on them.
+            </p>
+          </div>
         )}
 
         {shown?.map((p) => {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
 import { api } from "@/lib/api";
-import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
+import { formatLimitSymbol, isUnlimited, projectAllowance } from "@/lib/plan-quota";
 import { PROJECT_VALID_DAYS } from "@/lib/project-validity";
 import type { ProjectPurchaseOptions, SubscriptionSummary } from "@/lib/types";
 
@@ -128,41 +128,73 @@ export function PlanBanner() {
   // Cancelled, or set to cancel: still fully usable, just not renewing.
   const windingDown = sub.status === "CANCELLED" || !!sub.cancelAtPeriodEnd;
 
+  // Where the allowance came from, in words.
+  //
+  // The strip used to read "0/32 PROJECTS THIS MONTH" while the pricing page said
+  // Starter includes 15. Both were right — 32 is 15 plus 17 carried over from the
+  // plan this one replaced — but nothing on screen said so, so the two pages simply
+  // contradicted each other. Spell the sum out wherever the total is not just the
+  // plan's own number.
+  const carried = sub.carriedProjectCredits ?? 0;
+  const purchased = sub.purchasedProjectCredits ?? 0;
+  const allowanceParts = [
+    `${sub.projectsLimit} this month`,
+    carried > 0 ? `${carried} carried over` : null,
+    purchased > 0 ? `${purchased} bought` : null,
+  ].filter((part): part is string => part !== null);
+  // Only worth saying when the total is NOT simply the plan's own number.
+  const allowanceNote = isUnlimited(sub.projectsLimit) || allowanceParts.length < 2
+    ? null
+    : `${allowanceParts.join(" + ")} = ${limit}`;
+
   return (
     <div style={bannerStyle(sub.trial || windingDown)}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <Mono brass>{sub.trial ? "Free trial" : `${sub.planDisplayName} plan`}</Mono>
-        <span style={{ font: "400 15px/1 var(--sans)", color: "var(--fg-soft)" }}>
-          {(sub.trial || windingDown) && daysLeft !== null
-            ? `${sub.planDisplayName} · ${
-                // daysLeft is 0 only when the period end has already passed while the
+      {/* Labelled chips, not one monospace run-on. This was a single unbroken
+          line — "STARTER PLAN active 0/32 PROJECTS THIS MONTH 17 CARRIED OVER ·
+          EXPIRE THIS CYCLE 0/25 PDFS" — with nothing separating one figure from
+          the next or saying what any of them counted. */}
+      <div className="hv-plan-chips">
+        <span className="hv-plan-chip is-plan">
+          <Mono brass>{sub.trial ? "Free trial" : `${sub.planDisplayName} plan`}</Mono>
+          <strong>
+            {(sub.trial || windingDown) && daysLeft !== null
+              ? // daysLeft is 0 only when the period end has already passed while the
                 // status is still ACTIVE — "0 days left" reads broken at the exact
                 // moment the subscribe nudge matters most.
-                daysLeft === 0
-                  ? "ends today"
-                  : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`
-              }`
-            : "active"}
+                daysLeft === 0 ? "Ends today" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`
+              : "Active"}
+          </strong>
         </span>
-        <Mono>
-          {sub.projectsUsed}/{limit} projects this month
-        </Mono>
+
+        <span className="hv-plan-chip" title={allowanceNote ?? undefined}>
+          <Mono>Projects this month</Mono>
+          <strong>{sub.projectsUsed} of {limit}</strong>
+          {allowanceNote && <small>{allowanceNote}</small>}
+        </span>
+
         {held > 0 && (
-          <Mono>
-            {held} held for codes not yet redeemed
-          </Mono>
+          <span className="hv-plan-chip">
+            <Mono>Held for codes</Mono>
+            <strong>{held}</strong>
+            <small>not redeemed yet</small>
+          </span>
         )}
-        {(sub.carriedProjectCredits ?? 0) > 0 && (
-          <Mono>
-            {sub.carriedProjectCredits} carried over · expire this cycle
-          </Mono>
+
+        {carried > 0 && (
+          <span className="hv-plan-chip">
+            <Mono>Carried over</Mono>
+            <strong>{carried}</strong>
+            <small>expire this cycle</small>
+          </span>
         )}
+
         {typeof sub.pdfDownloadsLimit === "number" && sub.pdfDownloadsLimit > 0 && (
-          <Mono>
-            {sub.pdfDownloadsUsed ?? 0}/{formatLimitSymbol(sub.pdfDownloadsLimit)} PDFs
-          </Mono>
+          <span className="hv-plan-chip">
+            <Mono>Colour boards</Mono>
+            <strong>{sub.pdfDownloadsUsed ?? 0} of {formatLimitSymbol(sub.pdfDownloadsLimit)}</strong>
+          </span>
         )}
-      </span>
+      </div>
       {(sub.trial || windingDown) && subscribeLink}
     </div>
   );

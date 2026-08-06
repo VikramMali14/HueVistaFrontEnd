@@ -96,6 +96,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
       </head>
       <body>
+        {/* Every keyboard user tabbed through the logo and ~15 nav items before
+            reaching the page, on every page. One Tab now skips all of it.
+            Targets #main, which both layouts put on their <main id="main">. */}
+        <a href="#main" className="skip-link">Skip to content</a>
         {children}
         {/* Offers the Android APK on phone-width screens. Renders nothing when no
             build is published, on iOS, or inside the signed-in app. */}

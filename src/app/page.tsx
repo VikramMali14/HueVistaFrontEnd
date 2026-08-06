@@ -23,7 +23,7 @@ export default async function HomePage() {
   return (
     <>
       <SiteHeader />
-      <main>
+      <main id="main">
         <RevealMount />
         <Hero />
         <Stats shades={size?.shades ?? null} />

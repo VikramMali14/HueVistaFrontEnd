@@ -60,7 +60,7 @@ export default function GalleryPage() {
     <>
       <Marquee items={["The Gallery", "Recoloured rooms · real catalogue shades · only the wall changes", "Curated quarterly"]} />
       <SiteHeader />
-      <main>
+      <main id="main">
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">

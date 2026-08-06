@@ -17,7 +17,7 @@ export default function RootError({
   }, [error]);
 
   return (
-    <main
+    <main id="main"
       style={{
         minHeight: "70vh",
         display: "flex",

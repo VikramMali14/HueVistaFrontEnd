@@ -24,6 +24,30 @@ export function DashboardStats({ projects }: DashboardStatsProps) {
 
   if (!loading && total === 0) return null;
 
+  // While the fetch is in flight the cards were four "—" placeholders, which then
+  // disappeared entirely on a new account and were replaced by the thin plan
+  // strip. An em dash where a number belongs reads as a value that failed to
+  // load, not as one still loading. Skeletons say "coming" and, on the ordinary
+  // case of an account that HAS projects, turn into the numbers in the same slot
+  // with no jump.
+  if (loading) {
+    return (
+      <section
+        className="r-cols-md-2 r-cols-xs-1"
+        aria-hidden
+        style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, marginBottom: 64 }}
+      >
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} style={{ border: "1px solid var(--rule)", padding: 28 }}>
+            <span className="hv-skel" style={{ width: "58%", height: 12 }} />
+            <span className="hv-skel" style={{ width: "40%", height: 46, marginTop: 14 }} />
+            <span className="hv-skel" style={{ width: "72%", height: 12, marginTop: 14 }} />
+          </div>
+        ))}
+      </section>
+    );
+  }
+
   const cards: ReadonlyArray<{ n: number; l: string; sub: string }> = [
     { n: total, l: "Projects saved", sub: "in your suite" },
     { n: ready, l: "Ready", sub: "walls detected" },
@@ -40,7 +64,7 @@ export function DashboardStats({ projects }: DashboardStatsProps) {
         <div key={m.l} className="hv-card-in" style={{ border: "1px solid var(--rule)", padding: 28, animationDelay: `${i * 60}ms` }}>
           <Mono>{m.l}</Mono>
           <div className="display" style={{ fontSize: 56, marginTop: 12 }}>
-            {loading ? "—" : <CountUp value={m.n} />}
+            <CountUp value={m.n} />
           </div>
           <Mono style={{ marginTop: 8 }}>{m.sub}</Mono>
         </div>

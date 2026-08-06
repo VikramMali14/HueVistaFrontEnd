@@ -43,7 +43,7 @@ export default async function AboutPage() {
   return (
     <>
       <SiteHeader />
-      <main style={{ maxWidth: 760, margin: "0 auto", padding: "96px var(--gutter) 140px" }}>
+      <main id="main" style={{ maxWidth: 760, margin: "0 auto", padding: "96px var(--gutter) 140px" }}>
         <Eyebrow>Company</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 72px)", marginTop: 16 }}>
           About <i>us.</i>

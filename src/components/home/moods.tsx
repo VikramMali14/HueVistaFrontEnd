@@ -158,7 +158,7 @@ export function Moods() {
   );
 
   return (
-    <section id="moods">
+    <section id="moods" aria-label="Colour moods">
       <div className="reveal hv-mood-head">
         <Eyebrow>Where to begin</Eyebrow>
         <h2 className="display hv-mood-title">Start with <i>a feeling.</i></h2>

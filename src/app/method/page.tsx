@@ -77,7 +77,7 @@ export default async function MethodPage() {
     <>
       <Marquee items={["How it works", "A photo in, a painted wall back · in seconds", "Six steps, at your counter"]} />
       <SiteHeader />
-      <main>
+      <main id="main">
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">

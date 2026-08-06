@@ -109,7 +109,7 @@ export default async function PricingPage() {
     <>
       <Marquee items={["Pricing · For retailers, not consumers", `${TRIAL_DAYS}-day trial · no card · open within a day`, catalogueLine]} />
       <SiteHeader />
-      <main>
+      <main id="main">
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">

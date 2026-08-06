@@ -15,11 +15,11 @@ const STEPS = [
 
 export function MethodGrid() {
   return (
-    <section id="method">
+    <section id="method" aria-labelledby="method-title">
       <div className="reveal hv-method-head r-stack-md">
         <div>
           <Eyebrow>The method</Eyebrow>
-          <h2 className="display hv-method-title">From a photograph,{" "}<br /><i>a painted wall.</i></h2>
+          <h2 id="method-title" className="display hv-method-title">From a photograph,{" "}<br /><i>a painted wall.</i></h2>
         </div>
         <Lead className="hv-method-lead">No studio and no waiting. Your customer&apos;s own photo, their walls in any shade, ready to send — in seconds, at your counter.</Lead>
       </div>
@@ -27,7 +27,7 @@ export function MethodGrid() {
         {STEPS.map((s, i) => (
           <div key={s.num} className={`hv-method-card reveal d${Math.min(i + 1, 5)}`}>
             <div className="hv-method-card-num">{s.num}</div>
-            <div className="hv-method-card-title">{s.title}</div>
+            <h3 className="hv-method-card-title">{s.title}</h3>
             <p className="hv-method-card-body">{s.body}</p>
           </div>
         ))}

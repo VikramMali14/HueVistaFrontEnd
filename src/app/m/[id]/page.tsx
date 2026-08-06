@@ -25,7 +25,7 @@ export default async function MobileHandoffPage({
 
 function ExpiredNotice() {
   return (
-    <main
+    <main id="main"
       style={{
         minHeight: "100dvh",
         display: "flex",

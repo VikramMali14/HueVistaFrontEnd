@@ -12,7 +12,7 @@ const SWATCHES = [
 
 export function CataloguePreview() {
   return (
-    <section>
+    <section aria-label="A look at the catalogue">
       <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 80, alignItems: "center" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <Eyebrow>The catalogue</Eyebrow>

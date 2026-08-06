@@ -132,11 +132,7 @@ html, body {
 /* Page base colour + ambient purple glow live on <html>. <body> stays
    transparent so this base layer reads through page content. */
 html {
-  background:
-    radial-gradient(120% 85% at 72% 12%, rgba(124,92,255,.10), transparent 55%),
-    radial-gradient(95% 75% at 12% 90%, rgba(80,170,255,.07), transparent 60%),
-    var(--bg);
-  background-attachment: fixed;
+  background: var(--bg);
   /* Every in-page jump lands under the sticky glass bar without this: on
      /pricing the tier row ("₹999 / ₹2,499 / ₹4,999") sat behind it, and on
      /catalogue so did "Codes intact.". --nav-h is the bar's own height, so
@@ -148,7 +144,43 @@ body {
   overflow-x: hidden;
   background: transparent;
 }
+/* The page's two ambient gradients, as a fixed compositor layer.
+   They used to live on <html> with `background-attachment: fixed`, which is
+   one of the most reliable ways to make a long page scroll badly: a fixed
+   background cannot be composited, so the browser repaints the full viewport
+   — two large radial gradients — on every single scroll frame. As a fixed,
+   painted-once pseudo-element the compositor just moves it. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 85% at 72% 12%, rgba(124,92,255,.10), transparent 55%),
+    radial-gradient(95% 75% at 12% 90%, rgba(80,170,255,.07), transparent 60%);
+}
 ::selection { background: var(--fg); color: var(--bg); }
+
+/* Skip link — off-screen until focused, then a real target at the top left.
+   Not display:none and not visibility:hidden: both would take it out of the
+   tab order, which is the one thing it exists to be in. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 1000;
+  transform: translateY(calc(-100% - 16px));
+  padding: 12px 18px;
+  border-radius: 8px;
+  background: var(--fg);
+  color: var(--bg);
+  font: 600 15px/1 var(--sans);
+  text-decoration: none;
+  transition: transform .18s var(--ease);
+}
+.skip-link:focus-visible { transform: none; outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .skip-link { transition: none; } }
 
 /* ====== 3D SWATCH CUBE  ·  decorative spinning paint chip ====== */
 .hv-cube { perspective: 760px; margin: 0 auto; }
@@ -193,6 +225,12 @@ button { font-family: inherit; }
   background: var(--fg);
   color: var(--bg);
   overflow: hidden;
+  /* A 60s infinite transform animation runs whether or not the strip is on
+     screen. content-visibility skips the whole subtree — layout, paint AND its
+     animations — once it scrolls away. The intrinsic size keeps the scrollbar
+     honest while it is skipped. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 36px;
 }
 .marquee-track {
   display: flex; gap: 64px;
@@ -1953,7 +1991,7 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
    (a clickable-looking row that goes nowhere is worse than a quiet one). */
 
 /* Loading shimmer (dashboard project placeholders) */
-.hv-skel { background: linear-gradient(90deg, var(--surface) 25%, var(--surface-soft) 37%, var(--surface) 63%); background-size: 400% 100%; animation: hv-shimmer 1.4s linear infinite; }
+.hv-skel { display: block; border-radius: 4px; background: linear-gradient(90deg, var(--surface) 25%, var(--surface-soft) 37%, var(--surface) 63%); background-size: 400% 100%; animation: hv-shimmer 1.4s linear infinite; }
 @keyframes hv-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
 /* Dashboard project cards: thumb zoom + reactive "New project" tile */
@@ -1964,7 +2002,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-proj-new:hover { border-color: var(--accent); }
 
 /* Form errors rise in (sign-in / trial) */
-.field-error[role="alert"] { animation: hv-rise .35s var(--ease) both; }
+.field-error[role="alert"], .field-error[role="status"]:not(:empty) { animation: hv-rise .35s var(--ease) both; }
 
 /* Keyed label swap (journal newsletter submit) */
 .hv-fade-swap { display: inline-block; animation: hv-rise .4s var(--ease) both; }
@@ -2083,6 +2121,41 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   min-height: 2.1em;
 }
 
+/* Dashboard empty state: a tile that fills the row next to "New project",
+   rather than one centred line inside a card-height grid row. */
+.hv-proj-empty {
+  grid-column: 2 / -1;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+@media (max-width: 900px) { .hv-proj-empty { grid-column: 1 / -1; } }
+
+/* ---- Dashboard plan strip -----------------------------------------------
+   One labelled chip per figure. The strip used to be a single monospace
+   run-on with nothing to say where one number stopped and the next began. */
+.hv-plan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  align-items: flex-start;
+}
+.hv-plan-chip {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.hv-plan-chip strong { font: 600 16px/1.2 var(--sans); color: var(--fg); }
+.hv-plan-chip small { font: 400 12px/1.3 var(--sans); color: var(--fg-mute); }
+.hv-plan-chip.is-plan strong { color: var(--fg); }
+
 /* ---- Touch targets ------------------------------------------------------
    A shop counter is a tablet operated with paint on someone's fingers. WCAG 2.2
    asks 24x24; that room wants 44x44. Both helpers grow the HIT area with a
@@ -2180,7 +2253,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 /* Reduced motion: neutralise everything in this section */
 @media (prefers-reduced-motion: reduce) {
   .hv-rise, .hv-card-in, .hv-page, .hv-dd, .hv-fade-swap, .hv-chat-pop,
-  .hv-grid-swap, .hv-skel, .field-error[role="alert"] { animation: none !important; }
+  .hv-grid-swap, .hv-skel, .field-error[role="alert"], .field-error[role="status"] { animation: none !important; }
   .hv-skel { background: var(--surface); }
   .hv-chip, .hv-dd-opt, .hv-journal-row, .hv-journal-row > :last-child,
   .hv-proj-thumb img, .hv-proj-new, .hv-chat-fab, .hv-shade-card,
@@ -2249,7 +2322,10 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   transition: color .18s var(--ease), background .18s var(--ease);
 }
 .cnav-link:hover { color: var(--fg); background: rgba(var(--fg-rgb), .07); }
-.cnav-link.active { color: var(--fg); }
+/* Current page reads as a filled pill, not as colour alone — and never as
+   the same shape the focus ring draws. */
+.cnav-link.active { color: var(--bg); background: var(--fg); }
+.cnav-link.active:hover { color: var(--bg); background: var(--fg); }
 
 .cnav-actions { display: inline-flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .cnav-signin {

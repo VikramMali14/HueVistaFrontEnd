@@ -19,7 +19,7 @@ export default function RedeemPage() {
   return (
     <>
       <SiteHeader />
-      <main style={{ maxWidth: 760, margin: "0 auto", padding: "64px var(--gutter) 120px" }}>
+      <main id="main" style={{ maxWidth: 760, margin: "0 auto", padding: "64px var(--gutter) 120px" }}>
         <RedeemForm />
       </main>
       <Footer />

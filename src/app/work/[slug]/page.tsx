@@ -35,7 +35,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
   return (
     <>
       <SiteHeader />
-      <main>
+      <main id="main">
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">

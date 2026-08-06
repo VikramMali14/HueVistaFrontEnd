@@ -17,7 +17,7 @@ export default function WorkPage() {
     <>
       <SiteHeader />
       {/* Immersive full-viewport piece — no footer, no page gutters. */}
-      <main className="hv-work-main">
+      <main id="main" className="hv-work-main">
         <WorkSpiral />
       </main>
     </>

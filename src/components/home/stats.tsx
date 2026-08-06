@@ -24,7 +24,7 @@ export function Stats({ shades }: { shades?: number | null }) {
   ];
 
   return (
-    <section className="hv-stats full-bleed">
+    <section className="hv-stats full-bleed" aria-label="HueVista in numbers">
       <div className={`hv-stats-grid${STATS.length === 2 ? " is-two" : ""}`}>
         {STATS.map((s, i) => (
           <div key={s.label} className="hv-stat">

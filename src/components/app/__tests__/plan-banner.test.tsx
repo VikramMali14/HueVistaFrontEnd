@@ -47,7 +47,8 @@ describe("PlanBanner", () => {
    */
   it("keeps showing usage for a cancelled plan inside its paid period", async () => {
     await banner(sub({ status: "CANCELLED" }));
-    await waitFor(() => expect(screen.getByText(/4\/15 projects this month/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("4 of 15")).toBeTruthy());
+    expect(screen.getByText(/projects this month/i)).toBeTruthy();
     // Not renewing, so the countdown and the way back are both worth showing.
     expect(screen.getByText(/days left/i)).toBeTruthy();
     expect(screen.getByRole("link", { name: /subscribe/i })).toBeTruthy();
@@ -103,6 +104,7 @@ describe("PlanBanner", () => {
     await banner(sub());
     await waitFor(() => expect(screen.getByText(/Starter plan/i)).toBeTruthy());
     expect(screen.getByText(/^active$/i)).toBeTruthy();
+    expect(screen.getByText("4 of 15")).toBeTruthy();
     expect(screen.queryByRole("link", { name: /subscribe/i })).toBeNull();
   });
 
@@ -114,14 +116,17 @@ describe("PlanBanner", () => {
    */
   it("names projects held behind unredeemed codes", async () => {
     await banner(sub({ projectsUsed: 3, reservedProjects: 10, projectsRemaining: 2 }));
-    await waitFor(() => expect(screen.getByText(/3\/15 projects this month/i)).toBeTruthy());
-    expect(screen.getByText(/10 held for codes not yet redeemed/i)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("3 of 15")).toBeTruthy());
+    // Each figure is a labelled chip now, not one monospace run-on.
+    expect(screen.getByText(/held for codes/i)).toBeTruthy();
+    expect(screen.getByText("10")).toBeTruthy();
+    expect(screen.getByText(/not redeemed yet/i)).toBeTruthy();
   });
 
   /** Nothing held, nothing said — the chip is for a real state, not a permanent zero. */
   it("says nothing about holds when there are none", async () => {
     await banner(sub());
-    await waitFor(() => expect(screen.getByText(/4\/15 projects this month/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("4 of 15")).toBeTruthy());
     expect(screen.queryByText(/held for codes/i)).toBeNull();
   });
 
@@ -135,6 +140,26 @@ describe("PlanBanner", () => {
       projectsRemaining: 2147483647,
       purchasedProjectCredits: 5,
     }));
-    await waitFor(() => expect(screen.getByText(/40\/∞ projects this month/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("40 of ∞")).toBeTruthy());
+    // An unlimited allowance has no sum to spell out, so no derivation line.
+    expect(screen.queryByText(/= ∞/)).toBeNull();
+  });
+
+  /**
+   * The strip said "0/32 projects this month" while the pricing page said Starter
+   * includes 15. Both true — 32 is 15 plus 17 carried over from a replaced plan —
+   * but with nothing on screen to reconcile them, the two pages just disagreed.
+   */
+  it("spells out where an allowance bigger than the plan came from", async () => {
+    await banner(sub({ projectsUsed: 0, projectsLimit: 15, carriedProjectCredits: 17 }));
+    await waitFor(() => expect(screen.getByText("0 of 32")).toBeTruthy());
+    expect(screen.getByText("15 this month + 17 carried over = 32")).toBeTruthy();
+  });
+
+  /** Nothing to reconcile when the total IS the plan's own number. */
+  it("says nothing about the sum when the allowance is just the plan", async () => {
+    await banner(sub());
+    await waitFor(() => expect(screen.getByText("4 of 15")).toBeTruthy());
+    expect(screen.queryByText(/this month \+/)).toBeNull();
   });
 });
