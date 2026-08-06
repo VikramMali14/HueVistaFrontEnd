@@ -116,6 +116,22 @@ const nextConfig: NextConfig = {
     remotePatterns,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
+  // One noun per concept, in the URL too. The nav said "Studio", "Plan" and
+  // "Colour finder" while the addresses read /atelier, /subscription and
+  // /color-finder — American spelling at that, on a site that writes
+  // /catalogue everywhere else. Permanent redirects so every link already in
+  // the wild, every bookmark and every QR code printed for a counter still
+  // lands in the right place.
+  async redirects() {
+    return [
+      { source: "/atelier", destination: "/studio", permanent: true },
+      { source: "/atelier/:path*", destination: "/studio/:path*", permanent: true },
+      { source: "/subscription", destination: "/plan", permanent: true },
+      { source: "/subscription/:path*", destination: "/plan/:path*", permanent: true },
+      { source: "/color-finder", destination: "/colour-finder", permanent: true },
+      { source: "/color-finder/:path*", destination: "/colour-finder/:path*", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

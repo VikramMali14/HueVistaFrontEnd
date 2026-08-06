@@ -22,6 +22,9 @@
      in-page jump never parks its target under the glass bar. .nav is 12px of
      padding either side of a ~38px row. */
   --nav-h: 62px;
+  /* The studio's slim persistent bar (logo → dashboard, Menu). The workspace
+     below it is sized against this, so the two cannot overlap. */
+  --studio-bar-h: 44px;
 
   /* ----- 1. Raw palette (theme-invariant) ----- */
   --charcoal:        #0f0e14;
@@ -2217,15 +2220,19 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
     width: 100vw;
     margin-left: calc(50% - 50vw);
     margin-right: calc(50% - 50vw);
-    margin-top: -40px;               /* cancel ALL of the app <main> top padding */
+    /* Cancel the app <main> top padding, then step back down past the studio's
+       persistent bar so the workspace starts below it instead of under it —
+       which is what let the "0/32 projects" badge collide with the nav. */
+    margin-top: calc(-40px + var(--studio-bar-h));
     margin-bottom: -96px;            /* cancel the app <main> bottom padding */
   }
   .hv-atelier-page .hv-visualizer {
     display: flex;
     flex-direction: column;
-    /* The navbar is an auto-hide overlay on the studio (see AppNav), so the
-       workspace owns the entire viewport — image and colour panel fullscreen. */
-    height: 100vh;
+    /* Everything below the persistent bar belongs to the workspace — image and
+       colour panel fullscreen. The full navbar is still an auto-hide overlay
+       that slides down over this (see AppNav). */
+    height: calc(100vh - var(--studio-bar-h));
     min-height: 420px;
     overflow: hidden;
     /* Edge-to-edge: drop the rounded frame so it reads as a full workspace. */
@@ -2896,6 +2903,30 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-left: none;
   height: 100%;
 }
+/* No photo yet: the panel stays visible so the shop can see what is coming,
+   but everything except the gate and the dock's call to action is dimmed and
+   inert. Dimming without inert would be the same silent no-op in a paler
+   colour; inert without dimming would look broken. */
+.hv-studio-gate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface-soft);
+}
+.hv-studio-gate-text {
+  margin: 0;
+  font: 400 13.5px/1.45 var(--sans);
+  color: var(--fg-soft);
+  max-width: 42ch;
+}
+.hv-studio-panel.is-awaiting-photo [inert] { opacity: .38; }
+@media (prefers-reduced-transparency: reduce) {
+  .hv-studio-panel.is-awaiting-photo [inert] { opacity: .55; }
+}
 .hv-studio-tabs {
   display: flex;
   border-bottom: 1px solid var(--rule);
@@ -3360,18 +3391,32 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
    colour + recent strip) so picking a colour from ANY tab shows feedback in the
    same place, and the layout never jumps as sections come and go. */
 .hv-studio-dock {
+  position: relative;
   flex-shrink: 0;
   border-top: 1px solid var(--rule);
   background: var(--surface);
   display: flex;
   flex-direction: column;
 }
+/* Tips float OVER the grid rather than growing the dock.
+   As a block inside the dock it added up to 320px of height to a flex-shrink:0
+   footer, and every one of those pixels came out of the scroll area above it —
+   opening a two-item tip panel collapsed the colour grid to a single sliver of
+   a row. As an overlay the grid keeps its size and comes straight back when
+   the panel closes. */
 .hv-studio-dock-tips {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
   max-height: min(320px, 38vh);
   overflow-y: auto;
   padding: 12px;
+  border-top: 1px solid var(--rule-strong);
   border-bottom: 1px solid var(--rule);
   background: var(--surface-soft);
+  box-shadow: 0 -18px 40px -22px rgba(0,0,0,.55);
   display: flex;
   flex-direction: column;
   gap: 10px;

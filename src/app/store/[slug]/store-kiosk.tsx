@@ -87,7 +87,7 @@ export function StoreKiosk({ info, hasGuestSession }: { info: StorePublicInfo; h
           </button>
         </div>
         <div>
-          <Link className="btn btn-brass" href="/studio">
+          <Link className="btn btn-brass" href="/guest-studio">
             Upload your room photo <span className="arr">→</span>
           </Link>
         </div>
@@ -151,7 +151,7 @@ export function StoreKiosk({ info, hasGuestSession }: { info: StorePublicInfo; h
       {hasGuestSession && (
         <p style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 24 }}>
           Already paid on this device?{" "}
-          <Link href="/studio" style={{ color: "var(--accent-soft)" }}>Continue in the studio →</Link>
+          <Link href="/guest-studio" style={{ color: "var(--accent-soft)" }}>Continue in the studio →</Link>
         </p>
       )}
     </div>

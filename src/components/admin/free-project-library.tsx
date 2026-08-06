@@ -134,7 +134,7 @@ export function FreeProjectLibrary({
         return;
       }
       // The copy is a normal project from here on, so hand it to the studio.
-      if (res.started) router.push(`/atelier?project=${encodeURIComponent(res.started.projectId)}`);
+      if (res.started) router.push(`/studio?project=${encodeURIComponent(res.started.projectId)}`);
     });
   }
 

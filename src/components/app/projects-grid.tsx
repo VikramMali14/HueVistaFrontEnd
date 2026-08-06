@@ -52,7 +52,7 @@ function projectHref(p: ProjectSummary): string {
   if (p.source === "CUSTOMER" && p.accessCodeId) {
     return `/portal?code=${encodeURIComponent(p.accessCodeId)}`;
   }
-  return `/atelier?project=${encodeURIComponent(p.id)}`;
+  return `/studio?project=${encodeURIComponent(p.id)}`;
 }
 
 /**
@@ -81,7 +81,7 @@ export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
             height matches a project card exactly (every card is one size). */}
         <div style={{ display: "flex", flexDirection: "column" }}>
           <Link
-            href="/atelier"
+            href="/studio"
             className="hv-proj-new"
             style={{
               display: "flex",

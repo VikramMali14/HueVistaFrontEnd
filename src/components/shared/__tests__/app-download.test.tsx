@@ -79,7 +79,7 @@ describe("AppDownloadBanner", () => {
     expect(screen.getByRole("link", { name: "Download" })).toBeInTheDocument();
   });
 
-  it.each(["/dashboard", "/atelier", "/m/abc123", "/account"])(
+  it.each(["/dashboard", "/studio", "/m/abc123", "/account"])(
     "keeps out of the way on %s",
     async (path) => {
       const { container } = await mount({ url: "https://cdn.example.com/huevista.apk", path });

@@ -29,7 +29,7 @@ const DISMISS_KEY = "hv-apk-dismissed";
 const HIDDEN_PREFIXES = [
   "/m/",
   "/dashboard",
-  "/atelier",
+  "/studio",
   "/account",
   "/admin",
   "/network",
@@ -37,8 +37,8 @@ const HIDDEN_PREFIXES = [
   "/portal",
   "/products",
   "/assigned-products",
-  "/color-finder",
-  "/subscription",
+  "/colour-finder",
+  "/plan",
 ];
 
 /** iPadOS 13+ reports itself as a Mac, so touch support is what separates them. */

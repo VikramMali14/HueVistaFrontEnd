@@ -46,8 +46,8 @@ export function canUsePath(access: MyAccess | null, path: string): boolean {
  * backend; only pages a distributor can actually switch off appear here.
  */
 export const FEATURE_BY_PATH: Record<string, AppFeatureKey | undefined> = {
-  "/atelier": "STUDIO",
-  "/color-finder": "COLOR_FINDER",
+  "/studio": "STUDIO",
+  "/colour-finder": "COLOR_FINDER",
   "/catalogue": "CATALOGUE",
   "/products": "PRODUCTS",
   "/portal": "CUSTOMER_PORTAL",

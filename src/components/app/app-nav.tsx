@@ -12,13 +12,13 @@ import type { AuthUser, MyAccess } from "@/lib/types";
 
 const TABS = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/atelier", label: "Studio" },
+  { href: "/studio", label: "Studio" },
   { href: "/assigned-products", label: "My products" },
-  { href: "/color-finder", label: "Colour finder" },
+  { href: "/colour-finder", label: "Colour finder" },
   { href: "/network", label: "Network" },
   { href: "/portal", label: "Customer portal" },
   { href: "/products", label: "Products" },
-  { href: "/subscription", label: "Plan" },
+  { href: "/plan", label: "Plan" },
   { href: "/inbox", label: "Inbox" },
   { href: "/admin", label: "Admin" },
 ] as const;
@@ -47,7 +47,7 @@ export function AppNav({ user, access = null }: AppNavProps) {
   // an auto-hide overlay — hidden until the top edge is hovered (or the small
   // handle is clicked), then it slides down over the canvas. Desktop only;
   // below 900px the CSS keeps the nav in normal flow.
-  const studioMode = pathname.startsWith("/atelier");
+  const studioMode = pathname.startsWith("/studio");
   const [revealed, setRevealed] = useState(false);
   // Scroll behaviour on the ordinary app pages — matches the public site header:
   // the bar hides as you scroll down and slides back in as you scroll up. Studio
@@ -76,10 +76,10 @@ export function AppNav({ user, access = null }: AppNavProps) {
     if (t.href === "/assigned-products" && (!user || user.role !== "CUSTOMER")) return false;
     // Subscriber-only retailer tools — a customer or distributor clicking them
     // would only be bounced (neither holds a shop subscription).
-    if (t.href === "/color-finder" && user && (user.role === "CUSTOMER" || user.role === "DISTRIBUTOR")) return false;
-    if (t.href === "/atelier" && user && user.role === "DISTRIBUTOR") return false;
+    if (t.href === "/colour-finder" && user && (user.role === "CUSTOMER" || user.role === "DISTRIBUTOR")) return false;
+    if (t.href === "/studio" && user && user.role === "DISTRIBUTOR") return false;
     // Plans are shop products — customer/distributor subscription pages only redirect them.
-    if (t.href === "/subscription" && user && (user.role === "CUSTOMER" || user.role === "DISTRIBUTOR")) return false;
+    if (t.href === "/plan" && user && (user.role === "CUSTOMER" || user.role === "DISTRIBUTOR")) return false;
     if (t.href === "/inbox" && (!user || user.role !== "ADMIN")) return false;
     if (t.href === "/admin" && (!user || user.role !== "ADMIN")) return false;
     // Last: the shop's own distributor may have switched this page off. Applied
@@ -170,17 +170,30 @@ export function AppNav({ user, access = null }: AppNavProps) {
         <>
           {/* Invisible hot zone along the very top edge — hovering it slides the nav in. */}
           <div className="studio-nav-hotzone" aria-hidden onMouseEnter={revealNav} />
-          <button
-            type="button"
-            className={`studio-nav-handle${revealed || open ? " is-hidden" : ""}`}
-            aria-label="Show navigation"
-            aria-expanded={revealed}
-            onMouseEnter={revealNav}
-            onClick={() => (revealed ? setRevealed(false) : revealNav())}
-          >
-            <MenuIcon size={13} />
-            <span>Menu</span>
-          </button>
+          {/* A slim bar that is always there.
+              The studio used to have no navigation at all beyond a "MENU" pill
+              floating at the top centre — clipped by the viewport edge, and
+              overlapped by the workspace's own "0/32 projects" badge. No back
+              link, no breadcrumb, no way to the dashboard. This bar owns the
+              top strip so nothing floats over the workspace, and the logo does
+              what a logo is expected to do. */}
+          <div className="studio-minibar">
+            <Link href="/dashboard" className="studio-minibar-home" aria-label="HueVista — back to dashboard">
+              <Logo size="sm" inverted ariaLabel={null} />
+              <span className="studio-minibar-back" aria-hidden>← Dashboard</span>
+            </Link>
+            <button
+              type="button"
+              className="studio-nav-handle"
+              aria-label={revealed ? "Hide navigation" : "Show navigation"}
+              aria-expanded={revealed}
+              onMouseEnter={revealNav}
+              onClick={() => (revealed ? setRevealed(false) : revealNav())}
+            >
+              <MenuIcon size={13} />
+              <span>Menu</span>
+            </button>
+          </div>
         </>
       )}
       <div className="app-header-slide">
@@ -293,27 +306,48 @@ export function AppNav({ user, access = null }: AppNavProps) {
            from the hotzone onto the nav never crosses a dead zone that hides it.
            The nav-inner's own top margin is dropped so the bar keeps its position. */
         .app-header-studio .app-header-slide { padding-top: 16px; }
+        /* The revealed nav slides down over the workspace, starting below the
+           persistent bar so the two never sit on top of each other. */
+        .app-header-studio .app-header-slide { margin-top: calc(var(--studio-bar-h) * -1); padding-top: calc(16px + var(--studio-bar-h)); }
         .app-header-studio .app-nav-inner { margin-top: 0; }
         .studio-nav-hotzone { position: absolute; top: 0; left: 0; right: 0; height: 16px; pointer-events: auto; }
-        .studio-nav-handle {
-          position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-          display: inline-flex; align-items: center; gap: 8px;
-          padding: 6px 16px 8px;
+        /* The persistent studio bar. In normal flow inside the fixed header
+           shell, so it can never be clipped by the viewport edge the way an
+           absolutely-positioned pill hanging off top:0 was. The full nav slides
+           down OVER it when revealed. */
+        .studio-minibar {
+          position: relative; z-index: 1;
+          height: var(--studio-bar-h);
+          display: flex; align-items: center; justify-content: space-between; gap: 12px;
+          padding: 0 var(--gutter);
           background: var(--nav-bg); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
-          border: 1px solid var(--rule-strong); border-top: none; border-radius: 0 0 12px 12px;
+          border-bottom: 1px solid var(--rule);
+          pointer-events: auto;
+        }
+        .studio-minibar-home { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+        .studio-minibar-back {
+          font: 400 12px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase;
+          color: var(--fg-mute); transition: color .2s var(--ease);
+        }
+        .studio-minibar-home:hover .studio-minibar-back { color: var(--fg); }
+        @media (max-width: 560px) { .studio-minibar-back { display: none; } }
+        .studio-nav-handle {
+          display: inline-flex; align-items: center; gap: 8px;
+          /* 44px of tappable height inside a 44px bar. */
+          padding: 12px 14px;
+          background: transparent; border: 1px solid transparent; border-radius: 8px;
           color: var(--fg-mute); font: 400 12px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase;
           cursor: pointer; pointer-events: auto;
-          transition: color .2s var(--ease), opacity .25s var(--ease);
+          transition: color .2s var(--ease), border-color .2s var(--ease);
         }
-        .studio-nav-handle:hover { color: var(--fg); }
+        .studio-nav-handle:hover { color: var(--fg); border-color: var(--rule-strong); }
         .studio-nav-handle:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-        .studio-nav-handle.is-hidden { opacity: 0; pointer-events: none; }
         /* Below the desktop workspace breakpoint the studio stacks and scrolls
            like any page — keep the navbar in normal flow there. */
         @media (max-width: 900px) {
           .app-header-studio { position: static; pointer-events: auto; }
           .app-header-studio .app-header-slide { transform: none; }
-          .studio-nav-hotzone, .studio-nav-handle { display: none; }
+          .studio-nav-hotzone, .studio-minibar { display: none; }
         }
         /* Wide tab sets (ADMIN): tighten the row so 7 tabs + the user block fit
            on one line down to ~1200px… */

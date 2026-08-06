@@ -267,7 +267,7 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
       return json(undefined); // 204 No Content
     }
     if (seg.length === 3 && method === "GET") {
-      // Open existing project (never 404 — fall back so /atelier?project=x works).
+      // Open existing project (never 404 — fall back so /studio?project=x works).
       return json(project);
     }
   }

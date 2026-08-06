@@ -265,6 +265,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const updateRegionMaskCall = guest ? guestApi.updateRegionMask : api.updateRegionMask;
   const deleteRegionCall = guest ? guestApi.deleteRegion : api.deleteRegion;
   const fileRef = useRef<HTMLInputElement>(null);
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const recolorRef = useRef<RecolorEngine | null>(null);
   const srcImgRef = useRef<HTMLImageElement | null>(null);
@@ -852,7 +853,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         if (err instanceof HttpError && err.status === 401) {
           setError("Your session expired. Please sign in again.");
           setTimeout(() => {
-            window.location.href = "/sign-in?next=/atelier";
+            window.location.href = "/sign-in?next=/studio";
           }, 1200);
         } else if (err instanceof HttpError && err.status === 402) {
           // Retailer gates (coded): subscribe / monthly projects spent — vs the
@@ -947,7 +948,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       if (err instanceof HttpError && err.status === 401) {
         setError("Your session expired. Please sign in again.");
         setTimeout(() => {
-          window.location.href = "/sign-in?next=/atelier";
+          window.location.href = "/sign-in?next=/studio";
         }, 1200);
       } else if (err instanceof Error) {
         setError(err.message);
@@ -1684,6 +1685,20 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
 
+  /**
+   * Take someone who reached for a colour to the thing that has to come first.
+   *
+   * On desktop the uploader is already beside the panel; on a stacked mobile
+   * layout it is a screen away, which is how "press Apply, nothing happens"
+   * became so easy to hit. Scroll it into view either way, then open the file
+   * chooser — unless the project still needs a name, in which case that form is
+   * what is actually in the way and the chooser would land behind it.
+   */
+  const needPhoto = useCallback(() => {
+    canvasWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!showDetailsGate) fileRef.current?.click();
+  }, [showDetailsGate]);
+
   // Wall detection can be retried without re-uploading the photo once the
   // project exists and we're still on the mask step. Guests can retry too — each
   // attempt is billed to the shop.
@@ -1881,7 +1896,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   : `or pay ₹${(reopenPaise / 100).toLocaleString("en-IN")}`}
               </Button>
             )}
-            <LinkButton href="/subscription" size="sm" variant="ghost">
+            <LinkButton href="/plan" size="sm" variant="ghost">
               See plans <span className="arr">→</span>
             </LinkButton>
           </span>
@@ -1899,7 +1914,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       )}
 
       <div className="hv-studio-body">
-        <div className="hv-studio-canvas-wrap">
+        <div className="hv-studio-canvas-wrap" ref={canvasWrapRef}>
           <div className="hv-studio-canvas">
             <canvas
               key={engineEpoch}
@@ -2371,7 +2386,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                           later has been sold something they didn't agree to. */}
                       <Mono>{projectValidityNote}</Mono>
                       <a
-                        href="/subscription"
+                        href="/plan"
                         style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-soft)" }}
                       >
                         top up your points or upgrade your plan →
@@ -2487,6 +2502,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             // Shop picks appear once the room photo is up — before that there's
             // nothing to apply them to.
             shopCombos={imageUrl ? shopCombos : undefined}
+            // Nothing to paint until a photo is up. The panel used to be fully
+            // live on the "Name your project" and "Add a photo" screens — you
+            // could pick a shade and press Apply and absolutely nothing
+            // happened, with no toast and no error.
+            awaitingPhoto={!imageUrl}
+            onNeedPhoto={needPhoto}
           />
         </div>
       </div>

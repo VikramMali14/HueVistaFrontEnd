@@ -103,6 +103,11 @@ interface ShadeGridProps {
   onAddComboToPdf?: () => void;
   /** The shop's predefined combinations (AI Suggest tab). Absent/empty = hidden. */
   shopCombos?: ReadonlyArray<RetailerCombo>;
+  /** No photo yet, so there is nothing for a colour to land on. The panel stays
+   *  on screen but goes quiet: dimmed, not operable, and saying why. */
+  awaitingPhoto?: boolean;
+  /** Send the user to the uploader — wired to the gate's button and to Apply. */
+  onNeedPhoto?: () => void;
 }
 
 /**
@@ -172,6 +177,8 @@ export function ShadeGrid({
   onFetchAiPalettes,
   onAddComboToPdf,
   shopCombos,
+  awaitingPhoto = false,
+  onNeedPhoto,
 }: ShadeGridProps) {
   const [family, setFamily] = useState<string>("All");
   const [tone, setTone] = useState<Tone>("All");
@@ -265,8 +272,26 @@ export function ShadeGrid({
   };
 
   return (
-    <div className="hv-studio-panel">
-      <div className="hv-studio-tabs" role="tablist">
+    <div className={`hv-studio-panel${awaitingPhoto ? " is-awaiting-photo" : ""}`}>
+      {/* Before a photo exists the whole panel used to be live: search, filters,
+          the wall selector, all 10,062 shades, AI Suggest with "Apply all", the
+          custom picker. Picking Wine Sensation and pressing Apply did nothing at
+          all — no toast, no error, no hint. Now the reason is on screen and the
+          controls below it are genuinely inert, so nothing can be pressed and
+          silently ignored. */}
+      {awaitingPhoto && (
+        <div className="hv-studio-gate" role="status">
+          <p className="hv-studio-gate-text">
+            Add a photo of the room first — colours need a wall to land on.
+          </p>
+          {onNeedPhoto && (
+            <button type="button" className="btn btn-sm" onClick={onNeedPhoto}>
+              Add a photo
+            </button>
+          )}
+        </div>
+      )}
+      <div className="hv-studio-tabs" role="tablist" inert={awaitingPhoto || undefined}>
         {TABS.map((tabId) => {
           const isActive = tab === tabId;
           return (
@@ -286,7 +311,7 @@ export function ShadeGrid({
       </div>
 
       {tab === "Catalogue" && (
-        <div className="hv-studio-filter-bar">
+        <div className="hv-studio-filter-bar" inert={awaitingPhoto || undefined}>
           <div className="hv-studio-filter-row">
             <div className="hv-studio-search">
               <span aria-hidden style={{ color: "var(--fg-mute)", display: "inline-flex" }}>
@@ -410,6 +435,10 @@ export function ShadeGrid({
         </div>
       )}
 
+      {/* A real box (not display:contents) so the dimming below can apply to it.
+          RegionStrip renders nothing when there are no walls, which is exactly
+          the case this gate covers, so the wrapper collapses to zero height. */}
+      <div inert={awaitingPhoto || undefined}>
       <RegionStrip
         regions={regions}
         activeRegionId={activeRegionId}
@@ -419,8 +448,9 @@ export function ShadeGrid({
         onDeleteWall={onDeleteWall}
         masksRemaining={masksRemaining}
       />
+      </div>
 
-      <div className="hv-studio-scroll" ref={scrollRef}>
+      <div className="hv-studio-scroll" ref={scrollRef} inert={awaitingPhoto || undefined}>
         {tab === "Catalogue" && (
           <>
             {shown.length === 0 ? (
@@ -510,6 +540,8 @@ export function ShadeGrid({
         recentShades={recentShades}
         triedShades={triedShades}
         selectedCode={selected}
+        awaitingPhoto={awaitingPhoto}
+        onNeedPhoto={onNeedPhoto}
       />
     </div>
   );
@@ -637,6 +669,8 @@ function SelectionDock({
   recentShades,
   triedShades,
   selectedCode,
+  awaitingPhoto = false,
+  onNeedPhoto,
 }: {
   shade?: PaintShade;
   catalogue: ReadonlyArray<PaintShade>;
@@ -657,8 +691,23 @@ function SelectionDock({
   recentShades?: ReadonlyArray<PaintShade>;
   triedShades?: ReadonlyArray<PaintShade>;
   selectedCode?: string;
+  /** No photo yet — Apply becomes the way to go and get one. */
+  awaitingPhoto?: boolean;
+  onNeedPhoto?: () => void;
 }) {
   const [tipsOpen, setTipsOpen] = useState(false);
+
+  // The tips panel floats over the grid now, so it needs the escape hatch every
+  // overlay needs — the toggle button alone is not enough for a keyboard user
+  // who has tabbed down into the tips themselves.
+  useEffect(() => {
+    if (!tipsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTipsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tipsOpen]);
 
   // All hooks before any early return — React requires a stable hook order.
   // One strip build serves both steppers — each fanDeck pass filters and sorts
@@ -718,7 +767,7 @@ function SelectionDock({
   return (
     <div className="hv-studio-dock">
       {tipsOpen && canOpenTips && (
-        <div className="hv-studio-dock-tips">
+        <div className="hv-studio-dock-tips" id="hv-studio-tips">
           {shade && (
             <div className="hv-studio-dock-tips-row">
               <UndertoneTag hex={shade.hex} prefix />
@@ -839,19 +888,22 @@ function SelectionDock({
             onClick={() => setTipsOpen((o) => !o)}
             disabled={!canOpenTips}
             aria-expanded={tipsOpen}
+            aria-controls="hv-studio-tips"
             title={canOpenTips ? "Advice for this colour: pairings, light and warnings" : "Pick a colour to see tips"}
             className={`hv-studio-dock-tipsbtn ${hasWarning ? "has-warn" : ""} ${tipsOpen ? "is-open" : ""}`}
           >
             {hasWarning ? "⚠ " : ""}Tips{tipCount > 0 ? ` (${tipCount})` : ""}
           </button>
+          {/* With no photo this button used to be fully enabled and do nothing
+              when pressed. It now says what is missing and goes and gets it. */}
           <button
             type="button"
-            onClick={onApply}
-            disabled={!onApply}
-            title="Apply this shade to the active wall"
+            onClick={awaitingPhoto ? onNeedPhoto : onApply}
+            disabled={awaitingPhoto ? !onNeedPhoto : !onApply}
+            title={awaitingPhoto ? "Add a photo of the room, then colours can go on its walls" : "Apply this shade to the active wall"}
             className="btn btn-sm"
           >
-            Apply
+            {awaitingPhoto ? "Add a photo first" : "Apply"}
           </button>
         </div>
       </div>

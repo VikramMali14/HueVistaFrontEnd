@@ -280,7 +280,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
       }
     } catch (e) {
       if (e instanceof HttpError && e.status === 401) {
-        window.location.assign(`/sign-in?next=${encodeURIComponent("/subscription")}`);
+        window.location.assign(`/sign-in?next=${encodeURIComponent("/plan")}`);
         return;
       }
       setError(paymentErrorText(e, "Could not start checkout. Please try again."));

@@ -123,7 +123,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
   const mobileLinks = authed
     ? [
         { href: "/dashboard", label: "Dashboard" },
-        { href: "/atelier", label: "Studio" },
+        { href: "/studio", label: "Studio" },
         ...PUBLIC_LINKS,
       ]
     : [
@@ -155,7 +155,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
               </Link>
             ))}
             {authed && (
-              <Link href="/atelier" className={`cnav-link${isActive("/atelier") ? " active" : ""}`}>
+              <Link href="/studio" className={`cnav-link${isActive("/studio") ? " active" : ""}`}>
                 Studio
               </Link>
             )}

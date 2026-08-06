@@ -54,8 +54,8 @@ describe("canUseFeature", () => {
 describe("canUsePath", () => {
   it("maps each grantable route to its feature", () => {
     const a = access({ featuresRestricted: true, allowedFeatures: ["COLOR_FINDER"] });
-    expect(canUsePath(a, "/color-finder")).toBe(true);
-    expect(canUsePath(a, "/atelier")).toBe(false);
+    expect(canUsePath(a, "/colour-finder")).toBe(true);
+    expect(canUsePath(a, "/studio")).toBe(false);
     expect(canUsePath(a, "/portal")).toBe(false);
   });
 
@@ -65,7 +65,7 @@ describe("canUsePath", () => {
     const a = access({ featuresRestricted: true, allowedFeatures: [] });
     expect(canUsePath(a, "/dashboard")).toBe(true);
     expect(canUsePath(a, "/account")).toBe(true);
-    expect(canUsePath(a, "/subscription")).toBe(true);
+    expect(canUsePath(a, "/plan")).toBe(true);
     expect(canUsePath(a, "/admin")).toBe(true);
   });
 
