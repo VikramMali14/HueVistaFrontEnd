@@ -2,6 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { HttpError, storeServerApi } from "./api";
+import type { CheckoutEventBody } from "./api";
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import type { StoreCheckoutResult, StoreOrder } from "./types";
@@ -33,6 +34,30 @@ export async function createStoreOrderAction(
       return { error: err.message };
     }
     return { error: "Could not start the payment. Please try again." };
+  }
+}
+
+/**
+ * Public kiosk: report what happened to a Checkout the counter opened.
+ *
+ * A walk-in has no session until after they have paid, so the kiosk cannot use the BFF
+ * route every other flow reports through — it would answer 401 for exactly the buyers
+ * most likely to walk away. This action reaches the backend directly and, like the order
+ * and verify calls beside it, forwards the counter's real IP so an abandoned kiosk sale
+ * is attributable to the shop it happened at.
+ *
+ * Never throws: it is called alongside live payment code, and a failed bookkeeping call
+ * must not become an error in front of a customer.
+ */
+export async function reportStoreCheckoutEventAction(
+  reference: string,
+  body: CheckoutEventBody,
+): Promise<void> {
+  "use server";
+  try {
+    await storeServerApi.reportAttempt(reference, body, await clientIp());
+  } catch {
+    // Telemetry only — see above.
   }
 }
 

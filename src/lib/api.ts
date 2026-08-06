@@ -400,6 +400,23 @@ export const adminApi = {
       `/api/admin/audit?page=${Math.max(0, page)}&size=${size}${action ? `&action=${encodeURIComponent(action)}` : ""}`,
       { accessToken },
     ),
+  // Payment audit — every checkout opened, whether or not it was paid. Filters are all
+  // optional; an unrecognised value is ignored by the backend rather than erroring, so a
+  // hand-typed URL still returns a report.
+  listPaymentAttempts: (accessToken: string, filters: PaymentAuditFilters = {}, page = 0, size = 50) =>
+    serverFetch<PaymentAttemptRow[]>(
+      `/api/admin/payment-audit?${paymentAuditQuery(filters)}&page=${Math.max(0, page)}&size=${size}`,
+      { accessToken },
+    ),
+  // Headline counts for the window: conversion, money lost, worst pages, decline reasons.
+  paymentAuditSummary: (accessToken: string, days = 30) =>
+    serverFetch<PaymentAuditSummary>(`/api/admin/payment-audit/summary?days=${days}`, { accessToken }),
+  // Every checkout one account opened — the single-support-ticket view.
+  listUserPaymentAttempts: (accessToken: string, userId: string) =>
+    serverFetch<PaymentAttemptRow[]>(
+      `/api/admin/payment-audit/users/${encodeURIComponent(userId)}`,
+      { accessToken },
+    ),
   // Shop-account request queue (public /trial form feeds it).
   listShopLeads: (accessToken: string) =>
     serverFetch<ShopLeadRow[]>("/api/admin/leads", { accessToken }),
@@ -736,6 +753,100 @@ export interface AuditLogRow {
   createdAt?: string | null;
 }
 
+/** Which checkout an attempt belongs to. */
+export type PaymentFlowName = "SUBSCRIPTION" | "POINTS" | "PROJECT" | "REOPEN" | "STORE_KIOSK";
+
+/** Where a checkout attempt stopped. */
+export type PaymentAttemptStatusName =
+  | "CREATED"
+  | "OPENED"
+  | "ABANDONED"
+  | "FAILED"
+  | "VERIFY_FAILED"
+  | "PAID";
+
+/**
+ * One trip through a Razorpay Checkout, paid or not.
+ *
+ * Everything the backend recorded is here — this is an admin-only forensic view, and a
+ * field trimmed out of the type is a field missing on the day somebody needs it.
+ */
+export interface PaymentAttemptRow {
+  id: string;
+  /** Razorpay order_… or sub_… — what the buyer's bank statement can be matched against. */
+  reference: string;
+  flow: PaymentFlowName;
+  flowLabel: string;
+  status: PaymentAttemptStatusName;
+  statusLabel: string;
+  /** The buyer was charged and got nothing. Always worth surfacing loudly. */
+  moneyAtRisk: boolean;
+  userId?: string | null;
+  userEmail?: string | null;
+  organizationId?: string | null;
+  amountPaise: number;
+  currency?: string | null;
+  description?: string | null;
+  plan?: string | null;
+  paymentId?: string | null;
+  /** The page the buyer clicked Pay on. */
+  pageUrl?: string | null;
+  referrer?: string | null;
+  userAgent?: string | null;
+  ipAddress?: string | null;
+  errorCode?: string | null;
+  errorDescription?: string | null;
+  errorSource?: string | null;
+  errorStep?: string | null;
+  errorReason?: string | null;
+  /** Our own account of a failure, as opposed to the gateway's. */
+  failureNote?: string | null;
+  /** Every transition, one per line, oldest first. */
+  timeline?: string | null;
+  createdAt?: string | null;
+  openedAt?: string | null;
+  closedAt?: string | null;
+  durationSeconds?: number | null;
+}
+
+export interface PaymentAuditFilters {
+  status?: string;
+  flow?: string;
+  userId?: string;
+  /** yyyy-MM-dd, inclusive. */
+  from?: string;
+  /** yyyy-MM-dd, inclusive. */
+  to?: string;
+  /** Free text over buyer e-mail, reference, payment id and page URL. */
+  q?: string;
+}
+
+function paymentAuditQuery(f: PaymentAuditFilters): string {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(f)) {
+    if (v && String(v).trim()) p.set(k, String(v).trim());
+  }
+  return p.toString();
+}
+
+export interface PaymentAuditSummary {
+  windowDays: number | null;
+  totalAttempts: number;
+  paidCount: number;
+  abandonedCount: number;
+  failedCount: number;
+  verifyFailedCount: number;
+  /** Share of FINISHED attempts that were paid; null when nothing has finished yet. */
+  conversionPercent: number | null;
+  lostAmountPaise: number;
+  /** Charged but undelivered. Should be zero — anything else is an incident. */
+  moneyAtRiskPaise: number;
+  byStatus: Record<string, { count: number; amountPaise: number }>;
+  byFlow: { flow: PaymentFlowName; displayName: string; count: number; amountPaise: number }[];
+  worstPages: { pageUrl: string; count: number; amountPaise: number }[];
+  failureReasons: { errorCode: string; errorDescription: string; count: number }[];
+}
+
 /**
  * A shop-account request as the admin queue sees it. Carries everything the
  * owner filled in — the queue exists so an admin reads it and presses one
@@ -874,7 +985,29 @@ export const storeServerApi = {
       body: JSON.stringify(body),
       headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
     }),
+  // Kiosk checkout telemetry. Goes through a server action rather than the BFF because
+  // the kiosk has no session at all — and that route is what carries the walk-in's real
+  // IP through, so an abandoned kiosk sale is attributable to the counter it happened at.
+  reportAttempt: (reference: string, body: CheckoutEventBody, clientIp?: string) =>
+    serverFetch<void>(`/api/billing/attempts/${encodeURIComponent(reference)}/events`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
 };
+
+/** What the browser can tell the backend about a Razorpay Checkout it was showing. */
+export interface CheckoutEventBody {
+  status: "OPENED" | "ABANDONED" | "FAILED" | "VERIFY_FAILED";
+  pageUrl?: string;
+  referrer?: string;
+  paymentId?: string;
+  errorCode?: string;
+  errorDescription?: string;
+  errorSource?: string;
+  errorStep?: string;
+  errorReason?: string;
+}
 
 /**
  * Browser API — used from client components. Calls the same-origin BFF proxy
@@ -1086,6 +1219,28 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  /**
+   * Tell the backend what happened to a Razorpay Checkout — that it opened, that the
+   * buyer closed it without paying, or that the card was refused.
+   *
+   * The server cannot observe any of those: no order is placed and no webhook fires, so
+   * every abandoned checkout used to leave no trace at all. This is what puts them in the
+   * admin payment audit.
+   *
+   * Never throws. It is called from `finally`-shaped paths around real payment code, and
+   * a bookkeeping call that could reject would turn a successful purchase into an error
+   * on screen. A lost report costs one row in a report; a thrown one costs a sale.
+   */
+  reportCheckoutEvent: async (reference: string, body: CheckoutEventBody): Promise<void> => {
+    try {
+      await browserFetch<void>(
+        `api/billing/attempts/${encodeURIComponent(reference)}/events`,
+        { method: "POST", body: JSON.stringify(body) },
+      );
+    } catch {
+      // Deliberately silent — see above.
+    }
+  },
   pointsPayProjectReopen: (projectId: string) =>
     browserFetch<import("./types").ProjectReopenResult>(
       `api/billing/points/pay/project-reopen/${encodeURIComponent(projectId)}`,

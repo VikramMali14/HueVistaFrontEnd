@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, networkApi, HttpError } from "./api";
 import type { SiteAsset } from "./site-assets";
 import { SITE_ASSETS_TAG } from "./site-assets-server";
-import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult, DistributorOption, ShadeUploadResult, ShopLeadRow, UploadBrand } from "./api";
+import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult, DistributorOption, PaymentAttemptRow, PaymentAuditFilters, PaymentAuditSummary, ShadeUploadResult, ShopLeadRow, UploadBrand } from "./api";
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import { canUseFeature } from "./features";
@@ -926,6 +926,55 @@ export async function getAuditLog(action?: string, page = 0): Promise<AuditLogRo
   if (!token) return null;
   try {
     return await adminApi.listAuditLog(token, action?.trim() || undefined, page, AUDIT_PAGE_SIZE);
+  } catch {
+    return null;
+  }
+}
+
+/** Rows per page in the payment audit. The client mirror lives in payment-audit.tsx —
+ *  a "use server" file may only export async functions, so it can't be shared. */
+const PAYMENT_AUDIT_PAGE_SIZE = 50;
+
+/**
+ * ADMIN: the payment audit — every checkout opened, whether or not it was paid.
+ *
+ * NULL on any failure, never an empty list: rendering an outage as "no payment problems
+ * recorded" is precisely the wrong answer for a report someone opens because they suspect
+ * a payment problem.
+ */
+export async function getPaymentAttempts(
+  filters: PaymentAuditFilters = {},
+  page = 0,
+): Promise<PaymentAttemptRow[] | null> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    return await adminApi.listPaymentAttempts(token, filters, page, PAYMENT_AUDIT_PAGE_SIZE);
+  } catch {
+    return null;
+  }
+}
+
+/** ADMIN: headline counts for the payment audit. NULL on failure, for the same reason. */
+export async function getPaymentAuditSummary(days = 30): Promise<PaymentAuditSummary | null> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    return await adminApi.paymentAuditSummary(token, days);
+  } catch {
+    return null;
+  }
+}
+
+/** ADMIN: every checkout one account opened — for working a single support ticket. */
+export async function getUserPaymentAttempts(userId: string): Promise<PaymentAttemptRow[] | null> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token || !userId.trim()) return null;
+  try {
+    return await adminApi.listUserPaymentAttempts(token, userId.trim());
   } catch {
     return null;
   }
