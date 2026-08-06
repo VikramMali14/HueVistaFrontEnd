@@ -1,8 +1,11 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
+import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { adminApi, authApi, billingApi, guestServerApi, networkApi, HttpError } from "./api";
+import type { SiteAsset } from "./site-assets";
+import { SITE_ASSETS_TAG } from "./site-assets-server";
 import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult, DistributorOption, ShadeUploadResult, ShopLeadRow, UploadBrand } from "./api";
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
@@ -730,6 +733,61 @@ export async function getDistributorOptions(): Promise<DistributorOption[] | nul
     return await adminApi.listDistributors(token);
   } catch {
     return null;
+  }
+}
+
+/* ── Marketing-site images ───────────────────────────────────────────────
+   The slot registry lives in lib/site-assets.ts; these three just move files.
+   Each write busts the cached manifest, so the admin sees the new picture on
+   the live page immediately rather than up to an hour later — an editor who
+   cannot tell whether their change landed will upload it again. */
+
+/** ADMIN: every slot that currently holds an image. Null when unreachable. */
+export async function listSiteAssetsAction(): Promise<SiteAsset[] | null> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    return await adminApi.listSiteAssets(token);
+  } catch {
+    return null;
+  }
+}
+
+/** ADMIN: put an uploaded image in a slot, replacing whatever it held. */
+export async function putSiteAssetAction(
+  slot: string,
+  formData: FormData,
+): Promise<{ asset?: SiteAsset; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose an image first." };
+  }
+  try {
+    const asset = await adminApi.putSiteAsset(token, slot, file);
+    updateTag(SITE_ASSETS_TAG);
+    return { asset };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not upload that image. Please try again." };
+  }
+}
+
+/** ADMIN: empty a slot so the page draws its built-in default again. */
+export async function clearSiteAssetAction(slot: string): Promise<{ error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    await adminApi.clearSiteAsset(token, slot);
+    updateTag(SITE_ASSETS_TAG);
+    return {};
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not clear that slot. Please try again." };
   }
 }
 

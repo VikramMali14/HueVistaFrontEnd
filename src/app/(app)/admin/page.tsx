@@ -118,6 +118,9 @@ export default async function AdminPage() {
         <Link href="/admin/free-projects" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Free projects →
         </Link>
+        <Link href="/admin/site-assets" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          Site images →
+        </Link>
       </p>
 
       {/* Fixed side menu — the working sections are a long scroll apart. */}

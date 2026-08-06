@@ -13,6 +13,7 @@
 import { config } from "./config";
 import { HttpError } from "./http-error";
 import { isDemoMode } from "./demo/flag";
+import type { SiteAsset } from "./site-assets";
 import type {
   AccessCode,
   ApiError,
@@ -418,6 +419,26 @@ export const adminApi = {
   // Distributors a shop can be filed under, house org first.
   listDistributors: (accessToken: string) =>
     serverFetch<DistributorOption[]>("/api/admin/distributors", { accessToken }),
+  // --- Marketing-site images (see lib/site-assets.ts for the slot registry) ---
+  listSiteAssets: (accessToken: string) =>
+    serverFetch<SiteAsset[]>("/api/admin/site-assets", { accessToken }),
+  /** Put an image in a slot, replacing whatever was there. Multipart: serverFetch
+   *  leaves the Content-Type unset for FormData so the boundary is generated. */
+  putSiteAsset: (accessToken: string, slot: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return serverFetch<SiteAsset>(`/api/admin/site-assets/${encodeURIComponent(slot)}`, {
+      method: "POST",
+      accessToken,
+      body: form,
+    });
+  },
+  /** Empty a slot — the page goes back to its built-in default. */
+  clearSiteAsset: (accessToken: string, slot: string) =>
+    serverFetch<void>(`/api/admin/site-assets/${encodeURIComponent(slot)}`, {
+      method: "DELETE",
+      accessToken,
+    }),
   // Re-file a shop under another distributor (omit = the house one). The previous
   // distributor's brand/page grants are cleared server-side — they were theirs to make.
   moveRetailer: (accessToken: string, retailerOrgId: string, distributorOrgId?: string) =>

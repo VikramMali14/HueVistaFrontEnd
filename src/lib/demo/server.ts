@@ -341,8 +341,91 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
     }
   }
 
+  // --- Admin: marketing-site images ---
+  // Modelled rather than 404'd because the point of this feature is that you can
+  // see the result, and the offline demo is where most people will first try it.
+  // The bytes are held in memory as data URLs, so an upload survives until the
+  // dev server restarts and no storage is involved.
+  if (p === "/api/admin/site-assets" && method === "GET") {
+    requireDemoAdmin(token);
+    return demoSiteAssetList() as T;
+  }
+  const siteAssetMatch = p.match(/^\/api\/admin\/site-assets\/([^/]+)$/);
+  if (siteAssetMatch) {
+    requireDemoAdmin(token);
+    const slot = decodeURIComponent(siteAssetMatch[1]!);
+    if (method === "DELETE") {
+      delete demoSiteAssets[slot];
+      return undefined as T;
+    }
+    if (method === "POST") {
+      const file = init.body instanceof FormData ? init.body.get("file") : null;
+      if (!(file instanceof File)) throw new HttpError(422, "Choose an image first.");
+      return storeDemoSiteAsset(slot, file) as unknown as T;
+    }
+  }
+
   // Anything else the demo doesn't model: behave like a 404 the callers tolerate.
   throw new HttpError(404, `Demo: no fixture for ${method} ${p}`);
+}
+
+/* ── Demo site assets (in-memory) ─────────────────────────────────────── */
+
+const demoSiteAssets: Record<string, DemoSiteAsset> = {};
+
+interface DemoSiteAsset {
+  slot: string;
+  url: string;
+  contentType: string;
+  fileSize: number;
+  width: number | null;
+  height: number | null;
+  originalFilename: string | null;
+  updatedAt: string | null;
+}
+
+function requireDemoAdmin(token?: string | null) {
+  const user = demoUserFromToken(token ?? undefined);
+  if (user.role !== "ADMIN") {
+    throw new HttpError(403, "Only admins can change the site's images.");
+  }
+}
+
+function demoSiteAssetList(): DemoSiteAsset[] {
+  return Object.values(demoSiteAssets).sort((a, b) => a.slot.localeCompare(b.slot));
+}
+
+async function readAsDataUrl(file: File): Promise<string> {
+  const buf = Buffer.from(await file.arrayBuffer());
+  return `data:${file.type || "image/jpeg"};base64,${buf.toString("base64")}`;
+}
+
+/**
+ * Held as a data URL because the demo has no storage and no API origin to serve
+ * a file from. Dimensions are left null — the real backend reads them off the
+ * image, and the admin page already treats "could not read them" as an ordinary
+ * case rather than an error.
+ */
+function storeDemoSiteAsset(slot: string, file: File): Promise<DemoSiteAsset> {
+  return readAsDataUrl(file).then((url) => {
+    const asset: DemoSiteAsset = {
+      slot,
+      url,
+      contentType: file.type || "image/jpeg",
+      fileSize: file.size,
+      width: null,
+      height: null,
+      originalFilename: file.name,
+      updatedAt: new Date().toISOString().slice(0, 19),
+    };
+    demoSiteAssets[slot] = asset;
+    return asset;
+  });
+}
+
+/** The demo's filled slots, for the server-side manifest read. */
+export function demoSiteAssetMap(): Record<string, DemoSiteAsset> {
+  return { ...demoSiteAssets };
 }
 
 export type { AuthResponse };

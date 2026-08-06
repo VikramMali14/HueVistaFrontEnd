@@ -64,8 +64,32 @@ export function HeartButton({
       title={saved ? "Remove from boards" : "Save to board"}
       className="hv-card-action"
     >
-      {saved ? "♥" : "♡"}
+      <HeartIcon filled={saved} />
     </button>
+  );
+}
+
+/**
+ * Drawn, not typed. U+2661/U+2665 sit in the same 36px chip as the compare and
+ * strip icons but are sized by the font rather than the 16px icon grid, so the
+ * heart came out visibly heavier than its neighbours — and a shop's browser is
+ * not obliged to carry a glyph for either codepoint.
+ */
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      width={16}
+      height={16}
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 20.3 3.9 12.2a5 5 0 0 1 7.1-7.1l1 1 1-1a5 5 0 0 1 7.1 7.1z" />
+    </svg>
   );
 }
 

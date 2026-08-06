@@ -10,6 +10,16 @@ interface CompareSliderProps {
   afterBg?: string;
   /** Merged last over the root styles — e.g. pass marginTop: 0 outside the hero. */
   style?: React.CSSProperties;
+  /**
+   * Classes on the root, replacing the default scroll-in treatment.
+   *
+   * The default carries `reveal d2`, which starts the element at opacity 0 and
+   * waits for RevealMount's observer to add `.in`. That is right on the home
+   * page and silently fatal anywhere without that mount — the admin preview
+   * rendered a perfectly correct slider that was completely invisible. Anything
+   * outside the marketing pages should pass "compare" alone.
+   */
+  className?: string;
 }
 
 /**
@@ -36,6 +46,7 @@ export function CompareSlider({
   beforeBg = DEFAULT_BEFORE,
   afterBg = DEFAULT_AFTER,
   style,
+  className = "compare reveal d2",
 }: CompareSliderProps) {
   const [pos, setPos] = useState(55);
   const ref = useRef<HTMLDivElement>(null);
@@ -67,7 +78,7 @@ export function CompareSlider({
 
   return (
     <div
-      className="compare reveal d2"
+      className={className}
       ref={ref}
       style={{
         position: "relative",

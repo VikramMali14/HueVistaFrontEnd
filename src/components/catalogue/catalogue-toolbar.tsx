@@ -471,26 +471,34 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   );
 }
 
-/** Two swatches side by side — what "compare" actually does. */
+/**
+ * One chip, half of it inked — two tones held against each other.
+ *
+ * This was two small outlined rectangles side by side. At the 16px it actually
+ * renders at, an outlined rectangle is exactly what a browser draws for a
+ * character it has no glyph for, so a pair of them read as a font that had
+ * failed to load rather than as an icon — the tool row looked broken on every
+ * card in the catalogue. Half the shape is solid now, which is a thing no
+ * missing-glyph box is ever filled in as.
+ */
 function CompareIcon() {
   return (
-    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="5" width="7.5" height="14" rx="1.5" />
-      <rect x="13.5" y="5" width="7.5" height="14" rx="1.5" />
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden>
+      <rect x="4" y="4" width="16" height="16" rx="2.5" />
+      <path d="M12 5.6h4.9a1.5 1.5 0 0 1 1.5 1.5v9.8a1.5 1.5 0 0 1-1.5 1.5H12z" fill="currentColor" stroke="none" />
     </svg>
   );
 }
 
-/** A stack of bands, lightest at the top — the paper shade card. */
+/** The paper shade card: one chip, banded lightest to darkest down its face. */
 function StripIcon() {
   return (
-    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
-      {/* Three bands getting darker down the card. */}
-      <rect x="5" y="9" width="14" height="6" fill="currentColor" opacity=".3" stroke="none" />
-      <rect x="5" y="15" width="14" height="6" fill="currentColor" opacity=".6" stroke="none" />
-      <rect x="5" y="3" width="14" height="18" rx="1.5" />
-      <path d="M5 9h14" />
-      <path d="M5 15h14" />
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden>
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      {/* Filled bands, not hairlines: at 16px a ruled band disappears. */}
+      <rect x="7.4" y="6.2" width="9.2" height="3.4" rx=".8" fill="currentColor" opacity=".3" stroke="none" />
+      <rect x="7.4" y="10.3" width="9.2" height="3.4" rx=".8" fill="currentColor" opacity=".62" stroke="none" />
+      <rect x="7.4" y="14.4" width="9.2" height="3.4" rx=".8" fill="currentColor" opacity=".95" stroke="none" />
     </svg>
   );
 }
