@@ -635,6 +635,54 @@ describe("Visualizer — buying one extra project", () => {
     expect(api.createProject).toHaveBeenCalledTimes(2);
     expect((await screen.findAllByText("Walls detected")).length).toBeGreaterThan(0);
   });
+
+  /**
+   * A CUSTOMER who signed up on their own reaches this gate too, and points are not a
+   * thing they can hold — the backend refuses every non-retailer outright. Leading with
+   * "Spend 80 points" put the one button that could only ever 403 on top, with the rail
+   * that works demoted underneath it as "or pay by card".
+   */
+  it("drops the points rail and leads with the card when the account cannot hold points", async () => {
+    vi.mocked(api.getProjectPurchaseOptions).mockResolvedValueOnce({
+      subscribed: false,
+      pricingPlan: "FREE",
+      projectPricePoints: 80,
+      projectPricePaise: 9900,
+      reopenPricePoints: 9,
+      reopenPricePaise: 1000,
+      pointsBalance: 0,
+      pointsEligible: false,
+      validDays: 30,
+      availableCredits: 0,
+    });
+    // Untagged 402 — the refusal an account with no shop and no plan behind it gets.
+    vi.mocked(api.createProject).mockRejectedValueOnce(
+      new HttpError(402, "Buy a single project for ₹99 to keep going."),
+    );
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect(await screen.findByRole("button", { name: /Buy a project · ₹99/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /points/i })).not.toBeInTheDocument();
+    // The code stays on offer — someone may have walked into a shop since.
+    expect(screen.getByRole("link", { name: /Redeem a shop code/i })).toBeInTheDocument();
+  });
+
+  /** A shop keeps both rails: points are its cheaper one, and the card is the fallback. */
+  it("keeps both rails for an account that can hold points", async () => {
+    vi.mocked(api.createProject).mockRejectedValueOnce(
+      new HttpError(402, "You've used your included project."),
+    );
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect(await screen.findByRole("button", { name: /Buy a project · 80 points/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pay ₹99 by card/i })).toBeInTheDocument();
+  });
 });
 
 describe("Visualizer — segmentation give-up and retry", () => {

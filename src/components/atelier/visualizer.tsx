@@ -544,6 +544,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // read from the server; the fallback is the dearest (no-plan) rate, which is the safe
   // direction to guess in and keeps a button from reading "Spend  points".
   const projectPointPrice = points?.projectPrice ?? purchaseOptions?.projectPricePoints ?? 80;
+  // Can this account spend points at all? A CUSTOMER cannot — points are a shop currency
+  // and the backend refuses them outright — so offering the rail put a button in front of
+  // a self-signed-up customer that could only ever come back 403, with the card rail
+  // demoted underneath it as the afterthought. Undefined (an older backend that doesn't
+  // send the field) keeps the old both-rails behaviour rather than hiding a shop's points.
+  const canUsePoints = purchaseOptions?.pointsEligible !== false;
   // What the buyer is actually getting, stated before they pay rather than discovered
   // afterwards: the window is days from the purchase, so it is quoted as both a length
   // and a date. Recomputed only when the served window changes — the mount-time clock
@@ -2500,37 +2506,46 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   {/* An account with no shop behind it. Two honest routes, side by side:
                       pay for a project, or redeem a code if they have walked into a paint
                       shop since. Offering only the first strands anyone holding a code;
-                      offering only the second strands anyone who has no shop to visit. */}
+                      offering only the second strands anyone who has no shop to visit.
+
+                      Which rail leads depends on who is asking. A shop pays in points and
+                      falls back to a card; a CUSTOMER cannot hold points at all, so for
+                      them the card IS the rail and the points button is dropped rather
+                      than left on top as a primary action the server refuses. */}
                   {limitReached && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
-                      <Button
-                        variant="brass"
-                        onClick={() => void handleBuyAndRetry("points")}
-                        disabled={buying !== null}
-                      >
-                        {buying === "points" ? (
-                          <>
-                            <Spinner size={14} color="currentColor" />
-                            <span>Paying…</span>
-                          </>
-                        ) : (
-                          <>
-                            {/* Points, not rupees — this button debits the balance. It
-                                said "₹80" for a price of 80 POINTS, which is the same
-                                figure in the wrong currency and a promise nobody kept. */}
-                            Buy a project{projectPrice ? ` · ${projectPrice} points` : ""} <span className="arr">→</span>
-                          </>
-                        )}
-                      </Button>
+                      {canUsePoints && (
+                        <Button
+                          variant="brass"
+                          onClick={() => void handleBuyAndRetry("points")}
+                          disabled={buying !== null}
+                        >
+                          {buying === "points" ? (
+                            <>
+                              <Spinner size={14} color="currentColor" />
+                              <span>Paying…</span>
+                            </>
+                          ) : (
+                            <>
+                              {/* Points, not rupees — this button debits the balance. It
+                                  said "₹80" for a price of 80 POINTS, which is the same
+                                  figure in the wrong currency and a promise nobody kept. */}
+                              Buy a project{projectPrice ? ` · ${projectPrice} points` : ""} <span className="arr">→</span>
+                            </>
+                          )}
+                        </Button>
+                      )}
                       {projectPaise > 0 && (
                         <Button
-                          variant="ghost"
+                          variant={canUsePoints ? "ghost" : "brass"}
                           onClick={() => void handleBuyAndRetry("money")}
                           disabled={buying !== null}
                         >
                           {buying === "money"
                             ? "Opening checkout…"
-                            : `or pay ₹${(projectPaise / 100).toLocaleString("en-IN")} by card`}
+                            : canUsePoints
+                              ? `or pay ₹${(projectPaise / 100).toLocaleString("en-IN")} by card`
+                              : `Buy a project · ₹${(projectPaise / 100).toLocaleString("en-IN")}`}
                         </Button>
                       )}
                       <a className="btn" href="/redeem">

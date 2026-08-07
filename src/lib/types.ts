@@ -613,6 +613,16 @@ export interface ProjectPurchaseOptions {
   reopenPricePaise: number;
   /** Spendable balance, so the caller can say whether it is enough. */
   pointsBalance: number;
+  /**
+   * Whether this account can spend points AT ALL — not whether it holds enough. Points
+   * are a shop currency and the backend refuses every non-retailer, so a CUSTOMER reads
+   * false here whatever the balance says. When it is false, money is the only rail and
+   * the points button must not be offered: it can only come back a 403.
+   *
+   * Optional so an older backend (which sends no such field) reads as undefined rather
+   * than as a hard "no", and the UI falls back to offering both rails as it did before.
+   */
+  pointsEligible?: boolean;
   /** Days of access a purchase (or a reopen) opens. */
   validDays: number;
   /** Standalone credits already paid for and not yet created — what a shop BETWEEN plans
