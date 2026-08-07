@@ -212,24 +212,15 @@ export function CustomMatchPanel({
     hideNames ? (codeLabel(s.code) ?? "") : s.name;
   const seed = initialHex && HEX_RE.test(initialHex) ? initialHex : "#7C9CBF";
   const [hex, setHex] = useState(seed);
-  const [text, setText] = useState(seed);
   // Screen eyedropper is Chromium-only; render the button only where it works.
   // State (not render-time detection) so SSR and first client render agree.
   const [canEyeDrop, setCanEyeDrop] = useState(false);
   useEffect(() => setCanEyeDrop(Boolean(getEyeDropper())), []);
 
-  // Keep the free-text field in sync when the wheel drives the colour.
-  useEffect(() => setText(hex), [hex]);
-
   const matches = useMemo(
     () => (HEX_RE.test(hex) ? nearestShades(hex, catalogue, 6) : []),
     [hex, catalogue],
   );
-
-  const onText = (value: string) => {
-    setText(value);
-    if (HEX_RE.test(value)) setHex(value.startsWith("#") ? value : `#${value}`);
-  };
 
   const pickFromScreen = async () => {
     const EyeDropper = getEyeDropper();
@@ -257,24 +248,14 @@ export function CustomMatchPanel({
           aria-label="Pick a colour"
           style={{ width: 40, height: 36, border: "1px solid var(--rule-strong)", background: "none", cursor: "pointer", padding: 0 }}
         />
-        <input
-          type="text"
-          value={text}
-          onChange={(e) => onText(e.target.value)}
-          aria-label="Hex colour"
-          spellCheck={false}
-          placeholder="#A47148"
-          style={{
-            flex: 1,
-            padding: "9px 12px",
-            border: "1px solid var(--rule-strong)",
-            borderRadius: 6,
-            background: "var(--surface)",
-            color: "var(--fg)",
-            fontFamily: "var(--mono)",
-            fontSize: 13,
-          }}
-        />
+        {/* The hex is deliberately never shown. A shop's customer picks a colour
+            by looking at it, and a raw #A47148 beside the wheel invited them to
+            read out a code the shop doesn't sell against — the nearest catalogue
+            shades below are the answer this panel exists to give. The wheel, the
+            swatch and the eyedropper are all the ways in it needs. */}
+        <span style={{ flex: 1, font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+          Pick from the wheel, the swatch, or straight off your photo.
+        </span>
         {canEyeDrop && (
           <button
             type="button"
@@ -315,7 +296,6 @@ export function CustomMatchPanel({
           type="button"
           onClick={() => HEX_RE.test(hex) && onApplyExact(hex)}
           disabled={!HEX_RE.test(hex)}
-          aria-label={`Apply the exact colour ${hex}`}
           style={{
             marginTop: 12,
             width: "100%",
@@ -341,7 +321,7 @@ export function CustomMatchPanel({
         <Mono style={{ display: "block", marginBottom: 10 }}>Nearest catalogue shades</Mono>
         {matches.length === 0 ? (
           <p style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-            Enter a 6-digit hex like #A47148.
+            No catalogue shades to match against yet.
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

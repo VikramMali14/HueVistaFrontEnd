@@ -764,19 +764,42 @@ describe("Visualizer — company scope", () => {
     render(<Visualizer initialName="Test room" shades={TWO_BRANDS} />);
     await screen.findByText("Add a photo of the room");
 
-    const picker = screen.getByRole("combobox", { name: /Company/ });
     // Unscoped: both companies' shades are in the grid.
     expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
     expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
 
-    await user.selectOptions(picker, "Berger");
+    await user.click(screen.getByRole("button", { name: /Company/ }));
+    await user.click(screen.getByRole("checkbox", { name: "Berger" }));
 
     expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
     expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
 
     // And back — "All companies" restores the full list.
-    await user.selectOptions(picker, "");
+    await user.click(screen.getByRole("button", { name: "All companies" }));
     expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
+  });
+
+  /**
+   * The point of making it multi-select: a shop that stocks two brands should be
+   * able to say so, instead of picking one and losing the other.
+   */
+  it("keeps every ticked company in the panel at once", async () => {
+    const user = userEvent.setup();
+    render(<Visualizer initialName="Test room" shades={TWO_BRANDS} />);
+    await screen.findByText("Add a photo of the room");
+
+    await user.click(screen.getByRole("button", { name: /Company/ }));
+    await user.click(screen.getByRole("checkbox", { name: "Berger" }));
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
+
+    await user.click(screen.getByRole("checkbox", { name: "Asian Paints" }));
+    expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
+
+    // Unticking one leaves the other in force, rather than falling back to all.
+    await user.click(screen.getByRole("checkbox", { name: "Berger" }));
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: /Quartz/ })).toHaveLength(0);
   });
 
   it("hides the picker when there is only one company to choose", async () => {
@@ -788,6 +811,6 @@ describe("Visualizer — company scope", () => {
     );
     await screen.findByText("Add a photo of the room");
 
-    expect(screen.queryByRole("combobox", { name: /Company/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Company/ })).not.toBeInTheDocument();
   });
 });

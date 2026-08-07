@@ -2641,12 +2641,16 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 /* The company scope for the whole colour panel, sitting with Share/Download
    because it governs the session rather than one tab (see Visualizer). */
 .hv-studio-company {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.hv-studio-company select {
+.hv-studio-company-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 7px 10px;
   max-width: 200px;
   border: 1px solid var(--rule-strong);
@@ -2656,13 +2660,70 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   font: 400 13px/1 var(--sans);
   cursor: pointer;
 }
-.hv-studio-company select:hover { border-color: var(--fg-mute); }
-.hv-studio-company select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hv-studio-company-btn:hover { border-color: var(--fg-mute); }
+.hv-studio-company-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The chosen names can run long; the caret must not be pushed off the button. */
+.hv-studio-company-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hv-studio-company-caret { flex-shrink: 0; color: var(--fg-mute); font-size: 10px; }
+
+.hv-studio-company-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 6px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.18);
+}
+.hv-studio-company-all {
+  width: 100%;
+  padding: 7px 9px;
+  margin-bottom: 4px;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font: 500 12px/1 var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+.hv-studio-company-all:hover:not(:disabled) { background: var(--surface-soft); }
+/* Disabled means "already showing all", so it reads as the current state
+   rather than as something broken. */
+.hv-studio-company-all:disabled { color: var(--fg-mute); cursor: default; }
+/* A shop can carry a long list; the menu scrolls rather than running off screen. */
+.hv-studio-company-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.hv-studio-company-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  font: 400 13px/1.3 var(--sans);
+  color: var(--fg);
+  cursor: pointer;
+}
+.hv-studio-company-item:hover { background: var(--surface-soft); }
+.hv-studio-company-item input { cursor: pointer; accent-color: var(--accent); }
 /* Phones give the topbar three rows already; the eyebrow is the first thing to
    go, the picker keeps its full width under the project name. */
 @media (max-width: 640px) {
   .hv-studio-company > .mono { display: none; }
-  .hv-studio-company select { max-width: none; }
+  .hv-studio-company-btn { max-width: none; }
 }
 /* Small screens: the single topbar row can't hold name + pills + buttons.
    Give the project name its own line and let pills/actions share the next. */
@@ -3381,31 +3442,6 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   gap: 5px;
 }
 
-/* Segmented control — "Top 50 / By company" view switch */
-.hv-studio-seg {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-}
-.hv-studio-seg-btn {
-  border: none;
-  background: transparent;
-  padding: 4px 11px;
-  border-radius: var(--radius-pill);
-  font: 500 12px/1 var(--sans);
-  color: var(--fg-mute);
-  cursor: pointer;
-  transition: color .15s var(--ease), background .15s var(--ease);
-}
-.hv-studio-seg-btn:hover:not(.is-active) { color: var(--fg); }
-.hv-studio-seg-btn.is-active {
-  background: var(--surface-soft);
-  color: var(--accent-text);
-  box-shadow: inset 0 0 0 1px var(--rule-brass);
-}
-
 /* Scrollable content area inside the right panel */
 .hv-studio-scroll {
   flex: 1;
@@ -3930,7 +3966,40 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 6px;
+  flex-wrap: wrap;
 }
+/* Seed colour + Shuffle travel together: the swatch says what the palettes are
+   built from, the button asks for another set built from it. */
+.hv-ai-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hv-ai-seed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.hv-ai-seed-label {
+  font: 500 12px/1 var(--sans);
+  color: var(--fg-mute);
+}
+/* Strip the native colour input's chrome so it reads as a swatch, not a form
+   control — it sits beside a text button and shouldn't out-shout it. */
+.hv-ai-seed-input {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.hv-ai-seed-input::-webkit-color-swatch-wrapper { padding: 2px; }
+.hv-ai-seed-input::-webkit-color-swatch { border: none; border-radius: 4px; }
+.hv-ai-seed-input::-moz-color-swatch { border: none; border-radius: 4px; }
+.hv-ai-seed-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .hv-ai-rebuild {
   display: flex;
   align-items: center;
@@ -4051,9 +4120,14 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   white-space: nowrap;
   width: 100%;
 }
+/* "Apply all" and "Add to PDF" are two different commitments — one dresses the
+   room, the other puts the palette on the customer's sheet. Flush against each
+   other they read as one control and invite the wrong click. */
 .hv-ai-card-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 /* Region list panel */

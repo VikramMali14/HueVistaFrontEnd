@@ -26,7 +26,10 @@ import { featherMaskInward, featherRadiusInMaskPx, offsetMaskCanvas } from "./ma
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
-/** The shader clamps its relief ratio to [0.30, 2.4]; cap our gain the same way. */
+/** The shader clamps its relief ratio to [FORM_FLOOR, FORM_CEIL] = [0.22, 2.4];
+ *  cap our gain at the same ceiling. (This 2D path is a coarse approximation —
+ *  it can't express the shader's form/detail split — so it only tracks the
+ *  ceiling, not the shadow gamma or the soft-kneed texture transfer.) */
 const MAX_GAIN = 2.4;
 
 /** sRGB value of fresh white paint (LRV ~85) — mirrors the GL shader's
