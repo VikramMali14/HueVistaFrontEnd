@@ -12,6 +12,15 @@
  * and soft gradients survive instead of flattening. That mode is opt-in and
  * dialable via `preserve` (0 = flat exact fill, 1 = full relief).
  *
+ * All of that shading is MULTIPLICATIVE, which is the difference between paint
+ * and a sticker. Light is a ratio, so anything derived from the photo's light —
+ * the big form shading, the fine surface texture — has to scale the colour
+ * rather than be added to it: an added luminance delta drifts toward grey in
+ * the highlights and toward black in the shadows, draining the swatch exactly
+ * where the eye looks to decide what a surface is made of. For the same reason
+ * a lit face is rescaled by its peak channel instead of being clipped at white,
+ * so sunlight makes the colour brighter rather than washing it out.
+ *
  * 60 fps on mid-range mobile, zero backend round-trip per swatch change. The
  * mask's soft (anti-aliased) edge is the only place colour blends.
  */
@@ -67,6 +76,31 @@ uniform float u_grain;
 // instead of floating dark on a lifted photo. A gamma lift keeps pure white
 // where it is — bright skies don't clip.
 uniform float u_bright;
+// 1 = sharpen the mask edge to ~one output pixel (see EDGE_T/EDGE_W below);
+// 0 = use the mask's own alpha untouched. Set to 0 whenever the "soft edges"
+// feather is on: that feather IS the intended edge — a deliberate multi-pixel
+// ramp — and re-thresholding it here would snap it straight back to a hard line.
+uniform float u_edgeAA;
+
+// --- How the paint is made to sit in the photo's light -----------------------
+// Gain on the photo's high-frequency texture, and the amplitude at which that
+// texture rolls off. The knee is a SOFT saturation, not a clip (see below).
+const float DETAIL_GAIN = 1.15;
+const float DETAIL_KNEE = 0.06;
+// How dark a form shadow may get, how bright a lit face may get, and the extra
+// gamma applied below 1.0 so shadows deepen instead of sitting flat.
+const float FORM_FLOOR = 0.22;
+const float FORM_CEIL = 2.4;
+const float SHADOW_DEPTH = 0.35;
+// Mask edge: the alpha at which the surface starts, and how many output pixels
+// the antialiased transition spans.
+const float EDGE_T = 0.5;
+const float EDGE_W = 0.9;
+// How much true white a genuinely over-range highlight may take on. Small:
+// this is specular sheen, not the main way a lit wall gets brighter.
+const float HI_WHITE = 0.15;
+// Multiplicative shading costs a little chroma; hand it back.
+const float SAT = 1.06;
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 
@@ -117,27 +151,42 @@ void main() {
       // still averages to the true swatch colour (the can's colour).
       form = vec3(B / u_baseL);
     }
-    form = clamp(form, 0.30, 2.4);
+    form = clamp(form, FORM_FLOOR, FORM_CEIL);
     form = mix(vec3(1.0), form, u_preserve);
-    // Channels below 1: multiply with a mild gamma so genuine shadows deepen
-    // and the paint sits INTO the surface instead of floating flat on top.
-    // Channels above 1: lift toward white, rolled off so a bright wall never
-    // clips to pure white (a hard clip read as blown-out patches). Each half
-    // equals u_target where inactive, so summing them minus u_target composes
-    // the two per channel without a branch.
-    vec3 dark = u_target * pow(min(form, vec3(1.0)), vec3(1.0 + 0.25 * u_preserve));
-    vec3 lift = max(form - 1.0, 0.0);
-    lift = (lift / (lift + 0.7)) * 0.7;
-    vec3 bright = mix(u_target, vec3(1.0), lift);
-    paint = dark + bright - u_target;
-    // DETAIL: add the photo's real high-frequency texture on top. (L - B) is
-    // ~zero-mean, so it adds surface texture and micro-shadows WITHOUT shifting
-    // the paint colour. Clamp it to a small band: genuine surface texture is
-    // low-amplitude and passes through, but the big luminance STEP at an edge —
-    // building/sky silhouette, window and railing borders — is clipped, so it
-    // no longer blooms into a bright unsharp-mask halo (the glowing edges).
-    float detail = clamp(L - B, -0.05, 0.05);
-    paint += detail * u_preserve;
+    // Shading is MULTIPLICATIVE, split at 1.0 so each half can be treated on
+    // its own terms without a branch. Below 1 is a genuine shadow, deepened by
+    // an extra gamma so the paint sits INTO the surface instead of floating
+    // flat on top of it. Above 1 is sunlight, which should make the swatch
+    // BRIGHTER — not wash it out.
+    vec3 fd = pow(min(form, vec3(1.0)), vec3(1.0 + SHADOW_DEPTH * u_preserve));
+    vec3 fu = max(form, vec3(1.0));
+    vec3 lit = u_target * fd * fu;
+    // Rescale by the peak channel rather than clipping it. A hard clamp pins
+    // the brightest channel at 1 while the others stay put, which drags the
+    // hue toward white and drains the colour exactly where the sun hits —
+    // that is what made light swatches read as bare, unpainted plaster.
+    // Dividing by the peak keeps the ratio between channels, so the colour
+    // survives at full chroma however bright the face is, and only a genuinely
+    // over-range highlight earns a little real white on top.
+    float pk = max(max(lit.r, lit.g), lit.b);
+    paint = lit / max(pk, 1.0);
+    paint = mix(paint, vec3(1.0), HI_WHITE * clamp(pk - 1.0, 0.0, 1.0));
+    // DETAIL: the photo's real high-frequency texture — plaster stipple, dirt,
+    // seams, micro-shadows. Applied as a RATIO, not added. Adding a luminance
+    // delta to a colour pushes it toward grey in the highlights and toward
+    // black in the shadows, so the swatch lost chroma precisely where the eye
+    // reads material; real surface texture is a modulation of the light, so it
+    // has to ride on the colour as a multiplier.
+    float d = L - B;
+    // A soft knee, not a clip. Clamping to a fixed band left flat plateaus
+    // wherever the detail saturated — a plasticky dead patch beside every
+    // railing and reveal. This saturates smoothly instead, so the big
+    // luminance STEP at an edge still can't bloom into an unsharp-mask halo,
+    // but nothing goes flat on the way there.
+    float ds = d / (1.0 + abs(d) / DETAIL_KNEE);
+    float rel = ds / max(B, 0.10);
+    paint *= 1.0 + rel * DETAIL_GAIN * u_preserve;
+    paint = mix(vec3(luma(paint)), paint, SAT);
   }
   if (u_grain > 0.0001) {
     // Signed, ~zero-mean noise. Scaled up a little on brighter paint so it reads
@@ -146,7 +195,19 @@ void main() {
     paint += n * u_grain * (0.5 + 0.5 * luma(paint));
   }
   paint = clamp(paint, 0.0, 1.0);
-  outColor = vec4(brighten(paint), u_strength * m);
+  // EDGE: the mask is bilinear-sampled from a texture that is usually LOWER
+  // resolution than the photo, so the raw alpha gives a transition whose width
+  // in output pixels depends on how far the mask is being stretched — often
+  // several pixels of mush, with colour bleeding over window frames and
+  // railings. fwidth is the screen-space rate of change of the mask, so
+  // normalising the threshold by it gives a transition about ONE output pixel
+  // wide whatever the mask's own resolution: crisp, but still antialiased, so
+  // it never goes jaggy. Computed unconditionally (derivatives must not sit in
+  // non-uniform control flow) and mixed in, so u_edgeAA = 0 leaves the mask's
+  // own soft ramp — the "soft edges" feather — completely untouched.
+  float w = max(fwidth(m), 1e-5) * EDGE_W;
+  float aa = smoothstep(EDGE_T - w, EDGE_T + w, m);
+  outColor = vec4(brighten(paint), u_strength * mix(m, aa, u_edgeAA));
 }`;
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
@@ -176,6 +237,7 @@ export class Recolor implements RecolorEngine {
   private locAnchor: WebGLUniformLocation | null;
   private locGrain: WebGLUniformLocation | null;
   private locBright: WebGLUniformLocation | null;
+  private locEdgeAA: WebGLUniformLocation | null;
   private width = 0;
   private height = 0;
   /** Mask-edge feather radius in px; 0 (default) keeps edges crisp. */
@@ -220,6 +282,7 @@ export class Recolor implements RecolorEngine {
     this.locAnchor = gl.getUniformLocation(program, "u_anchor");
     this.locGrain = gl.getUniformLocation(program, "u_grain");
     this.locBright = gl.getUniformLocation(program, "u_bright");
+    this.locEdgeAA = gl.getUniformLocation(program, "u_edgeAA");
   }
 
   /**
@@ -367,6 +430,10 @@ export class Recolor implements RecolorEngine {
     // Brightness applies to every pass (base photo AND painted regions) so the
     // whole scene lifts together; set once per frame.
     gl.uniform1f(this.locBright, this.brightGamma);
+    // Sharpen the mask edge only when the soft-edges feather is OFF. With it on
+    // the mask carries a deliberate multi-pixel ramp, and re-thresholding that
+    // to one pixel would undo the very thing the toggle asks for.
+    gl.uniform1f(this.locEdgeAA, this.featherPx > 0 ? 0 : 1);
 
     // Bind the blurred form layer once (unit 2); it's shared by every region pass.
     if (this.blurTex) {
