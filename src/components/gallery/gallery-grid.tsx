@@ -6,13 +6,17 @@ import { Eyebrow, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
 import { TiltCard } from "@/components/ui/tilt-card";
 
+/** The categories the built-in editorial plates use. Real rooms bring their own. */
 export type PlateCategory = "Living rooms" | "Bedrooms" | "Kitchens" | "Verandas" | "Façades" | "Commercial";
 export type Tone = "terracotta" | "ivory" | "slate" | "sage" | "brass" | "oxblood" | "indigo" | "walnut" | "ink";
 
 export interface Plate {
   slug: string;
   num: string;
-  category: PlateCategory;
+  /** Free text, not a fixed union: the chips are built from whatever the rooms on
+   *  the shelf actually say they are, so publishing a "Pooja room" adds a chip
+   *  rather than needing this file edited. */
+  category: string;
   title: React.ReactNode;
   code: string;
   swatch: string;
@@ -21,26 +25,41 @@ export interface Plate {
   tag: string;
   tone: Tone;
   aspect: string;
+  /** A real photograph of the room. Without one the plate draws its gradient. */
+  imageUrl?: string;
+  /** What is in that photograph, for anyone not looking at it. */
+  alt?: string;
+  /** Where the card leads. Absent = the card is a picture, not a link — which is
+   *  the case for published rooms, since there is no per-room page for them. */
+  href?: string;
 }
 
-const CATEGORY_CHIPS: ReadonlyArray<"All rooms" | PlateCategory> = ["All rooms", "Living rooms", "Bedrooms", "Kitchens", "Verandas", "Façades", "Commercial"];
+const ALL = "All rooms";
 
 // Tones light enough that the fixed white plate chrome disappears.
 const LIGHT_TONES: ReadonlyArray<Tone> = ["ivory", "sage", "brass"];
 
 export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
-  const [category, setCategory] = useState<(typeof CATEGORY_CHIPS)[number]>("All rooms");
+  const [category, setCategory] = useState<string>(ALL);
   const [sort, setSort] = useState<"latest" | "oldest">("latest");
 
+  // Built from the plates on screen. A chip for a category nothing is filed under
+  // is a filter that can only ever empty the grid, which is how the fixed list
+  // behaved the moment the gallery stopped being twelve hard-coded rooms.
+  const chips = useMemo(
+    () => [ALL, ...Array.from(new Set(plates.map((p) => p.category))).sort((a, b) => a.localeCompare(b))],
+    [plates],
+  );
+
   const filtered = useMemo(() => {
-    const list = category === "All rooms" ? plates : plates.filter((p) => p.category === category);
+    const list = category === ALL ? plates : plates.filter((p) => p.category === category);
     return sort === "latest" ? list : [...list].reverse();
   }, [plates, category, sort]);
 
   return (
     <>
       <div className="reveal d2" style={{ marginTop: 48, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        {CATEGORY_CHIPS.map((c) => {
+        {chips.map((c) => {
           const active = c === category;
           return (
             <button
@@ -77,31 +96,58 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
             {filtered.map((p, i) => {
               const colSpan = i % 6 === 0 || i % 6 === 4 ? 6 : 3;
               const lightTone = LIGHT_TONES.includes(p.tone);
-              return (
-                <article key={p.num} style={{ gridColumn: `span ${colSpan}`, position: "relative" }}>
-                  <Link
-                    href={`/work/${p.slug}`}
-                    className="hv-plate-link"
-                    aria-label={`${p.location} — view project`}
-                    style={{ display: "block", color: "inherit", textDecoration: "none" }}
-                  >
-                    <TiltCard max={7}>
+              // A published room has a photograph and no page of its own to link to;
+              // the built-in editorial plates have neither a photograph nor anything
+              // real behind them, and keep their /work link. Both render the same
+              // card — only the picture and the wrapper differ.
+              const body = (
+                <>
+                  <TiltCard max={7}>
+                    {p.imageUrl ? (
+                      /* A cross-origin API path (or a presigned S3 link) that
+                         next/image cannot optimise without the host in its config,
+                         and which changes whenever a room is refreshed. */
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.imageUrl}
+                        alt={p.alt ?? ""}
+                        loading="lazy"
+                        style={{ display: "block", width: "100%", height: "100%", aspectRatio: p.aspect, objectFit: "cover" }}
+                      />
+                    ) : (
                       <Placeholder tone={p.tone} grain corners tag={p.tag} label={`${p.location} · ${p.date}`} style={{ aspectRatio: p.aspect, height: "100%" }} />
-                    </TiltCard>
-                    <span aria-hidden style={{ position: "absolute", top: 16, right: 18, font: "400 14px/1 var(--serif)", color: lightTone ? "rgba(30,26,18,.55)" : "rgba(255,255,255,.6)" }}>{p.num}</span>
-                    <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: "var(--serif)", fontSize: 24, color: "var(--fg)", lineHeight: 1.2 }}>
-                          {p.title} <span className="arr" aria-hidden style={{ display: "inline-block", transition: "transform .25s var(--ease)" }}>→</span>
-                        </div>
-                        <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 10 }}>
-                          <span style={{ width: 14, height: 14, background: p.swatch, border: "1px solid var(--rule-strong)" }} />
-                          <Mono>{p.code}</Mono>
-                        </div>
+                    )}
+                  </TiltCard>
+                  <span aria-hidden style={{ position: "absolute", top: 16, right: 18, font: "400 14px/1 var(--serif)", color: lightTone || p.imageUrl ? "rgba(30,26,18,.55)" : "rgba(255,255,255,.6)" }}>{p.num}</span>
+                  <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: "var(--serif)", fontSize: 24, color: "var(--fg)", lineHeight: 1.2 }}>
+                        {p.title}
+                        {p.href && <> <span className="arr" aria-hidden style={{ display: "inline-block", transition: "transform .25s var(--ease)" }}>→</span></>}
                       </div>
-                      <Mono style={{ textAlign: "right", whiteSpace: "pre-line", flexShrink: 0 }}>{p.location}{"\n"}{p.date}</Mono>
+                      <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ width: 14, height: 14, background: p.swatch, border: "1px solid var(--rule-strong)" }} />
+                        <Mono className="shade-code">{p.code}</Mono>
+                      </div>
                     </div>
-                  </Link>
+                    <Mono style={{ textAlign: "right", whiteSpace: "pre-line", flexShrink: 0 }}>{p.location}{"\n"}{p.date}</Mono>
+                  </div>
+                </>
+              );
+              return (
+                <article key={p.slug} style={{ gridColumn: `span ${colSpan}`, position: "relative" }}>
+                  {p.href ? (
+                    <Link
+                      href={p.href}
+                      className="hv-plate-link"
+                      aria-label={`${p.location} — view project`}
+                      style={{ display: "block", color: "inherit", textDecoration: "none" }}
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    body
+                  )}
                 </article>
               );
             })}

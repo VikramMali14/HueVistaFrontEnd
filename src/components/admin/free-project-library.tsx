@@ -23,6 +23,7 @@ interface FreeProjectLibraryProps {
   publishAction: (input: PublishFreeProjectBody) => Promise<{ template?: FreeProjectTemplate; error?: string }>;
   startAction: (templateId: string) => Promise<{ started?: StartedFreeProject; error?: string }>;
   setPublishedAction: (templateId: string, published: boolean) => Promise<{ template?: FreeProjectTemplate; error?: string }>;
+  refreshAction: (templateId: string) => Promise<{ template?: FreeProjectTemplate; error?: string }>;
   deleteAction: (
     templateIds: string[],
     purgeFiles: boolean,
@@ -74,6 +75,7 @@ export function FreeProjectLibrary({
   publishAction,
   startAction,
   setPublishedAction,
+  refreshAction,
   deleteAction,
 }: FreeProjectLibraryProps) {
   const router = useRouter();
@@ -146,6 +148,30 @@ export function FreeProjectLibrary({
       }
       if (res.template) {
         setTemplates((prev) => prev.map((t) => (t.id === template.id ? res.template! : t)));
+      }
+    });
+  }
+
+  /**
+   * Pull the room's pictures back from the project it was published from.
+   *
+   * The one thing a published room could not do was change. Publishing takes a
+   * COPY of the masks — that is what stops the shelf shifting when the admin keeps
+   * repainting the original — so a wall that needed widening, or one that had been
+   * missed, was frozen in place. Fix it in the studio, press this.
+   */
+  function handleRefresh(template: FreeProjectTemplate) {
+    run(template.id, () => refreshAction(template.id), (res) => {
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      if (res.template) {
+        setTemplates((prev) => prev.map((t) => (t.id === template.id ? res.template! : t)));
+        setNotice(
+          `"${res.template.title}" now shows this project's current walls — ${res.template.regionCount} of them. `
+          + "Copies people already opened keep the version they started on.",
+        );
       }
     });
   }
@@ -376,6 +402,7 @@ export function FreeProjectLibrary({
                     onToggleSelect={() => toggleSelect(t.id)}
                     onStart={() => handleStart(t)}
                     onTogglePublished={() => handleTogglePublished(t)}
+                    onRefresh={() => handleRefresh(t)}
                     onDelete={() => askToRemove([t])}
                   />
                 ))}
@@ -396,6 +423,7 @@ function TemplateCard({
   onToggleSelect,
   onStart,
   onTogglePublished,
+  onRefresh,
   onDelete,
 }: {
   template: FreeProjectTemplate;
@@ -405,6 +433,7 @@ function TemplateCard({
   onToggleSelect: () => void;
   onStart: () => void;
   onTogglePublished: () => void;
+  onRefresh: () => void;
   onDelete: () => void;
 }) {
   const src = resolveMediaUrl(template.imageUrl);
@@ -488,6 +517,23 @@ function TemplateCard({
           </Button>
           <Button size="sm" variant="ghost" onClick={onTogglePublished} disabled={disabled}>
             {template.published ? "Hide" : "Show"}
+          </Button>
+          {/* Only offered where it can work: a room published before we recorded
+              which project it came from has nothing to refresh against, and saying
+              so on the button beats a failure after the click. */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onRefresh}
+            disabled={disabled || !template.sourceProjectId}
+            title={
+              template.sourceProjectId
+                ? "Re-copy the photo and walls from the project this was published from — "
+                  + "how you fix a mask after publishing. Copies people already opened are left as they are."
+                : "Published before we started recording the source project, so there is nothing to refresh from."
+            }
+          >
+            Update walls
           </Button>
           <Button size="sm" variant="ghost" onClick={onDelete} disabled={disabled}>
             Remove

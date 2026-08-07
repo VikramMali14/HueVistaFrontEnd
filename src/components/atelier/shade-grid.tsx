@@ -185,13 +185,15 @@ export function ShadeGrid({
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("Catalogue");
   const [section, setSection] = useState<Section>("top50");
-  // Family/depth/company pills live behind a toggle so the fixed header stays
-  // compact; the button shows how many filters are currently narrowing the grid.
+  // Family/depth pills live behind a toggle so the fixed header stays compact;
+  // the button shows how many filters are currently narrowing the grid.
+  //
+  // Company is deliberately NOT one of them any more. It used to be a pill row
+  // here AND a second, separate pill row inside AI Suggest, each remembering its
+  // own answer — so "show me Asian Paints" had to be said twice and was still not
+  // true of the Custom tab. It is now one picker in the studio topbar, which scopes
+  // the `shades` this panel is handed, so all three tabs agree by construction.
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // Company filter — empty set means "every available brand". For guests the
-  // incoming `shades` are already limited to the brands the shop unlocked, so
-  // these checkboxes let them narrow further within that allowed set.
-  const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
   // How many swatches each company section currently shows (keyed by brand name).
   const [companyVisible, setCompanyVisible] = useState<Record<string, number>>({});
   // Seed colour for the Custom (nearest-match) panel, set by a shade's "Find similar".
@@ -212,12 +214,6 @@ export function ShadeGrid({
     [shades],
   );
 
-  // Distinct paint companies present in the (already brand-scoped) catalogue, sorted.
-  const availableBrands = useMemo(
-    () => Array.from(new Set(catalogue.map((s) => s.brand))).sort((a, b) => a.localeCompare(b)),
-    [catalogue],
-  );
-
   // Family pills come from whatever families the shades table actually holds.
   const families = useMemo(
     () => ["All", ...Array.from(new Set(catalogue.map((s) => s.family))).sort((a, b) => a.localeCompare(b))],
@@ -229,10 +225,9 @@ export function ShadeGrid({
     return catalogue.filter((s) => {
       if (family !== "All" && s.family !== family) return false;
       if (tone !== "All" && toneOf(s.lrv) !== tone) return false;
-      if (selectedBrands.size > 0 && !selectedBrands.has(s.brand)) return false;
       return matchesQuery(s, q, { hideCodes, hideNames, encodeCode });
     });
-  }, [catalogue, family, tone, selectedBrands, deferredQuery, encodeCode, hideCodes, hideNames]);
+  }, [catalogue, family, tone, deferredQuery, encodeCode, hideCodes, hideNames]);
 
   const top = useMemo(() => shown.slice(0, TOP_N), [shown]);
 
@@ -252,11 +247,10 @@ export function ShadeGrid({
     return Array.from(map, ([brand, list]) => ({ brand, list }));
   }, [shown]);
 
-  const activeFilterCount = (family !== "All" ? 1 : 0) + (tone !== "All" ? 1 : 0) + selectedBrands.size;
+  const activeFilterCount = (family !== "All" ? 1 : 0) + (tone !== "All" ? 1 : 0);
   const clearFilters = () => {
     setFamily("All");
     setTone("All");
-    setSelectedBrands(new Set());
   };
 
   const tabLabel = (tabId: Tab) => {
@@ -369,35 +363,6 @@ export function ShadeGrid({
                   ))}
                 </div>
               </div>
-
-              {availableBrands.length > 1 && (
-                <div className="hv-studio-filter-group">
-                  <Mono>Company</Mono>
-                  <div className="hv-studio-pills">
-                    {availableBrands.map((brand) => {
-                      const on = selectedBrands.has(brand);
-                      return (
-                        <button
-                          key={brand}
-                          type="button"
-                          onClick={() =>
-                            setSelectedBrands((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(brand)) next.delete(brand);
-                              else next.add(brand);
-                              return next;
-                            })
-                          }
-                          aria-pressed={on}
-                          className={`hv-studio-pill ${on ? "is-active" : ""}`}
-                        >
-                          {on ? "✓ " : ""}{brand}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               {activeFilterCount > 0 && (
                 <div className="hv-studio-pills">
@@ -544,6 +509,23 @@ export function ShadeGrid({
         onNeedPhoto={onNeedPhoto}
       />
     </div>
+  );
+}
+
+/**
+ * The dock's second line: the shade's code and its company, or the family alone
+ * when the shop hides both. Falls back exactly as the joined string it replaced
+ * did — an empty code AND an empty brand leave the family, and a shop hiding
+ * names leaves nothing rather than printing the family it also hides.
+ */
+function DockMeta({ code, brand, family }: { code: string | null; brand: string | null; family: string }) {
+  if (!code && !brand) return <>{family}</>;
+  return (
+    <>
+      {code && <span className="shade-code">{code}</span>}
+      {code && brand ? " · " : null}
+      {brand}
+    </>
   );
 }
 
@@ -853,12 +835,22 @@ function SelectionDock({
           {/* Two different kinds of content share this slot. A code · brand pair is
               a label, and reads well as mono-caps. The empty-state hint is a
               sentence, and as mono-caps it clipped to "TAP ANY SWATCH — IT PAINTS
-              THE ACT…" — so it gets sentence case and room to wrap. */}
+              THE ACT…" — so it gets sentence case and room to wrap.
+
+              Within the label the code is its own element rather than a piece of
+              a joined string: it is the part that has to survive being read off a
+              screen at arm's length, so it takes the .shade-code face (an
+              unambiguous zero) while the brand keeps the mono-caps. */}
           <span className={`hv-studio-dock-meta${shade ? "" : " is-hint"}`}>
-            {shade
-              ? [codeLabel(shade.code), hideNames ? null : shade.brand].filter(Boolean).join(" · ")
-                || (hideNames ? "" : shade.family)
-              : "Tap any swatch — it paints the active wall"}
+            {shade ? (
+              <DockMeta
+                code={codeLabel(shade.code)}
+                brand={hideNames ? null : shade.brand}
+                family={hideNames ? "" : shade.family}
+              />
+            ) : (
+              "Tap any swatch — it paints the active wall"
+            )}
           </span>
         </div>
         <div className="hv-studio-dock-btns">
@@ -1176,47 +1168,19 @@ function AISuggestPanel({
     variant: number;
   }>(() => ({ baseHex, regions: regions ?? [], variant: 0 }));
 
-  // Company filter for the generated suggestions — empty set means "every brand
-  // in the catalogue". Picking one or more companies scopes the algorithmic Room
-  // palettes and coordinate pairings so a shop can suggest within a single brand;
-  // the shop's own picks and Claude's photo picks are authored combos and stay
-  // as they are.
-  const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
-
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
   // With names hidden the code becomes the colour's only handle, so it stands in for
   // the name rather than leaving the swatch with no label at all.
   const nameLabel = (s: { name: string; code: string }) =>
     hideNames ? (codeLabel(s.code) ?? "") : s.name;
 
-  // Distinct paint companies in the (already brand-scoped for guests) catalogue.
-  const availableBrands = useMemo(
-    () => Array.from(new Set(catalogue.map((s) => s.brand))).sort((a, b) => a.localeCompare(b)),
-    [catalogue],
-  );
-
-  // The catalogue the generated palettes and pairings draw from. Scoped to the
-  // chosen companies; we keep the full set if the filter would empty it (e.g. a
-  // stale brand name) so the suggestions never go blank.
-  const scopedCatalogue = useMemo(() => {
-    if (selectedBrands.size === 0) return catalogue;
-    const scoped = catalogue.filter((s) => selectedBrands.has(s.brand));
-    return scoped.length > 0 ? scoped : catalogue;
-  }, [catalogue, selectedBrands]);
-
-  const toggleBrand = useCallback((brand: string) => {
-    setSelectedBrands((prev) => {
-      const next = new Set(prev);
-      if (next.has(brand)) next.delete(brand);
-      else next.add(brand);
-      return next;
-    });
-  }, []);
-
   const stale = (baseHex ?? "") !== (snap.baseHex ?? "");
+  // `catalogue` arrives already scoped to the company chosen in the studio topbar,
+  // so the generated palettes and the coordinate pairings below are within that
+  // company by construction — there is no second filter to keep in step with it.
   const palettes = useMemo(
-    () => generatePalettes(scopedCatalogue, snap.baseHex, snap.variant),
-    [scopedCatalogue, snap.baseHex, snap.variant],
+    () => generatePalettes(catalogue, snap.baseHex, snap.variant),
+    [catalogue, snap.baseHex, snap.variant],
   );
   const rebuild = () => setSnap({ baseHex, regions: regions ?? [], variant: 0 });
   const shuffle = () => setSnap((s) => ({ ...s, variant: s.variant + 1 }));
@@ -1260,43 +1224,6 @@ function AISuggestPanel({
 
   return (
     <div className="hv-ai-panel">
-      {availableBrands.length > 1 && (
-        <div className="hv-ai-company-filter">
-          <div className="hv-ai-head">
-            <Mono>Company</Mono>
-            {selectedBrands.size > 0 && (
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost"
-                onClick={() => setSelectedBrands(new Set())}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          <p className="hv-ai-intro" style={{ marginBottom: 8 }}>
-            Pick one or more companies and the palettes and pairings below draw only
-            from their shades. Leave it clear for every brand.
-          </p>
-          <div className="hv-studio-pills">
-            {availableBrands.map((brand) => {
-              const on = selectedBrands.has(brand);
-              return (
-                <button
-                  key={brand}
-                  type="button"
-                  onClick={() => toggleBrand(brand)}
-                  aria-pressed={on}
-                  className={`hv-studio-pill ${on ? "is-active" : ""}`}
-                >
-                  {on ? "✓ " : ""}{brand}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {shopCombos && shopCombos.length > 0 && (
         <ShopPicksSection
           combos={shopCombos}
@@ -1379,7 +1306,10 @@ function AISuggestPanel({
                 trio={[p.main, p.accent, p.trim]}
                 onSelect={onSelect}
                 onApplyCombo={applyCombo}
-                onAddComboToPdf={onAddComboToPdf}
+                // `addComboToPdf`, not the raw prop: the raw one only captures, so the
+                // board got the colours that were on the wall BEFORE the card was
+                // pressed. Every "Add to PDF" applies its palette first.
+                onAddComboToPdf={addComboToPdf}
                 codeLabel={codeLabel}
                 nameLabel={nameLabel}
                 applyAllTitle="Apply the whole palette — main, accent and trim — across the room"
@@ -1394,7 +1324,7 @@ function AISuggestPanel({
           baseHex={snap.baseHex!}
           activeRegionId={activeRegionId!}
           regions={snap.regions}
-          catalogue={scopedCatalogue}
+          catalogue={catalogue}
           onApplyToRegion={onApplyToRegion!}
           hideCodes={hideCodes}
         hideNames={hideNames}

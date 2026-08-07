@@ -144,8 +144,9 @@ export function CoordinateSuggestions({
                     }}
                   />
                   <span
+                    className="shade-code"
                     style={{
-                      font: "400 12px/1.2 var(--mono)",
+                      font: "400 12px/1.2 var(--code)",
                       letterSpacing: ".04em",
                       color: "var(--fg-mute)",
                       overflow: "hidden",

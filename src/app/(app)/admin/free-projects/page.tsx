@@ -6,6 +6,7 @@ import {
   getFreeProjectSources,
   getFreeProjects,
   publishFreeProjectAction,
+  refreshFreeProjectAction,
   setFreeProjectPublishedAction,
   startFreeProjectAction,
 } from "@/lib/free-projects";
@@ -76,6 +77,18 @@ export default async function AdminFreeProjectsPage() {
             {" "}and costs nothing: no plan credit, no points, no project allowance.
           </li>
           <li>
+            Published rooms are also what the <strong>public gallery</strong> shows. Hiding one
+            takes it off the site; showing it puts it back. With nothing published the gallery
+            page does not exist at all, rather than standing empty.
+          </li>
+          <li>
+            Publishing takes a <strong>copy</strong> of the walls, so repainting the original
+            never moves the shelf underneath anyone. That also means a mask cannot be fixed by
+            editing the original alone — mark the walls in the studio, then press{" "}
+            <strong>Update walls</strong> on the room. People already holding a copy keep the
+            version they opened.
+          </li>
+          <li>
             Copies are ordinary projects once opened — people repaint, save and share them
             normally, and deleting a copy leaves the library untouched.
           </li>
@@ -94,6 +107,7 @@ export default async function AdminFreeProjectsPage() {
         publishAction={publishFreeProjectAction}
         startAction={startFreeProjectAction}
         setPublishedAction={setFreeProjectPublishedAction}
+        refreshAction={refreshFreeProjectAction}
         deleteAction={deleteFreeProjectsAction}
       />
     </div>

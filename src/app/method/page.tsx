@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Marquee } from "@/components/layout/marquee";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
@@ -9,6 +8,8 @@ import { RevealMount } from "@/components/ui/reveal-mount";
 import { AiPreviewNote } from "@/components/shared/accuracy-note";
 import { fetchCatalogueSize } from "@/lib/catalogue";
 import { METHOD_FIGURES } from "@/lib/method-figures";
+import { fetchSiteAssets } from "@/lib/site-assets-server";
+import { methodFigureSlot } from "@/lib/site-assets";
 
 export const metadata: Metadata = {
   title: "How it works",
@@ -29,6 +30,7 @@ const CHAPTERS = [
     body: "Take a photo of the room on any phone, or use one the customer has already sent you on WhatsApp. One clear picture of the wall is enough.",
     tone: "ivory" as const,
     tag: "FIG. I",
+    figureAlt: "A room photographed on a phone, as a customer would send it",
   },
   {
     num: "II.",
@@ -37,6 +39,7 @@ const CHAPTERS = [
     body: "Everyday clutter — a hanging wire, a stray object, marks on the wall — is tidied out of the picture first, so the colour is the thing your customer looks at.",
     tone: "slate" as const,
     tag: "FIG. II",
+    figureAlt: "The same room with everyday clutter tidied out of the picture",
   },
   {
     num: "III.",
@@ -45,6 +48,7 @@ const CHAPTERS = [
     body: "Next we work out which parts of the photo are paintable wall and which are not — furniture, windows, doors, the floor. Each wall is kept separate, so you can give them different colours.",
     tone: "sage" as const,
     tag: "FIG. III",
+    figureAlt: "The studio with each wall outlined as a separate paintable surface",
   },
   {
     num: "IV.",
@@ -53,6 +57,7 @@ const CHAPTERS = [
     body: "It gets it right most of the time, not every time. If a pillar or a picture frame is included by mistake, click to add or remove it yourself. Your correction is saved with the room.",
     tone: "brass" as const,
     tag: "FIG. IV",
+    figureAlt: "A wall being corrected by hand, adding back a pillar the detection missed",
   },
   {
     num: "V.",
@@ -61,6 +66,7 @@ const CHAPTERS = [
     body: "Now pick a shade and the wall takes it. The original photo stays underneath as the reference, so the light and shadows in the room stay where they were and only the colour changes. Try as many shades as you like — it costs nothing extra.",
     tone: "terracotta" as const,
     tag: "FIG. V",
+    figureAlt: "The room repainted, its light and shadows unchanged",
   },
   {
     num: "VI.",
@@ -69,14 +75,20 @@ const CHAPTERS = [
     body: "Send the finished picture to your customer on WhatsApp or as a link, with the shade codes attached. They show it at home; you mix the can.",
     tone: "ink" as const,
     tag: "FIG. VI",
+    figureAlt: "The finished picture sent to the customer with its shade codes",
   },
 ];
 
 export default async function MethodPage() {
-  const size = await fetchCatalogueSize();
+  // Two sources for the same six pictures, and the order matters. An UPLOADED
+  // figure wins: it is the one an admin can change today, from the console, with
+  // no deploy. METHOD_FIGURES is the older route — files committed to /public —
+  // and stays as the fallback so anything already shipped keeps showing until it
+  // is replaced. An empty slot with no committed file draws the coloured plate,
+  // exactly as before.
+  const [size, assets] = await Promise.all([fetchCatalogueSize(), fetchSiteAssets()]);
   return (
     <>
-      <Marquee items={["How it works", "A photo in, a painted wall back · in seconds", "Six steps, at your counter"]} />
       <SiteHeader />
       <main id="main">
         <RevealMount />
@@ -105,15 +117,16 @@ export default async function MethodPage() {
               <Lead>{c.body}</Lead>
             </div>
             <div>
-              {/* A real photograph or screenshot when one exists for this step,
-                  the coloured plate until then. See lib/method-figures. */}
+              {/* A real photograph or screenshot when one exists for this step —
+                  uploaded in the admin console, or committed under /public — and
+                  the coloured plate until then. */}
               <Placeholder
                 tone={c.tone}
                 grain
                 corners
                 tag={c.tag}
-                src={METHOD_FIGURES[c.num]?.src}
-                alt={METHOD_FIGURES[c.num]?.alt}
+                src={assets[methodFigureSlot(i + 1)]?.url ?? METHOD_FIGURES[c.num]?.src}
+                alt={assets[methodFigureSlot(i + 1)] ? c.figureAlt : (METHOD_FIGURES[c.num]?.alt ?? c.figureAlt)}
                 style={{ aspectRatio: "4 / 5" }}
               />
             </div>

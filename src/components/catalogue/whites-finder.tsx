@@ -105,7 +105,7 @@ export function WhitesFinder({ shades }: { shades: ReadonlyArray<PaintShade> }) 
               </div>
               <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
                 <span style={{ font: "500 14px/1.2 var(--sans)", color: "var(--fg)" }}>{nameOf(s)}</span>
-                <Mono>{whiteTint(s.hex)} · {codeOf(s.code)}</Mono>
+                <Mono>{whiteTint(s.hex)} · <span className="shade-code">{codeOf(s.code)}</span></Mono>
               </div>
             </button>
           );

@@ -32,7 +32,7 @@ import {
   downloadBlob,
   type PdfImageEntry,
 } from "@/lib/pdf-export";
-import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
+import { IMAGE_ACCEPT, cropAndEncode, imageFileError, loadImageFromFile } from "@/lib/image-upload";
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
 import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
@@ -87,6 +87,16 @@ interface RegionState {
 }
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+/**
+ * Longest side a photo is shrunk to when it has to be shrunk at all.
+ *
+ * Generous on purpose. Wall detection and the recolour both work off this
+ * picture, so pixels thrown away here are detail lost from the finished room —
+ * which is why an oversized photo is RE-COMPRESSED first and only scaled down if
+ * that is not enough. 4000px is above what any phone camera needs to be reduced
+ * to and well under what makes a browser canvas struggle.
+ */
+const SHRINK_MAX_DIM = 4000;
 const MAX_CUSTOM_MASKS = 3;
 
 // Render options fixed at their best-looking values — they used to be
@@ -368,6 +378,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // free. Null hides the pill: guests (the shop's budget, not theirs), customers
   // (no subscription → 404) and fetch failures.
   const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
+  /**
+   * The paint company the whole colour panel is scoped to ("" = every company the
+   * caller may see).
+   *
+   * It lives up here, in the topbar beside Share and Download, rather than inside
+   * the Colours tab. As a filter buried in that tab's drawer it only narrowed the
+   * catalogue grid: a counter who had picked one company still got AI palettes,
+   * coordinate pairings and nearest-matches drawn from every other one, and the AI
+   * tab carried a SECOND company filter with its own separate answer. Choosing a
+   * company is a statement about the whole session — "this is what we sell" — so it
+   * is asked once, at the top, and every tab below is handed the scoped list.
+   */
+  const [company, setCompany] = useState("");
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -792,10 +815,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     });
   }, [guest]);
 
-  const validateFile = useCallback(
-    (file: File): string | null => imageFileError(file, { maxBytes: MAX_UPLOAD_BYTES }),
-    [],
-  );
+  // Type only. The size cap is not a validation any more — an oversized photo is
+  // shrunk in selectFile rather than refused, so there is nothing here for the
+  // user to fix and nothing to tell them about.
+  const validateFile = useCallback((file: File): string | null => imageFileError(file), []);
 
   // Create the project + run segmentation for an already-uploaded image. Extracted so it
   // can be retried after the customer buys an extra project. Surfaces the new
@@ -886,12 +909,36 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // classification, no segmentation — so choosing the wrong photo never costs an
   // AI call. The user confirms via confirmSelection() before any of that runs.
   const selectFile = useCallback(
-    async (file: File) => {
+    async (picked: File) => {
       setError(null);
-      const validation = validateFile(file);
+      const validation = validateFile(picked);
       if (validation) {
         setError(validation);
         return;
+      }
+      // A photo off a modern phone is routinely over the limit, and being told
+      // "larger than 10 MB, use a smaller copy" at a counter meant the customer's
+      // room simply could not be opened — the shopkeeper had no way to make a
+      // smaller copy on the spot. The browser can, so it does: re-encode, scaling
+      // down only if compression alone is not enough. Untouched when it already
+      // fits, so nothing that worked before is degraded.
+      let file = picked;
+      if (picked.size > MAX_UPLOAD_BYTES) {
+        try {
+          const source = await loadImageFromFile(picked);
+          file = await cropAndEncode(
+            source,
+            { x: 0, y: 0, width: source.naturalWidth, height: source.naturalHeight },
+            { maxDim: SHRINK_MAX_DIM, maxBytes: MAX_UPLOAD_BYTES, filename: picked.name },
+          );
+        } catch {
+          setError("That photo is too large to open on this device. Try one taken at a smaller size.");
+          return;
+        }
+        if (file.size > MAX_UPLOAD_BYTES) {
+          setError("That photo is too large even after shrinking. Try one taken at a smaller size.");
+          return;
+        }
       }
       try {
         const localUrl = URL.createObjectURL(file);
@@ -1613,6 +1660,24 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
+  // Companies this caller may actually work with. For a shop that is what its
+  // distributor assigned it and what its plan includes; for a guest it is what the
+  // access code unlocked — both already applied by the backend, so this is simply
+  // what came back. One company means there is nothing to choose, and the picker
+  // hides rather than offering a list of one.
+  const availableBrands = useMemo(
+    () => Array.from(new Set((shades ?? []).map((s) => s.brand).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [shades],
+  );
+  // What the colour panel is handed. A selection that matches nothing — a catalogue
+  // re-imported under the picker, say — falls back to the whole list: an empty panel
+  // would look like the studio had broken rather than like a filter needing clearing.
+  const panelShades = useMemo(() => {
+    if (!company) return shades;
+    const scoped = (shades ?? []).filter((s) => s.brand === company);
+    return scoped.length > 0 ? scoped : shades;
+  }, [shades, company]);
+
   // Undertone check across every painted wall: the first warm-vs-cool (or
   // white-tint) fight found becomes a quiet note in the shade panel.
   const clashNote = useMemo(() => {
@@ -1822,6 +1887,27 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         </div>
 
         <div className="hv-studio-actions">
+          {availableBrands.length > 1 && (
+            <label className="hv-studio-company">
+              {/* The visible eyebrow is dropped on phone widths where the topbar has
+                  no room for it, so the name is stated on the control itself rather
+                  than left to a label that may not be rendered. */}
+              <Mono>Company</Mono>
+              <select
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                aria-label="Company — show only this company's shades"
+                title="Show only this company's shades — in Colours, AI Suggest and Custom alike"
+              >
+                <option value="">All companies</option>
+                {availableBrands.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {!guest && (
             <Button
               size="sm"
@@ -2476,7 +2562,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             activeShade={active.shade}
             activeRegionLabel={active.label}
             activeApplied={active.applied}
-            shades={shades}
+            shades={panelShades}
             baseHex={active.applied ? active.hex : undefined}
             activeRegionId={activeRegion}
             regions={regionLites}
@@ -2620,7 +2706,7 @@ function DropZone({
         {isDragging ? "Drop it here" : "Add a photo of the room"}
       </h2>
       <p style={{ font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "44ch", margin: 0 }}>
-        A straight-on photo in daylight works best. JPEG, PNG or WebP, up to 10 MB.
+        A straight-on photo in daylight works best. JPEG, PNG or WebP — any size; large photos are shrunk for you.
       </p>
       <div
         style={{

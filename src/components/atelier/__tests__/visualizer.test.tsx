@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ProjectDetail, RegionDetail, UploadedImage } from "@/lib/types";
+import type { PaintShade, ProjectDetail, RegionDetail, UploadedImage } from "@/lib/types";
 import {
   pollUntilSegmented,
   PollCancelledError,
@@ -397,16 +397,40 @@ describe("Visualizer — upload validation", () => {
     expect(screen.getByText("Add a photo of the room")).toBeInTheDocument();
   });
 
-  it("rejects a photo over 10 MB with the right message and never uploads", async () => {
+  /**
+   * An oversized photo is no longer refused — it is shrunk in the browser (see
+   * selectFile). This suite stubs getContext to null, which is a browser that
+   * cannot do that, so what it pins is the FALLBACK: say so plainly, and upload
+   * nothing. The shrink itself is unit-tested in lib/__tests__/image-upload.
+   */
+  it("says so and uploads nothing when an oversized photo cannot be shrunk here", async () => {
     const { container } = render(<Visualizer initialName="Test room" />);
     await screen.findByText("Add a photo of the room");
 
     await chooseFile(container, makeFile("huge.jpg", "image/jpeg", 10 * 1024 * 1024 + 1));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Photo is larger than 10 MB. Use a smaller copy.",
+      "That photo is too large to open on this device.",
     );
     expect(api.uploadImage).not.toHaveBeenCalled();
+    // Still on the drop zone — nothing was created.
+    expect(screen.getByText("Add a photo of the room")).toBeInTheDocument();
+  });
+
+  it("leaves a photo under the limit completely alone", async () => {
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+
+    // Well under the cap, so no re-encode is attempted — which matters here
+    // because this suite has no working canvas: reaching the shrink path at all
+    // would fail, and the upload going through is the proof it was not reached.
+    const picked = makeFile("room.jpg", "image/jpeg", 512 * 1024);
+    await chooseFile(container, picked);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(api.uploadImage).toHaveBeenCalled();
+    // The very same File object, not a re-encoded copy of it.
+    expect(vi.mocked(api.uploadImage).mock.calls[0]?.[0]).toBe(picked);
   });
 });
 
@@ -717,5 +741,53 @@ describe("Visualizer — recolor engine fallback", () => {
       "Canvas 2D rendering is not supported in this browser.",
     );
     expect(screen.queryByText(/Basic preview/)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The company picker lives in the topbar, beside Share and Download, and scopes
+ * the shade list the whole colour panel is handed — so Colours, AI Suggest and
+ * Custom cannot disagree about which company is in play. It used to be a filter
+ * inside the Colours tab (plus a second, independent one on AI Suggest), which
+ * narrowed the catalogue grid and nothing else.
+ */
+describe("Visualizer — company scope", () => {
+  const TWO_BRANDS: PaintShade[] = [
+    { code: "AP-1", name: "Blush Zephyr", hex: "#d98c8c", family: "Reds", lrv: 45, brand: "Asian Paints", finishes: [] },
+    { code: "AP-2", name: "Sun Zephyr", hex: "#d9c78c", family: "Yellows", lrv: 62, brand: "Asian Paints", finishes: [] },
+    { code: "BG-1", name: "Blush Quartz", hex: "#cf7f7f", family: "Reds", lrv: 42, brand: "Berger", finishes: [] },
+    { code: "BG-2", name: "Sun Quartz", hex: "#cfbf7f", family: "Yellows", lrv: 60, brand: "Berger", finishes: [] },
+  ];
+
+  it("narrows the colour panel to the chosen company", async () => {
+    const user = userEvent.setup();
+    render(<Visualizer initialName="Test room" shades={TWO_BRANDS} />);
+    await screen.findByText("Add a photo of the room");
+
+    const picker = screen.getByRole("combobox", { name: /Company/ });
+    // Unscoped: both companies' shades are in the grid.
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
+
+    await user.selectOptions(picker, "Berger");
+
+    expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
+
+    // And back — "All companies" restores the full list.
+    await user.selectOptions(picker, "");
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
+  });
+
+  it("hides the picker when there is only one company to choose", async () => {
+    render(
+      <Visualizer
+        initialName="Test room"
+        shades={TWO_BRANDS.filter((s) => s.brand === "Asian Paints")}
+      />,
+    );
+    await screen.findByText("Add a photo of the room");
+
+    expect(screen.queryByRole("combobox", { name: /Company/ })).not.toBeInTheDocument();
   });
 });

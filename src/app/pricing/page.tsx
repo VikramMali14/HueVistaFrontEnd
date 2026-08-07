@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { contact } from "@/lib/config";
 import Link from "next/link";
-import { Marquee } from "@/components/layout/marquee";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
@@ -34,9 +33,10 @@ type Section = { title: string; rows: ReadonlyArray<Row> };
 // does not serve it from /api/billing/plans, so an "On request" column would be quoting a
 // plan nothing in the product can sell.
 //
-// The free column is where the tier boundary shows itself. Two rows separate it from
-// Starter: the project allowance, and the colour finder — the only capability in the
-// product gated on the tier rather than on a quota.
+// The free column is where the tier boundary shows itself. Three rows separate it from
+// Starter: the project allowance, the colour finder, and how much of the catalogue the
+// shop reaches — a free counter works with one paint company, and the two capability
+// rows are the only ones in the product gated on the tier rather than on a quota.
 const MATRIX: ReadonlyArray<Section> = [
   {
     title: "The preview",
@@ -59,8 +59,8 @@ const MATRIX: ReadonlyArray<Section> = [
       // FAQ on this same page had already been corrected for making exactly that
       // claim when they were not. Which companies a shop sees depends on what its
       // distributor assigned it, so the catalogue page states the live list and this
-      // table says only what every tier gets: all of it.
-      ["Every company in your catalogue", "●", "●", "●", "●"],
+      // table says only how much of it each tier reaches.
+      ["Every company your distributor assigned you", "Asian Paints only", "●", "●", "●"],
       // The tier line. Colour matching — read a photograph, get the nearest catalogue
       // shade codes — is the one tool that earns at the counter without a project behind
       // it, so it is what the free plan does not carry.
@@ -109,16 +109,12 @@ export default async function PricingPage() {
   // backend refuses those charges anyway (plans unlock nothing for a customer).
   const user = await getCurrentUser();
   const isCustomer = user?.role === "CUSTOMER";
-  // The marquee and the lede both used to overstate the catalogue ("10,000+ shades
-  // across five brands" against a real 4,522 across two) and the lede contradicted
-  // the rest of the page on the trial length. Both now read the truth.
+  // The lede used to overstate the catalogue ("10,000+ shades across five brands"
+  // against a real 4,522 across two) and contradicted the rest of the page on the
+  // trial length. It reads the live figure now; the FAQ below takes the same numbers.
   const size = await fetchCatalogueSize();
-  const catalogueLine = size
-    ? `${size.shades.toLocaleString("en-IN")} shades · ${size.brands} ${size.brands === 1 ? "company" : "companies"} · more to follow`
-    : "Every shade, every code intact";
   return (
     <>
-      <Marquee items={["Pricing · For retailers, not consumers", `${FREE_PLAN_PROJECTS} free projects every month · no card · open within a day`, catalogueLine]} />
       <SiteHeader />
       <main id="main">
         <RevealMount />

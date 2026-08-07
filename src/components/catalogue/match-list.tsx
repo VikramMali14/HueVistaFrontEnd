@@ -101,7 +101,7 @@ export function MatchList({
                   {label}
                 </span>
                 <Mono>
-                  {code} · {showNames ? `${shade.brand} · ` : ""}
+                  <span className="shade-code">{code}</span> · {showNames ? `${shade.brand} · ` : ""}
                   {rating}
                 </Mono>
               </span>

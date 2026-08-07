@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Marquee } from "@/components/layout/marquee";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
@@ -28,7 +27,6 @@ export default async function CataloguePage() {
   const brandLine = brands.length === 1 ? brands[0]! : `${brands.length} companies`;
   return (
     <>
-      <Marquee items={["The Catalogue", "Every code intact · finishes preserved", `${brandLine} · more to follow`]} />
       <SiteHeader />
       <main id="main">
         <RevealMount />

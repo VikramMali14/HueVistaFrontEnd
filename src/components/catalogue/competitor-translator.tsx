@@ -65,7 +65,7 @@ export function CompetitorTranslator({ shades }: { shades: ReadonlyArray<PaintSh
           placeholder="e.g. BG-3T-0525 or NK-2563"
           aria-label="Competitor shade code"
           spellCheck={false}
-          style={{ width: 220, padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", fontFamily: "var(--mono)" }}
+          style={{ width: 220, padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", fontFamily: "var(--code)" }}
         />
         <button type="submit" className="btn">Translate <span className="arr">→</span></button>
       </form>
@@ -73,7 +73,7 @@ export function CompetitorTranslator({ shades }: { shades: ReadonlyArray<PaintSh
       {unknownCode && (
         <div style={{ marginTop: 18, padding: "14px 16px", border: "1px solid var(--rule)", background: "var(--surface)", borderRadius: 8 }}>
           <p style={{ font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", margin: 0 }}>
-            We don&apos;t know <span style={{ fontFamily: "var(--mono)" }}>{unknownCode}</span> yet.
+            We don&apos;t know <span style={{ fontFamily: "var(--code)" }}>{unknownCode}</span> yet.
             Pick the colour straight off the customer&apos;s shade card instead:
           </p>
           <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
@@ -90,7 +90,7 @@ export function CompetitorTranslator({ shades }: { shades: ReadonlyArray<PaintSh
               onChange={(e) => setHex(e.target.value)}
               aria-label="Hex colour"
               spellCheck={false}
-              style={{ width: 120, padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", fontFamily: "var(--mono)" }}
+              style={{ width: 120, padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", fontFamily: "var(--code)" }}
             />
             <button
               type="button"
@@ -121,7 +121,7 @@ export function CompetitorTranslator({ shades }: { shades: ReadonlyArray<PaintSh
                 <div key={r.shade.code} style={{ width: 150 }}>
                   <div style={{ aspectRatio: "1 / 0.8", background: r.shade.hex, border: "1px solid var(--rule-strong)", borderRadius: 6 }} />
                   <div style={{ marginTop: 8, font: "500 14px/1.25 var(--sans)", color: "var(--fg)" }}>{nameOf(r.shade)}</div>
-                  <Mono>{codeOf(r.shade.code)}</Mono>
+                  <Mono className="shade-code">{codeOf(r.shade.code)}</Mono>
                   <div
                     style={{
                       marginTop: 6,

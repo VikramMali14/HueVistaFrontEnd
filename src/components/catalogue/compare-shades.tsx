@@ -149,7 +149,13 @@ export function CompareOverlay({
               </button>
               <div style={{ padding: "12px 12px 14px", display: "flex", flexDirection: "column", gap: 6, background: "var(--surface)" }}>
                 <span style={{ font: "600 14px/1.25 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis" }}>{nameOf(s)}</span>
-                <Mono>{hideCodes ? s.brand : `${codeOf(s.code)}${showNames ? ` · ${s.brand}` : ""}`}</Mono>
+                <Mono>
+                  {hideCodes ? s.brand : (
+                    <>
+                      <span className="shade-code">{codeOf(s.code)}</span>{showNames ? ` · ${s.brand}` : ""}
+                    </>
+                  )}
+                </Mono>
                 <UndertoneTag hex={s.hex} prefix />
                 {shift.score >= LIGHT_SHIFT_BADGE && (
                   <span title="This colour changes noticeably under a warm bulb" style={{ display: "inline-flex", alignItems: "center", gap: 6, font: "400 12px/1 var(--mono)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--fg-mute)" }}>

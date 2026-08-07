@@ -27,6 +27,12 @@ const GUEST_ONLY_PATHS = ["/sign-in", "/sign-in/forgot", "/join"];
 // a page-level notFound() throws, so the visitor gets the 404 page under a 200
 // status and a crawler keeps the URL indexed. Middleware runs before any of that.
 const SHOWCASE_PREFIXES = ["/gallery", "/journal", "/work"];
+// /gallery has a second way in: it now lists the rooms an admin has actually
+// published, and real photographs of real rooms are not placeholder content. So
+// it opens by itself the moment the shelf is not empty, and closes again if every
+// room is hidden — the admin console is the publish button for the page as well as
+// for the rooms on it. /journal and /work are unchanged; they are still invented.
+const GALLERY_PREFIX = "/gallery";
 const ACCESS_COOKIE = "hv_access";
 const SESSION_COOKIE = "hv_refresh";
 const GUEST_COOKIE = "hv_guest";
@@ -53,6 +59,41 @@ function cookieOpts(maxAge: number) {
   };
 }
 
+/**
+ * Whether the public gallery has anything on it, cached for {@link GALLERY_PROBE_TTL}.
+ *
+ * Only /gallery requests reach this, and at most one backend call per TTL per
+ * worker — the answer changes when an admin publishes or hides a room, which is a
+ * handful of times a month, so a stale minute is nothing and a call per page view
+ * would be absurd.
+ *
+ * A backend that cannot be reached reads as EMPTY, which 404s the page. That is the
+ * safe direction: the alternative renders a gallery with no rooms in it, under a
+ * 200, for a crawler to index — the exact outcome this gate exists to prevent.
+ */
+const GALLERY_PROBE_TTL = 60_000;
+let galleryProbe: { at: number; hasRooms: boolean } | null = null;
+
+async function galleryHasRooms(): Promise<boolean> {
+  const now = Date.now();
+  if (galleryProbe && now - galleryProbe.at < GALLERY_PROBE_TTL) return galleryProbe.hasRooms;
+  let hasRooms = false;
+  try {
+    const res = await fetch(`${INTERNAL_ORIGIN}/api/free-projects`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const rooms = (await res.json()) as unknown;
+      hasRooms = Array.isArray(rooms) && rooms.length > 0;
+    }
+  } catch {
+    hasRooms = false;
+  }
+  galleryProbe = { at: now, hasRooms };
+  return hasRooms;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
@@ -63,7 +104,12 @@ export async function middleware(req: NextRequest) {
     !SHOWCASE_CONTENT &&
     SHOWCASE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
   ) {
-    return NextResponse.rewrite(new URL("/_not-found", req.url), { status: 404 });
+    const isGallery = pathname === GALLERY_PREFIX || pathname.startsWith(`${GALLERY_PREFIX}/`);
+    // The gallery lets itself in once real rooms are published; everything else
+    // still needs the flag.
+    if (!isGallery || !(await galleryHasRooms())) {
+      return NextResponse.rewrite(new URL("/_not-found", req.url), { status: 404 });
+    }
   }
 
   // Public auth endpoints are REWRITTEN to the backend (next.config.ts), and
