@@ -108,10 +108,12 @@ describe("Suggested colours (AI Suggest tab)", () => {
 });
 
 /**
- * Company filter (AI Suggest tab) — picking a company scopes the locally
- * generated Room palettes to that brand's shades. Two brands with distinct
- * name tokens ("Zephyr" = Asian Paints, "Quartz" = Berger) let us assert the
- * scope purely from the swatch labels the cards render.
+ * Company scope — the studio topbar picks the company and hands this panel the
+ * shades to work from, so the panel itself carries no company filter at all (it
+ * used to carry two, one on Colours and a separate one on AI Suggest, each with
+ * its own answer). Two brands with distinct name tokens ("Zephyr" = Sample
+ * palette, "Quartz" = Berger) let us assert the scope purely from the swatch
+ * labels the cards render.
  */
 const TWO_BRAND_SHADES: PaintShade[] = [
   { code: "HV-1", name: "Blush Zephyr", hex: "#d98c8c", family: "Reds", lrv: 45, brand: "Sample palette", finishes: [] },
@@ -128,33 +130,38 @@ const TWO_BRAND_SHADES: PaintShade[] = [
   { code: "BG-6", name: "Chalk Quartz", hex: "#f2eee6", family: "Whites", lrv: 86, brand: "Berger", finishes: [] },
 ];
 
-describe("Company filter (AI Suggest tab)", () => {
-  it("scopes the generated Room palettes to the selected company's shades", async () => {
+describe("Company scope", () => {
+  it("draws Room palettes only from the shades it is handed", async () => {
+    const user = userEvent.setup();
+    // What the topbar hands down when Berger is chosen: one company's shades.
+    const berger = TWO_BRAND_SHADES.filter((s) => s.brand === "Berger");
+    render(<ShadeGrid onSelect={vi.fn()} shades={berger} />);
+
+    await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
+
+    expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
+  });
+
+  it("keeps the Colours grid on the same company as the palettes", async () => {
+    const berger = TWO_BRAND_SHADES.filter((s) => s.brand === "Berger");
+    render(<ShadeGrid onSelect={vi.fn()} shades={berger} />);
+
+    // Catalogue is the tab on open — no interaction needed.
+    expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
+  });
+
+  it("carries no company filter of its own — the topbar owns that choice", async () => {
     const user = userEvent.setup();
     render(<ShadeGrid onSelect={vi.fn()} shades={TWO_BRAND_SHADES} />);
 
+    // Neither on Colours (behind the Filters drawer)…
+    await user.click(screen.getByRole("button", { name: /Filters/ }));
+    expect(screen.queryByRole("button", { name: "Berger" })).not.toBeInTheDocument();
+    // …nor on AI Suggest, where a second, independent one used to live.
     await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
-
-    // Both companies are offered as pills; unfiltered, both brands' shades can
-    // surface in the palettes.
-    expect(screen.getByRole("button", { name: "Sample palette" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Berger" })).toBeInTheDocument();
-    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
-
-    // Pick Berger → every palette swatch is now a Berger ("Quartz") shade.
-    await user.click(screen.getByRole("button", { name: "Berger" }));
-    expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
-    expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
-
-    // Clearing the filter brings Asian Paints' shades back into the pool.
-    await user.click(screen.getByRole("button", { name: "Clear" }));
-    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
-  });
-
-  it("hides the company filter when the catalogue has a single brand", async () => {
-    const user = userEvent.setup();
-    render(<ShadeGrid onSelect={vi.fn()} shades={SHADES} />);
-    await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
+    expect(screen.queryByRole("button", { name: "Berger" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sample palette" })).not.toBeInTheDocument();
   });
 });

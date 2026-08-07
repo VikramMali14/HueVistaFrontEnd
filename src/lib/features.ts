@@ -81,6 +81,19 @@ export const FEATURE_BY_PATH: Record<string, AppFeatureKey | undefined> = {
   "/network": "NETWORK",
 };
 
+/**
+ * Whether a SHOP may reach the painter module — creating painter accounts and
+ * reading its painter roster, which is all /network is for a retailer.
+ *
+ * Off while the module is still being tested. It is deliberately one constant
+ * rather than three edits: the nav tab, the dashboard shortcut and the page guard
+ * all read it, so switching it back on restores the whole thing at once and can
+ * never leave a visible tab pointing at a page that bounces. Admins and
+ * distributors are unaffected — /network is their console for the entire downline,
+ * and it is only the shop-facing half that is unfinished.
+ */
+export const SHOP_PAINTER_MODULE_ENABLED = false;
+
 /** Human labels for the denial hint on /dashboard, keyed by feature. */
 export const FEATURE_LABELS: Record<AppFeatureKey, string> = {
   STUDIO: "Studio",

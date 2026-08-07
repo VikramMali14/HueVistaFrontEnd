@@ -170,7 +170,7 @@ export function ShadeCodePanel({ shades, org: orgProp }: { shades: ReadonlyArray
         {/* Live example of the rule on a real code. */}
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
           <Mono>Example</Mono>
-          <span style={{ font: "400 15px/1.4 var(--mono)", color: "var(--fg)" }}>
+          <span style={{ font: "400 15px/1.4 var(--code)", color: "var(--fg)" }}>
             {exampleCode} →{" "}
             {hasScheme(draft) ? (
               <>
@@ -236,7 +236,7 @@ function PartInput({
           border: "1px solid var(--rule-strong)",
           background: "var(--surface)",
           color: "var(--fg)",
-          fontFamily: "var(--mono)",
+          fontFamily: "var(--code)",
           letterSpacing: ".18em",
           fontSize: 16,
           textTransform: "uppercase",

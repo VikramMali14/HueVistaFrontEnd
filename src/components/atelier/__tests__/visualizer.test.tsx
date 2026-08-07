@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ProjectDetail, RegionDetail, UploadedImage } from "@/lib/types";
+import type { PaintShade, ProjectDetail, RegionDetail, UploadedImage } from "@/lib/types";
 import {
   pollUntilSegmented,
   PollCancelledError,
@@ -717,5 +717,53 @@ describe("Visualizer — recolor engine fallback", () => {
       "Canvas 2D rendering is not supported in this browser.",
     );
     expect(screen.queryByText(/Basic preview/)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The company picker lives in the topbar, beside Share and Download, and scopes
+ * the shade list the whole colour panel is handed — so Colours, AI Suggest and
+ * Custom cannot disagree about which company is in play. It used to be a filter
+ * inside the Colours tab (plus a second, independent one on AI Suggest), which
+ * narrowed the catalogue grid and nothing else.
+ */
+describe("Visualizer — company scope", () => {
+  const TWO_BRANDS: PaintShade[] = [
+    { code: "AP-1", name: "Blush Zephyr", hex: "#d98c8c", family: "Reds", lrv: 45, brand: "Asian Paints", finishes: [] },
+    { code: "AP-2", name: "Sun Zephyr", hex: "#d9c78c", family: "Yellows", lrv: 62, brand: "Asian Paints", finishes: [] },
+    { code: "BG-1", name: "Blush Quartz", hex: "#cf7f7f", family: "Reds", lrv: 42, brand: "Berger", finishes: [] },
+    { code: "BG-2", name: "Sun Quartz", hex: "#cfbf7f", family: "Yellows", lrv: 60, brand: "Berger", finishes: [] },
+  ];
+
+  it("narrows the colour panel to the chosen company", async () => {
+    const user = userEvent.setup();
+    render(<Visualizer initialName="Test room" shades={TWO_BRANDS} />);
+    await screen.findByText("Add a photo of the room");
+
+    const picker = screen.getByRole("combobox", { name: /Company/ });
+    // Unscoped: both companies' shades are in the grid.
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
+
+    await user.selectOptions(picker, "Berger");
+
+    expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
+
+    // And back — "All companies" restores the full list.
+    await user.selectOptions(picker, "");
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
+  });
+
+  it("hides the picker when there is only one company to choose", async () => {
+    render(
+      <Visualizer
+        initialName="Test room"
+        shades={TWO_BRANDS.filter((s) => s.brand === "Asian Paints")}
+      />,
+    );
+    await screen.findByText("Add a photo of the room");
+
+    expect(screen.queryByRole("combobox", { name: /Company/ })).not.toBeInTheDocument();
   });
 });

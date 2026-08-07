@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUserResult } from "@/lib/auth";
-import { FEATURE_LABELS } from "@/lib/features";
+import { FEATURE_LABELS, SHOP_PAINTER_MODULE_ENABLED } from "@/lib/features";
 import type { AppFeatureKey } from "@/lib/types";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { LinkButton } from "@/components/ui/button";
@@ -129,8 +129,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <LinkButton href="/redeem" variant="ghost" size="sm">Have a shop access code? Redeem it <span className="arr">→</span></LinkButton>
           </div>
         )}
-        {/* Distributors and retailers get a direct line to their network console. */}
-        {!unavailable && (user?.role === "DISTRIBUTOR" || user?.role === "RETAILER") && (
+        {/* Distributors and retailers get a direct line to their network console —
+            but a shop's console is the painter module, which is still in testing,
+            so the shortcut follows the same constant as the nav tab and the page
+            itself rather than pointing at a route that would bounce them. */}
+        {!unavailable && (user?.role === "DISTRIBUTOR" || (user?.role === "RETAILER" && SHOP_PAINTER_MODULE_ENABLED)) && (
           <div style={{ marginTop: 16 }}>
             <LinkButton href="/network" variant="ghost" size="sm">
               {user?.role === "DISTRIBUTOR" ? "Manage your shops & reports" : "Manage your painters & reports"} <span className="arr">→</span>

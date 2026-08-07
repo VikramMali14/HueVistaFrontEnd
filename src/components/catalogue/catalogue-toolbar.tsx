@@ -373,7 +373,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
                   </div>
                   <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
                     <span className="hv-shade-card-title" title={nameOf(s)} style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{nameOf(s)}</span>
-                    <Mono>{copied === codeOf(s.code) ? `${codeOf(s.code)} · copied` : codeOf(s.code)}</Mono>
+                    <Mono className="shade-code">{copied === codeOf(s.code) ? `${codeOf(s.code)} · copied` : codeOf(s.code)}</Mono>
                   </div>
                 </button>
                 {/* Tool row: compare · strip (the strip's footer holds

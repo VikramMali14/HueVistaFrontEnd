@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getNetworkReport, requireFeature, requireRole } from "@/lib/auth";
+import { SHOP_PAINTER_MODULE_ENABLED } from "@/lib/features";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { NetworkCreateRetailerForm } from "@/components/network/create-retailer-form";
 import { CreatePainterForm } from "@/components/network/create-painter-form";
@@ -24,9 +25,19 @@ export const metadata: Metadata = {
  *
  * Customers are deliberately not in this tree — they enter through the shop's
  * access codes on /redeem, which the report counts per shop.
+ *
+ * The RETAILER half is switched off while the painter module is in testing (see
+ * SHOP_PAINTER_MODULE_ENABLED). It is gated in the allow-list rather than left
+ * to render an empty page, so a shop that types the URL gets the same "reserved"
+ * notice as any other page it may not open, and the nav tab is hidden by the
+ * same constant.
  */
 export default async function NetworkPage() {
-  const user = await requireRole(["ADMIN", "DISTRIBUTOR", "RETAILER"]);
+  const user = await requireRole(
+    SHOP_PAINTER_MODULE_ENABLED
+      ? ["ADMIN", "DISTRIBUTOR", "RETAILER"]
+      : ["ADMIN", "DISTRIBUTOR"],
+  );
   // Grantable for shops only — requireFeature is a no-op for admins and
   // distributors, who are never restricted.
   await requireFeature("NETWORK");

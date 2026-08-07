@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Marquee } from "@/components/layout/marquee";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
@@ -76,7 +75,6 @@ export default async function MethodPage() {
   const size = await fetchCatalogueSize();
   return (
     <>
-      <Marquee items={["How it works", "A photo in, a painted wall back · in seconds", "Six steps, at your counter"]} />
       <SiteHeader />
       <main id="main">
         <RevealMount />

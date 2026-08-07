@@ -368,6 +368,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // free. Null hides the pill: guests (the shop's budget, not theirs), customers
   // (no subscription → 404) and fetch failures.
   const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
+  /**
+   * The paint company the whole colour panel is scoped to ("" = every company the
+   * caller may see).
+   *
+   * It lives up here, in the topbar beside Share and Download, rather than inside
+   * the Colours tab. As a filter buried in that tab's drawer it only narrowed the
+   * catalogue grid: a counter who had picked one company still got AI palettes,
+   * coordinate pairings and nearest-matches drawn from every other one, and the AI
+   * tab carried a SECOND company filter with its own separate answer. Choosing a
+   * company is a statement about the whole session — "this is what we sell" — so it
+   * is asked once, at the top, and every tab below is handed the scoped list.
+   */
+  const [company, setCompany] = useState("");
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -1613,6 +1626,24 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
+  // Companies this caller may actually work with. For a shop that is what its
+  // distributor assigned it and what its plan includes; for a guest it is what the
+  // access code unlocked — both already applied by the backend, so this is simply
+  // what came back. One company means there is nothing to choose, and the picker
+  // hides rather than offering a list of one.
+  const availableBrands = useMemo(
+    () => Array.from(new Set((shades ?? []).map((s) => s.brand).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [shades],
+  );
+  // What the colour panel is handed. A selection that matches nothing — a catalogue
+  // re-imported under the picker, say — falls back to the whole list: an empty panel
+  // would look like the studio had broken rather than like a filter needing clearing.
+  const panelShades = useMemo(() => {
+    if (!company) return shades;
+    const scoped = (shades ?? []).filter((s) => s.brand === company);
+    return scoped.length > 0 ? scoped : shades;
+  }, [shades, company]);
+
   // Undertone check across every painted wall: the first warm-vs-cool (or
   // white-tint) fight found becomes a quiet note in the shade panel.
   const clashNote = useMemo(() => {
@@ -1822,6 +1853,27 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         </div>
 
         <div className="hv-studio-actions">
+          {availableBrands.length > 1 && (
+            <label className="hv-studio-company">
+              {/* The visible eyebrow is dropped on phone widths where the topbar has
+                  no room for it, so the name is stated on the control itself rather
+                  than left to a label that may not be rendered. */}
+              <Mono>Company</Mono>
+              <select
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                aria-label="Company — show only this company's shades"
+                title="Show only this company's shades — in Colours, AI Suggest and Custom alike"
+              >
+                <option value="">All companies</option>
+                {availableBrands.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {!guest && (
             <Button
               size="sm"
@@ -2476,7 +2528,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             activeShade={active.shade}
             activeRegionLabel={active.label}
             activeApplied={active.applied}
-            shades={shades}
+            shades={panelShades}
             baseHex={active.applied ? active.hex : undefined}
             activeRegionId={activeRegion}
             regions={regionLites}

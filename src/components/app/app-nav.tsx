@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { canUsePath } from "@/lib/features";
+import { canUsePath, SHOP_PAINTER_MODULE_ENABLED } from "@/lib/features";
 import { syncShadeCodeSchemeIdentity } from "@/hooks/use-shade-code-scheme";
 import type { AuthUser, MyAccess } from "@/lib/types";
 
@@ -72,6 +72,8 @@ export function AppNav({ user, access = null }: AppNavProps) {
   const visibleTabs = TABS.filter((t) => {
     // Hierarchy console — admins, distributors and retailers manage their downline here.
     if (t.href === "/network" && (!user || (user.role !== "ADMIN" && user.role !== "DISTRIBUTOR" && user.role !== "RETAILER"))) return false;
+    // A shop's downline is painters, and the painter module is still in testing.
+    if (t.href === "/network" && user?.role === "RETAILER" && !SHOP_PAINTER_MODULE_ENABLED) return false;
     if (t.href === "/portal" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     if (t.href === "/products" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     // A customer's assigned-products page — only customers have an access code behind it.
@@ -186,13 +188,22 @@ export function AppNav({ user, access = null }: AppNavProps) {
               floating at the top centre — clipped by the viewport edge, and
               overlapped by the workspace's own "0/32 projects" badge. No back
               link, no breadcrumb, no way to the dashboard. This bar owns the
-              top strip so nothing floats over the workspace, and the logo does
-              what a logo is expected to do. */}
+              top strip so nothing floats over the workspace.
+
+              It carries no logo. Every pixel it takes is a pixel off the
+              workspace — which is the whole point of the studio — and the
+              wordmark was doing nothing here that the two text links don't do
+              better: a photo is on screen, nobody is wondering whose site this
+              is. Dropping it let the bar get shorter too. */}
           <div className="studio-minibar">
-            <Link href="/dashboard" className="studio-minibar-home" aria-label="HueVista — back to dashboard">
-              <Logo size="sm" inverted ariaLabel={null} />
-              <span className="studio-minibar-back" aria-hidden>← Dashboard</span>
-            </Link>
+            <div className="studio-minibar-links">
+              <Link href="/dashboard" className="studio-minibar-link">
+                <span aria-hidden>←</span> Dashboard
+              </Link>
+              <Link href="/" className="studio-minibar-link">
+                Home
+              </Link>
+            </div>
             <button
               type="button"
               className="studio-nav-handle"
@@ -239,6 +250,7 @@ export function AppNav({ user, access = null }: AppNavProps) {
             </Link>
           ))}
           <div className="app-drawer-meta">
+            <HomeLink />
             <ThemeToggle />
             {user && (
               <Link href="/account" style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }} title="Account settings">{user.name}</Link>
@@ -271,6 +283,7 @@ export function AppNav({ user, access = null }: AppNavProps) {
           ))}
         </nav>
         <div className="app-nav-meta">
+          <HomeLink />
           <ThemeToggle />
           {user && (
             <Link href="/account" style={{ font: "300 16px/1 var(--serif)", color: "var(--fg-soft)" }} title="Account settings">{user.name}</Link>
@@ -328,6 +341,16 @@ export function AppNav({ user, access = null }: AppNavProps) {
         }
         .app-tab.active:hover { color: var(--bg); }
         .app-nav-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .app-home-link {
+          display: inline-flex; align-items: center; gap: 7px;
+          padding: 10px 14px; border-radius: var(--radius-pill);
+          border: 1px solid transparent;
+          font: 400 12px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase;
+          color: var(--fg-soft);
+          transition: color .25s var(--ease), border-color .25s var(--ease), background .25s var(--ease);
+        }
+        .app-home-link:hover { color: var(--fg); border-color: var(--rule-strong); background: rgba(var(--fg-rgb), .06); }
+        .app-home-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .app-tabs.is-mobile { display: none; }
         .app-drawer-meta { display: none; }
         /* ── Studio (atelier): auto-hide navbar ─────────────────────────
@@ -362,17 +385,21 @@ export function AppNav({ user, access = null }: AppNavProps) {
           border-bottom: 1px solid var(--rule);
           pointer-events: auto;
         }
-        .studio-minibar-home { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
-        .studio-minibar-back {
-          font: 400 12px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase;
-          color: var(--fg-mute); transition: color .2s var(--ease);
+        .studio-minibar-links { display: inline-flex; align-items: center; gap: 4px; }
+        .studio-minibar-link {
+          font: 400 11px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase;
+          color: var(--fg-mute); text-decoration: none;
+          padding: 8px 10px; border-radius: 8px;
+          transition: color .2s var(--ease), background .2s var(--ease);
         }
-        .studio-minibar-home:hover .studio-minibar-back { color: var(--fg); }
-        @media (max-width: 560px) { .studio-minibar-back { display: none; } }
+        .studio-minibar-link:hover { color: var(--fg); background: rgba(var(--fg-rgb), .06); }
+        .studio-minibar-link:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
         .studio-nav-handle {
           display: inline-flex; align-items: center; gap: 8px;
-          /* 44px of tappable height inside a 44px bar. */
-          padding: 12px 14px;
+          /* Sized to the bar, which the dropped logo let shrink. Desktop-only —
+             below 900px the minibar is hidden and the full nav is in flow, so
+             this never has to serve as a touch target. */
+          padding: 8px 12px;
           background: transparent; border: 1px solid transparent; border-radius: 8px;
           color: var(--fg-mute); font: 400 12px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase;
           cursor: pointer; pointer-events: auto;
@@ -432,6 +459,28 @@ export function AppNav({ user, access = null }: AppNavProps) {
         }
       `}</style>
     </header>
+  );
+}
+
+/**
+ * The way back out to the public site.
+ *
+ * Signing in used to be a one-way door: the logo goes to /dashboard, every tab is
+ * an app page, and nothing anywhere led back to huevista's own front page — so a
+ * shop wanting the pricing table, the catalogue or "how it works" had to edit the
+ * URL. It sits with the account block rather than among the tabs because it is not
+ * one of the app's sections, and because a tab matching "/" would light up as the
+ * current page on every route.
+ */
+function HomeLink() {
+  return (
+    <Link href="/" className="app-home-link" title="HueVista home — the public site">
+      <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M3 10.5 12 3l9 7.5" />
+        <path d="M5.5 9.5V20h13V9.5" />
+      </svg>
+      Home
+    </Link>
   );
 }
 

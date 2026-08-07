@@ -66,17 +66,21 @@ describe("PricingTiers", () => {
       .toBe("/trial");
   });
 
-  /** The free tier is a card on the ladder, priced in words and honest about the one
-   *  thing it withholds. */
-  it("shows the free tier with its allowance, its renewal and its one exclusion", () => {
+  /** The free tier is a card on the ladder, priced in words and honest about what it
+   *  withholds. */
+  it("shows the free tier with its allowance, its renewal and its exclusions", () => {
     render(<PricingTiers />);
     expect(screen.getByText(/^2 projects a month/)).toBeTruthy();
     // "Renews" is the whole difference from the seven-day trial it replaced.
     expect(screen.getByText(/Renews every month/)).toBeTruthy();
     expect(screen.getByText(/Extra projects ₹99 each, or 80 points/)).toBeTruthy();
-    // Colour matching is the tier line, and the card says so rather than leaving a
+    // Colour matching is one tier line, and the card says so rather than leaving a
     // shop to notice the tab missing later.
     expect(screen.getByText("No colour finder")).toBeTruthy();
+    // The catalogue is the other: a free counter works with one paint company, and a
+    // shop reads that here rather than discovering it in the studio's company picker.
+    expect(screen.getByText(/One paint company — Asian Paints/)).toBeTruthy();
+    expect(screen.getByText(/Every paint company your distributor has assigned you/)).toBeTruthy();
     // Priced in words: "₹0 / month" reads like an invoice for nothing.
     expect(screen.queryByText("₹0")).toBeNull();
   });

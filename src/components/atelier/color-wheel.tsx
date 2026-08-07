@@ -393,7 +393,13 @@ export function CustomMatchPanel({
                     {nameLabel(shade)}
                   </span>
                   <Mono>
-                    {codeLabel(shade.code) ? `${shade.brand} · ${codeLabel(shade.code)}` : shade.brand}
+                    {codeLabel(shade.code) ? (
+                      <>
+                        {shade.brand} · <span className="shade-code">{codeLabel(shade.code)}</span>
+                      </>
+                    ) : (
+                      shade.brand
+                    )}
                   </Mono>
                 </span>
                 <Mono brass={i === 0}>{closenessRating(deltaE)}</Mono>

@@ -192,7 +192,7 @@ export function BoardsPanel({
                     style={{ display: "flex", flexDirection: "column", gap: 4, background: "transparent", border: "none", cursor: "pointer", padding: 0, width: 64 }}
                   >
                     <span style={{ display: "block", width: 64, height: 44, background: s.hex, border: "1px solid var(--rule-strong)", borderRadius: 6 }} />
-                    <span style={{ font: "400 12px/1.3 var(--mono)", color: "var(--fg-mute)", textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>
+                    <span style={{ font: "400 12px/1.3 var(--code)", color: "var(--fg-mute)", textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>
                       {hideCodes ? nameOf(s) : codeOf(s.code)}
                     </span>
                   </button>

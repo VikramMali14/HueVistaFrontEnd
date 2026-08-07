@@ -123,7 +123,7 @@ export function CodeChecker({
           border: "1px solid var(--rule-strong)",
           background: "var(--surface)",
           color: "var(--fg)",
-          fontFamily: "var(--mono)",
+          fontFamily: "var(--code)",
           letterSpacing: mode === "read" ? ".14em" : undefined,
           fontSize: 15,
         }}
@@ -139,7 +139,7 @@ export function CodeChecker({
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <Mono>Real code</Mono>
-              <span style={{ font: "600 17px/1 var(--mono)", color: "var(--fg)" }}>{decoded.code}</span>
+              <span style={{ font: "600 17px/1 var(--code)", color: "var(--fg)" }}>{decoded.code}</span>
               {decoded.match ? (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                   <span aria-hidden style={{ width: 22, height: 22, background: decoded.match.hex, border: "1px solid var(--rule-strong)", borderRadius: 4 }} />
@@ -182,9 +182,9 @@ export function CodeChecker({
               <div key={s.code} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px" }}>
                 <span aria-hidden style={{ width: 20, height: 20, background: s.hex, border: "1px solid var(--rule-strong)", borderRadius: 4, flexShrink: 0 }} />
                 <span style={{ flex: 1, minWidth: 0, font: "400 13.5px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {s.name} <Mono>· {s.code}</Mono>
+                  {s.name} <Mono>· <span className="shade-code">{s.code}</span></Mono>
                 </span>
-                <span style={{ font: "600 14px/1 var(--mono)", color: "var(--accent)" }}>
+                <span style={{ font: "600 14px/1 var(--code)", color: "var(--accent)" }}>
                   {encodeShadeCode(scheme, s.code)}
                 </span>
               </div>
