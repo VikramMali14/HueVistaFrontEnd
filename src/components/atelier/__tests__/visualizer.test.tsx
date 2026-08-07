@@ -750,91 +750,63 @@ describe("Visualizer — recolor engine fallback", () => {
  * Custom cannot disagree about which company is in play. It used to be a filter
  * inside the Colours tab (plus a second, independent one on AI Suggest), which
  * narrowed the catalogue grid and nothing else.
- *
- * It takes a SET of companies. A shop stocking three brands works two of them at
- * once, and the single-choice dropdown this replaced could only say one company
- * or all of them — every middle answer was unsayable.
  */
 describe("Visualizer — company scope", () => {
-  const THREE_BRANDS: PaintShade[] = [
+  const TWO_BRANDS: PaintShade[] = [
     { code: "AP-1", name: "Blush Zephyr", hex: "#d98c8c", family: "Reds", lrv: 45, brand: "Asian Paints", finishes: [] },
     { code: "AP-2", name: "Sun Zephyr", hex: "#d9c78c", family: "Yellows", lrv: 62, brand: "Asian Paints", finishes: [] },
     { code: "BG-1", name: "Blush Quartz", hex: "#cf7f7f", family: "Reds", lrv: 42, brand: "Berger", finishes: [] },
     { code: "BG-2", name: "Sun Quartz", hex: "#cfbf7f", family: "Yellows", lrv: 60, brand: "Berger", finishes: [] },
-    { code: "NR-1", name: "Blush Cinder", hex: "#c77676", family: "Reds", lrv: 40, brand: "Nerolac", finishes: [] },
-    { code: "NR-2", name: "Sun Cinder", hex: "#c7b676", family: "Yellows", lrv: 58, brand: "Nerolac", finishes: [] },
   ];
-
-  const openPicker = async (user: ReturnType<typeof userEvent.setup>) => {
-    await user.click(screen.getByRole("button", { name: /Company/ }));
-  };
 
   it("narrows the colour panel to the chosen company", async () => {
     const user = userEvent.setup();
-    render(<Visualizer initialName="Test room" shades={THREE_BRANDS} />);
+    render(<Visualizer initialName="Test room" shades={TWO_BRANDS} />);
     await screen.findByText("Add a photo of the room");
 
-    // Unscoped: every company's shades are in the grid.
+    // Unscoped: both companies' shades are in the grid.
     expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
     expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
 
-    await openPicker(user);
+    await user.click(screen.getByRole("button", { name: /Company/ }));
     await user.click(screen.getByRole("checkbox", { name: "Berger" }));
 
     expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
     expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
-    expect(screen.queryAllByRole("button", { name: /Cinder/ })).toHaveLength(0);
+
+    // And back — "All companies" restores the full list.
+    await user.click(screen.getByRole("button", { name: "All companies" }));
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
   });
 
-  it("shows several companies at once — the answer a single dropdown could not give", async () => {
+  /**
+   * The point of making it multi-select: a shop that stocks two brands should be
+   * able to say so, instead of picking one and losing the other.
+   */
+  it("keeps every ticked company in the panel at once", async () => {
     const user = userEvent.setup();
-    render(<Visualizer initialName="Test room" shades={THREE_BRANDS} />);
+    render(<Visualizer initialName="Test room" shades={TWO_BRANDS} />);
     await screen.findByText("Add a photo of the room");
 
-    await openPicker(user);
+    await user.click(screen.getByRole("button", { name: /Company/ }));
     await user.click(screen.getByRole("checkbox", { name: "Berger" }));
-    await user.click(screen.getByRole("checkbox", { name: "Nerolac" }));
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
 
-    // Two in, one out.
+    await user.click(screen.getByRole("checkbox", { name: "Asian Paints" }));
     expect(screen.queryAllByRole("button", { name: /Quartz/ }).length).toBeGreaterThan(0);
-    expect(screen.queryAllByRole("button", { name: /Cinder/ }).length).toBeGreaterThan(0);
-    expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
-    // …and the button says how many rather than naming one of them.
-    expect(screen.getByRole("button", { name: /Company/ })).toHaveTextContent("2 companies");
-  });
+    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
 
-  it("unticking the last company goes back to every company", async () => {
-    const user = userEvent.setup();
-    render(<Visualizer initialName="Test room" shades={THREE_BRANDS} />);
-    await screen.findByText("Add a photo of the room");
-
-    await openPicker(user);
-    await user.click(screen.getByRole("checkbox", { name: "Berger" }));
-    expect(screen.queryAllByRole("button", { name: /Zephyr/ })).toHaveLength(0);
-
+    // Unticking one leaves the other in force, rather than falling back to all.
     await user.click(screen.getByRole("checkbox", { name: "Berger" }));
     expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
-    expect(screen.queryAllByRole("button", { name: /Cinder/ }).length).toBeGreaterThan(0);
-  });
-
-  it("clears back to every company in one press", async () => {
-    const user = userEvent.setup();
-    render(<Visualizer initialName="Test room" shades={THREE_BRANDS} />);
-    await screen.findByText("Add a photo of the room");
-
-    await openPicker(user);
-    await user.click(screen.getByRole("checkbox", { name: "Berger" }));
-    await user.click(screen.getByRole("button", { name: "Show all companies" }));
-
-    expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /Company/ })).toHaveTextContent("All companies");
+    expect(screen.queryAllByRole("button", { name: /Quartz/ })).toHaveLength(0);
   });
 
   it("hides the picker when there is only one company to choose", async () => {
     render(
       <Visualizer
         initialName="Test room"
-        shades={THREE_BRANDS.filter((s) => s.brand === "Asian Paints")}
+        shades={TWO_BRANDS.filter((s) => s.brand === "Asian Paints")}
       />,
     );
     await screen.findByText("Add a photo of the room");

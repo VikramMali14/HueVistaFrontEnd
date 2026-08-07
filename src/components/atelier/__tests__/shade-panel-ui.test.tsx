@@ -90,7 +90,7 @@ describe("Room palettes — the colour they are built around", () => {
     fireEvent.change(anchorInput(), { target: { value: "#2244cc" } });
 
     await waitFor(() => expect(paletteFingerprint()).not.toBe(before));
-    expect(screen.getByText(/the colour you picked above/)).toBeInTheDocument();
+    expect(screen.getByText(/the colour you picked/)).toBeInTheDocument();
   });
 
   it("shuffles around the picked colour, not the one on the wall", async () => {
@@ -101,7 +101,7 @@ describe("Room palettes — the colour they are built around", () => {
     await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
 
     fireEvent.change(anchorInput(), { target: { value: "#2244cc" } });
-    await waitFor(() => expect(screen.getByText(/the colour you picked above/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/the colour you picked/)).toBeInTheDocument());
 
     // Shuffling re-rolls; the anchor it re-rolls around is the picked one, which
     // is why the swatch still reads it back after the roll.
@@ -109,7 +109,7 @@ describe("Room palettes — the colour they are built around", () => {
     await user.click(screen.getByRole("button", { name: /Shuffle/ }));
     await waitFor(() => expect(paletteFingerprint()).not.toBe(beforeShuffle));
     expect(anchorInput()).toHaveValue("#2244cc");
-    expect(screen.getByText(/the colour you picked above/)).toBeInTheDocument();
+    expect(screen.getByText(/the colour you picked/)).toBeInTheDocument();
   });
 
   it("offers the way back to the wall colour once you have wandered off it", async () => {
@@ -120,10 +120,10 @@ describe("Room palettes — the colour they are built around", () => {
     await user.click(screen.getByRole("tab", { name: "AI Suggest" }));
 
     // Following the wall: nothing to go back to.
-    expect(screen.queryByRole("button", { name: /building around the wall colour/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Back to the colour on your wall/ })).not.toBeInTheDocument();
 
     fireEvent.change(anchorInput(), { target: { value: "#2244cc" } });
-    const back = await screen.findByRole("button", { name: /building around the wall colour/ });
+    const back = await screen.findByRole("button", { name: /Back to the colour on your wall/ });
 
     await user.click(back);
     await waitFor(() => expect(anchorInput()).toHaveValue("#d98c8c"));

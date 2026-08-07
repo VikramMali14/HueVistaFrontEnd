@@ -1,106 +1,113 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 
 /**
- * The studio's company scope, sitting in the topbar because it governs the whole
- * colour panel rather than one tab.
+ * The studio's company scope: which paint companies the whole colour panel is
+ * drawn from.
  *
- * It takes a SET of companies, not one. A shop that stocks three brands wants to
- * browse two of them side by side — "everything except the one we're out of" —
- * and a single-choice dropdown could only say one company or all of them. Every
- * middle answer was unsayable.
+ * This is a MULTI-select, because a counter's answer to "what do you sell?" is
+ * usually more than one name — a shop carrying Asian Paints and Berger had to
+ * pick one and lose the other, or pick "every company" and wade through brands
+ * it cannot order. An empty selection means every company the caller has, which
+ * is also the starting state; that keeps "I haven't chosen" and "I want them
+ * all" the same thing, so there is no empty-panel state to fall into.
  *
- * An empty selection means every company. That is the opening state and what
- * "Show all companies" returns to, so there is no separate "All" entry that
- * could disagree with the checkboxes beneath it.
+ * It scopes Colours, AI Suggest and Custom alike, so the three tabs cannot
+ * disagree about which companies are in play.
  */
 export function CompanyPicker({
   brands,
   selected,
   onChange,
 }: {
+  /** Every company the caller may work with, already sorted. */
   brands: ReadonlyArray<string>;
+  /** Chosen companies; empty = all of them. */
   selected: ReadonlyArray<string>;
-  onChange: (next: string[]) => void;
+  onChange: (next: ReadonlyArray<string>) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const listId = useId();
 
-  // Escape and click-outside — the two ways out any popover has to have.
+  // Close on an outside click or Escape — a panel that stays open over the
+  // photo is in the way of the very thing the user is looking at.
   useEffect(() => {
     if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    const onDown = (e: PointerEvent) => {
-      const root = rootRef.current;
-      if (root && e.target instanceof Node && !root.contains(e.target)) setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onDown);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
-  const toggle = (brand: string) =>
+  const toggle = (brand: string) => {
     onChange(
-      selected.includes(brand) ? selected.filter((b) => b !== brand) : [...selected, brand],
+      selected.includes(brand)
+        ? selected.filter((b) => b !== brand)
+        : [...selected, brand],
     );
+  };
 
-  // Naming the one company beats "1 company" — with a single brand chosen, the
-  // whole point of the control is to say WHICH.
-  const summary =
+  // What the button says when closed. Naming one or two companies is more use
+  // than a count; past that the count is the only thing that fits.
+  const label =
     selected.length === 0
       ? "All companies"
-      : selected.length === 1
-        ? selected[0]!
+      : selected.length <= 2
+        ? selected.join(", ")
         : `${selected.length} companies`;
 
   return (
-    <div className="hv-studio-company" ref={rootRef}>
-      {/* The visible eyebrow is dropped on phone widths where the topbar has no
-          room for it, so the name is stated on the control itself rather than
-          left to a label that may not be rendered. */}
+    <div className="hv-studio-company" ref={root}>
       <Mono>Company</Mono>
       <button
         type="button"
-        className={`hv-studio-company-btn${selected.length > 0 ? " is-scoped" : ""}`}
+        className="hv-studio-company-btn"
+        onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="true"
-        aria-label={`Company — showing ${summary}`}
-        title="Show these companies' shades — in Colours, AI Suggest and Custom alike"
-        onClick={() => setOpen((o) => !o)}
+        aria-controls={open ? listId : undefined}
+        aria-label={`Company — showing ${selected.length === 0 ? "every company" : selected.join(", ")}. Choose which companies' shades to show.`}
+        title="Choose which companies' shades to show — in Colours, AI Suggest and Custom alike"
       >
-        <span className="hv-studio-company-summary">{summary}</span>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+        <span className="hv-studio-company-label">{label}</span>
+        <span aria-hidden className="hv-studio-company-caret">
+          ▾
+        </span>
       </button>
 
       {open && (
-        <div className="hv-studio-company-menu" role="group" aria-label="Companies to show">
-          {brands.map((b) => (
-            <label key={b} className="hv-studio-company-opt">
-              <input
-                type="checkbox"
-                checked={selected.includes(b)}
-                onChange={() => toggle(b)}
-              />
-              <span>{b}</span>
-            </label>
-          ))}
+        <div className="hv-studio-company-menu" id={listId} role="group" aria-label="Companies">
           <button
             type="button"
-            className="hv-studio-company-clear"
+            className="hv-studio-company-all"
             onClick={() => onChange([])}
             disabled={selected.length === 0}
           >
-            Show all companies
+            All companies
           </button>
+          <div className="hv-studio-company-list">
+            {brands.map((b) => (
+              <label key={b} className="hv-studio-company-item">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(b)}
+                  onChange={() => toggle(b)}
+                />
+                <span>{b}</span>
+              </label>
+            ))}
+          </div>
         </div>
       )}
     </div>

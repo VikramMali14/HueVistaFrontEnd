@@ -107,7 +107,7 @@ function ColorWheel({
           width={size}
           height={size}
           tabIndex={0}
-          aria-label="Colour wheel. Arrow keys adjust hue and saturation; hold Shift for larger steps."
+          aria-label={`Colour wheel, currently ${hex}. Arrow keys adjust hue and saturation; hold Shift for larger steps.`}
           style={{ borderRadius: "50%", cursor: "crosshair", display: "block", boxShadow: "inset 0 0 0 1px var(--rule-strong)" }}
           onPointerDown={(e) => {
             dragging.current = true;
@@ -220,12 +220,12 @@ export function CustomMatchPanel({
   /**
    * Typing a colour code by hand — folded away by default.
    *
-   * The panel is built for the counter, where a colour is pointed at rather than
-   * spelled out, so the code field is not the first thing on screen. But it is
-   * the only way in for the one customer a month who arrives with a code from
-   * somewhere else — a brand sheet, an architect's note — and without it that
-   * colour simply cannot be reached. Closed, it costs one line; open, it does
-   * what the old always-visible field did.
+   * The panel is right that a hex has no place beside the wheel: a customer picks
+   * a colour by looking at it. But removing the field outright shut the only door
+   * for the one customer a month who arrives with a code already — off a brand
+   * sheet, an architect's note, a WhatsApp from their painter — and that colour
+   * then could not be reached at all. Closed, this costs one line of the panel;
+   * open, it does what the old always-visible field did.
    */
   const [codeOpen, setCodeOpen] = useState(false);
   const [codeText, setCodeText] = useState(seed);
@@ -239,7 +239,7 @@ export function CustomMatchPanel({
   useEffect(() => {
     if (codeOpen) codeRef.current?.focus();
   }, [codeOpen]);
-  // A 6-digit code with or without the "#", since both are how it gets written down.
+  // With or without the "#", since both are how a code gets written down.
   const onCodeText = (value: string) => {
     setCodeText(value);
     if (HEX_RE.test(value)) setHex(value.startsWith("#") ? value : `#${value}`);
@@ -269,18 +269,22 @@ export function CustomMatchPanel({
 
       <ColorWheel hex={hex} onChange={setHex} />
 
-      {/* The hex field that used to sit here is gone. Nobody choosing paint at a
-          counter reads in #A47148 — the wheel, the swatch and the eyedropper are
-          how the colour gets picked, and printing the code back at them made the
-          panel look like a developer tool. The colour itself is the readout. */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 16 }}>
         <input
           type="color"
           value={HEX_RE.test(hex) ? hex : "#7C9CBF"}
           onChange={(e) => setHex(e.target.value)}
           aria-label="Pick a colour"
-          style={{ flex: 1, height: 36, border: "1px solid var(--rule-strong)", borderRadius: 6, background: "none", cursor: "pointer", padding: 0 }}
+          style={{ width: 40, height: 36, border: "1px solid var(--rule-strong)", background: "none", cursor: "pointer", padding: 0 }}
         />
+        {/* The hex is deliberately never shown. A shop's customer picks a colour
+            by looking at it, and a raw #A47148 beside the wheel invited them to
+            read out a code the shop doesn't sell against — the nearest catalogue
+            shades below are the answer this panel exists to give. The wheel, the
+            swatch and the eyedropper are all the ways in it needs. */}
+        <span style={{ flex: 1, font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+          Pick from the wheel, the swatch, or straight off your photo.
+        </span>
         {canEyeDrop && (
           <button
             type="button"
@@ -363,7 +367,6 @@ export function CustomMatchPanel({
           type="button"
           onClick={() => HEX_RE.test(hex) && onApplyExact(hex)}
           disabled={!HEX_RE.test(hex)}
-          aria-label="Use this exact colour on the active wall"
           style={{
             marginTop: 12,
             width: "100%",
@@ -389,7 +392,7 @@ export function CustomMatchPanel({
         <Mono style={{ display: "block", marginBottom: 10 }}>Nearest catalogue shades</Mono>
         {matches.length === 0 ? (
           <p style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-            The catalogue is still loading — the closest shades to your colour will appear here.
+            No catalogue shades to match against yet.
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

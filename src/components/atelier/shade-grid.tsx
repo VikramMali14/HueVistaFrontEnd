@@ -39,11 +39,10 @@ type Tone = (typeof TONES)[number];
 const toneOf = (lrv: number): Exclude<Tone, "All"> =>
   lrv >= 55 ? "Light" : lrv >= 25 ? "Medium" : "Dark";
 
-// The Catalogue tab groups by company, full stop. It used to open on a "Top 50"
-// view behind a segmented switch — fifty shades off the top of a filtered list,
-// which is not a top fifty of anything: no ranking, no popularity, just whatever
-// the catalogue happened to sort first. It answered a question nobody asked and
-// hid the company grouping, which is how a counter actually looks a shade up.
+// The Catalogue tab groups by company, full stop. There used to be a "Top 50"
+// view beside it, which was simply the first fifty rows of whatever the filters
+// left — an arbitrary slice that read as a recommendation it had never earned,
+// and which hid the brand a shade belongs to at the moment that matters most.
 //
 // With a 10k+ catalogue a company can hold thousands of shades — mounting them all
 // at once freezes the panel. Each company starts with one screenful and grows in
@@ -374,16 +373,10 @@ export function ShadeGrid({
             </div>
           )}
 
-          {/* What the grid below is actually showing, now that there is only one
-              way for it to show it. */}
-          <div className="hv-studio-filter-row hv-studio-filter-count">
+          <div className="hv-studio-filter-row">
             <Note>
-              {shown.length.toLocaleString()} {shown.length === 1 ? "colour" : "colours"}
-              {byCompany.length > 1
-                ? ` across ${byCompany.length} companies`
-                : byCompany.length === 1
-                  ? ` from ${byCompany[0]!.brand}`
-                  : ""}
+              {shown.length} {shown.length === 1 ? "colour" : "colours"} across{" "}
+              {byCompany.length} {byCompany.length === 1 ? "company" : "companies"}
             </Note>
           </div>
         </div>
@@ -935,19 +928,6 @@ function SelectionDock({
 const PALETTE_ROLES = ["Main", "Accent", "Trim"] as const;
 
 /**
- * A value `<input type="color">` will accept: exactly `#rrggbb`, always.
- *
- * The anchor colour can be absent (no wall painted yet) or, from an older saved
- * project, a shorthand or `rgb()` string. The native swatch silently resets to
- * black on anything else, which would read as "the studio lost my colour" — so
- * anything it can't take falls back to a neutral the palettes are happy to build
- * around.
- */
-const PICKER_FALLBACK = "#c8c2b6";
-const PICKER_HEX_RE = /^#[0-9a-fA-F]{6}$/;
-const pickerHex = (hex?: string) => (hex && PICKER_HEX_RE.test(hex) ? hex : PICKER_FALLBACK);
-
-/**
  * One suggestion card, shared by "Room palettes", "Claude's picks" and the
  * shop's combos: three fixed role slots (Main / Accent / Trim) holding three
  * colours. Tap a swatch to put that colour on the active wall; DRAG a swatch
@@ -1160,19 +1140,17 @@ function AISuggestPanel({
 }) {
   // Suggestions are anchored to a snapshot taken when the tab opens. Applying a
   // colour changes the wall — but must NOT rebuild the cards under the user's
-  // finger, so the cards only change on "Shuffle", on the colour picked here, or
-  // on the explicit rebuild chip that appears once the wall colour has moved on.
-  //
-  // `picked` records that the colour came from the swatch in this panel rather
-  // than from the wall. It is what stops the two from arguing: while it is false
-  // the panel follows the wall and offers to catch up when the wall moves on,
-  // and once it is true the panel answers to the swatch and offers the way back.
+  // finger, so the cards only change on "Shuffle" or the explicit rebuild chip
+  // that appears once the wall colour has moved on.
   const [snap, setSnap] = useState<{
     baseHex?: string;
-    picked: boolean;
     regions: ReadonlyArray<RegionLite>;
     variant: number;
-  }>(() => ({ baseHex, picked: false, regions: regions ?? [], variant: 0 }));
+  }>(() => ({ baseHex, regions: regions ?? [], variant: 0 }));
+  // Whether the seed colour was chosen here rather than read off the wall. It
+  // only changes what the panel SAYS it built around — but saying "the colour on
+  // your wall" about a colour the user picked in this header is just wrong.
+  const [seedPicked, setSeedPicked] = useState(false);
 
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
   // With names hidden the code becomes the colour's only handle, so it stands in for
@@ -1180,32 +1158,30 @@ function AISuggestPanel({
   const nameLabel = (s: { name: string; code: string }) =>
     hideNames ? (codeLabel(s.code) ?? "") : s.name;
 
-  // The wall has moved on and we were following it / we are off the wall by
-  // choice. Both offer the same button; only the wording differs.
-  const stale = !snap.picked && (baseHex ?? "") !== (snap.baseHex ?? "");
-  const offWall =
-    snap.picked &&
-    Boolean(baseHex) &&
-    baseHex!.toLowerCase() !== (snap.baseHex ?? "").toLowerCase();
-
-  // Dragging the colour swatch fires a change per pixel of travel. The swatch
-  // itself has to stay live, so the value it feeds the generator is deferred:
-  // the thumb keeps up, and a 10k-shade nearest-match runs at the pace React
-  // can afford rather than once per frame.
-  const generatorHex = useDeferredValue(snap.baseHex);
-  // `catalogue` arrives already scoped to the companies chosen in the studio topbar,
-  // so the generated palettes and the coordinate pairings below are within those
-  // companies by construction — there is no second filter to keep in step with it.
+  const stale = (baseHex ?? "") !== (snap.baseHex ?? "");
+  // `catalogue` arrives already scoped to the company chosen in the studio topbar,
+  // so the generated palettes and the coordinate pairings below are within that
+  // company by construction — there is no second filter to keep in step with it.
   const palettes = useMemo(
-    () => generatePalettes(catalogue, generatorHex, snap.variant),
-    [catalogue, generatorHex, snap.variant],
+    () => generatePalettes(catalogue, snap.baseHex, snap.variant),
+    [catalogue, snap.baseHex, snap.variant],
   );
-  const rebuild = () => setSnap({ baseHex, picked: false, regions: regions ?? [], variant: 0 });
+  const rebuild = () => {
+    setSnap({ baseHex, regions: regions ?? [], variant: 0 });
+    setSeedPicked(false);
+  };
   const shuffle = () => setSnap((s) => ({ ...s, variant: s.variant + 1 }));
-  // A colour chosen here replaces the wall as the anchor, and starts its shuffle
-  // over: variant 3 of the old colour has nothing to do with the new one.
-  const pickBase = (hex: string) =>
-    setSnap((s) => ({ ...s, baseHex: hex, picked: true, variant: 0 }));
+  // Re-seed the palettes on a colour chosen right here, so a counter can explore
+  // "what would go with THIS?" without first having to paint it on a wall. The
+  // variant resets, so the first set you see is the scheme's best answer for the
+  // new colour rather than wherever the shuffle had got to for the old one.
+  const reseed = (hex: string) => {
+    setSnap((s) => ({ ...s, baseHex: hex, variant: 0 }));
+    setSeedPicked(true);
+  };
+  // <input type="color"> demands a full #rrggbb and silently shows black for
+  // anything else; palettes can also be seeded from nothing at all.
+  const seedValue = snap.baseHex && /^#[0-9a-fA-F]{6}$/.test(snap.baseHex) ? snap.baseHex : "#C8C2B8";
 
   // "Apply all" puts the whole palette on the room at once: main → main wall,
   // accent → accent wall, trim → trim — each to its matching region. Falls
@@ -1278,20 +1254,25 @@ function AISuggestPanel({
         <p className="hv-studio-empty">The catalogue is still loading — palettes will appear here.</p>
       )}
 
-      {palettes.length > 0 && (stale || offWall) && (
+      {/* The same chip covers both ways the palettes can drift from the room: the
+          wall was repainted under them, or the seed above was set by hand. Either
+          way the way back is the same — rebuild on what the wall actually shows. */}
+      {palettes.length > 0 && stale && (
         <button
           type="button"
           onClick={rebuild}
           className="hv-ai-rebuild"
           title={
-            stale
-              ? "The wall colour changed since these were built"
-              : "These are built around the colour you picked, not the one on the wall"
+            seedPicked
+              ? "Go back to building these around the room itself"
+              : "The wall colour changed since these were built"
           }
         >
-          {stale
-            ? "↺ Wall colour changed — rebuild suggestions around it"
-            : "↺ Go back to building around the wall colour"}
+          {seedPicked
+            ? baseHex
+              ? "↺ Back to the colour on your wall"
+              : "↺ Back to the starting palettes"
+            : "↺ Wall colour changed — rebuild suggestions around it"}
         </button>
       )}
 
@@ -1299,20 +1280,17 @@ function AISuggestPanel({
         <>
           <div className="hv-ai-head">
             <Mono>Room palettes</Mono>
-            {/* The colour the palettes are built around, changeable HERE. It
-                starts as whatever is on the active wall, which is the usual
-                answer — but a counter working out what to show a customer wants
-                to try a colour the room has never worn, shuffle around it, and
-                only then put something on a wall. Making that mean "paint the
-                wall first, then come back to this tab" made a browsing tool cost
-                a decision. */}
             <div className="hv-ai-head-tools">
-              <label className="hv-ai-base" title="Palettes are built around this colour — change it and shuffle for a different set">
-                <span className="hv-ai-base-label">Around</span>
+              {/* The colour the palettes are built from, editable in place. It used
+                  to be read-only — whatever was on the active wall — so "shuffle"
+                  could only ever reshuffle around that one colour. */}
+              <label className="hv-ai-seed" title="The colour these palettes are built around — change it, then shuffle">
+                <span className="hv-ai-seed-label">From</span>
                 <input
                   type="color"
-                  value={pickerHex(snap.baseHex)}
-                  onChange={(e) => pickBase(e.target.value)}
+                  className="hv-ai-seed-input"
+                  value={seedValue}
+                  onChange={(e) => reseed(e.target.value)}
                   aria-label="Colour the palettes are built around"
                 />
               </label>
@@ -1329,18 +1307,16 @@ function AISuggestPanel({
           <p className="hv-ai-intro">
             {snap.baseHex ? (
               <>
-                Built around
+                Built around {seedPicked ? "the colour you picked" : "the colour on your wall"}
                 <span
                   aria-hidden
                   style={{ display: "inline-block", width: 10, height: 10, background: snap.baseHex, border: "1px solid var(--rule-strong)", borderRadius: 3, margin: "0 4px", verticalAlign: "-1px" }}
                 />
-                {snap.picked ? "the colour you picked above" : "the colour on your wall"} — every
-                swatch is a real catalogue shade. Change that colour or shuffle for a different
-                set, and drag a colour onto another role (say, Main onto Trim) to swap them
-                before applying.
+                — every swatch is a real catalogue shade. Drag a colour onto another
+                role (say, Main onto Trim) to swap them before applying.
               </>
             ) : (
-              "Pick a colour above — or put one on a wall — and the palettes build around it. Every swatch is a real catalogue shade. Drag a colour onto another role to swap them before applying."
+              "Pick a colour first and the palettes build around it — every swatch is a real catalogue shade. Drag a colour onto another role to swap them before applying."
             )}
           </p>
           <div className="hv-ai-cards">

@@ -391,11 +391,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
    * company is a statement about the whole session — "this is what we sell" — so it
    * is asked once, at the top, and every tab below is handed the scoped list.
    *
-   * A LIST rather than one name: a shop stocking three brands routinely works
-   * two of them at once, and the old single-choice dropdown could only say one
-   * company or all of them, never the pair in between.
+   * Several companies can be in play at once: a shop that stocks two or three
+   * brands was previously made to pick one and lose the rest, or open up to
+   * every brand including the ones it cannot order.
    */
-  const [companies, setCompanies] = useState<string[]>([]);
+  const [companies, setCompanies] = useState<ReadonlyArray<string>>([]);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -1679,8 +1679,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // would look like the studio had broken rather than like a filter needing clearing.
   const panelShades = useMemo(() => {
     if (companies.length === 0) return shades;
-    const wanted = new Set(companies);
-    const scoped = (shades ?? []).filter((s) => wanted.has(s.brand));
+    const scoped = (shades ?? []).filter((s) => companies.includes(s.brand));
     return scoped.length > 0 ? scoped : shades;
   }, [shades, companies]);
 

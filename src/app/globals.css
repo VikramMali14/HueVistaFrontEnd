@@ -2639,9 +2639,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   flex-shrink: 0;
 }
 /* The company scope for the whole colour panel, sitting with Share/Download
-   because it governs the session rather than one tab (see Visualizer). A
-   checkbox menu rather than a <select>, because the scope is a SET of companies
-   — a shop stocking three brands works two of them at once. */
+   because it governs the session rather than one tab (see Visualizer). */
 .hv-studio-company {
   position: relative;
   display: inline-flex;
@@ -2664,59 +2662,63 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-company-btn:hover { border-color: var(--fg-mute); }
 .hv-studio-company-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* Scoped to something narrower than "everything" is a state worth seeing from
-   across the counter — otherwise a missing brand reads as a broken catalogue. */
-.hv-studio-company-btn.is-scoped {
-  border-color: var(--rule-brass);
-  color: var(--accent-text);
-}
-.hv-studio-company-summary {
-  min-width: 0;
+/* The chosen names can run long; the caret must not be pushed off the button. */
+.hv-studio-company-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.hv-studio-company-caret { flex-shrink: 0; color: var(--fg-mute); font-size: 10px; }
+
 .hv-studio-company-menu {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 40;
-  min-width: 200px;
-  max-height: 300px;
-  overflow-y: auto;
+  z-index: 30;
+  min-width: 220px;
+  max-width: 280px;
   padding: 6px;
   border: 1px solid var(--rule-strong);
   border-radius: 10px;
   background: var(--surface);
-  box-shadow: 0 12px 28px rgb(0 0 0 / .18);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.18);
 }
-.hv-studio-company-opt {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 8px;
-  border-radius: 6px;
-  font: 400 13px/1.2 var(--sans);
-  color: var(--fg);
-  cursor: pointer;
-}
-.hv-studio-company-opt:hover { background: var(--surface-soft); }
-.hv-studio-company-opt input { accent-color: var(--accent); cursor: pointer; }
-.hv-studio-company-clear {
+.hv-studio-company-all {
   width: 100%;
-  margin-top: 4px;
-  padding: 7px 8px;
+  padding: 7px 9px;
+  margin-bottom: 4px;
   border: none;
-  border-top: 1px solid var(--rule);
-  border-radius: 0 0 6px 6px;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 6px;
   background: transparent;
-  color: var(--fg-soft);
-  font: 500 12px/1.2 var(--sans);
+  color: var(--fg);
+  font: 500 12px/1 var(--sans);
   text-align: left;
   cursor: pointer;
 }
-.hv-studio-company-clear:hover:not(:disabled) { color: var(--fg); }
-.hv-studio-company-clear:disabled { color: var(--fg-mute); cursor: default; }
+.hv-studio-company-all:hover:not(:disabled) { background: var(--surface-soft); }
+/* Disabled means "already showing all", so it reads as the current state
+   rather than as something broken. */
+.hv-studio-company-all:disabled { color: var(--fg-mute); cursor: default; }
+/* A shop can carry a long list; the menu scrolls rather than running off screen. */
+.hv-studio-company-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.hv-studio-company-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  font: 400 13px/1.3 var(--sans);
+  color: var(--fg);
+  cursor: pointer;
+}
+.hv-studio-company-item:hover { background: var(--surface-soft); }
+.hv-studio-company-item input { cursor: pointer; accent-color: var(--accent); }
 /* Phones give the topbar three rows already; the eyebrow is the first thing to
    go, the picker keeps its full width under the project name. */
 @media (max-width: 640px) {
@@ -3440,149 +3442,6 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   gap: 5px;
 }
 
-/* Colour finder on a plan that doesn't include it. The tool stays on screen and
-   stays honest about being shut — reaching for it is what raises the case. */
-.hv-finder-lock-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--rule-brass);
-  border-radius: var(--radius-pill);
-  color: var(--accent-text);
-  font: 500 12px/1 var(--sans);
-  letter-spacing: .02em;
-}
-.hv-finder-drop.is-locked {
-  background: var(--surface-soft);
-}
-.hv-finder-drop.is-locked:hover { border-color: var(--rule-brass); }
-.hv-finder-pitch {
-  margin: 0 0 20px;
-  padding: 20px 22px;
-  border: 1px solid var(--rule-brass);
-  border-radius: 10px;
-  background: var(--surface-soft);
-}
-.hv-finder-pitch-head {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--accent-text);
-  font: 600 17px/1.3 var(--sans);
-}
-.hv-finder-pitch p {
-  margin: 10px 0 0;
-  font: 400 15px/1.55 var(--sans);
-  color: var(--fg-soft);
-  max-width: 62ch;
-}
-.hv-finder-pitch .hv-finder-pitch-sub {
-  font-size: 14px;
-  color: var(--fg-mute);
-}
-.hv-finder-pitch-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 18px;
-}
-.hv-finder-pitch-dismiss {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--fg-mute);
-  font: 500 13px/1 var(--sans);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.hv-finder-pitch-dismiss:hover { color: var(--fg); }
-
-/* A nav tab the shop's own plan locks. It stays in the bar — unlike a tab the
-   distributor withheld, which goes — because the shop can lift this one itself
-   and the page behind it is what makes that case. */
-.nav-tab-lock {
-  margin-left: 6px;
-  opacity: .65;
-  vertical-align: -1px;
-}
-
-/* Custom tab — typing a colour code by hand, folded away until asked for. The
-   panel leads with the wheel because that is how a colour gets chosen at a
-   counter; this is the way in for a customer who arrives with a code already. */
-.hv-custom-code-toggle {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--fg-mute);
-  font: 500 12px/1.2 var(--sans);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  text-decoration-style: dotted;
-  cursor: pointer;
-}
-.hv-custom-code-toggle:hover { color: var(--fg); }
-.hv-custom-code-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
-.hv-custom-code {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 6px 0 10px;
-  border: 1px solid var(--rule-strong);
-  border-radius: 6px;
-  background: var(--surface);
-}
-.hv-custom-code:focus-within { border-color: var(--accent); }
-.hv-custom-code-label {
-  font: 500 12px/1 var(--sans);
-  color: var(--fg-mute);
-  white-space: nowrap;
-}
-.hv-custom-code input {
-  flex: 1;
-  min-width: 0;
-  padding: 9px 0;
-  border: none;
-  background: none;
-  color: var(--fg);
-  font: 400 13px/1 var(--code);
-  letter-spacing: .06em;
-}
-.hv-custom-code input:focus { outline: none; }
-.hv-custom-code-close {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: none;
-  color: var(--fg-mute);
-  font-size: 12px;
-  cursor: pointer;
-}
-.hv-custom-code-close:hover { background: var(--surface-soft); color: var(--fg); }
-.hv-custom-code-hint {
-  margin: 6px 0 0;
-  font: 400 12px/1.4 var(--sans);
-  color: var(--fg-mute);
-}
-
-/* How much of the catalogue the grid is showing. Sits on its own row under the
-   search, where the "Top 50 / By company" switch used to be — the grid always
-   groups by company now, so there is a count to state and nothing to choose. */
-.hv-studio-filter-count {
-  justify-content: flex-start;
-}
-/* A count, not a heading — it sits under the search and should read at a
-   glance without competing with the swatches below it. */
-.hv-studio-filter-count .note {
-  font-size: 12px;
-  color: var(--fg-mute);
-}
-
 /* Scrollable content area inside the right panel */
 .hv-studio-scroll {
   flex: 1;
@@ -4109,37 +3968,38 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   margin-bottom: 6px;
   flex-wrap: wrap;
 }
-/* Room palettes header: the anchor colour and Shuffle, which act on each other
-   and so travel together when the header wraps. */
+/* Seed colour + Shuffle travel together: the swatch says what the palettes are
+   built from, the button asks for another set built from it. */
 .hv-ai-head-tools {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.hv-ai-base {
+.hv-ai-seed {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 3px 4px 3px 9px;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-pill);
+  gap: 6px;
   cursor: pointer;
 }
-.hv-ai-base:hover { border-color: var(--rule-strong); }
-.hv-ai-base-label {
+.hv-ai-seed-label {
   font: 500 12px/1 var(--sans);
   color: var(--fg-mute);
 }
-.hv-ai-base input[type="color"] {
+/* Strip the native colour input's chrome so it reads as a swatch, not a form
+   control — it sits beside a text button and shouldn't out-shout it. */
+.hv-ai-seed-input {
   width: 26px;
-  height: 22px;
+  height: 26px;
   padding: 0;
   border: 1px solid var(--rule-strong);
-  border-radius: 5px;
+  border-radius: 6px;
   background: none;
   cursor: pointer;
 }
-.hv-ai-base input[type="color"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hv-ai-seed-input::-webkit-color-swatch-wrapper { padding: 2px; }
+.hv-ai-seed-input::-webkit-color-swatch { border: none; border-radius: 4px; }
+.hv-ai-seed-input::-moz-color-swatch { border: none; border-radius: 4px; }
+.hv-ai-seed-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .hv-ai-rebuild {
   display: flex;
   align-items: center;
@@ -4260,16 +4120,14 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   white-space: nowrap;
   width: 100%;
 }
-/* "Apply all" and "Add to PDF" sat flush against each other with no gap at all,
-   which read as one split control and put two different commitments a couple of
-   pixels apart. They get room, and they wrap instead of crushing on a narrow
-   panel. */
+/* "Apply all" and "Add to PDF" are two different commitments — one dresses the
+   room, the other puts the palette on the customer's sheet. Flush against each
+   other they read as one control and invite the wrong click. */
 .hv-ai-card-actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 12px;
 }
 
 /* Region list panel */
@@ -4512,4 +4370,136 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-top: 1px solid var(--rule);
   font: 400 12px/1.6 var(--sans);
   color: var(--fg-mute);
+}
+
+/* ====== CUSTOM TAB · TYPING A CODE ====== */
+/* The Custom panel deliberately never prints the hex — a customer picks a colour
+   by looking at it. This is the way IN for the one who arrives with a code
+   already, off a brand sheet or an architect's note, and it stays folded away
+   until asked for so the panel keeps leading with the wheel. */
+.hv-custom-code-toggle {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg-mute);
+  font: 500 12px/1.2 var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-style: dotted;
+  cursor: pointer;
+}
+.hv-custom-code-toggle:hover { color: var(--fg); }
+.hv-custom-code-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+.hv-custom-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.hv-custom-code:focus-within { border-color: var(--accent); }
+.hv-custom-code-label {
+  font: 500 12px/1 var(--sans);
+  color: var(--fg-mute);
+  white-space: nowrap;
+}
+.hv-custom-code input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 0;
+  border: none;
+  background: none;
+  color: var(--fg);
+  font: 400 13px/1 var(--code);
+  letter-spacing: .06em;
+}
+.hv-custom-code input:focus { outline: none; }
+.hv-custom-code-close {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--fg-mute);
+  font-size: 12px;
+  cursor: pointer;
+}
+.hv-custom-code-close:hover { background: var(--surface-soft); color: var(--fg); }
+.hv-custom-code-hint {
+  margin: 6px 0 0;
+  font: 400 12px/1.4 var(--sans);
+  color: var(--fg-mute);
+}
+
+/* ====== COLOUR FINDER ON A PLAN THAT DOESN'T CARRY IT ====== */
+/* The page opens locked rather than vanishing: the shops who never had the tool
+   were the only ones never shown what it does. It stays honest about being shut,
+   and reaching for it is what raises the subscription case. */
+.hv-finder-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--rule-brass);
+  border-radius: var(--radius-pill);
+  color: var(--accent-text);
+  font: 500 12px/1 var(--sans);
+  letter-spacing: .02em;
+}
+.hv-finder-drop.is-locked { background: var(--surface-soft); }
+.hv-finder-drop.is-locked:hover { border-color: var(--rule-brass); }
+.hv-finder-pitch {
+  margin: 0 0 20px;
+  padding: 20px 22px;
+  border: 1px solid var(--rule-brass);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+.hv-finder-pitch-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--accent-text);
+  font: 600 17px/1.3 var(--sans);
+}
+.hv-finder-pitch p {
+  margin: 10px 0 0;
+  font: 400 15px/1.55 var(--sans);
+  color: var(--fg-soft);
+  max-width: 62ch;
+}
+.hv-finder-pitch .hv-finder-pitch-sub {
+  font-size: 14px;
+  color: var(--fg-mute);
+}
+.hv-finder-pitch-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.hv-finder-pitch-dismiss {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg-mute);
+  font: 500 13px/1 var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.hv-finder-pitch-dismiss:hover { color: var(--fg); }
+
+/* A nav tab the shop's own plan locks. It stays in the bar — unlike a tab the
+   distributor withheld, which goes — because the shop can lift this one itself
+   and the page behind it is what makes that case. */
+.nav-tab-lock {
+  margin-left: 6px;
+  opacity: .65;
+  vertical-align: -1px;
 }
