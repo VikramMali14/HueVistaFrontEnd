@@ -1,8 +1,35 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 
-const apiOrigin = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8080";
 const isDev = process.env.NODE_ENV === "development";
+
+// Where the backend lives, and — because the CSP below is derived from it — which
+// image host the browser is willing to load.
+//
+// This has to be right at BUILD time, not just at run time: `next build` bakes
+// headers() into the routes manifest, so the CSP a container serves is the one
+// its image was built with. A production build that ran without
+// NEXT_PUBLIC_API_ORIGIN used to fall back to `http://localhost:8080` and ship a
+// policy allowing only localhost, while the pages it rendered pointed their
+// <img> tags at the real API (that origin IS in the runtime environment). Every
+// site-asset image on the marketing pages was then blocked by the browser:
+//
+//   Loading the image 'https://api.huevista.org/api/site-assets/…' violates the
+//   following Content Security Policy directive: "img-src 'self' data: blob:
+//   http://localhost:8080 …"
+//
+// So the fallback is per-environment: localhost is only ever a DEVELOPMENT
+// default. A production build with the variable unset now defaults to the public
+// API host rather than to a policy that cannot work in production. Set
+// NEXT_PUBLIC_API_ORIGIN at build time (see the Dockerfile's build args) for any
+// deployment whose API is somewhere else — a preview stack, a self-hosted copy.
+//
+// `||` rather than `??`: `docker run -e NEXT_PUBLIC_API_ORIGIN=` and an unset
+// variable in CI both hand us an empty string, which is not a usable origin.
+const DEFAULT_API_ORIGIN = isDev ? "http://localhost:8080" : "https://api.huevista.org";
+const apiOrigin = (process.env.NEXT_PUBLIC_API_ORIGIN || DEFAULT_API_ORIGIN)
+  .trim()
+  .replace(/\/$/, "");
 
 const extraImageHosts = (process.env.IMAGE_REMOTE_HOSTS ?? "")
   .split(",")
@@ -14,7 +41,7 @@ const extraImageHosts = (process.env.IMAGE_REMOTE_HOSTS ?? "")
 // configured region so the browser can fetch them. CSP only supports one
 // wildcard label, so we key off the region (matches backend `app.s3.region`,
 // default `ap-south-1`).
-const s3Region = (process.env.S3_REGION ?? "ap-south-1").trim();
+const s3Region = (process.env.S3_REGION || "ap-south-1").trim();
 const s3ImageHost = `https://*.s3.${s3Region}.amazonaws.com`;
 
 // CSP — keep tight in prod, loosen for dev tooling (HMR websocket, eval).
@@ -65,8 +92,16 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
+    // No `interest-cohort=()`. That opt-out was for FLoC, which Chrome shipped as
+    // an origin trial in 2021, abandoned, and replaced with the Topics API; the
+    // feature name no longer exists in any browser. What is left of it is a
+    // console error on every single page load —
+    //   Error with Permissions-Policy header: Unrecognized feature: 'interest-cohort'.
+    // — because an unknown feature name invalidates that entry. It bought nothing
+    // (there is no FLoC to opt out of) and cost a permanent error in every
+    // visitor's console, which is where real errors are supposed to stand out.
     key: "Permissions-Policy",
-    value: "camera=(self), microphone=(), geolocation=(), interest-cohort=(), payment=(self \"https://checkout.razorpay.com\")",
+    value: "camera=(self), microphone=(), geolocation=(), payment=(self \"https://checkout.razorpay.com\")",
   },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },

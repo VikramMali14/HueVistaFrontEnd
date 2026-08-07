@@ -6,6 +6,22 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# These three decide the Content-Security-Policy, and the CSP is baked into the
+# build: `next build` writes headers() into the routes manifest, so passing them
+# only to `docker run` is too late — the image already carries whatever policy the
+# build saw. Get them wrong and the browser blocks every image the API serves.
+#
+# Defaults live in next.config.ts and are correct for the production deployment
+# (api.huevista.org, ap-south-1); pass these only for a stack that differs:
+#   docker build --build-arg NEXT_PUBLIC_API_ORIGIN=https://api.staging.example .
+ARG NEXT_PUBLIC_API_ORIGIN
+ARG S3_REGION
+ARG IMAGE_REMOTE_HOSTS
+ENV NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN \
+    S3_REGION=$S3_REGION \
+    IMAGE_REMOTE_HOSTS=$IMAGE_REMOTE_HOSTS
+
 RUN npm run build
 
 # ---- Runtime ----
