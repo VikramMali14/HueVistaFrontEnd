@@ -32,7 +32,7 @@ import {
   downloadBlob,
   type PdfImageEntry,
 } from "@/lib/pdf-export";
-import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
+import { IMAGE_ACCEPT, cropAndEncode, imageFileError, loadImageFromFile } from "@/lib/image-upload";
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
 import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
@@ -87,6 +87,16 @@ interface RegionState {
 }
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+/**
+ * Longest side a photo is shrunk to when it has to be shrunk at all.
+ *
+ * Generous on purpose. Wall detection and the recolour both work off this
+ * picture, so pixels thrown away here are detail lost from the finished room —
+ * which is why an oversized photo is RE-COMPRESSED first and only scaled down if
+ * that is not enough. 4000px is above what any phone camera needs to be reduced
+ * to and well under what makes a browser canvas struggle.
+ */
+const SHRINK_MAX_DIM = 4000;
 const MAX_CUSTOM_MASKS = 3;
 
 // Render options fixed at their best-looking values — they used to be
@@ -805,10 +815,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     });
   }, [guest]);
 
-  const validateFile = useCallback(
-    (file: File): string | null => imageFileError(file, { maxBytes: MAX_UPLOAD_BYTES }),
-    [],
-  );
+  // Type only. The size cap is not a validation any more — an oversized photo is
+  // shrunk in selectFile rather than refused, so there is nothing here for the
+  // user to fix and nothing to tell them about.
+  const validateFile = useCallback((file: File): string | null => imageFileError(file), []);
 
   // Create the project + run segmentation for an already-uploaded image. Extracted so it
   // can be retried after the customer buys an extra project. Surfaces the new
@@ -899,12 +909,36 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // classification, no segmentation — so choosing the wrong photo never costs an
   // AI call. The user confirms via confirmSelection() before any of that runs.
   const selectFile = useCallback(
-    async (file: File) => {
+    async (picked: File) => {
       setError(null);
-      const validation = validateFile(file);
+      const validation = validateFile(picked);
       if (validation) {
         setError(validation);
         return;
+      }
+      // A photo off a modern phone is routinely over the limit, and being told
+      // "larger than 10 MB, use a smaller copy" at a counter meant the customer's
+      // room simply could not be opened — the shopkeeper had no way to make a
+      // smaller copy on the spot. The browser can, so it does: re-encode, scaling
+      // down only if compression alone is not enough. Untouched when it already
+      // fits, so nothing that worked before is degraded.
+      let file = picked;
+      if (picked.size > MAX_UPLOAD_BYTES) {
+        try {
+          const source = await loadImageFromFile(picked);
+          file = await cropAndEncode(
+            source,
+            { x: 0, y: 0, width: source.naturalWidth, height: source.naturalHeight },
+            { maxDim: SHRINK_MAX_DIM, maxBytes: MAX_UPLOAD_BYTES, filename: picked.name },
+          );
+        } catch {
+          setError("That photo is too large to open on this device. Try one taken at a smaller size.");
+          return;
+        }
+        if (file.size > MAX_UPLOAD_BYTES) {
+          setError("That photo is too large even after shrinking. Try one taken at a smaller size.");
+          return;
+        }
       }
       try {
         const localUrl = URL.createObjectURL(file);
@@ -2672,7 +2706,7 @@ function DropZone({
         {isDragging ? "Drop it here" : "Add a photo of the room"}
       </h2>
       <p style={{ font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "44ch", margin: 0 }}>
-        A straight-on photo in daylight works best. JPEG, PNG or WebP, up to 10 MB.
+        A straight-on photo in daylight works best. JPEG, PNG or WebP — any size; large photos are shrunk for you.
       </p>
       <div
         style={{

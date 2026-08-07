@@ -518,6 +518,15 @@ export const adminApi = {
       `/api/admin/free-projects/${encodeURIComponent(templateId)}/start`,
       { method: "POST", accessToken },
     ),
+  // Re-copy the photo and every mask from the project the template was published
+  // from. The template keeps its id, slug, shelf position, published state and
+  // usage count — this is how a mask gets fixed after publishing, since publishing
+  // freezes a copy of them.
+  refreshFreeProject: (accessToken: string, templateId: string) =>
+    serverFetch<FreeProjectTemplate>(
+      `/api/admin/free-projects/${encodeURIComponent(templateId)}/refresh`,
+      { method: "POST", accessToken },
+    ),
   setFreeProjectPublished: (accessToken: string, templateId: string, published: boolean) =>
     serverFetch<FreeProjectTemplate>(
       `/api/admin/free-projects/${encodeURIComponent(templateId)}/published?published=${published}`,

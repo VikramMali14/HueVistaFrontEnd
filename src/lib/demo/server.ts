@@ -428,4 +428,16 @@ export function demoSiteAssetMap(): Record<string, DemoSiteAsset> {
   return { ...demoSiteAssets };
 }
 
+/**
+ * The demo publishes no rooms.
+ *
+ * An empty shelf is a real state the gallery already handles — it falls back to
+ * the built-in plates, or 404s — so the offline demo gets the honest answer
+ * rather than fabricated rooms with invented shade codes, which is the whole
+ * reason /gallery was gated in the first place.
+ */
+export function demoPublishedProjects(): [] {
+  return [];
+}
+
 export type { AuthResponse };

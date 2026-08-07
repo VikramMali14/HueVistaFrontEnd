@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CompareSlider } from "@/components/home/compare-slider";
+import { ImageCropper } from "@/components/ui/image-cropper";
+import { IMAGE_ACCEPT, imageFileError } from "@/lib/image-upload";
 import { clearSiteAssetAction, putSiteAssetAction } from "@/lib/auth";
 import {
   ASPECT_WARN_AT,
@@ -10,6 +12,8 @@ import {
   aspectDrift,
   type SiteAsset,
   type SiteAssetMap,
+  SITE_ASSET_MAX_BYTES,
+  SITE_ASSET_MAX_DIM,
   type SiteAssetSlot,
 } from "@/lib/site-assets";
 
@@ -32,6 +36,10 @@ export function SiteAssetManager({ initial }: { initial: SiteAssetMap }) {
   const [assets, setAssets] = useState<SiteAssetMap>(initial);
   // Files chosen but not yet saved, as object URLs for the preview.
   const [pending, setPending] = useState<Record<string, { file: File; url: string }>>({});
+  // The file a slot has just been given, before it has been framed. Held apart
+  // from `pending` because it is not yet a candidate for anything: it has not been
+  // cropped to the slot's shape or squeezed under the size limit.
+  const [cropping, setCropping] = useState<Record<string, File>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busySlot, setBusySlot] = useState<string | null>(null);
@@ -59,15 +67,58 @@ export function SiteAssetManager({ initial }: { initial: SiteAssetMap }) {
   const shownUrl = (slotId: string): string | null =>
     pending[slotId]?.url ?? assets[slotId]?.url ?? null;
 
+  /** Drop whatever a slot is holding — the pending pick and any crop in progress. */
+  const clearPending = (slotId: string) => {
+    setPending((prev) => {
+      if (!prev[slotId]) return prev;
+      URL.revokeObjectURL(prev[slotId].url);
+      const next = { ...prev };
+      delete next[slotId];
+      return next;
+    });
+    setCropping((prev) => {
+      if (!prev[slotId]) return prev;
+      const next = { ...prev };
+      delete next[slotId];
+      return next;
+    });
+  };
+
+  /**
+   * A file has been picked. It is NOT a candidate yet — it goes to the cropper
+   * first, which frames it to the slot's shape and re-encodes it under the size
+   * limit. Only what comes back from there can be saved, which is what makes
+   * "too large" and "wrong shape" impossible to reach rather than merely reported.
+   *
+   * The type check still runs here: a cropper cannot open a file the browser
+   * cannot decode, so that has to be caught before it is handed over.
+   */
   const choose = (slotId: string, file: File | null) => {
     setError(null);
     setNotice(null);
+    if (!file) {
+      clearPending(slotId);
+      return;
+    }
+    const bad = imageFileError(file);
+    if (bad) {
+      setError(bad);
+      return;
+    }
+    clearPending(slotId);
+    setCropping((prev) => ({ ...prev, [slotId]: file }));
+  };
+
+  /** The cropper's output: framed, downscaled and under the limit. */
+  const cropped = (slotId: string, file: File) => {
+    setCropping((prev) => {
+      const next = { ...prev };
+      delete next[slotId];
+      return next;
+    });
     setPending((prev) => {
       if (prev[slotId]) URL.revokeObjectURL(prev[slotId].url);
-      const next = { ...prev };
-      if (file) next[slotId] = { file, url: URL.createObjectURL(file) };
-      else delete next[slotId];
-      return next;
+      return { ...prev, [slotId]: { file, url: URL.createObjectURL(file) } };
     });
   };
 
@@ -166,9 +217,11 @@ export function SiteAssetManager({ initial }: { initial: SiteAssetMap }) {
                   asset={assets[slot.id] ?? null}
                   pendingFile={pending[slot.id]?.file ?? null}
                   pendingUrl={pending[slot.id]?.url ?? null}
+                  croppingFile={cropping[slot.id] ?? null}
                   busy={saving && busySlot === slot.id}
                   disabled={saving}
                   onChoose={(f) => choose(slot.id, f)}
+                  onCropped={(f) => cropped(slot.id, f)}
                   onSave={() => save(slot.id)}
                   onClear={() => clear(slot.id)}
                 />
@@ -222,9 +275,11 @@ function SlotCard({
   asset,
   pendingFile,
   pendingUrl,
+  croppingFile,
   busy,
   disabled,
   onChoose,
+  onCropped,
   onSave,
   onClear,
 }: {
@@ -234,15 +289,41 @@ function SlotCard({
   /** Object URL owned by the parent — the card must not create or revoke one of
    *  its own, or picking a file would allocate the same blob twice. */
   pendingUrl: string | null;
+  /** Picked but not yet framed: the cropper takes over the card while this is set. */
+  croppingFile: File | null;
   busy: boolean;
   disabled: boolean;
   onChoose: (file: File | null) => void;
+  onCropped: (file: File) => void;
   onSave: () => void;
   onClear: () => void;
 }) {
   const inputId = `sa-${slot.id}`;
   const drift = asset ? aspectDrift(asset, slot) : null;
   const thumb = pendingUrl ?? asset?.url ?? null;
+
+  // Framing takes the whole card. It is one decision about one picture, and
+  // leaving the file input and Save button live beside it would offer two ways
+  // out of a step that has to finish first.
+  if (croppingFile) {
+    return (
+      <div className="sa-card">
+        <div>
+          <div className="sa-card-title">{slot.label}</div>
+          <div className="sa-card-where">{slot.where}</div>
+        </div>
+        <ImageCropper
+          file={croppingFile}
+          aspect={slot.aspect}
+          aspectLabel={slot.aspectLabel}
+          maxBytes={SITE_ASSET_MAX_BYTES}
+          maxDim={SITE_ASSET_MAX_DIM}
+          onCancel={() => onChoose(null)}
+          onCropped={onCropped}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="sa-card">
@@ -275,10 +356,12 @@ function SlotCard({
           {` · ${Math.round(asset.fileSize / 1024).toLocaleString("en-IN")} KB`}
         </p>
       )}
+      {/* Only ever seen on something uploaded before the cropper existed —
+          anything framed here leaves at exactly the slot's shape. */}
       {drift != null && drift > ASPECT_WARN_AT && !pendingFile && (
         <p className="sa-warn">
           This picture is a long way off {slot.aspectLabel}, so the page is cropping a lot of
-          it away. Re-crop it nearer that shape if the framing matters.
+          it away. Upload it again to frame the crop yourself.
         </p>
       )}
 
@@ -287,9 +370,17 @@ function SlotCard({
         id={inputId}
         className="sa-file"
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={IMAGE_ACCEPT}
         disabled={disabled}
-        onChange={(e) => onChoose(e.target.files?.[0] ?? null)}
+        onChange={(e) => {
+          const file = e.target.files?.[0] ?? null;
+          // Clear the input straight away. It now leads to the CROPPER rather
+          // than to a saved pick, and cancelling out of that leaves the input
+          // still holding the file — so re-picking the same photograph fires no
+          // change event and the card sits there doing nothing.
+          e.target.value = "";
+          onChoose(file);
+        }}
       />
 
       <div className="sa-actions">

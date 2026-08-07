@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { showcaseContentEnabled } from "@/lib/showcase";
 import { Marquee } from "@/components/layout/marquee";
+import { fetchSiteAssets } from "@/lib/site-assets-server";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
@@ -16,10 +17,11 @@ export const metadata: Metadata = {
   description: "Letters from the studio. Essays on colour, retail and the trade.",
 };
 
-export default function JournalPage() {
+export default async function JournalPage() {
   // Invented bylines, no articles behind the entries — see lib/showcase.
   // Backstop behind the middleware gate, not the primary one.
   if (!showcaseContentEnabled()) notFound();
+  const assets = await fetchSiteAssets();
   return (
     <>
       <Marquee items={["The Journal · Letters from the studio", "Monthly · India", "On colour, on craft, on the counter"]} />
@@ -35,7 +37,15 @@ export default function JournalPage() {
           <Lead className="page-lead">On colour, on craft, on the quiet economics of the Indian paint counter. A monthly journal, written by the people who built HueVista — and by the retailers who use it.</Lead>
 
           <div className="reveal d2 r-stack-md" style={{ marginTop: 80, display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 64, alignItems: "center" }}>
-            <Placeholder tone="oxblood" grain corners tag="FEATURED · ESSAY" style={{ aspectRatio: "5 / 4" }} />
+            <Placeholder
+              tone="oxblood"
+              grain
+              corners
+              tag="FEATURED · ESSAY"
+              src={assets["journal.featured"]?.url}
+              alt="Afternoon light falling across an interior wall"
+              style={{ aspectRatio: "5 / 4" }}
+            />
             <div>
               <Eyebrow>Featured essay</Eyebrow>
               <h2 style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(40px, 5vw, 72px)", lineHeight: 0.98, color: "var(--fg)", margin: "24px 0 24px", letterSpacing: "-.015em" }}>

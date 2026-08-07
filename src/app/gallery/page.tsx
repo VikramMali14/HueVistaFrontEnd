@@ -10,6 +10,8 @@ import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
 import { RevealMount } from "@/components/ui/reveal-mount";
 import { GalleryGrid, type Plate, type PlateCategory } from "@/components/gallery/gallery-grid";
+import { fetchPublishedProjects, type PublishedProject } from "@/lib/free-projects-server";
+import { fetchSiteAssets } from "@/lib/site-assets-server";
 import { WORKS } from "@/lib/work";
 
 export const metadata: Metadata = {
@@ -48,34 +50,97 @@ const PLATES: ReadonlyArray<Plate> = WORKS.map((w, i) => {
     tag: w.category,
     tone: w.tone,
     aspect: w.aspect,
+    href: `/work/${w.slug}`,
   };
 });
 
-export default function GalleryPage() {
-  // Placeholder plates, not photographs of finished rooms — see lib/showcase.
-  // The middleware 404s this path first; this is the backstop if it is ever
-  // dropped from the matcher, so the invented content still cannot render.
-  if (!showcaseContentEnabled()) notFound();
+/** "Jan 2026" from the publish timestamp; the year alone if it can't be read. */
+function monthYear(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-IN", { month: "short", year: "numeric" }).format(d);
+}
+
+/**
+ * A published room as a gallery plate.
+ *
+ * Everything on the card is read off the room itself — its photograph, the shades
+ * actually on its walls, what kind of room it is. Nothing here is written by hand,
+ * which is the point: the shelf is edited in the admin console, not in this file.
+ */
+function plateOf(p: PublishedProject, i: number): Plate {
+  const lead = p.colours[0];
+  const code = [lead?.shadeCode, p.colours.length > 1 ? `+${p.colours.length - 1} more` : null]
+    .filter(Boolean)
+    .join(" · ");
+  return {
+    slug: p.slug,
+    num: String(i + 1).padStart(2, "0"),
+    category: p.roomLabel || (p.space === "EXTERIOR" ? "Exteriors" : "Interiors"),
+    title: p.title,
+    code: code || `${p.wallCount} ${p.wallCount === 1 ? "surface" : "surfaces"}`,
+    swatch: lead?.hex ?? "var(--rule-strong)",
+    location: p.roomLabel,
+    date: monthYear(p.publishedAt),
+    tag: p.space === "EXTERIOR" ? "Exterior" : "Interior",
+    // Only reached if the photograph fails to load; the plate needs a tone anyway.
+    tone: "slate",
+    aspect: p.imageWidth && p.imageHeight ? `${p.imageWidth} / ${p.imageHeight}` : "4 / 3",
+    imageUrl: p.imageUrl,
+    alt: p.description || `${p.title} — ${p.roomLabel} recoloured in HueVista`,
+  };
+}
+
+export default async function GalleryPage() {
+  // The shelf an admin publishes from /admin/free-projects. These are real
+  // photographs of real rooms with real shade codes on them, so when there are any
+  // they ARE the gallery and the placeholder plates below never render.
+  const [published, assets] = await Promise.all([fetchPublishedProjects(), fetchSiteAssets()]);
+
+  // Nothing published yet: back to the built-in plates, which are invented
+  // material — flat gradients captioned with codes our own catalogue 404s (see
+  // lib/showcase). The middleware 404s this path first in that case; this is the
+  // backstop if it is ever dropped from the matcher.
+  if (published.length === 0 && !showcaseContentEnabled()) notFound();
+
+  const live = published.length > 0;
+  const plates = live ? published.map(plateOf) : PLATES;
+  const count = plates.length;
+
   return (
     <>
-      <Marquee items={["The Gallery", "Recoloured rooms · real catalogue shades · only the wall changes", "Curated quarterly"]} />
+      <Marquee items={["The Gallery", "Recoloured rooms · real catalogue shades · only the wall changes", live ? "Published from the studio" : "Curated quarterly"]} />
       <SiteHeader />
       <main id="main">
         <RevealMount />
         <header className="page-head">
           <div className="eyebrow-row">
             <Eyebrow>Gallery</Eyebrow>
-            <Mono>12 plates · curated quarterly</Mono>
+            <Mono>{count} {count === 1 ? "room" : "rooms"} · {live ? "published from the studio" : "curated quarterly"}</Mono>
           </div>
           <h1 className="display">A library of <i>finished rooms.</i></h1>
-          <Lead className="page-lead">Twelve rooms from ten cities across India, each recoloured from a single photograph with shades from the live catalogue. Only the wall changes.</Lead>
-          <GalleryGrid plates={PLATES} />
+          <Lead className="page-lead">
+            {live
+              ? "Rooms recoloured in the studio from a single photograph, each one with shades from the live catalogue on its walls. Only the wall changes."
+              : "Twelve rooms from ten cities across India, each recoloured from a single photograph with shades from the live catalogue. Only the wall changes."}
+          </Lead>
+          <GalleryGrid plates={plates} />
         </header>
 
         <section style={{ background: "var(--band)", borderTop: "1px solid var(--band-rule)", borderBottom: "1px solid var(--band-rule)", padding: "120px 0", marginTop: 80 }} className="full-bleed">
           <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 var(--gutter)" }}>
             <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
-              <Placeholder tone="oxblood" grain corners tag="AT THE COUNTER" label="A paint counter, India" style={{ aspectRatio: "5 / 4" }} />
+              <Placeholder
+                tone="oxblood"
+                grain
+                corners
+                tag="AT THE COUNTER"
+                label="A paint counter, India"
+                src={assets["gallery.counter"]?.url}
+                alt="A customer at a paint counter being shown their own room in a new colour"
+                style={{ aspectRatio: "5 / 4" }}
+              />
               <div>
                 <Eyebrow>At the counter</Eyebrow>
                 <h3 style={{ marginTop: 24, fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(40px, 5vw, 72px)", lineHeight: 1, letterSpacing: "-.015em", color: "var(--ivory)" }}>
