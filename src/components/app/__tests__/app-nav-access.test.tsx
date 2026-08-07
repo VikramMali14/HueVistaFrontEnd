@@ -98,3 +98,46 @@ describe("AppNav page grant", () => {
     expect(tabs()).toEqual(expect.arrayContaining(["Studio", "Colour finder"]));
   });
 });
+
+/**
+ * A page the shop's OWN PLAN locks is not the same closure as one its distributor
+ * withheld, and the nav now treats them differently.
+ *
+ * The distributor's is somebody else's decision: the tab goes, because it would
+ * only lead somewhere nobody here can help. The plan's is the shop's own to
+ * reverse in two clicks — and hiding it meant the shops who had never had the
+ * tool were the only ones never told it existed. It keeps its tab, with a
+ * padlock, and the page behind it opens locked and makes its own case.
+ */
+describe("AppNav plan lock", () => {
+  const freeShop = access({ plan: "FREE", planLockedFeatures: ["COLOR_FINDER"] });
+
+  it("keeps the tab a plan locks, unlike one a distributor withheld", () => {
+    render(<AppNav user={retailer} access={freeShop} />);
+    expect(tabs()).toContain("Colour finder");
+  });
+
+  it("marks it as locked rather than passing it off as included", () => {
+    render(<AppNav user={retailer} access={freeShop} />);
+    const tab = screen.getAllByRole("link", { name: "Colour finder" })[0]!;
+    expect(tab).toHaveAttribute("title", "Colour finder — on the paid plans");
+    expect(tab.querySelector(".nav-tab-lock")).not.toBeNull();
+  });
+
+  it("leaves an included page unmarked", () => {
+    render(<AppNav user={retailer} access={access()} />);
+    const tab = screen.getAllByRole("link", { name: "Colour finder" })[0]!;
+    expect(tab).not.toHaveAttribute("title");
+    expect(tab.querySelector(".nav-tab-lock")).toBeNull();
+  });
+
+  it("still drops the tab when the distributor is the one withholding it", () => {
+    render(
+      <AppNav
+        user={retailer}
+        access={access({ featuresRestricted: true, allowedFeatures: ["STUDIO"] })}
+      />,
+    );
+    expect(tabs()).not.toContain("Colour finder");
+  });
+});

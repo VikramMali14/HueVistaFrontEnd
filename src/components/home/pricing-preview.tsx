@@ -10,7 +10,9 @@ interface Tier { name: string; price: string; per: string; feature: string; feat
 // behind it; a price-less card on the home page is a question with no answer, so it is
 // gone until there is a real tier to put a shop on.
 const TIERS: ReadonlyArray<Tier> = [
-  { name: "Free", price: "₹0", per: "for good", feature: "2 projects / mo · renews · no colour finder" },
+  // "For paint shops" rather than "for good": the question a ₹0 card raises is who
+  // is allowed on it, not how long it runs. Matches the free card on /pricing.
+  { name: "Free", price: "₹0", per: "for paint shops", feature: "2 projects / mo · renews · no colour finder" },
   { name: "Starter", price: "₹999", per: "/ month", feature: "15 projects / mo · AI clean-up + walls" },
   { name: "Professional", price: "₹2,499", per: "/ month", feature: "45 projects / mo · extras at ₹55", featured: true },
   { name: "Business", price: "₹4,999", per: "/ month", feature: "100 projects / mo · extras at ₹45" },

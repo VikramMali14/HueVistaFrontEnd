@@ -126,7 +126,7 @@ export function ForgotForm() {
               required
               autoComplete="email"
               inputMode="email"
-              placeholder="priya@mehtapaints.in"
+              placeholder="name@example.com"
               aria-invalid={destError ? "true" : undefined}
               aria-describedby={destError ? "dest-error" : undefined}
             />

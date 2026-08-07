@@ -44,8 +44,8 @@ export function CreatePainterForm() {
       style={{ marginTop: 40 }}
     >
       <div className="cp-grid">
-        <Field label="Painter name" name="name" required placeholder="Santosh Pawar" autoComplete="off" />
-        <Field label="Email" name="email" type="email" required placeholder="santosh.pawar@gmail.com" autoComplete="off" />
+        <Field label="Painter name" name="name" required placeholder="Full name" autoComplete="off" />
+        <Field label="Email" name="email" type="email" required placeholder="name@example.com" autoComplete="off" />
         <div className="field">
           <label className="field-label" htmlFor="cp-password">Initial password</label>
           <div style={{ position: "relative" }}>
@@ -58,7 +58,7 @@ export function CreatePainterForm() {
             </button>
           </div>
         </div>
-        <Field label="Phone · WhatsApp" name="phone" type="tel" placeholder="+91 91 5688 3402" autoComplete="off" />
+        <Field label="Phone · WhatsApp" name="phone" type="tel" placeholder="+91 00000 00000" autoComplete="off" />
       </div>
 
       {created && (

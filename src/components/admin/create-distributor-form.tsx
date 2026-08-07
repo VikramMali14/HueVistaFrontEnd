@@ -44,8 +44,8 @@ export function CreateDistributorForm() {
       style={{ marginTop: 40 }}
     >
       <div className="dist-grid">
-        <Field label="Owner name" name="name" required placeholder="Arun Shetty" autoComplete="off" />
-        <Field label="Email" name="email" type="email" required placeholder="office@shettytrade.in" autoComplete="off" />
+        <Field label="Owner name" name="name" required placeholder="Full name" autoComplete="off" />
+        <Field label="Email" name="email" type="email" required placeholder="name@example.com" autoComplete="off" />
         <div className="field">
           <label className="field-label" htmlFor="d-password">Initial password</label>
           <div style={{ position: "relative" }}>
@@ -58,9 +58,9 @@ export function CreateDistributorForm() {
             </button>
           </div>
         </div>
-        <Field label="Phone · WhatsApp" name="phone" type="tel" placeholder="+91 98 8600 2244" autoComplete="off" />
-        <Field label="Company name" name="companyName" required placeholder="Shetty Trade Links" full autoComplete="off" />
-        <Field label="City" name="city" placeholder="Hubli" autoComplete="off" />
+        <Field label="Phone · WhatsApp" name="phone" type="tel" placeholder="+91 00000 00000" autoComplete="off" />
+        <Field label="Company name" name="companyName" required placeholder="Registered company name" full autoComplete="off" />
+        <Field label="City" name="city" placeholder="City" autoComplete="off" />
         <div className="field">
           <label className="field-label" htmlFor="d-state">State</label>
           <select id="d-state" name="state" defaultValue="Karnataka">{STATES.map((s) => <option key={s}>{s}</option>)}</select>

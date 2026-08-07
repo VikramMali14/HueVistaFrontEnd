@@ -61,3 +61,36 @@ describe("middleware route protection", () => {
     expect(matcherEntries()).toContain("/assigned-products/:path*");
   });
 });
+
+function guestOnlyPaths(): string[] {
+  const block = /const GUEST_ONLY_PATHS = \[([\s\S]*?)\];/.exec(middlewareSource);
+  expect(block, "GUEST_ONLY_PATHS not found in middleware.ts").not.toBeNull();
+  return [...block![1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+}
+
+/**
+ * Somebody already holding an account has no business on a page that opens one.
+ * Both signup routes are covered — /join creates the CUSTOMER account and /trial
+ * creates the SHOP account. /trial was the hole: it was documented as a "lead
+ * form" that created nothing, when it takes a password and opens a shop, so a
+ * signed-in shop could register a second one straight from the pricing page.
+ */
+describe("middleware guest-only pages", () => {
+  it("closes both signup routes and the sign-in pages to signed-in users", () => {
+    const guest = guestOnlyPaths();
+    for (const path of ["/sign-in", "/sign-in/forgot", "/join", "/trial"]) {
+      expect(guest, `${path} must be guest-only`).toContain(path);
+    }
+  });
+
+  it("matches every guest-only path, so the bounce actually runs", () => {
+    const matcher = matcherEntries();
+    const missing = guestOnlyPaths().filter((p) => !matcher.includes(p));
+    expect(missing).toEqual([]);
+  });
+
+  it("leaves the Google callback open — it runs before the session cookies exist", () => {
+    expect(guestOnlyPaths()).not.toContain("/sign-in/google");
+    expect(matcherEntries()).not.toContain("/sign-in/google");
+  });
+});

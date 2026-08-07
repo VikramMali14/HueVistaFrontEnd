@@ -310,7 +310,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
           <input
             value={shopName}
             onChange={(e) => setShopName(e.target.value)}
-            placeholder="Mehta Paint House"
+            placeholder="Full shop name"
             aria-label="Shop name"
             style={{ flex: 1, minWidth: 200, padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "400 16px/1 var(--sans)" }}
           />
@@ -350,7 +350,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
             <input
               value={customerName}
               onChange={(e) => { setCustomerName(e.target.value); setError(null); }}
-              placeholder="e.g. Priya Sharma"
+              placeholder="Customer's full name"
               aria-label="Customer name"
               style={{ ...inputStyle, minWidth: 220 }}
             />

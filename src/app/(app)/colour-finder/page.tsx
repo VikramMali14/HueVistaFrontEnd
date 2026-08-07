@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { getCatalogueOrSample } from "@/lib/catalogue";
 import { ColorFinder } from "@/components/catalogue/color-finder";
-import { requireActiveSubscription, requireFeature } from "@/lib/auth";
+import { requireFeatureOrLock, requireRole } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Colour finder",
@@ -11,15 +11,24 @@ export const metadata: Metadata = {
 };
 
 export default async function ColorFinderPage() {
-  // Signed-in shops only: everyone else is redirected to pricing (or sign-in if
-  // unauthenticated).
-  await requireActiveSubscription();
-  // A subscription is necessary but not sufficient, on two counts. The shop's
-  // distributor decides whether this tool is part of what they bought — AND this is
-  // the one page the shop's own TIER decides, since colour matching is not part of the
-  // free plan. requireFeature checks both and words the bounce to match whichever
-  // caught it: ask your distributor, or choose a plan.
-  await requireFeature("COLOR_FINDER");
+  // A counter tool. A customer has no counter to use it at and a distributor doesn't
+  // sell paint over one — the nav offers it to neither, and this agrees with the nav.
+  await requireRole(["RETAILER", "ADMIN"]);
+
+  // Two ways this page can be closed, and they want opposite treatment.
+  //
+  // The shop's DISTRIBUTOR not granting it is somebody else's decision; nothing here
+  // can lift it, so that stays a bounce (inside requireFeatureOrLock).
+  //
+  // The shop's own PLAN not including it is the shop's decision to reverse — and the
+  // page used to vanish for exactly the shops who had never seen what they were
+  // missing. A free counter was told "not included" on a dashboard and left to
+  // imagine the rest. So the page opens: real heading, real tool, real explanation of
+  // what it does, and the subscription case made at the moment they reach for it.
+  // The backend still refuses the matching endpoints, which is what makes showing the
+  // shell safe rather than a hole.
+  const { planLocked } = await requireFeatureOrLock("COLOR_FINDER");
+
   // Live catalogue from the backend; falls back to the bundled sample if unreachable.
   const shades = await getCatalogueOrSample();
   return (
@@ -34,12 +43,23 @@ export default async function ColorFinderPage() {
           shade — code intact. Or take the palette we pull from the image automatically.
         </Lead>
       </header>
-      <ColorFinder shades={shades} />
+      <ColorFinder shades={shades} locked={planLocked} />
       <p className="finder-foot" style={{ marginTop: 20, font: "400 16px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
-        Know the hex already?{" "}
-        <Link href="/catalogue" style={{ color: "var(--accent)" }}>
-          Match a colour by code on the catalogue →
-        </Link>
+        {planLocked ? (
+          <>
+            Matching a colour you already have a code for is on every plan.{" "}
+            <Link href="/catalogue" style={{ color: "var(--accent)" }}>
+              Look a code up in the catalogue →
+            </Link>
+          </>
+        ) : (
+          <>
+            Know the hex already?{" "}
+            <Link href="/catalogue" style={{ color: "var(--accent)" }}>
+              Match a colour by code on the catalogue →
+            </Link>
+          </>
+        )}
       </p>
     </div>
   );

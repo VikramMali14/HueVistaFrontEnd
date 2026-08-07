@@ -193,3 +193,79 @@ describe("Custom tab — no hex on screen", () => {
     expect(onApplyExact).toHaveBeenCalledWith("#2244cc");
   });
 });
+
+/**
+ * The way back in for the one customer a month who arrives with a code from a
+ * brand sheet or an architect's note. Folded away, because the panel is built for
+ * a counter where colours get pointed at — but reachable, because without it that
+ * colour cannot be entered at all.
+ */
+describe("Custom tab — entering a code by hand", () => {
+  const openCustom = async (user: ReturnType<typeof userEvent.setup>) => {
+    render(<ShadeGrid onSelect={vi.fn()} shades={CATALOGUE} onApplyExact={vi.fn()} />);
+    await user.click(screen.getByRole("tab", { name: "Custom" }));
+  };
+
+  it("keeps the field folded away until asked for", async () => {
+    const user = userEvent.setup();
+    await openCustom(user);
+
+    expect(screen.queryByLabelText("Colour code")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enter a code" })).toBeInTheDocument();
+  });
+
+  it("opens the field, focused, when asked", async () => {
+    const user = userEvent.setup();
+    await openCustom(user);
+
+    await user.click(screen.getByRole("button", { name: "Enter a code" }));
+
+    const field = screen.getByLabelText("Colour code");
+    expect(field).toBeInTheDocument();
+    expect(field).toHaveFocus();
+  });
+
+  it("drives the colour from a typed code, with or without the hash", async () => {
+    const user = userEvent.setup();
+    const onApplyExact = vi.fn();
+    render(<ShadeGrid onSelect={vi.fn()} shades={CATALOGUE} onApplyExact={onApplyExact} />);
+    await user.click(screen.getByRole("tab", { name: "Custom" }));
+    await user.click(screen.getByRole("button", { name: "Enter a code" }));
+
+    const field = screen.getByLabelText("Colour code");
+    await user.clear(field);
+    await user.type(field, "A47148");
+
+    // The swatch follows the code…
+    expect(screen.getByLabelText("Pick a colour")).toHaveValue("#a47148");
+    // …and applying uses it.
+    await user.click(screen.getByRole("button", { name: /Use this exact colour/ }));
+    expect(onApplyExact).toHaveBeenCalledWith("#A47148");
+  });
+
+  it("says what a code looks like only once something unusable is typed", async () => {
+    const user = userEvent.setup();
+    await openCustom(user);
+    await user.click(screen.getByRole("button", { name: "Enter a code" }));
+
+    const field = screen.getByLabelText("Colour code");
+    await user.clear(field);
+    // An empty field is a field just opened, not a mistake.
+    expect(screen.queryByText(/Six digits or letters/)).not.toBeInTheDocument();
+
+    await user.type(field, "zzz");
+    expect(screen.getByText(/Six digits or letters/)).toBeInTheDocument();
+    expect(field).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("folds away again, leaving no hex on screen", async () => {
+    const user = userEvent.setup();
+    await openCustom(user);
+    await user.click(screen.getByRole("button", { name: "Enter a code" }));
+    await user.click(screen.getByRole("button", { name: "Close the code field" }));
+
+    expect(screen.queryByLabelText("Colour code")).not.toBeInTheDocument();
+    const panel = document.querySelector(".hv-studio-scroll")!;
+    expect(panel.textContent ?? "").not.toMatch(/#[0-9a-fA-F]{6}/);
+  });
+});

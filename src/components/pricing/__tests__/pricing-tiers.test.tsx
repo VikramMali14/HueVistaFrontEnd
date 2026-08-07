@@ -91,4 +91,38 @@ describe("PricingTiers", () => {
     expect(screen.queryByRole("button", { name: /buy now/i })).toBeNull();
     expect(screen.getAllByRole("link", { name: /redeem a shop code/i })).toHaveLength(4);
   });
+
+  /**
+   * The question a ₹0 card actually raises is who is allowed on it. "For good"
+   * answered how long it lasts — which nobody was asking, and which the line
+   * underneath already covers.
+   */
+  it("says the free plan is for paint shops, on the price line and in the list", () => {
+    render(<PricingTiers />);
+    expect(screen.getByText("for paint shops")).toBeTruthy();
+    expect(screen.getByText("For paint shops only")).toBeTruthy();
+    // The renewal promise didn't disappear — it moved to the billing line.
+    expect(screen.getByText(/renews every month, for good/i)).toBeTruthy();
+  });
+
+  /**
+   * Signup is closed to anyone already holding an account, so the free card's
+   * signup link would be a button that bounces straight back to the home page.
+   */
+  it("sends a signed-in visitor to their dashboard instead of back through signup", () => {
+    render(<PricingTiers signedIn />);
+    expect(screen.getByRole("link", { name: /Go to your dashboard/ })).toHaveAttribute("href", "/dashboard");
+    // Every route into signup is gone, including the paid cards' "Start free
+    // instead" — all of them would only bounce off the guest-only guard.
+    expect(screen.queryAllByRole("link").filter((a) => a.getAttribute("href") === "/trial")).toHaveLength(0);
+  });
+
+  it("keeps the signup route for a visitor who has no account yet", () => {
+    render(<PricingTiers />);
+    // The free card's own CTA — anchored past the arrow so it can't also match
+    // the paid cards' "Start free instead".
+    expect(screen.getByRole("link", { name: /^Start free\s*→$/ })).toHaveAttribute("href", "/trial");
+    // The three paid cards keep their "start free instead" way out.
+    expect(screen.getAllByRole("link", { name: "Start free instead" })).toHaveLength(3);
+  });
 });

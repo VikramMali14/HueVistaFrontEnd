@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
+import { FREE_PLAN_PROJECTS } from "@/lib/free-plan";
 import { rgbToHex } from "@/lib/color";
 import { extractPalette } from "@/lib/palette";
 import { IMAGE_ACCEPT, imageFileError, loadImageFromFile, scaleToFit } from "@/lib/image-upload";
@@ -15,7 +17,31 @@ import { PhoneHandoff } from "@/components/shared/phone-handoff";
 
 const MAX_DIM = 1400; // cap the canvas backing store so getImageData stays fast
 
-export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) {
+function LockIcon({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="4" y="10" width="16" height="11" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
+
+export function ColorFinder({
+  shades,
+  locked = false,
+}: {
+  shades?: ReadonlyArray<PaintShade>;
+  /**
+   * The shop's plan doesn't include colour matching.
+   *
+   * The tool stays on screen and stays honest about being shut: reaching for it is
+   * what raises the subscription case, because that is the moment the shop knows
+   * what it wants it for. Nothing is matched and no photo is read while this is on —
+   * the backend refuses the same work, so this is the courteous half of a rule that
+   * is enforced elsewhere, not the rule itself.
+   */
+  locked?: boolean;
+}) {
   const catalogue = useMemo(() => (shades && shades.length > 0 ? shades : SHADES), [shades]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -63,7 +89,30 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
     }
   }, [loadedImg]);
 
+  // Raised the first time a locked shop reaches for the tool — a press on the drop
+  // zone, a dropped photo, a phone hand-off. Not shown on arrival: a shop that came
+  // to look at what the page is should get to read it before being sold anything.
+  const [pitching, setPitching] = useState(false);
+  const pitchRef = useRef<HTMLDivElement>(null);
+  const pitch = useCallback(() => {
+    setPitching(true);
+    // The pitch renders above the drop zone; on a short window it can open off the
+    // top of the viewport, which reads as "the button did nothing". Scrolling to it
+    // is a nicety, not the feature — feature-detected so an environment without
+    // scrollIntoView still gets the pitch rather than an exception inside a rAF.
+    requestAnimationFrame(() => {
+      const el = pitchRef.current;
+      if (el && typeof el.scrollIntoView === "function") {
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    });
+  }, []);
+
   const onFile = useCallback((file: File) => {
+    if (locked) {
+      pitch();
+      return;
+    }
     setError(null);
     const problem = imageFileError(file);
     if (problem) {
@@ -79,7 +128,7 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
         setLoadedImg(img);
       })
       .catch((e: Error) => setError(e.message));
-  }, []);
+  }, [locked, pitch]);
 
   const sampleAt = useCallback((clientX: number, clientY: number): string | null => {
     const canvas = canvasRef.current;
@@ -97,11 +146,52 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
 
   return (
     <div className="hv-finder" style={{ border: "1px solid var(--rule)", padding: "24px 24px 28px" }}>
-      <Mono brass>Find a colour in a photo</Mono>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <Mono brass>Find a colour in a photo</Mono>
+        {/* Said up front, quietly. The pitch waits until they reach for the tool, but
+            the lock itself should never be a surprise sprung at that moment. */}
+        {locked && (
+          <span className="hv-finder-lock-badge">
+            <LockIcon />
+            On the paid plans
+          </span>
+        )}
+      </div>
       <p className="finder-lead" style={{ font: "400 18px/1.5 var(--serif)", color: "var(--fg-soft)", margin: "10px 0 20px", maxWidth: "56ch" }}>
         Upload a photograph, then click anywhere on it to sample a colour — we match it to the nearest real
         catalogue shade by perceptual distance. We also pull a palette from the image automatically.
       </p>
+
+      {locked && pitching && (
+        <div className="hv-finder-pitch" role="status" ref={pitchRef}>
+          <div className="hv-finder-pitch-head">
+            <LockIcon />
+            <span>Colour matching is on the paid plans</span>
+          </div>
+          <p>
+            Point at a wall in any photograph — a customer&apos;s phone snap, a magazine
+            page, a sari — and get the nearest shades from your own catalogue, codes
+            intact. It is the one tool that earns at the counter without a project
+            behind it, which is why it sits on the paid plans rather than the free one.
+          </p>
+          <p className="hv-finder-pitch-sub">
+            Your free plan keeps everything else: {FREE_PLAN_PROJECTS} projects a month,
+            the studio, colour boards and customer codes. Any plan from Starter up
+            switches this on, along with every paint company your distributor assigned you.
+          </p>
+          <div className="hv-finder-pitch-actions">
+            <Link href="/plan" className="btn">
+              Choose a plan <span className="arr">→</span>
+            </Link>
+            <Link href="/pricing" className="btn btn-ghost">
+              Compare the plans
+            </Link>
+            <button type="button" className="hv-finder-pitch-dismiss" onClick={() => setPitching(false)}>
+              Not now
+            </button>
+          </div>
+        </div>
+      )}
 
       <input
         ref={fileRef}
@@ -119,17 +209,29 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
         <div
           role="button"
           tabIndex={0}
-          onClick={() => fileRef.current?.click()}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && fileRef.current?.click()}
+          // Locked, this is still a real button — it just answers with the reason
+          // instead of a file dialog. An inert, greyed-out rectangle would leave a
+          // shop guessing whether the page was broken or they were.
+          onClick={() => (locked ? pitch() : fileRef.current?.click())}
+          onKeyDown={(e) =>
+            (e.key === "Enter" || e.key === " ") && (locked ? pitch() : fileRef.current?.click())
+          }
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
+            if (locked) {
+              pitch();
+              return;
+            }
             const f = e.dataTransfer.files?.[0];
             if (f) onFile(f);
           }}
-          aria-label="Choose or drop a photograph"
+          aria-label={locked ? "Colour matching is on the paid plans — see the plans" : "Choose or drop a photograph"}
+          className={locked ? "hv-finder-drop is-locked" : "hv-finder-drop"}
           style={{
-            border: "1px dashed var(--rule-strong)",
+            // Dashed says "drop something here". Locked, there is nothing to drop,
+            // so the edge goes solid — it is a panel now, not a target.
+            border: `1px ${locked ? "solid" : "dashed"} var(--rule-strong)`,
             padding: "64px 24px",
             textAlign: "center",
             cursor: "pointer",
@@ -139,21 +241,25 @@ export function ColorFinder({ shades }: { shades?: ReadonlyArray<PaintShade> }) 
             gap: 14,
           }}
         >
-          <span aria-hidden style={{ color: "var(--accent)" }}>
-            <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 16V4M6 10l6-6 6 6" />
-              <path d="M4 20h16" />
-            </svg>
+          <span aria-hidden style={{ color: locked ? "var(--fg-mute)" : "var(--accent)" }}>
+            {locked ? (
+              <LockIcon size={30} />
+            ) : (
+              <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 16V4M6 10l6-6 6 6" />
+                <path d="M4 20h16" />
+              </svg>
+            )}
           </span>
-          <span className="finder-drop" style={{ font: "400 22px/1.2 var(--serif)", color: "var(--fg)" }}>
-            Drop a photograph here
+          <span className="finder-drop" style={{ font: "400 22px/1.2 var(--serif)", color: locked ? "var(--fg-soft)" : "var(--fg)" }}>
+            {locked ? "Colour matching is on the paid plans" : "Drop a photograph here"}
           </span>
-          <span className="btn">Choose a photograph</span>
-          <Mono>JPEG, PNG or WebP</Mono>
+          <span className="btn">{locked ? "See what it does" : "Choose a photograph"}</span>
+          <Mono>{locked ? "Free plan · everything else stays open" : "JPEG, PNG or WebP"}</Mono>
         </div>
       ) : null}
 
-      {!hasImage && (
+      {!hasImage && !locked && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 16 }}>
           <Mono>The photo is on your phone?</Mono>
           <PhoneHandoff onImage={onFile} />
