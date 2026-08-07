@@ -10,14 +10,14 @@ import { PricingTiers } from "@/components/pricing/pricing-tiers";
 import { PricingFaq } from "@/components/pricing/pricing-faq";
 import { getCurrentUser } from "@/lib/auth";
 import { fetchCatalogueSize } from "@/lib/catalogue";
-import { TRIAL_DAYS, TRIAL_DAYS_WORD } from "@/lib/trial";
+import { FREE_PLAN_PROJECTS, FREE_PLAN_PROJECTS_WORD } from "@/lib/free-plan";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: "For retailers, not consumers. Three tiers. One catalogue.",
+  description: "For retailers, not consumers. Four tiers, one of them free. One catalogue.",
 };
 
-type Row = readonly [string, string, string, string];
+type Row = readonly [string, string, string, string, string];
 type Section = { title: string; rows: ReadonlyArray<Row> };
 
 // Every cell states what ships today; unbuilt items say "Soon" (never "●").
@@ -28,20 +28,27 @@ type Section = { title: string; rows: ReadonlyArray<Row> };
 // columns sit side by side, so the progression is visible without a sum in each cell;
 // the cards carry the derivation as a footnote for the reading that needs it.
 //
-// Three columns, not four: Enterprise is not offered for now, and the backend does not
-// serve it from /api/billing/plans, so a fifth "On request" column would be quoting a
+// Four columns. Free is a real tier — the plan every shop is on until it buys one, and
+// the one it returns to if it stops paying — so it belongs in the comparison the page
+// exists to make. Enterprise is still absent: it is not offered for now, and the backend
+// does not serve it from /api/billing/plans, so an "On request" column would be quoting a
 // plan nothing in the product can sell.
+//
+// The free column is where the tier boundary shows itself. Two rows separate it from
+// Starter: the project allowance, and the colour finder — the only capability in the
+// product gated on the tier rather than on a quota.
 const MATRIX: ReadonlyArray<Section> = [
   {
     title: "The preview",
     rows: [
-      ["Projects per month (clean-up + walls found for you)", "15", "45", "100"],
-      ["Marking walls yourself", "Unlimited", "Unlimited", "Unlimited"],
-      ["Extra project — by card, or with points (HueVista credit bought up front)", "₹65 or 60 pts", "₹55 or 50 pts", "₹45 or 40 pts"],
-      ["Unused projects carried over when you upgrade", "●", "●", "●"],
-      ["Colour boards (PDF) per month", "25 (4 photos)", "100 (8 photos)", "300 (12 photos)"],
-      ["Paint each wall its own colour", "●", "●", "●"],
-      ["Colour scheme suggestions", "—", "●", "●"],
+      ["Projects per month (clean-up + walls found for you)", String(FREE_PLAN_PROJECTS), "15", "45", "100"],
+      ["Allowance renews every month", "●", "●", "●", "●"],
+      ["Marking walls yourself", "Unlimited", "Unlimited", "Unlimited", "Unlimited"],
+      ["Extra project — by card, or with points (HueVista credit bought up front)", "₹99 or 80 pts", "₹65 or 60 pts", "₹55 or 50 pts", "₹45 or 40 pts"],
+      ["Unused projects carried over when you upgrade", "●", "●", "●", "●"],
+      ["Colour boards (PDF) per month", "5 (4 photos)", "25 (4 photos)", "100 (8 photos)", "300 (12 photos)"],
+      ["Paint each wall its own colour", "●", "●", "●", "●"],
+      ["Colour scheme suggestions", "—", "—", "●", "●"],
     ],
   },
   {
@@ -53,24 +60,28 @@ const MATRIX: ReadonlyArray<Section> = [
       // claim when they were not. Which companies a shop sees depends on what its
       // distributor assigned it, so the catalogue page states the live list and this
       // table says only what every tier gets: all of it.
-      ["Every company in your catalogue", "●", "●", "●"],
-      ["Find the closest shade across companies", "—", "●", "●"],
+      ["Every company in your catalogue", "●", "●", "●", "●"],
+      // The tier line. Colour matching — read a photograph, get the nearest catalogue
+      // shade codes — is the one tool that earns at the counter without a project behind
+      // it, so it is what the free plan does not carry.
+      ["Colour finder — shade codes from any photo", "—", "●", "●", "●"],
+      ["Find the closest shade across companies", "—", "—", "●", "●"],
     ],
   },
   {
     title: "The counter",
     rows: [
-      ["Send by link or WhatsApp", "●", "●", "●"],
-      ["Codes for your customers", "●", "●", "●"],
-      ["Your own web address", "—", "—", "Soon"],
-      ["Painter portal", "—", "—", "Soon"],
+      ["Send by link or WhatsApp", "●", "●", "●", "●"],
+      ["Codes for your customers", "●", "●", "●", "●"],
+      ["Your own web address", "—", "—", "—", "Soon"],
+      ["Painter portal", "—", "—", "—", "Soon"],
     ],
   },
   {
     title: "Engineering",
     rows: [
-      ["SLA", "Best-effort", "Business hrs", "99.5%"],
-      ["Support", "Email", "Priority", "Account lead"],
+      ["SLA", "Best-effort", "Best-effort", "Business hrs", "99.5%"],
+      ["Support", "Community", "Email", "Priority", "Account lead"],
     ],
   },
 ];
@@ -107,7 +118,7 @@ export default async function PricingPage() {
     : "Every shade, every code intact";
   return (
     <>
-      <Marquee items={["Pricing · For retailers, not consumers", `${TRIAL_DAYS}-day trial · no card · open within a day`, catalogueLine]} />
+      <Marquee items={["Pricing · For retailers, not consumers", `${FREE_PLAN_PROJECTS} free projects every month · no card · open within a day`, catalogueLine]} />
       <SiteHeader />
       <main id="main">
         <RevealMount />
@@ -117,7 +128,7 @@ export default async function PricingPage() {
             <Mono>Built for retailers · not consumers</Mono>
           </div>
           <h1 className="display">For retailers,{" "}<br /><i>not consumers.</i></h1>
-          <Lead className="page-lead">Three tiers, each tuned to a different counter. Every new shop starts with {TRIAL_DAYS} unbilled days — request an account, confirm your email, and it opens within a day. Cancel quietly when you wish.</Lead>
+          <Lead className="page-lead">Four tiers, each tuned to a different counter, and the first one is free for good — {FREE_PLAN_PROJECTS} complete projects every month, renewing, no card. Request an account, confirm your email, and it opens within a day. Move up when the counter outgrows it; cancel quietly when you wish and drop back to free rather than to nothing.</Lead>
           <PricingTiers isCustomer={isCustomer} />
         </header>
 
@@ -160,7 +171,8 @@ export default async function PricingPage() {
                 <table className="hv-matrix" style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
                 <thead className="hv-matrix-head">
                   <tr>
-                    <th style={{ ...headStyle, width: "34%" }}>Capability</th>
+                    <th style={{ ...headStyle, width: "30%" }}>Capability</th>
+                    <th style={{ ...headStyle, color: "var(--ivory)" }}>Free<div style={thPriceStyle}>₹0 · no card</div></th>
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹999 / mo</div></th>
                     {/* Literal metallic on the always-dark band. Opaque composite
                         so the tint survives sticky overlap. */}
@@ -172,15 +184,16 @@ export default async function PricingPage() {
                   {MATRIX.flatMap((section) => [
                     (
                       <tr key={`s-${section.title}`}>
-                        <td colSpan={4} style={sectionHeadStyle}>{section.title}</td>
+                        <td colSpan={5} style={sectionHeadStyle}>{section.title}</td>
                       </tr>
                     ),
                     ...section.rows.map((row) => (
                       <tr key={`${section.title}-${row[0]}`}>
                         <td style={featCellStyle}>{row[0]}</td>
                         <MatrixCell v={row[1]} />
-                        <MatrixCell v={row[2]} featured />
-                        <MatrixCell v={row[3]} />
+                        <MatrixCell v={row[2]} />
+                        <MatrixCell v={row[3]} featured />
+                        <MatrixCell v={row[4]} />
                       </tr>
                     )),
                   ])}
@@ -188,11 +201,13 @@ export default async function PricingPage() {
                       fixed ivory/brass values rather than tokens.
 
                       Labelled "Start free", not "Request account": every column
-                      leads to the same free account, and a per-tier "Request"
-                      button reads as a way to ask for that tier. You buy the tier
-                      from inside the app once you have the account. */}
+                      leads to the same free account — which is now literally the
+                      leftmost column, not a trial of the others — and a per-tier
+                      "Request" button reads as a way to ask for that tier. You buy
+                      the tier from inside the app once you have the account. */}
                   <tr key="cta">
                     <td style={ctaCellStyle} />
+                    <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
                     <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
                     <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#0a0a0f" }}>Start free</Link></td>
                     <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
@@ -224,14 +239,14 @@ export default async function PricingPage() {
           <div className="reveal">
             <Mono brass>Commencement</Mono>
             <h2 className="display" style={{ fontSize: "clamp(56px, 9vw, 142px)", marginTop: 32, lineHeight: 0.92 }}>
-              {TRIAL_DAYS_WORD} days.<br /><i>No card.</i>
+              {FREE_PLAN_PROJECTS_WORD} rooms.<br /><i>Every month.</i>
             </h2>
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
               <Link href="/trial" className="btn btn-brass">Request a shop account <span className="arr">→</span></Link>
               <Link href="/redeem" className="btn btn-ghost">Have a shop code? <span className="arr">→</span></Link>
             </div>
             <div style={{ marginTop: 24, font: "400 12px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
-              Payment receipt for every order · UPI accepted · cancel anytime
+              Free plan needs no card · payment receipt for every order · UPI accepted · cancel anytime
             </div>
           </div>
         </section>

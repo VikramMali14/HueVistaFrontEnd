@@ -18,10 +18,13 @@ vi.mock("@/lib/payments", () => ({ subscribeToPlan: vi.fn() }));
  *  - "Points" were priced on the cards before anything said what they are — the
  *    definition was the seventh FAQ answer, far below. The rupee price leads now,
  *    and the credit is explained where it is first mentioned.
- *  - Enterprise was a fourth card with no price, no checkout path and no tier a shop
- *    could actually be put on. It is gone, and the backend no longer serves it from
+ *  - Enterprise was a card with no price, no checkout path and no tier a shop could
+ *    actually be put on. It is gone, and the backend no longer serves it from
  *    /api/billing/plans either — this test fails if it creeps back into one and not the
  *    other.
+ *  - Free is the opposite case and has to stay the opposite case: a real tier that a
+ *    shop IS on, which must never grow a checkout button, because the only answer that
+ *    button could give is "there's nothing to pay".
  */
 describe("PricingTiers", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -56,14 +59,32 @@ describe("PricingTiers", () => {
     render(<PricingTiers />);
     expect(screen.queryByText(/enterprise/i)).toBeNull();
     expect(screen.queryByText(/on request/i)).toBeNull();
-    // Every card can be bought — there is no "talk to us" dead end left.
+    // Four cards, three of them bought. There is no "talk to us" dead end left, and the
+    // free one leads to the account rather than to a ₹0 checkout.
     expect(screen.getAllByRole("button", { name: /buy now/i })).toHaveLength(3);
+    expect(screen.getByRole("link", { name: /start free →/i }).getAttribute("href"))
+      .toBe("/trial");
+  });
+
+  /** The free tier is a card on the ladder, priced in words and honest about the one
+   *  thing it withholds. */
+  it("shows the free tier with its allowance, its renewal and its one exclusion", () => {
+    render(<PricingTiers />);
+    expect(screen.getByText(/^2 projects a month/)).toBeTruthy();
+    // "Renews" is the whole difference from the seven-day trial it replaced.
+    expect(screen.getByText(/Renews every month/)).toBeTruthy();
+    expect(screen.getByText(/Extra projects ₹99 each, or 80 points/)).toBeTruthy();
+    // Colour matching is the tier line, and the card says so rather than leaving a
+    // shop to notice the tab missing later.
+    expect(screen.getByText("No colour finder")).toBeTruthy();
+    // Priced in words: "₹0 / month" reads like an invoice for nothing.
+    expect(screen.queryByText("₹0")).toBeNull();
   });
 
   /** A CUSTOMER can't hold a shop plan, so they get the access-code route instead. */
   it("points a signed-in customer at their shop's code rather than a buy button", () => {
     render(<PricingTiers isCustomer />);
     expect(screen.queryByRole("button", { name: /buy now/i })).toBeNull();
-    expect(screen.getAllByRole("link", { name: /redeem a shop code/i })).toHaveLength(3);
+    expect(screen.getAllByRole("link", { name: /redeem a shop code/i })).toHaveLength(4);
   });
 });

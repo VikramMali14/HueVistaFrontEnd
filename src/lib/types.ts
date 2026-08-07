@@ -134,6 +134,23 @@ export interface MyAccess {
   allowedFeatures: AppFeatureKey[];
   /** Routes for `allowedFeatures`, so the frontend needn't hardcode the mapping. */
   allowedPaths: string[];
+  /** The shop's own tier, or FREE when nothing is in force. */
+  plan?: PlanName | null;
+  planDisplayName?: string | null;
+  /**
+   * Pages the shop's PLAN does not include — `COLOR_FINDER` on the free tier.
+   *
+   * A second list rather than a subtraction from `allowedFeatures`, because the two
+   * closed pages need different words: one is lifted by ringing the distributor, the
+   * other by pressing subscribe. Sending a free shop to its distributor for something no
+   * distributor can switch on is exactly what collapsing them would do.
+   *
+   * Optional so a server too old to send it reads as "nothing withheld" rather than as
+   * "everything withheld".
+   */
+  planLockedFeatures?: AppFeatureKey[];
+  /** Routes for `planLockedFeatures`, on the same terms as `allowedPaths`. */
+  planLockedPaths?: string[];
 }
 
 /** Role-scoped network report (backend NetworkReportResponse). */
@@ -799,7 +816,7 @@ export interface RewardPointsSummary {
 /** Current subscription summary (backend SubscriptionResponse). */
 export interface SubscriptionSummary {
   id: string;
-  plan: "STARTER" | "PROFESSIONAL" | "BUSINESS" | "ENTERPRISE";
+  plan: PlanName;
   planDisplayName: string;
   status: "CREATED" | "ACTIVE" | "HALTED" | "CANCELLED" | "COMPLETED" | "EXPIRED";
   trial: boolean;
@@ -835,6 +852,10 @@ export interface SubscriptionSummary {
   pdfDownloadsLimit?: number;
   pdfDownloadsRemaining?: number;
   pdfImageLimit?: number;
+  /** Whether this plan includes colour matching (the Colour finder). False on the free
+   *  tier, true on every paid one. Served rather than derived from `plan`, so the client
+   *  keeps no copy of which tiers include what. */
+  colorMatching?: boolean;
   // Present on a freshly CREATED subscription: the Razorpay hosted checkout URL the
   // buyer is sent to in order to pay and activate the plan.
   paymentUrl?: string | null;
@@ -854,11 +875,18 @@ export interface SubscriptionSummary {
  */
 export type PurchasablePlan = "STARTER" | "PROFESSIONAL" | "BUSINESS";
 
+/** Every tier a subscription row can name, buyable or not. */
+export type PlanName = "FREE" | PurchasablePlan | "ENTERPRISE";
+
 /** One plan option from GET /api/billing/plans (pricing + quota limits).
  *  Prices are BASE prices; GST (currently 0%) is added on top (priceWithTax*). */
 export interface PlanOption {
-  plan: PurchasablePlan;
+  plan: PlanName;
   displayName: string;
+  /** Whether checkout can sell this tier. False for FREE, which is granted with the
+   *  account and renewed monthly — a card for it must never grow a buy button whose
+   *  only possible answer is "there's nothing to pay". */
+  purchasable?: boolean;
   /** Position on the tier ladder, served by the backend so an upgrade can be told
    *  from a downgrade without keeping a hand-maintained copy of the Plan enum order
    *  here — one that goes quietly wrong the day a tier is added or reordered. */
@@ -878,6 +906,9 @@ export interface PlanOption {
   extraProjectPoints: number;
   extraProjectPriceInPaise: number;
   extraProjectPriceWithTaxInPaise: number;
+  /** Whether the tier includes colour matching (the Colour finder) — the one capability
+   *  gated on the tier rather than on a quota. */
+  colorMatching?: boolean;
 }
 
 /** Colour-board PDF allowance (backend PdfAllowanceResponse) — resolved against

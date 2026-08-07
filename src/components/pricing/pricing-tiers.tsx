@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { subscribeToPlan } from "@/lib/payments";
 import { HttpError } from "@/lib/http-error";
+import { FREE_PLAN_PROJECTS } from "@/lib/free-plan";
 import type { PurchasablePlan } from "@/lib/types";
 
 /**
@@ -22,7 +23,13 @@ interface Tier {
   note?: string;
   featured: boolean;
   ribbon?: string;
-  plan: PurchasablePlan;
+  /**
+   * The plan checkout sells, or null for the free tier — which is granted with the
+   * account and has nothing to charge for. A null here is what swaps the card's
+   * "Buy now" for "Start free", so a ₹0 card can never grow a button whose only
+   * possible answer is "there's nothing to pay".
+   */
+  plan: PurchasablePlan | null;
 }
 
 // Feature lists describe what ships TODAY. Anything still being built is
@@ -49,20 +56,34 @@ interface Tier {
 // cards as a price ("60 points or ₹65") seven FAQ answers before anything said
 // what a point was. The rupee price leads, and the detail explains the credit.
 //
-// Enterprise is deliberately absent. It was a fourth card with no price, no checkout
-// path and no tier behind it that a shop could actually be put on, so every question it
-// raised ("what does unlimited cost?") had no answer. The backend no longer serves it
-// from /api/billing/plans either — the two must agree, or this page advertises a plan
-// the subscription page cannot sell.
+// Enterprise is deliberately absent. It was a card with no price, no checkout path and
+// no tier behind it that a shop could actually be put on, so every question it raised
+// ("what does unlimited cost?") had no answer. The backend does not serve it from
+// /api/billing/plans either — the two must agree, or this page advertises a plan the
+// subscription page cannot sell.
+//
+// Free IS served, and is a real card here. It is the plan every shop is on until it buys
+// one and the plan it returns to if it stops paying, so leaving it off the comparison
+// made the ladder start at ₹999 and the first question a shop asks ("what do I get for
+// nothing?") go unanswered on the page built to answer it. Its card leads to /trial
+// rather than to checkout, because there is nothing to charge.
 const TIERS: ReadonlyArray<Tier> = [
-  { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Photos cleaned up and walls found for you on every project.", featured: false, features: [
-    "15 projects a month — clean-up and walls included",
-    { text: "Extra projects ₹65 each, or 60 points", detail: "Points are HueVista credit bought up front — they buy extras at a lower rate than paying by card." },
+  { name: "Free", plan: null, monthlyN: 0, lede: "For trying it at your own counter, and for staying. Two rooms a month, every month.", featured: false, features: [
+    `${FREE_PLAN_PROJECTS} projects a month — clean-up and walls included`,
+    { text: "Renews every month, for as long as you keep the account", detail: "Not a trial with a deadline: the two projects come back on the same monthly cycle a paid plan runs on, and nothing expires if you don't use them." },
+    { text: "Extra projects ₹99 each, or 80 points", detail: "Points are HueVista credit bought up front — they buy extras at a lower rate than paying by card. This is the dearest rate; every paid tier's is cheaper." },
     "Mark walls yourself as often as you like — no extra charge",
-    "25 colour boards a month (4 photos each)",
+    "5 colour boards a month (4 photos each)",
     "The full colour library and shade search",
     "Send by link or WhatsApp",
     "Codes for your customers",
+    { text: "No colour finder", detail: "Reading a photograph and answering with the nearest catalogue shade codes is on the paid tiers. It's the one tool that earns at the counter without a project behind it." },
+  ] },
+  { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Photos cleaned up and walls found for you on every project.", featured: false, inherits: "Everything in Free, plus", features: [
+    "15 projects a month — clean-up and walls included",
+    { text: "Extra projects ₹65 each, or 60 points", detail: "Points are HueVista credit bought up front — they buy extras at a lower rate than paying by card." },
+    { text: "Colour finder — read any photo, get the shade codes", detail: "The tool the free plan doesn't carry: point at a wall in a photograph and get the nearest codes from your catalogue." },
+    "25 colour boards a month (4 photos each)",
     "Email support",
   ] },
   { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. Three times the projects, and extras cost less.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: [
@@ -122,14 +143,16 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
     <>
       <div className="reveal d2" style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 8 }}>
         <span style={{ font: "400 16px/1.4 var(--serif)", color: "var(--fg-soft)" }}>
-          Billed monthly · cancel any time · every new shop starts with a 7-day trial, no card asked for.
+          Billed monthly · cancel any time · every shop has the free plan, no card asked for.
         </span>
         <span style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-soft)" }}>
           One project is one photo turned into a room you can paint, and it covers the
           clean-up and finding the walls together — there is no second allowance to run
           out of. Used up the month&apos;s projects? Buy more one at a time at your
-          plan&apos;s rate: 60 points or ₹65 on Starter, down to 40 or ₹45 on Business.
-          Upgrade any time and whatever you had left comes with you.
+          plan&apos;s rate: 80 points or ₹99 on Free, 60 or ₹65 on Starter, down to 40 or
+          ₹45 on Business. Or wait — the month turns over and the allowance comes back, on
+          the free plan as much as on a paid one. Upgrade any time and whatever you had
+          left comes with you.
         </span>
       </div>
 
@@ -146,18 +169,31 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
       )}
 
       <section style={{ paddingTop: 60 }}>
-        <div className="reveal r-cols-lg-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
-          {TIERS.map((t) => (
+        {/* Four columns now Free is one of them. It drops to two at the lg breakpoint
+            and one below that, same as before — a 4-up row of these cards is unreadable
+            on anything narrower than a desktop. */}
+        <div className="reveal r-cols-lg-2 r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
+          {TIERS.map((t) => {
+            // Pulled out of the JSX so the null check narrows inside the click handler
+            // too — a property read would widen straight back to `PurchasablePlan | null`
+            // the moment it crossed into a closure.
+            const plan = t.plan;
+            return (
             <div key={t.name} className={t.featured ? "hv-tier hv-tier--featured" : "hv-tier"} style={{ background: t.featured ? "var(--accent-deep)" : "var(--charcoal-soft)", color: t.featured ? "#fff" : "var(--ivory)", padding: "56px 36px", display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
               {t.ribbon && (<span style={{ position: "absolute", top: 0, right: 24, background: "#fff", color: "var(--accent-deep)", font: "500 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", padding: "8px 14px", transform: "translateY(-50%)" }}>{t.ribbon}</span>)}
               <div style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".3em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.85)" : "var(--brass)" }}>{t.name}</div>
               <div style={{ minHeight: 84 }}>
                 <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "#fff" : "var(--ivory)" }}>
-                  ₹{inr(t.monthlyN)}
-                  <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)", marginLeft: 6 }}>/ month</span>
+                  {/* "₹0 / month" reads like an invoice for nothing. The free card says
+                      the word instead, and keeps the same type size so the row of prices
+                      still scans as one ladder. */}
+                  {plan === null ? "Free" : `₹${inr(t.monthlyN)}`}
+                  <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)", marginLeft: 6 }}>
+                    {plan === null ? "for good" : "/ month"}
+                  </span>
                 </div>
                 <div style={{ marginTop: 8, font: "400 12px/1.4 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)" }}>
-                  Billed monthly · cancel anytime
+                  {plan === null ? "No card · renews every month" : "Billed monthly · cancel anytime"}
                 </div>
               </div>
               <p style={{ font: "400 17px/1.5 var(--serif)", color: t.featured ? "rgba(255,255,255,.85)" : "var(--ivory-soft)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.25)" : "var(--rule)"), paddingTop: 18 }}>{t.lede}</p>
@@ -189,24 +225,32 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
               </div>
               <div style={{ marginTop: "auto" }}>
                 {!isCustomer ? (
+                  plan === null ? (
+                    // Nothing to charge, so nothing to check out. The free card's only
+                    // action is the one that gets you the account the plan comes with.
+                    <Link href="/trial" className="btn">
+                      Start free <span className="arr">→</span>
+                    </Link>
+                  ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <button
                       type="button"
-                      onClick={() => void handleBuy(t.plan)}
-                      disabled={busyPlan === t.plan}
+                      onClick={() => void handleBuy(plan)}
+                      disabled={busyPlan === plan}
                       className="btn"
                       style={t.featured ? { background: "#fff", color: "var(--accent-deep)", borderColor: "#fff" } : undefined}
                     >
-                      {busyPlan === t.plan ? "Starting checkout…" : (<>Buy now <span className="arr">→</span></>)}
+                      {busyPlan === plan ? "Starting checkout…" : (<>Buy now <span className="arr">→</span></>)}
                     </button>
                     <Link
                       href="/trial"
                       className="btn btn-ghost"
                       style={t.featured ? { borderColor: "rgba(255,255,255,.55)", color: "#fff" } : undefined}
                     >
-                      Request a trial account
+                      Start free instead
                     </Link>
                   </div>
+                  )
                 ) : (
                   <Link
                     href="/redeem"
@@ -216,17 +260,18 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
                     Redeem a shop code <span className="arr">→</span>
                   </Link>
                 )}
-                {payError && payError.plan === t.plan && (
+                {payError && payError.plan === plan && (
                   <div className="field-error" role="alert" style={{ marginTop: 10 }}>
                     {payError.message}
                   </div>
                 )}
                 <div style={{ marginTop: 12, font: "400 12px/1.5 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--tier-ink-soft)" }}>
-                  Billed monthly · cancel anytime
+                  {plan === null ? "Free forever · no card" : "Billed monthly · cancel anytime"}
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </>

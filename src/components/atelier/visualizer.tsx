@@ -2332,7 +2332,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                         : askRetailer
                         ? "You've used the projects on your code. Your shop can add another."
                         : needSubscription
-                          ? "Your free trial includes one project. Pick a plan to make more."
+                          ? "You\u2019ve used this month\u2019s free projects. Buy one more, pick a plan, or wait for next month."
                           : accessExpired
                             ? "Your access has ended. Ask your paint shop for a new code."
                             : projectLimitReached

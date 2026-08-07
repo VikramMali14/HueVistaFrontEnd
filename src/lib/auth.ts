@@ -9,7 +9,7 @@ import { SITE_ASSETS_TAG } from "./site-assets-server";
 import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult, DistributorOption, PaymentAttemptRow, PaymentAuditFilters, PaymentAuditSummary, ShadeUploadResult, ShopLeadRow, UploadBrand } from "./api";
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
-import { canUseFeature } from "./features";
+import { canUseFeature, planWithholds } from "./features";
 import type { AppFeatureKey, AuthResponse, AuthUser, MyAccess, NetworkReport, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary } from "./types";
 
 const cookieDefaults = {
@@ -1148,6 +1148,13 @@ export async function getMyAccess(): Promise<MyAccess | null> {
  */
 export async function requireFeature(feature: AppFeatureKey): Promise<void> {
   const access = await getMyAccess();
+  // Which denial it is decides what the dashboard says next. A distributor grant is
+  // somebody else's decision and the shop has to ring them; a plan limit is the shop's
+  // own and the subscribe button lifts it. Sending the second case to the distributor
+  // would point a free shop at someone who cannot help.
+  if (planWithholds(access, feature)) {
+    redirect(`/dashboard?denied=plan&page=${encodeURIComponent(feature)}`);
+  }
   if (!canUseFeature(access, feature)) {
     redirect(`/dashboard?denied=feature&page=${encodeURIComponent(feature)}`);
   }

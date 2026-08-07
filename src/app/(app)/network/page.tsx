@@ -72,7 +72,7 @@ export default async function NetworkPage() {
             Create a shop account
           </h2>
           <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch" }}>
-            The shop gets an organization and a free trial, and lands in your network immediately.
+            The shop gets an organization and the free plan, and lands in your network immediately.
             They sign in with the email and initial password you set.
           </p>
           <NetworkCreateRetailerForm />

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { TiltCard } from "@/components/ui/tilt-card";
 import { SHOWCASE_CONTENT } from "@/lib/showcase";
-import { TRIAL_DAYS } from "@/lib/trial";
+import { FREE_PLAN_PROJECTS } from "@/lib/free-plan";
 
 /**
  * `shades` is the live catalogue count, passed down from the page. The card used to
@@ -12,7 +12,7 @@ const services = (shades: number | null) => [
   {
     kicker: "Pricing",
     title: "Priced for paint shops",
-    desc: `A ${TRIAL_DAYS}-day trial to start — no card needed, and the account opens within a day.`,
+    desc: `Start free: ${FREE_PLAN_PROJECTS} projects every month, no card needed, and the account opens within a day.`,
     tone: "terracotta",
     href: "/pricing",
   },
