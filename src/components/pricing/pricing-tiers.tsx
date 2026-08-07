@@ -69,6 +69,7 @@ interface Tier {
 // rather than to checkout, because there is nothing to charge.
 const TIERS: ReadonlyArray<Tier> = [
   { name: "Free", plan: null, monthlyN: 0, lede: "For trying it at your own counter, and for staying. Two rooms a month, every month.", featured: false, features: [
+    { text: "For paint shops only", detail: "The free plan is a SHOP plan — it comes with a shop account and the counter tools that go with it. A customer visualising their own room doesn't need it: the access code their paint shop hands them is already free for them, at /redeem." },
     `${FREE_PLAN_PROJECTS} projects a month — clean-up and walls included`,
     { text: "Renews every month, for as long as you keep the account", detail: "Not a trial with a deadline: the two projects come back on the same monthly cycle a paid plan runs on, and nothing expires if you don't use them." },
     { text: "Extra projects ₹99 each, or 80 points", detail: "Points are HueVista credit bought up front — they buy extras at a lower rate than paying by card. This is the dearest rate; every paid tier's is cheaper." },
@@ -111,9 +112,18 @@ const inr = (n: number) => n.toLocaleString("en-IN");
 interface PricingTiersProps {
   /** Signed-in CUSTOMER accounts can't buy shop plans — swap the buy CTA for guidance. */
   isCustomer?: boolean;
+  /**
+   * Somebody is signed in.
+   *
+   * The free card's CTA is a signup link, and signup is now closed to anyone
+   * already holding an account — so for them it would be a button that bounces
+   * straight back to the home page. They already have the plan it is offering;
+   * the useful destination is their own dashboard.
+   */
+  signedIn?: boolean;
 }
 
-export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
+export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTiersProps) {
   const [busyPlan, setBusyPlan] = useState<PurchasablePlan | null>(null);
   const [payError, setPayError] = useState<{ plan: PurchasablePlan; message: string } | null>(null);
 
@@ -190,11 +200,17 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
                       still scans as one ladder. */}
                   {plan === null ? "Free" : `₹${inr(t.monthlyN)}`}
                   <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)", marginLeft: 6 }}>
-                    {plan === null ? "for good" : "/ month"}
+                    {/* Who the plan is FOR, not how long it lasts. "For good" answered a
+                        question nobody was asking — the one people do ask about a ₹0 card
+                        is who is allowed on it, and the answer is: a paint shop. A walk-in
+                        customer is free too, but through their shop's access code, not
+                        here. The renewal promise moves to the line below, which was
+                        already about the billing terms. */}
+                    {plan === null ? "for paint shops" : "/ month"}
                   </span>
                 </div>
                 <div style={{ marginTop: 8, font: "400 12px/1.4 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)" }}>
-                  {plan === null ? "No card · renews every month" : "Billed monthly · cancel anytime"}
+                  {plan === null ? "No card · renews every month, for good" : "Billed monthly · cancel anytime"}
                 </div>
               </div>
               <p style={{ font: "400 17px/1.5 var(--serif)", color: t.featured ? "rgba(255,255,255,.85)" : "var(--ivory-soft)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.25)" : "var(--rule)"), paddingTop: 18 }}>{t.lede}</p>
@@ -228,9 +244,10 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
                 {!isCustomer ? (
                   plan === null ? (
                     // Nothing to charge, so nothing to check out. The free card's only
-                    // action is the one that gets you the account the plan comes with.
-                    <Link href="/trial" className="btn">
-                      Start free <span className="arr">→</span>
+                    // action is the one that gets you the account the plan comes with —
+                    // or, for somebody who already has one, the account itself.
+                    <Link href={signedIn ? "/dashboard" : "/trial"} className="btn">
+                      {signedIn ? "Go to your dashboard" : "Start free"} <span className="arr">→</span>
                     </Link>
                   ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -243,13 +260,19 @@ export function PricingTiers({ isCustomer = false }: PricingTiersProps) {
                     >
                       {busyPlan === plan ? "Starting checkout…" : (<>Buy now <span className="arr">→</span></>)}
                     </button>
-                    <Link
-                      href="/trial"
-                      className="btn btn-ghost"
-                      style={t.featured ? { borderColor: "rgba(255,255,255,.55)", color: "#fff" } : undefined}
-                    >
-                      Start free instead
-                    </Link>
+                    {/* The paid cards' second way out: take the free plan for now.
+                        It is a signup link, so it has nothing to offer somebody who
+                        is already signed in — they are on the free plan already, and
+                        signup would bounce them back to the home page. */}
+                    {!signedIn && (
+                      <Link
+                        href="/trial"
+                        className="btn btn-ghost"
+                        style={t.featured ? { borderColor: "rgba(255,255,255,.55)", color: "#fff" } : undefined}
+                      >
+                        Start free instead
+                      </Link>
+                    )}
                   </div>
                   )
                 ) : (

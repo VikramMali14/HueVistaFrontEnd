@@ -18,9 +18,17 @@ const PROTECTED_PREFIXES = ["/studio", "/dashboard", "/portal", "/inbox", "/prod
 // here is bounced home — they can't register or sign in again without signing
 // out first. The Google OAuth callback at /sign-in/google is deliberately NOT
 // listed: it runs mid-login, before the session cookies exist, and must be
-// allowed through. /trial is NOT listed either — it's the public shop lead form
-// (no account is created there), so signed-in visitors may use it too.
-const GUEST_ONLY_PATHS = ["/sign-in", "/sign-in/forgot", "/join"];
+// allowed through.
+//
+// /trial IS listed, and used not to be. It was described here as "the public shop
+// lead form (no account is created there)", which was simply not true of the page:
+// it takes a name, an email, a password and a shop, verifies the email with a code
+// and opens a shop account. It is the SHOP signup, and /join is the customer one.
+// Leaving it open meant a signed-in shop could walk through registration again from
+// the "Start free" button on the pricing page — which is precisely the second
+// account nobody wanted. Whoever genuinely needs a second account can sign out
+// first, which is the same answer /join and /sign-in already give.
+const GUEST_ONLY_PATHS = ["/sign-in", "/sign-in/forgot", "/join", "/trial"];
 // Placeholder editorial pages — see lib/showcase for what is wrong with them.
 // Gated here rather than with `notFound()` inside the pages because the root
 // loading.tsx opens a Suspense boundary: the shell is already flushed by the time
@@ -276,6 +284,7 @@ export const config = {
     "/sign-in",
     "/sign-in/forgot",
     "/join",
+    "/trial",
     // Placeholder editorial pages — 404'd here while unpublished (SHOWCASE_PREFIXES).
     "/gallery/:path*",
     "/journal/:path*",

@@ -61,8 +61,8 @@ export function CreateRetailerForm({ distributors }: CreateRetailerFormProps) {
       style={{ marginTop: 40 }}
     >
       <div className="ad-grid">
-        <Field label="Owner name" name="name" required placeholder="Priya Mehta" autoComplete="off" />
-        <Field label="Email" name="email" type="email" required placeholder="shop@mehtapaints.in" autoComplete="off" />
+        <Field label="Owner name" name="name" required placeholder="Full name" autoComplete="off" />
+        <Field label="Email" name="email" type="email" required placeholder="name@example.com" autoComplete="off" />
         <div className="field">
           <label className="field-label" htmlFor="password">Initial password</label>
           <div style={{ position: "relative" }}>
@@ -78,9 +78,9 @@ export function CreateRetailerForm({ distributors }: CreateRetailerFormProps) {
             Hand this over yourself — it is not emailed, and once saved nobody can read it back.
           </p>
         </div>
-        <Field label="Phone · WhatsApp" name="phone" type="tel" placeholder="+91 98 2210 4476" autoComplete="off" />
-        <Field label="Shop name" name="shopName" required placeholder="Mehta Paint House" full autoComplete="off" />
-        <Field label="City" name="city" placeholder="Pune" autoComplete="off" />
+        <Field label="Phone · WhatsApp" name="phone" type="tel" placeholder="+91 00000 00000" autoComplete="off" />
+        <Field label="Shop name" name="shopName" required placeholder="Full shop name" full autoComplete="off" />
+        <Field label="City" name="city" placeholder="City" autoComplete="off" />
         <div className="field">
           <label className="field-label" htmlFor="state">State</label>
           <select id="state" name="state" defaultValue="Karnataka">{STATES.map((s) => <option key={s}>{s}</option>)}</select>

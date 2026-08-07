@@ -217,6 +217,35 @@ export function CustomMatchPanel({
   const [canEyeDrop, setCanEyeDrop] = useState(false);
   useEffect(() => setCanEyeDrop(Boolean(getEyeDropper())), []);
 
+  /**
+   * Typing a colour code by hand — folded away by default.
+   *
+   * The panel is right that a hex has no place beside the wheel: a customer picks
+   * a colour by looking at it. But removing the field outright shut the only door
+   * for the one customer a month who arrives with a code already — off a brand
+   * sheet, an architect's note, a WhatsApp from their painter — and that colour
+   * then could not be reached at all. Closed, this costs one line of the panel;
+   * open, it does what the old always-visible field did.
+   */
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [codeText, setCodeText] = useState(seed);
+  const codeRef = useRef<HTMLInputElement>(null);
+  // Reopening starts from the colour actually on screen, not from whatever was
+  // half-typed and abandoned last time.
+  const openCode = () => {
+    setCodeText(hex);
+    setCodeOpen(true);
+  };
+  useEffect(() => {
+    if (codeOpen) codeRef.current?.focus();
+  }, [codeOpen]);
+  // With or without the "#", since both are how a code gets written down.
+  const onCodeText = (value: string) => {
+    setCodeText(value);
+    if (HEX_RE.test(value)) setHex(value.startsWith("#") ? value : `#${value}`);
+  };
+  const codeValid = HEX_RE.test(codeText);
+
   const matches = useMemo(
     () => (HEX_RE.test(hex) ? nearestShades(hex, catalogue, 6) : []),
     [hex, catalogue],
@@ -285,9 +314,51 @@ export function CustomMatchPanel({
         )}
       </div>
 
-      {HEX_RE.test(hex) && (
-        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <UndertoneTag hex={hex} prefix />
+      {/* The way back to typing a code, for the customer who walks in with one. */}
+      <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        {HEX_RE.test(hex) && <UndertoneTag hex={hex} prefix />}
+        {!codeOpen && (
+          <button
+            type="button"
+            onClick={openCode}
+            className="hv-custom-code-toggle"
+            title="Type a colour code you already have — from a brand sheet or an architect's note"
+          >
+            Enter a code
+          </button>
+        )}
+      </div>
+
+      {codeOpen && (
+        <div style={{ marginTop: 10 }}>
+          <label className="hv-custom-code">
+            <span className="hv-custom-code-label">Colour code</span>
+            <input
+              ref={codeRef}
+              type="text"
+              value={codeText}
+              onChange={(e) => onCodeText(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && setCodeOpen(false)}
+              aria-label="Colour code"
+              aria-invalid={codeText.length > 0 && !codeValid}
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              onClick={() => setCodeOpen(false)}
+              className="hv-custom-code-close"
+              aria-label="Close the code field"
+              title="Close"
+            >
+              ✕
+            </button>
+          </label>
+          {/* Silent until they have typed something that cannot work — an empty
+              field is not a mistake, it is a field they have just opened. */}
+          {codeText.length > 0 && !codeValid && (
+            <p className="hv-custom-code-hint">Six digits or letters A–F, like A47148.</p>
+          )}
         </div>
       )}
 

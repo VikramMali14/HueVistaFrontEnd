@@ -83,13 +83,13 @@ export function SignInForm({ action, otpAction, next, mode = "signin", initialEr
             <label className="field-label" htmlFor="firstName">
               First name
             </label>
-            <input id="firstName" name="firstName" type="text" placeholder="Priya" required autoComplete="given-name" />
+            <input id="firstName" name="firstName" type="text" placeholder="First name" required autoComplete="given-name" />
           </div>
           <div className="field">
             <label className="field-label" htmlFor="lastName">
               Last name
             </label>
-            <input id="lastName" name="lastName" type="text" placeholder="Mehta" required autoComplete="family-name" />
+            <input id="lastName" name="lastName" type="text" placeholder="Last name" required autoComplete="family-name" />
           </div>
         </div>
       )}
@@ -102,7 +102,7 @@ export function SignInForm({ action, otpAction, next, mode = "signin", initialEr
           id="email"
           name="email"
           type="email"
-          placeholder="priya@mehtapaints.in"
+          placeholder="name@example.com"
           required
           autoComplete="email"
           inputMode="email"

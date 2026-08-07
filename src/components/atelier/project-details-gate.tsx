@@ -104,7 +104,7 @@ export function ProjectDetailsGate({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder="e.g. Sharma residence — hall"
+            placeholder="The room, or who it is for"
             aria-label="Project name"
             aria-invalid={touched && !valid ? true : undefined}
             aria-describedby={touched && !valid ? "project-name-error" : undefined}

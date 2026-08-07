@@ -48,7 +48,7 @@ export function JournalNewsletter() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="your@email"
+            placeholder="name@example.com"
             aria-label="Email address"
             disabled={submitted || pending}
             style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--ivory)", font: "400 18px/1 var(--serif)", padding: 0, transition: "opacity .3s var(--ease)", opacity: submitted ? 0.45 : 1 }}

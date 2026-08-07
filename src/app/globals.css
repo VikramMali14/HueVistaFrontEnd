@@ -4371,3 +4371,135 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   font: 400 12px/1.6 var(--sans);
   color: var(--fg-mute);
 }
+
+/* ====== CUSTOM TAB · TYPING A CODE ====== */
+/* The Custom panel deliberately never prints the hex — a customer picks a colour
+   by looking at it. This is the way IN for the one who arrives with a code
+   already, off a brand sheet or an architect's note, and it stays folded away
+   until asked for so the panel keeps leading with the wheel. */
+.hv-custom-code-toggle {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg-mute);
+  font: 500 12px/1.2 var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-style: dotted;
+  cursor: pointer;
+}
+.hv-custom-code-toggle:hover { color: var(--fg); }
+.hv-custom-code-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+.hv-custom-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.hv-custom-code:focus-within { border-color: var(--accent); }
+.hv-custom-code-label {
+  font: 500 12px/1 var(--sans);
+  color: var(--fg-mute);
+  white-space: nowrap;
+}
+.hv-custom-code input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 0;
+  border: none;
+  background: none;
+  color: var(--fg);
+  font: 400 13px/1 var(--code);
+  letter-spacing: .06em;
+}
+.hv-custom-code input:focus { outline: none; }
+.hv-custom-code-close {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--fg-mute);
+  font-size: 12px;
+  cursor: pointer;
+}
+.hv-custom-code-close:hover { background: var(--surface-soft); color: var(--fg); }
+.hv-custom-code-hint {
+  margin: 6px 0 0;
+  font: 400 12px/1.4 var(--sans);
+  color: var(--fg-mute);
+}
+
+/* ====== COLOUR FINDER ON A PLAN THAT DOESN'T CARRY IT ====== */
+/* The page opens locked rather than vanishing: the shops who never had the tool
+   were the only ones never shown what it does. It stays honest about being shut,
+   and reaching for it is what raises the subscription case. */
+.hv-finder-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--rule-brass);
+  border-radius: var(--radius-pill);
+  color: var(--accent-text);
+  font: 500 12px/1 var(--sans);
+  letter-spacing: .02em;
+}
+.hv-finder-drop.is-locked { background: var(--surface-soft); }
+.hv-finder-drop.is-locked:hover { border-color: var(--rule-brass); }
+.hv-finder-pitch {
+  margin: 0 0 20px;
+  padding: 20px 22px;
+  border: 1px solid var(--rule-brass);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+.hv-finder-pitch-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--accent-text);
+  font: 600 17px/1.3 var(--sans);
+}
+.hv-finder-pitch p {
+  margin: 10px 0 0;
+  font: 400 15px/1.55 var(--sans);
+  color: var(--fg-soft);
+  max-width: 62ch;
+}
+.hv-finder-pitch .hv-finder-pitch-sub {
+  font-size: 14px;
+  color: var(--fg-mute);
+}
+.hv-finder-pitch-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.hv-finder-pitch-dismiss {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg-mute);
+  font: 500 13px/1 var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.hv-finder-pitch-dismiss:hover { color: var(--fg); }
+
+/* A nav tab the shop's own plan locks. It stays in the bar — unlike a tab the
+   distributor withheld, which goes — because the shop can lift this one itself
+   and the page behind it is what makes that case. */
+.nav-tab-lock {
+  margin-left: 6px;
+  opacity: .65;
+  vertical-align: -1px;
+}

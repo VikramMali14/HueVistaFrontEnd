@@ -195,9 +195,9 @@ export function ShopLeadForm({ action, verifyAction, resendAction }: ShopLeadFor
     >
       <Step num="I." title={<>You and <i>your shop.</i></>}>
         <div className="form-grid">
-          <Field label="Your name" name="name" required placeholder="Priya Mehta" autoComplete="name" />
-          <Field label="Shop name" name="shopName" required placeholder="Mehta Paint House" />
-          <Field label="Email" name="email" type="email" required placeholder="priya@mehtapaints.in" autoComplete="email" />
+          <Field label="Your name" name="name" required placeholder="Full name" autoComplete="name" />
+          <Field label="Shop name" name="shopName" required placeholder="Full shop name" />
+          <Field label="Email" name="email" type="email" required placeholder="name@example.com" autoComplete="email" />
           <div className="field">
             <label className="field-label" htmlFor="phone">Phone · WhatsApp</label>
             <input
@@ -205,7 +205,7 @@ export function ShopLeadForm({ action, verifyAction, resendAction }: ShopLeadFor
               name="phone"
               type="tel"
               required
-              placeholder="+91 98 2210 4476"
+              placeholder="+91 00000 00000"
               autoComplete="tel"
               inputMode="tel"
               aria-invalid={phoneError ? "true" : undefined}
@@ -214,7 +214,7 @@ export function ShopLeadForm({ action, verifyAction, resendAction }: ShopLeadFor
             />
             {phoneError && <p id="phone-error" className="field-error" role="alert">{phoneError}</p>}
           </div>
-          <Field label="City" name="city" required placeholder="Pune" />
+          <Field label="City" name="city" required placeholder="City" />
           <Select label="State" name="state" defaultValue="Karnataka">{STATES.map((s) => <option key={s}>{s}</option>)}</Select>
         </div>
       </Step>

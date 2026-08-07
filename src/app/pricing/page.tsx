@@ -125,7 +125,7 @@ export default async function PricingPage() {
           </div>
           <h1 className="display">For retailers,{" "}<br /><i>not consumers.</i></h1>
           <Lead className="page-lead">Four tiers, each tuned to a different counter, and the first one is free for good — {FREE_PLAN_PROJECTS} complete projects every month, renewing, no card. Request an account, confirm your email, and it opens within a day. Move up when the counter outgrows it; cancel quietly when you wish and drop back to free rather than to nothing.</Lead>
-          <PricingTiers isCustomer={isCustomer} />
+          <PricingTiers isCustomer={isCustomer} signedIn={Boolean(user)} />
         </header>
 
         <div className="reveal" style={{ borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", padding: "22px 0", marginTop: 64, display: "flex", flexWrap: "wrap", gap: "12px 36px", justifyContent: "center", font: "400 12px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>

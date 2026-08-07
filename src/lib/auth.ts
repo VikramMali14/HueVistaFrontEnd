@@ -1161,6 +1161,33 @@ export async function requireFeature(feature: AppFeatureKey): Promise<void> {
 }
 
 /**
+ * The same guard, for a page that would rather be SHOWN LOCKED than vanish.
+ *
+ * The two ways a page closes want opposite treatment, and `requireFeature` bounces
+ * on both. A DISTRIBUTOR withholding a page is somebody else's decision: there is
+ * nothing on the page that could lift it, so it stays a bounce with a hint to go and
+ * ring them. A shop's own PLAN withholding it is the shop's decision to reverse in
+ * two clicks — and bouncing them to a dashboard hint meant the one page that could
+ * explain what they were missing was the one page they were never allowed to see.
+ * So the plan case opens the page and lets it make its own case.
+ *
+ * Returns `{ planLocked: true }` for that case; the page is expected to render its
+ * real chrome and refuse the actual work. Not a security boundary in either
+ * direction — the backend enforces the same rule on the endpoints behind the page,
+ * which is what makes it safe to render the shell at all.
+ */
+export async function requireFeatureOrLock(
+  feature: AppFeatureKey,
+): Promise<{ planLocked: boolean }> {
+  const access = await getMyAccess();
+  if (planWithholds(access, feature)) return { planLocked: true };
+  if (!canUseFeature(access, feature)) {
+    redirect(`/dashboard?denied=feature&page=${encodeURIComponent(feature)}`);
+  }
+  return { planLocked: false };
+}
+
+/**
  * Server-side role guard. Use inside server components to gate pages by role.
  * Redirects to /dashboard with a flash hint if the user lacks the role.
  * If no user is loaded yet, redirects to /sign-in.

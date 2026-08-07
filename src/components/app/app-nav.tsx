@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { canUsePath, SHOP_PAINTER_MODULE_ENABLED } from "@/lib/features";
+import { canUsePath, planWithholdsPath, SHOP_PAINTER_MODULE_ENABLED } from "@/lib/features";
 import { syncShadeCodeSchemeIdentity } from "@/hooks/use-shade-code-scheme";
 import type { AuthUser, MyAccess } from "@/lib/types";
 
@@ -22,6 +22,16 @@ const TABS = [
   { href: "/inbox", label: "Inbox" },
   { href: "/admin", label: "Admin" },
 ] as const;
+
+/** Padlock on a tab the shop's own plan does not include. */
+function TabLock() {
+  return (
+    <svg className="nav-tab-lock" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="4" y="10" width="16" height="11" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
 
 interface AppNavProps {
   user: AuthUser | null;
@@ -89,9 +99,18 @@ export function AppNav({ user, access = null }: AppNavProps) {
     // Last: the shop's own distributor may have switched this page off. Applied
     // after the role rules so it can only ever REMOVE a tab the role allows —
     // a grant can't hand a customer the admin console.
-    if (!canUsePath(access, t.href)) return false;
+    //
+    // A page the shop's own PLAN locks is the exception, and it KEEPS its tab. The
+    // two closures are not the same thing: a distributor's is somebody else's
+    // decision and the tab would only lead somewhere nobody here can help, while a
+    // plan's is the shop's own to reverse — and hiding it meant the shops who had
+    // never seen the tool were the only ones never told it existed. The tab carries
+    // a padlock and the page behind it opens locked, making its own case.
+    if (!canUsePath(access, t.href) && !planWithholdsPath(access, t.href)) return false;
     return true;
   });
+
+  const isPlanLocked = (href: string) => planWithholdsPath(access, href);
 
   // ADMIN carries 7 tabs — the row overflows the floating bar well above the
   // 900px drawer breakpoint, so wide tab sets get tighter spacing and an
@@ -245,8 +264,10 @@ export function AppNav({ user, access = null }: AppNavProps) {
               href={t.href}
               className={`app-tab${pathname.startsWith(t.href) ? " active" : ""}`}
               aria-current={pathname.startsWith(t.href) ? "page" : undefined}
+              title={isPlanLocked(t.href) ? `${t.label} — on the paid plans` : undefined}
             >
               {t.label}
+              {isPlanLocked(t.href) && <TabLock />}
             </Link>
           ))}
           <div className="app-drawer-meta">
@@ -277,8 +298,10 @@ export function AppNav({ user, access = null }: AppNavProps) {
               href={t.href}
               className={`app-tab${pathname.startsWith(t.href) ? " active" : ""}`}
               aria-current={pathname.startsWith(t.href) ? "page" : undefined}
+              title={isPlanLocked(t.href) ? `${t.label} — on the paid plans` : undefined}
             >
               {t.label}
+              {isPlanLocked(t.href) && <TabLock />}
             </Link>
           ))}
         </nav>
