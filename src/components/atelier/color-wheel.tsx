@@ -107,7 +107,7 @@ function ColorWheel({
           width={size}
           height={size}
           tabIndex={0}
-          aria-label={`Colour wheel, currently ${hex}. Arrow keys adjust hue and saturation; hold Shift for larger steps.`}
+          aria-label="Colour wheel. Arrow keys adjust hue and saturation; hold Shift for larger steps."
           style={{ borderRadius: "50%", cursor: "crosshair", display: "block", boxShadow: "inset 0 0 0 1px var(--rule-strong)" }}
           onPointerDown={(e) => {
             dragging.current = true;
@@ -212,24 +212,15 @@ export function CustomMatchPanel({
     hideNames ? (codeLabel(s.code) ?? "") : s.name;
   const seed = initialHex && HEX_RE.test(initialHex) ? initialHex : "#7C9CBF";
   const [hex, setHex] = useState(seed);
-  const [text, setText] = useState(seed);
   // Screen eyedropper is Chromium-only; render the button only where it works.
   // State (not render-time detection) so SSR and first client render agree.
   const [canEyeDrop, setCanEyeDrop] = useState(false);
   useEffect(() => setCanEyeDrop(Boolean(getEyeDropper())), []);
 
-  // Keep the free-text field in sync when the wheel drives the colour.
-  useEffect(() => setText(hex), [hex]);
-
   const matches = useMemo(
     () => (HEX_RE.test(hex) ? nearestShades(hex, catalogue, 6) : []),
     [hex, catalogue],
   );
-
-  const onText = (value: string) => {
-    setText(value);
-    if (HEX_RE.test(value)) setHex(value.startsWith("#") ? value : `#${value}`);
-  };
 
   const pickFromScreen = async () => {
     const EyeDropper = getEyeDropper();
@@ -249,31 +240,17 @@ export function CustomMatchPanel({
 
       <ColorWheel hex={hex} onChange={setHex} />
 
+      {/* The hex field that used to sit here is gone. Nobody choosing paint at a
+          counter reads in #A47148 — the wheel, the swatch and the eyedropper are
+          how the colour gets picked, and printing the code back at them made the
+          panel look like a developer tool. The colour itself is the readout. */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 16 }}>
         <input
           type="color"
           value={HEX_RE.test(hex) ? hex : "#7C9CBF"}
           onChange={(e) => setHex(e.target.value)}
           aria-label="Pick a colour"
-          style={{ width: 40, height: 36, border: "1px solid var(--rule-strong)", background: "none", cursor: "pointer", padding: 0 }}
-        />
-        <input
-          type="text"
-          value={text}
-          onChange={(e) => onText(e.target.value)}
-          aria-label="Hex colour"
-          spellCheck={false}
-          placeholder="#A47148"
-          style={{
-            flex: 1,
-            padding: "9px 12px",
-            border: "1px solid var(--rule-strong)",
-            borderRadius: 6,
-            background: "var(--surface)",
-            color: "var(--fg)",
-            fontFamily: "var(--mono)",
-            fontSize: 13,
-          }}
+          style={{ flex: 1, height: 36, border: "1px solid var(--rule-strong)", borderRadius: 6, background: "none", cursor: "pointer", padding: 0 }}
         />
         {canEyeDrop && (
           <button
@@ -315,7 +292,7 @@ export function CustomMatchPanel({
           type="button"
           onClick={() => HEX_RE.test(hex) && onApplyExact(hex)}
           disabled={!HEX_RE.test(hex)}
-          aria-label={`Apply the exact colour ${hex}`}
+          aria-label="Use this exact colour on the active wall"
           style={{
             marginTop: 12,
             width: "100%",
@@ -341,7 +318,7 @@ export function CustomMatchPanel({
         <Mono style={{ display: "block", marginBottom: 10 }}>Nearest catalogue shades</Mono>
         {matches.length === 0 ? (
           <p style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-            Enter a 6-digit hex like #A47148.
+            The catalogue is still loading — the closest shades to your colour will appear here.
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

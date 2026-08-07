@@ -2639,14 +2639,20 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   flex-shrink: 0;
 }
 /* The company scope for the whole colour panel, sitting with Share/Download
-   because it governs the session rather than one tab (see Visualizer). */
+   because it governs the session rather than one tab (see Visualizer). A
+   checkbox menu rather than a <select>, because the scope is a SET of companies
+   — a shop stocking three brands works two of them at once. */
 .hv-studio-company {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.hv-studio-company select {
+.hv-studio-company-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 7px 10px;
   max-width: 200px;
   border: 1px solid var(--rule-strong);
@@ -2656,13 +2662,66 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   font: 400 13px/1 var(--sans);
   cursor: pointer;
 }
-.hv-studio-company select:hover { border-color: var(--fg-mute); }
-.hv-studio-company select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hv-studio-company-btn:hover { border-color: var(--fg-mute); }
+.hv-studio-company-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Scoped to something narrower than "everything" is a state worth seeing from
+   across the counter — otherwise a missing brand reads as a broken catalogue. */
+.hv-studio-company-btn.is-scoped {
+  border-color: var(--rule-brass);
+  color: var(--accent-text);
+}
+.hv-studio-company-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hv-studio-company-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgb(0 0 0 / .18);
+}
+.hv-studio-company-opt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  font: 400 13px/1.2 var(--sans);
+  color: var(--fg);
+  cursor: pointer;
+}
+.hv-studio-company-opt:hover { background: var(--surface-soft); }
+.hv-studio-company-opt input { accent-color: var(--accent); cursor: pointer; }
+.hv-studio-company-clear {
+  width: 100%;
+  margin-top: 4px;
+  padding: 7px 8px;
+  border: none;
+  border-top: 1px solid var(--rule);
+  border-radius: 0 0 6px 6px;
+  background: transparent;
+  color: var(--fg-soft);
+  font: 500 12px/1.2 var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+.hv-studio-company-clear:hover:not(:disabled) { color: var(--fg); }
+.hv-studio-company-clear:disabled { color: var(--fg-mute); cursor: default; }
 /* Phones give the topbar three rows already; the eyebrow is the first thing to
    go, the picker keeps its full width under the project name. */
 @media (max-width: 640px) {
   .hv-studio-company > .mono { display: none; }
-  .hv-studio-company select { max-width: none; }
+  .hv-studio-company-btn { max-width: none; }
 }
 /* Small screens: the single topbar row can't hold name + pills + buttons.
    Give the project name its own line and let pills/actions share the next. */
@@ -3381,29 +3440,17 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   gap: 5px;
 }
 
-/* Segmented control — "Top 50 / By company" view switch */
-.hv-studio-seg {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-pill);
-  background: var(--surface);
+/* How much of the catalogue the grid is showing. Sits on its own row under the
+   search, where the "Top 50 / By company" switch used to be — the grid always
+   groups by company now, so there is a count to state and nothing to choose. */
+.hv-studio-filter-count {
+  justify-content: flex-start;
 }
-.hv-studio-seg-btn {
-  border: none;
-  background: transparent;
-  padding: 4px 11px;
-  border-radius: var(--radius-pill);
-  font: 500 12px/1 var(--sans);
+/* A count, not a heading — it sits under the search and should read at a
+   glance without competing with the swatches below it. */
+.hv-studio-filter-count .note {
+  font-size: 12px;
   color: var(--fg-mute);
-  cursor: pointer;
-  transition: color .15s var(--ease), background .15s var(--ease);
-}
-.hv-studio-seg-btn:hover:not(.is-active) { color: var(--fg); }
-.hv-studio-seg-btn.is-active {
-  background: var(--surface-soft);
-  color: var(--accent-text);
-  box-shadow: inset 0 0 0 1px var(--rule-brass);
 }
 
 /* Scrollable content area inside the right panel */
@@ -3930,7 +3977,39 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 6px;
+  flex-wrap: wrap;
 }
+/* Room palettes header: the anchor colour and Shuffle, which act on each other
+   and so travel together when the header wraps. */
+.hv-ai-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hv-ai-base {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 4px 3px 9px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+.hv-ai-base:hover { border-color: var(--rule-strong); }
+.hv-ai-base-label {
+  font: 500 12px/1 var(--sans);
+  color: var(--fg-mute);
+}
+.hv-ai-base input[type="color"] {
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+}
+.hv-ai-base input[type="color"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .hv-ai-rebuild {
   display: flex;
   align-items: center;
@@ -4051,9 +4130,16 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   white-space: nowrap;
   width: 100%;
 }
+/* "Apply all" and "Add to PDF" sat flush against each other with no gap at all,
+   which read as one split control and put two different commitments a couple of
+   pixels apart. They get room, and they wrap instead of crushing on a narrow
+   panel. */
 .hv-ai-card-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
 }
 
 /* Region list panel */
