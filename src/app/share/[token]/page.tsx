@@ -9,6 +9,7 @@ import { hasSession } from "@/lib/auth";
 import type { ProjectDetail, ShadeBrandSummary } from "@/lib/types";
 import { ShareRepaint, type RepaintBrand, type RepaintRegion } from "./share-repaint";
 import { ShadeAccuracyNote } from "@/components/shared/accuracy-note";
+import { ClaimSharedRoom } from "./claim-shared-room";
 
 // Public, read-only view of a shared project — colours are shown, shade codes hidden
 // (the backend's /api/share endpoint serves the code-hidden projection).
@@ -145,8 +146,18 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             is paying for a plan to request the plan they are on. The page then just
             shows the way back to their own work. */}
         {signedIn ? (
-          <div style={{ marginTop: 64, paddingTop: 40, borderTop: "1px solid var(--rule)" }}>
-            <Link className="btn btn-ghost" href="/studio">Back to your studio <span className="arr">→</span></Link>
+          <div
+            className="r-cols-md-1"
+            style={{ marginTop: 64, paddingTop: 40, borderTop: "1px solid var(--rule)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}
+          >
+            <ClaimSharedRoom token={token} />
+            <div>
+              <Mono brass style={{ display: "block", marginBottom: 12 }}>Your own work</Mono>
+              <p style={{ font: "400 19px/1.45 var(--serif)", color: "var(--fg)", margin: "0 0 18px", maxWidth: "36ch" }}>
+                Your rooms are where you left them.
+              </p>
+              <Link className="btn btn-ghost" href="/studio">Back to your studio <span className="arr">→</span></Link>
+            </div>
           </div>
         ) : (
           <div

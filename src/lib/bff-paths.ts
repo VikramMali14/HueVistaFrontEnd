@@ -59,6 +59,10 @@ export const BFF_ALLOWED_PREFIXES = [
   // Public read-only brand/shade catalogue — the portal's "restrict code to
   // brands" picker loads the live brand list through here.
   "api/shades",
+  // Claiming a shared room into your own account. The share page itself is public
+  // and reads the backend server-side, but the claim is authenticated and spends a
+  // project, so it goes through the BFF like every other call that costs something.
+  "api/share",
 ] as const;
 
 /** Whether the BFF may forward this backend path. */
