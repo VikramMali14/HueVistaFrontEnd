@@ -34,6 +34,10 @@ export interface ShadeCodeScheme {
    * with a retired pattern.
    */
   retired?: ReadonlyArray<RetiredShadeCodeScheme>;
+  /** When the live pattern was last changed — the moment it came into use. */
+  updatedAt?: string | null;
+  /** When this shop first set up customer codes. Anchors the oldest pattern's window. */
+  firstSetAt?: string | null;
 }
 
 /** A pattern the shop no longer issues codes under, but whose codes still exist. */
@@ -136,4 +140,70 @@ export function decodeShadeCodeAnyScheme(
     if (code) return { code, via: past };
   }
   return null;
+}
+
+/** One pattern and the stretch of time codes were issued under it. */
+export interface SchemePeriod {
+  prefix: string;
+  infix: string;
+  suffix: string;
+  /** When it came into use. Null only when the shop's records don't reach back that far. */
+  from: string | null;
+  /** When it went out of use, or null for the pattern in use now. */
+  to: string | null;
+  /** True for the one codes are being issued under today. */
+  live: boolean;
+}
+
+/**
+ * Every pattern this shop has ever issued codes under, newest first, each with the
+ * window it was live for.
+ *
+ * The windows are DERIVED rather than stored, and they can be: a pattern runs from the
+ * moment the one before it was retired until it is retired itself, so the retirement
+ * dates alone chain the whole history together end to end. The oldest window is
+ * anchored by `firstSetAt` — when the shop first turned codes on — and the newest has
+ * no end because it has not ended.
+ *
+ * Why a shop needs this and not just "which pattern read your code": a customer walks
+ * in with a card, the counter reads its code, and the next question is always how old
+ * the quote is. "Read with a pattern you used between March and August" answers that;
+ * "read with an older pattern" does not.
+ */
+export function schemeTimeline(scheme: ShadeCodeScheme | null | undefined): SchemePeriod[] {
+  if (!scheme) return [];
+  // Oldest first, so each window can take its start from the one before it. The wire
+  // order is newest-first, and a missing date sorts oldest — it can only be the first.
+  const past = [...(scheme.retired ?? [])].sort((a, b) =>
+    (a.retiredAt ?? "").localeCompare(b.retiredAt ?? ""),
+  );
+
+  const periods: SchemePeriod[] = [];
+  let from = scheme.firstSetAt ?? null;
+  for (const p of past) {
+    periods.push({
+      prefix: p.prefix,
+      infix: p.infix,
+      suffix: p.suffix,
+      from,
+      to: p.retiredAt ?? null,
+      live: false,
+    });
+    from = p.retiredAt ?? from;
+  }
+
+  if (hasScheme(scheme)) {
+    periods.push({
+      prefix: scheme.prefix,
+      infix: scheme.infix,
+      suffix: scheme.suffix,
+      // The last retirement is when this one started. Falling back to updatedAt covers
+      // the shop that has never changed its pattern, where there is nothing to chain to.
+      from: from ?? scheme.updatedAt ?? null,
+      to: null,
+      live: true,
+    });
+  }
+
+  return periods.reverse();
 }
