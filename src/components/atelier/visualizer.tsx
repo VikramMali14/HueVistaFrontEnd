@@ -33,6 +33,7 @@ import {
   downloadBlob,
   type PdfImageEntry,
 } from "@/lib/pdf-export";
+import { runColourBoardDownload } from "@/lib/colour-board-download";
 import { IMAGE_ACCEPT, cropAndEncode, imageFileError, loadImageFromFile } from "@/lib/image-upload";
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
@@ -1632,32 +1633,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setPdfNotice(null);
   }, []);
 
-  // Charge one download against the paying plan FIRST, then build the file — a
-  // 402 (monthly PDF limit spent) must stop the download, while a missing/older
-  // backend endpoint fails open so the tray never bricks the feature.
+  // Build the file, THEN charge for it — see runColourBoardDownload, which owns
+  // that order and the reasoning behind it. Charging first used to mean a build
+  // failure spent a download and produced nothing, with no refund path on the
+  // server to put it back.
   const downloadPdf = useCallback(async () => {
     if (pdfPages.length === 0 || pdfDownloading) return;
     setPdfDownloading(true);
     setPdfNotice(null);
     try {
-      const after = await (guest ? guestApi.chargePdfDownload() : api.chargePdfDownload());
-      setPdfAllowance(after);
-    } catch (e) {
-      if (e instanceof HttpError && e.status === 402) {
-        setPdfNotice(e.message || "You've used this month's colour-board downloads.");
-        setPdfDownloading(false);
-        return;
+      const outcome = await runColourBoardDownload({
+        build: () => buildColourBoardPdf(pdfPages, projectName || "HueVista colour board"),
+        charge: () => (guest ? guestApi.chargePdfDownload() : api.chargePdfDownload()),
+        save: (blob) => downloadBlob(blob, `huevista-colours-${Date.now()}.pdf`),
+        onAllowance: setPdfAllowance,
+      });
+      if (outcome.status === "build-failed") {
+        setPdfNotice("Could not make the PDF on this device — try removing a photo and downloading again.");
+      } else if (outcome.status === "quota-spent") {
+        setPdfNotice(outcome.message);
       }
-      // Network hiccup / endpoint not deployed — the server-side quota still
-      // governs real usage; don't strand the customer at the counter.
-    }
-    try {
-      const blob = buildColourBoardPdf(pdfPages, projectName || "HueVista colour board");
-      downloadBlob(blob, `huevista-colours-${Date.now()}.pdf`);
-    } catch {
-      // Building the PDF can genuinely fail (e.g. a full board on a low-memory
-      // phone). Without this the button would stay on "Preparing…" forever.
-      setPdfNotice("Could not make the PDF on this device — try removing a photo and downloading again.");
     } finally {
       setPdfDownloading(false);
     }
