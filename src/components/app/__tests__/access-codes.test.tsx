@@ -22,6 +22,7 @@ vi.mock("@/lib/api", () => {
       createAccessCode: vi.fn(),
       createOrganization: vi.fn(),
       listShadeBrands: vi.fn(),
+      listMyShadeBrands: vi.fn(),
       listShopProducts: vi.fn(),
       revokeAccessCode: vi.fn(),
       // Read by the "projects available to assign" line above the issue form. Both are
@@ -66,8 +67,10 @@ beforeEach(() => {
   vi.mocked(api.listMyOrgs).mockResolvedValue([ORG]);
   vi.mocked(api.listAccessCodes).mockResolvedValue(CODES);
   vi.mocked(api.listShopProducts).mockResolvedValue([]);
-  vi.mocked(api.listShadeBrands).mockResolvedValue([
-    { name: "Sample palette", slug: "asian-paints", shadeCount: 2200 },
+  // The shop's OWN companies, not the catalogue's — this picker decides what a code
+  // may unlock, and a shop can only hand out paint it carries.
+  vi.mocked(api.listMyShadeBrands).mockResolvedValue([
+    { name: "Asian Paints", slug: "asian-paints", shadeCount: 2200 },
     { name: "Birla Opus", slug: "birla-opus", shadeCount: 2322 },
   ]);
 });

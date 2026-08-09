@@ -1265,6 +1265,11 @@ export const api = {
   // Companies that actually have shades in the catalogue (name + slug + count).
   listShadeBrands: () =>
     browserFetch<import("./types").ShadeBrandSummary[]>("api/shades/brands"),
+  // The shop's OWN companies — what its distributor assigned it, not the whole
+  // catalogue. Anywhere a shop is choosing what to hand a customer must use this:
+  // offering a company it cannot sell from is a promise it cannot keep.
+  listMyShadeBrands: () =>
+    browserFetch<import("./types").ShadeBrandSummary[]>("api/shades/mine/brands"),
   // --- Paint product catalogue (shopkeeper-managed) ---
   listPaintBrands: () => browserFetch<PaintBrand[]>("api/paint/brands"),
   addPaintBrand: (body: { name: string }) =>

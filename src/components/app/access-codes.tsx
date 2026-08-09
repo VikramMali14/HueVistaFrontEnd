@@ -9,7 +9,7 @@ import { useCopied } from "@/hooks/use-copied";
 import { AssignableProjects } from "@/components/app/assignable-projects";
 import { api, HttpError } from "@/lib/api";
 import { site } from "@/lib/config";
-import { PAINT_BRANDS, type AccessCode, type OrgResponse, type ProjectDetail, type ShopProduct } from "@/lib/types";
+import { type AccessCode, type OrgResponse, type ProjectDetail, type ShopProduct } from "@/lib/types";
 
 const FIXED_VALID_DAYS = 10;
 
@@ -52,10 +52,13 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   // The next code's assignment.
   const [customerName, setCustomerName] = useState("");
   const [projectQuota, setProjectQuota] = useState(1);
-  // Paint companies a shop can unlock — the live list of companies that actually have
-  // shades in the catalogue. Falls back to the well-known brands if the endpoint is
-  // unreachable. Leaving none selected unlocks every company.
-  const [companyOptions, setCompanyOptions] = useState<ReadonlyArray<string>>(PAINT_BRANDS);
+  // Paint companies a shop can unlock on a code: the ones its DISTRIBUTOR assigned
+  // it, not the whole catalogue. The picker used to load every company with shades in
+  // it, so a shop could hand a customer a code unlocking paint the shop does not
+  // carry — the customer picks a shade, walks to the counter, and the counter cannot
+  // sell it. Empty until the shop's own list lands, because guessing here is exactly
+  // the failure. Leaving none selected unlocks everything the shop itself has.
+  const [companyOptions, setCompanyOptions] = useState<ReadonlyArray<string>>([]);
   const [companies, setCompanies] = useState<string[]>([]);
   // Individual shop products the retailer can single out (in addition to whole companies).
   const [products, setProducts] = useState<ShopProduct[]>([]);
@@ -193,12 +196,14 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
 
   useEffect(() => {
     api
-      .listShadeBrands()
+      .listMyShadeBrands()
       .then((brands) => {
-        const names = brands.map((b) => b.name).filter(Boolean);
-        if (names.length > 0) setCompanyOptions(names);
+        setCompanyOptions(brands.map((b) => b.name).filter(Boolean));
       })
-      .catch(() => {}); // keep the static fallback
+      // No static fallback. PAINT_BRANDS is every well-known company in the market,
+      // which is precisely the list this shop may not offer from; showing it after a
+      // failed lookup would reintroduce the bug whenever the network hiccuped.
+      .catch(() => setCompanyOptions([]));
   }, []);
 
   useEffect(() => {
@@ -376,9 +381,16 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
           </span>
         </div>
 
-        {/* Which paint companies this customer may browse. None selected = all companies. */}
+        {/* Which paint companies this customer may browse — from the shop's OWN list,
+            so a code can never unlock paint the counter cannot sell. None selected
+            means everything the shop itself carries. */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <Mono>Companies</Mono>
+          {companyOptions.length === 0 && (
+            <span style={{ font: "400 12.5px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+              Loading your companies — the code will unlock all of them unless you pick.
+            </span>
+          )}
           {companyOptions.map((name) => {
             const on = companies.includes(name);
             return (
