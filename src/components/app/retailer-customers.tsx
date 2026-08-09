@@ -169,7 +169,7 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
   if (rows.length === 0) {
     return (
       <p style={{ font: "400 18px/1.6 var(--sans)", color: "var(--fg-soft)" }}>
-        No customers have redeemed an access code yet.
+        No customers have used an access code yet.
       </p>
     );
   }

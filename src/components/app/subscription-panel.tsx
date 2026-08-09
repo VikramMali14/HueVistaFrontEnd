@@ -510,7 +510,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                   )}
                   {(sub.reservedProjects ?? 0) > 0 && (
                     <span style={{ font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)", display: "block", marginTop: 4 }}>
-                      {sub.reservedProjects} held for access codes your customers haven&apos;t redeemed yet
+                      {sub.reservedProjects} held for access codes your customers haven&apos;t used yet
                     </span>
                   )}
                 </div>

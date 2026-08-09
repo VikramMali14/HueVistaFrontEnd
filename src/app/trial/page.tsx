@@ -49,8 +49,8 @@ export default function TrialPage() {
 
         <p style={{ marginTop: 48, font: "300 italic 17px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
           Not a shop? If you got an access code from your paint shop,{" "}
-          <Link href="/redeem" style={{ color: "var(--accent-soft)", borderBottom: "1px solid var(--rule-brass)" }}>
-            redeem it here
+          <Link href="/unlock" style={{ color: "var(--accent-soft)", borderBottom: "1px solid var(--rule-brass)" }}>
+            unlock it here
           </Link>
           {" "}— or{" "}
           <Link href="/join" style={{ color: "var(--accent-soft)", borderBottom: "1px solid var(--rule-brass)" }}>

@@ -126,7 +126,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             manage their own downline/jobs — none of them redeem shop codes. */}
         {!unavailable && user?.role === "CUSTOMER" && (
           <div style={{ marginTop: 16 }}>
-            <LinkButton href="/redeem" variant="ghost" size="sm">Have a shop access code? Redeem it <span className="arr">→</span></LinkButton>
+            <LinkButton href="/unlock" variant="ghost" size="sm">Have a shop access code? Unlock your projects <span className="arr">→</span></LinkButton>
           </div>
         )}
         {/* Distributors and retailers get a direct line to their network console —

@@ -239,7 +239,7 @@ export default async function PricingPage() {
             </h2>
             <div style={{ marginTop: 56, display: "inline-flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
               <Link href="/trial" className="btn btn-brass">Request a shop account <span className="arr">→</span></Link>
-              <Link href="/redeem" className="btn btn-ghost">Have a shop code? <span className="arr">→</span></Link>
+              <Link href="/unlock" className="btn btn-ghost">Have a shop code? <span className="arr">→</span></Link>
             </div>
             <div style={{ marginTop: 24, font: "400 12px/1.7 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
               Free plan needs no card · payment receipt for every order · UPI accepted · cancel anytime

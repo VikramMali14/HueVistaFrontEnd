@@ -114,13 +114,13 @@ describe("PlanBanner", () => {
    * while the portal would assign 2 and creation refuses after 5. The holds have to be
    * named for the banner to be honest about the month.
    */
-  it("names projects held behind unredeemed codes", async () => {
+  it("names projects held behind unused codes", async () => {
     await banner(sub({ projectsUsed: 3, reservedProjects: 10, projectsRemaining: 2 }));
     await waitFor(() => expect(screen.getByText("3 of 15")).toBeTruthy());
     // Each figure is a labelled chip now, not one monospace run-on.
     expect(screen.getByText(/held for codes/i)).toBeTruthy();
     expect(screen.getByText("10")).toBeTruthy();
-    expect(screen.getByText(/not redeemed yet/i)).toBeTruthy();
+    expect(screen.getByText(/not used yet/i)).toBeTruthy();
   });
 
   /** Nothing held, nothing said — the chip is for a real state, not a permanent zero. */

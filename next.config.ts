@@ -165,6 +165,16 @@ const nextConfig: NextConfig = {
       { source: "/subscription/:path*", destination: "/plan/:path*", permanent: true },
       { source: "/color-finder", destination: "/colour-finder", permanent: true },
       { source: "/color-finder/:path*", destination: "/colour-finder/:path*", permanent: true },
+      // "Redeem" was the wrong verb: it describes trading a voucher in once, while
+      // the code actually opens a window of access that the shop sets in days and
+      // can extend or top up. The page is /unlock now.
+      //
+      // This redirect is not optional housekeeping. The old address was PRINTED —
+      // it is the instruction on the "Paid. You're in." screen after a kiosk
+      // payment, and it has gone out on counter cards and QR codes that cannot be
+      // recalled. Every one of those has to keep landing somewhere real.
+      { source: "/redeem", destination: "/unlock", permanent: true },
+      { source: "/redeem/:path*", destination: "/unlock/:path*", permanent: true },
     ];
   },
   async headers() {

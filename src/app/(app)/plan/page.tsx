@@ -29,10 +29,10 @@ export default async function SubscriptionPage() {
           No plan <i>needed.</i>
         </h1>
         <Lead>
-          Plans are for paint shops. Visualising your own room is free for you — redeem the
+          Plans are for paint shops. Visualising your own room is free for you — unlock with the
           access code from your paint shop and start painting.
         </Lead>
-        <Link className="btn btn-brass" href="/redeem" style={{ marginTop: 28 }}>
+        <Link className="btn btn-brass" href="/unlock" style={{ marginTop: 28 }}>
           I have a code <span className="arr">→</span>
         </Link>
       </div>

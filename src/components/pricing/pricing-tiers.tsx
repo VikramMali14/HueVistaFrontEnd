@@ -69,7 +69,7 @@ interface Tier {
 // rather than to checkout, because there is nothing to charge.
 const TIERS: ReadonlyArray<Tier> = [
   { name: "Free", plan: null, monthlyN: 0, lede: "For trying it at your own counter, and for staying. Two rooms a month, every month.", featured: false, features: [
-    { text: "For paint shops only", detail: "The free plan is a SHOP plan — it comes with a shop account and the counter tools that go with it. A customer visualising their own room doesn't need it: the access code their paint shop hands them is already free for them, at /redeem." },
+    { text: "For paint shops only", detail: "The free plan is a SHOP plan — it comes with a shop account and the counter tools that go with it. A customer visualising their own room doesn't need it: the access code their paint shop hands them is already free for them, at /unlock." },
     `${FREE_PLAN_PROJECTS} projects a month — clean-up and walls included`,
     { text: "Renews every month, for as long as you keep the account", detail: "Not a trial with a deadline: the two projects come back on the same monthly cycle a paid plan runs on, and nothing expires if you don't use them." },
     { text: "Extra projects ₹99 each, or 80 points", detail: "Points are HueVista credit bought up front — they buy extras at a lower rate than paying by card. This is the dearest rate; every paid tier's is cheaper." },
@@ -174,7 +174,7 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
           style={{ marginTop: 20, padding: "12px 16px", border: "1px solid var(--rule-strong)", background: "var(--surface-soft)", borderRadius: 8, font: "300 16px/1.5 var(--serif)", color: "var(--fg-soft)", maxWidth: 620 }}
         >
           These plans are for paint shops. Visualising your own room?{" "}
-          <Link href="/redeem" style={{ color: "var(--accent-soft)" }}>Redeem the access code</Link>{" "}
+          <Link href="/unlock" style={{ color: "var(--accent-soft)" }}>Unlock with the access code</Link>{" "}
           from your paint shop instead — it&apos;s free for you.
         </div>
       )}
@@ -277,11 +277,11 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
                   )
                 ) : (
                   <Link
-                    href="/redeem"
+                    href="/unlock"
                     className={t.featured ? "btn" : "btn btn-ghost"}
                     style={t.featured ? { background: "#fff", color: "var(--accent-deep)", borderColor: "#fff" } : undefined}
                   >
-                    Redeem a shop code <span className="arr">→</span>
+                    Unlock with a shop code <span className="arr">→</span>
                   </Link>
                 )}
                 {payError && payError.plan === plan && (

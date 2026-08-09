@@ -89,7 +89,7 @@ describe("PricingTiers", () => {
   it("points a signed-in customer at their shop's code rather than a buy button", () => {
     render(<PricingTiers isCustomer />);
     expect(screen.queryByRole("button", { name: /buy now/i })).toBeNull();
-    expect(screen.getAllByRole("link", { name: /redeem a shop code/i })).toHaveLength(4);
+    expect(screen.getAllByRole("link", { name: /unlock with a shop code/i })).toHaveLength(4);
   });
 
   /**

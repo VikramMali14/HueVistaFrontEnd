@@ -8,12 +8,12 @@ export const config = {
     "http://localhost:8080",
   sessionCookie: "hv_refresh",
   accessCookie: "hv_access",
-  // Anonymous guest token (redeemed a shop access code, no account). Scopes the
+  // Anonymous guest token (unlocked with a shop access code, no account). Scopes the
   // /api/guest/* endpoints. Lives only as long as the code is valid.
   guestCookie: "hv_guest",
   // Paint companies the shop unlocked for the current guest (JSON array of brand
   // names). LABELLING only — the restriction itself is enforced server-side from the
-  // access code (see lib/catalogue.ts). Set alongside the guest token at redeem time.
+  // access code (see lib/catalogue.ts). Set alongside the guest token at unlock time.
   guestBrandsCookie: "hv_guest_brands",
   refreshTtlSeconds: 60 * 60 * 24 * 7,
 } as const;
@@ -22,8 +22,8 @@ export const config = {
  * Where this site actually lives.
  *
  * One place, because the canonical origin was hardcoded as `https://huevista.com` in
- * the root layout's metadataBase and the redeem instruction spelled out
- * `huevista.com/redeem` in four more files — including the "Paid. You're in." screen a
+ * the root layout's metadataBase and the unlock instruction spelled out
+ * `huevista.com/unlock` in four more files — including the "Paid. You're in." screen a
  * walk-in customer sees the moment their kiosk payment clears. That domain has no DNS
  * record at all; the app is served from app.huevista.org. So every canonical URL, every
  * WhatsApp link preview and every post-payment instruction pointed a paying customer at
@@ -42,10 +42,10 @@ export const site = {
   origin: SITE_ORIGIN,
   /** Host alone, for prose that should not carry a scheme. */
   host: SITE_ORIGIN.replace(/^https?:\/\//, ""),
-  /** Where a customer redeems a shop access code. */
-  redeemUrl: `${SITE_ORIGIN}/redeem`,
+  /** Where a customer unlocks their projects with a shop access code. */
+  unlockUrl: `${SITE_ORIGIN}/unlock`,
   /** What we tell a customer to type — a bare host reads better than a full URL. */
-  redeemLabel: `${SITE_ORIGIN.replace(/^https?:\/\//, "")}/redeem`,
+  unlockLabel: `${SITE_ORIGIN.replace(/^https?:\/\//, "")}/unlock`,
   /** Root domain the reserved white-label subdomains hang off ({shop}.huevista.org). */
   whiteLabelDomain: "huevista.org",
 } as const;

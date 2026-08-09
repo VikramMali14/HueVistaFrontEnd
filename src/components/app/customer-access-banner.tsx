@@ -19,12 +19,12 @@ const bannerStyle = (highlight: boolean): React.CSSProperties => ({
   borderRadius: 8,
 });
 
-const redeemLink = (
+const unlockLink = (
   <Link
-    href="/redeem"
+    href="/unlock"
     style={{ color: "var(--accent)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
   >
-    Redeem a code →
+    Unlock with a code →
   </Link>
 );
 
@@ -72,11 +72,11 @@ export function CustomerAccessBanner() {
           <span style={{ font: "400 15px/1.3 var(--sans)", color: "var(--fg-soft)" }}>
             {credits > 0
               ? `${credits} project${credits === 1 ? "" : "s"} paid for and ready — start one whenever you like.`
-              : "Redeem a code from your paint shop to start, or visit their counter link to buy a visualisation there."}
+              : "Unlock your projects with a code from your paint shop, or visit their counter link to buy a visualisation there."}
           </span>
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {redeemLink}
+          {unlockLink}
         </span>
       </div>
     );
@@ -91,7 +91,7 @@ export function CustomerAccessBanner() {
             Your access window has closed. A fresh code from your shop brings your work right back.
           </span>
         </span>
-        {redeemLink}
+        {unlockLink}
       </div>
     );
   }
@@ -116,7 +116,7 @@ export function CustomerAccessBanner() {
           {daysLeft !== null ? ` · ${daysLeft} day${daysLeft === 1 ? "" : "s"} of access` : ""}
         </span>
       </span>
-      {noneLeft && redeemLink}
+      {noneLeft && unlockLink}
     </div>
   );
 }

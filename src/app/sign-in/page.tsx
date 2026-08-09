@@ -63,7 +63,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
               never let them back in. Anything that bounces them here (an expired
               access cookie, a dead phone) would strand them without this way out. */}
           <p className="auth-foot" style={{ marginTop: 12 }}>
-            Have a code from your paint shop? <Link href="/redeem">Redeem it — no password needed.</Link>
+            Have a code from your paint shop? <Link href="/unlock">Unlock your projects — no password needed.</Link>
           </p>
         </section>
       </div>

@@ -64,7 +64,7 @@ export async function reportStoreCheckoutEventAction(
 /**
  * Public kiosk: verify the Checkout success payload. On success the backend
  * issues the shop's access code and a guest token; we store the token in the
- * same httpOnly guest cookie the /redeem flow uses, so /studio just works.
+ * same httpOnly guest cookie the /unlock flow uses, so /studio just works.
  * Returns the pickup code the customer keeps for the counter.
  */
 export async function verifyStorePaymentAction(

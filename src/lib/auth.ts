@@ -37,7 +37,7 @@ export async function clearSession() {
   jar.delete(config.accessCookie);
 }
 
-/** Whether an anonymous guest session (redeemed shop code) is active. */
+/** Whether an anonymous guest session (unlocked with a shop code) is active. */
 export async function hasGuestSession(): Promise<boolean> {
   const jar = await cookies();
   return Boolean(jar.get(config.guestCookie)?.value);
@@ -188,7 +188,7 @@ export async function loginWithOtpAction(formData: FormData) {
  * token in an httpOnly cookie (valid until the code expires) and returns the shop
  * context for the "continue as guest / sign in to save" choice screen.
  */
-export async function redeemGuestAction(
+export async function unlockGuestAction(
   code: string,
 ): Promise<{ shopName: string; code: string; validDays: number } | { error: string }> {
   "use server";
@@ -213,17 +213,17 @@ export async function redeemGuestAction(
       if (err.status === 409) return { error: "That code has already been used." };
       return { error: err.message };
     }
-    return { error: "Could not redeem that code. Please try again." };
+    return { error: "Could not unlock with that code. Please try again." };
   }
 }
 
 /**
- * The primary walk-in flow: redeem a retailer code with NO login. Any existing
- * session (or guest cookie) is cleared FIRST — redeeming always starts fresh — then
+ * The primary walk-in flow: unlock with a retailer code and NO login. Any existing
+ * session (or guest cookie) is cleared FIRST — unlocking always starts fresh — then
  * the backend auto-provisions a passwordless CUSTOMER account and returns a full
  * session, which we persist as cookies so the customer is signed straight in.
  */
-export async function redeemAccountAction(
+export async function unlockAccountAction(
   code: string,
 ): Promise<{ name: string; shopName: string } | { error: string }> {
   "use server";
@@ -231,7 +231,7 @@ export async function redeemAccountAction(
   if (!value) return { error: "Enter the code from your shop." };
 
   // Log out whoever is here now (retailer, another customer, a stale guest) before
-  // redeeming, so the code's own account is the only session that survives.
+  // unlocking, so the code's own account is the only session that survives.
   await clearSession();
   const jar = await cookies();
   jar.delete(config.guestCookie);
@@ -255,7 +255,7 @@ export async function redeemAccountAction(
       if (err.status === 409 || err.status === 410) return { error: "That code has already been used or expired." };
       return { error: err.message };
     }
-    return { error: "Could not redeem that code. Please try again." };
+    return { error: "Could not unlock with that code. Please try again." };
   }
 }
 
@@ -1099,7 +1099,7 @@ export async function deleteAccountAction() {
 /**
  * Subscription guard for subscriber-only pages (e.g. the colour finder). Any
  * ACTIVE subscription — free trial OR paid — passes. A CUSTOMER (who can never
- * hold a shop subscription) is sent to redeem an access code instead of being
+ * hold a shop subscription) is sent to unlock with an access code instead of being
  * sold retailer plans; everyone else lands on pricing.
  */
 export async function requireActiveSubscription(): Promise<void> {
@@ -1112,7 +1112,7 @@ export async function requireActiveSubscription(): Promise<void> {
     /* 404 = no subscription → fall through to the redirect below */
   }
   const user = await getCurrentUser();
-  if (user?.role === "CUSTOMER") redirect("/redeem");
+  if (user?.role === "CUSTOMER") redirect("/unlock");
   // The in-app subscription page shows why access is paused AND the renew
   // buttons — a better landing than the public pricing pitch.
   redirect("/plan?need=subscription");
