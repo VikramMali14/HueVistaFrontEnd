@@ -15,7 +15,7 @@ import { getCatalogueOrSample } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "Customer portal",
-  description: "Customer portal — your white-label storefront.",
+  description: "Customer portal — issue access codes and see your customers' projects.",
 };
 
 export default async function PortalPage() {
@@ -45,8 +45,8 @@ export default async function PortalPage() {
           <Eyebrow>Customer portal</Eyebrow>
           <PortalSubdomain slug={subdomainSlug} />
         </div>
-        <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Your white-label{" "}<br />customer portal</h1>
-        <Lead style={{ marginTop: 24 }}>Issue temporary access codes for your customers. They visualise colours on your subdomain — without seeing shade codes. When they're ready, they "Send to retailer" and you receive the full project.</Lead>
+        <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Your customer{" "}<br />portal</h1>
+        <Lead style={{ marginTop: 24 }}>Issue temporary access codes for your customers. They visualise colours without seeing shade codes. When they're ready, they &ldquo;Send to retailer&rdquo; and you receive the full project.</Lead>
       </header>
       <SectionNav
         items={[
@@ -110,10 +110,15 @@ export default async function PortalPage() {
         </p>
         <RetailerCustomers org={shopOrg} />
       </section>
+      {/* Was "your shopfront, your logo, your subdomain". None of those three exist
+          yet — the subdomain chip above says so itself ("rolling out"), there is no
+          logo upload, and the customer lands on HueVista's own pages. This describes
+          what the shop actually gets today: their codes, and none of them shown to
+          the customer. */}
       <section style={{ marginTop: 56, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
         <Mono style={{ marginBottom: 18, display: "block" }}>What they see</Mono>
-        <h2 className="display" style={{ fontSize: "clamp(32px, 4.5vw, 52px)", marginBottom: 20 }}>Simple. Branded. Yours.</h2>
-        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "44ch" }}>The customer sees your shopfront, your logo, your subdomain — and a single instruction: upload a photo. They never see shade codes; they pick by feel. You get the codes.</p>
+        <h2 className="display" style={{ fontSize: "clamp(32px, 4.5vw, 52px)", marginBottom: 20 }}>Simple. Yours.</h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "44ch" }}>The customer enters your code and gets a single instruction: upload a photo. They never see shade codes; they pick by feel. You get the codes.</p>
       </section>
     </>
   );
