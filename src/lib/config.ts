@@ -1,11 +1,44 @@
+/**
+ * Where the backend lives when nothing says otherwise.
+ *
+ * `http://localhost:8080` is the right answer while developing and the wrong one in
+ * production, and it used to be the answer in both. That default reached production
+ * through the Content-Security-Policy, which `next.config.ts` builds from this same
+ * variable at SERVER START — while `NEXT_PUBLIC_*` is inlined into the app at BUILD
+ * time. Set the variable in the build but not the runtime container and the two
+ * disagree: the pages correctly requested images from `https://api.huevista.org`, and
+ * the header they were served with only permitted `http://localhost:8080`, so the
+ * browser blocked every photograph on the marketing site.
+ *
+ * Defaulting per environment removes the trap rather than papering over it — a
+ * production server with no API origin configured now names a host that at least
+ * exists. The Dockerfile also carries the build arg through to a runtime ENV, so an
+ * explicitly configured origin reaches both halves. Either fix alone leaves the other
+ * hole open.
+ */
+const DEFAULT_API_ORIGIN =
+  process.env.NODE_ENV === "production"
+    ? "https://api.huevista.org"
+    : "http://localhost:8080";
+
+/**
+ * An origin from the environment, or undefined when it is absent OR blank.
+ *
+ * Blank matters as much as absent: `ENV FOO=${FOO}` in a Dockerfile with no `--build-arg`
+ * sets an EMPTY STRING, and `??` treats that as a perfectly good value. Every URL would
+ * then be built as `/api/...` against no host at all.
+ */
+function originFrom(value: string | undefined): string | undefined {
+  const trimmed = value?.trim().replace(/\/$/, "");
+  return trimmed ? trimmed : undefined;
+}
+
 export const config = {
-  apiOrigin:
-    process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/\/$/, "") ??
-    "http://localhost:8080",
+  apiOrigin: originFrom(process.env.NEXT_PUBLIC_API_ORIGIN) ?? DEFAULT_API_ORIGIN,
   internalApiOrigin:
-    process.env.API_INTERNAL_ORIGIN?.replace(/\/$/, "") ??
-    process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/\/$/, "") ??
-    "http://localhost:8080",
+    originFrom(process.env.API_INTERNAL_ORIGIN) ??
+    originFrom(process.env.NEXT_PUBLIC_API_ORIGIN) ??
+    DEFAULT_API_ORIGIN,
   sessionCookie: "hv_refresh",
   accessCookie: "hv_access",
   // Anonymous guest token (redeemed a shop access code, no account). Scopes the
@@ -33,9 +66,8 @@ export const config = {
  * rather than at production. Anything user-facing that names the site should read this
  * rather than spell out a domain.
  */
-const SITE_ORIGIN = (
-  process.env.NEXT_PUBLIC_SITE_ORIGIN ?? "https://app.huevista.org"
-).replace(/\/$/, "");
+const SITE_ORIGIN =
+  originFrom(process.env.NEXT_PUBLIC_SITE_ORIGIN) ?? "https://app.huevista.org";
 
 export const site = {
   /** Canonical origin, no trailing slash. metadataBase, robots and sitemap read this. */

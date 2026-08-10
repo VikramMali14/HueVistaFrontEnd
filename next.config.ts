@@ -1,8 +1,18 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 
-const apiOrigin = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8080";
 const isDev = process.env.NODE_ENV === "development";
+
+// Must match `src/lib/config.ts`. This file is loaded by Node at SERVER START, while
+// NEXT_PUBLIC_* is inlined into the app at BUILD time — so when the variable is set in
+// one and not the other, the CSP written here and the URLs the app actually requests
+// disagree, and the browser blocks images that were never going to be malicious. A
+// production default that names a real host keeps them agreeing when neither is set.
+// Blank counts as unset: `ENV FOO=${FOO}` with no --build-arg yields an empty string,
+// and a `??` fallback would happily accept it and emit a CSP with no API host at all.
+const apiOrigin =
+  process.env.NEXT_PUBLIC_API_ORIGIN?.trim() ||
+  (isDev ? "http://localhost:8080" : "https://api.huevista.org");
 
 const extraImageHosts = (process.env.IMAGE_REMOTE_HOSTS ?? "")
   .split(",")

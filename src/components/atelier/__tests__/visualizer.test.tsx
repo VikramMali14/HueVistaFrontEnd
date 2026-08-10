@@ -38,7 +38,7 @@ vi.mock("@/lib/api", () => {
     projectPricePoints: 80,
     projectPricePaise: 9900,
     reopenPricePoints: 9,
-    reopenPricePaise: 1000,
+    reopenPricePaise: 900,
     pointsBalance: 0,
     validDays: 30,
     availableCredits: 0,
@@ -597,7 +597,29 @@ describe("Visualizer — buying one extra project", () => {
   const limitReached = () =>
     new HttpError(402, "You've used this month's projects.", undefined, "PROJECT_LIMIT_REACHED");
 
+  /**
+   * Fund the points balance for the tests that mean to exercise the points rail.
+   *
+   * The shared fixture holds ZERO points, and the points button is now gated on the
+   * balance covering the price — because it always was, server-side: pressing it on an
+   * empty balance returned 402, and for a CUSTOMER account (who cannot hold points at
+   * all) 403. A test that clicks a button no real account could use proves nothing.
+   */
+  const withPoints = (balance: number) =>
+    vi.mocked(api.getProjectPurchaseOptions).mockResolvedValue({
+      subscribed: true,
+      pricingPlan: "STARTER",
+      projectPricePoints: 80,
+      projectPricePaise: 9900,
+      reopenPricePoints: 9,
+      reopenPricePaise: 900,
+      pointsBalance: balance,
+      validDays: 30,
+      availableCredits: 0,
+    });
+
   it("quotes the point price and the validity window before taking the payment", async () => {
+    withPoints(80);
     vi.mocked(api.createProject).mockRejectedValueOnce(limitReached());
 
     const { container } = render(<Visualizer initialName="Test room" />);
@@ -618,6 +640,7 @@ describe("Visualizer — buying one extra project", () => {
   });
 
   it("spends the points and re-runs the blocked upload", async () => {
+    withPoints(80);
     vi.mocked(api.createProject).mockRejectedValueOnce(limitReached());
 
     const { container } = render(<Visualizer initialName="Test room" />);
@@ -634,6 +657,29 @@ describe("Visualizer — buying one extra project", () => {
     expect(api.uploadImage).toHaveBeenCalledTimes(1);
     expect(api.createProject).toHaveBeenCalledTimes(2);
     expect((await screen.findAllByText("Walls detected")).length).toBeGreaterThan(0);
+  });
+
+  /**
+   * With no points to spend, the card is the only rail that works — so it must be the
+   * one offered, and offered as the primary action rather than as an "or".
+   *
+   * This is the ordinary case for the account this prompt exists for: a CUSTOMER who
+   * signed up by email with no shop behind them can never hold points, and used to be
+   * shown "Spend 80 points" in the brass button and the card route underneath it as an
+   * afterthought. The button they were steered to was the one guaranteed to fail.
+   */
+  it("offers only the card when there are no points to spend", async () => {
+    withPoints(0);
+    vi.mocked(api.createProject).mockRejectedValueOnce(limitReached());
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect(await screen.findByText(/Monthly projects used up/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Spend 80 points/i })).not.toBeInTheDocument();
+    // Named as the action, not as an alternative to something that isn't there.
+    expect(screen.getByRole("button", { name: /Buy a project · ₹99/i })).toBeInTheDocument();
   });
 });
 

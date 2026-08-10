@@ -814,6 +814,30 @@ export interface RewardPointsSummary {
 }
 
 /** Current subscription summary (backend SubscriptionResponse). */
+/**
+ * What a shop shows, from GET/PUT /api/organizations/{id}/visible-brands.
+ *
+ * Two different limits meet here and only one of them is the shop's. `brands` is the
+ * pool its DISTRIBUTOR granted it — the shop cannot add to that list, so anything absent
+ * from it is not a choice the shop can make. `restricted` is the shop's own switch over
+ * that pool: false means "show everything I carry", and every option then reads as
+ * shown, so the page renders correctly without knowing that no stored rows means
+ * everything rather than nothing.
+ */
+export interface ShopBrandVisibility {
+  /** True when the shop has narrowed its catalogue itself. */
+  restricted: boolean;
+  brands: ShopBrandOption[];
+}
+
+export interface ShopBrandOption {
+  id: number;
+  name: string;
+  slug: string;
+  /** Whether this company is currently shown to anyone working under the shop. */
+  shown: boolean;
+}
+
 export interface SubscriptionSummary {
   id: string;
   plan: PlanName;
@@ -856,6 +880,16 @@ export interface SubscriptionSummary {
    *  tier, true on every paid one. Served rather than derived from `plan`, so the client
    *  keeps no copy of which tiers include what. */
   colorMatching?: boolean;
+  /**
+   * This account is exempt from billing altogether — an administrator. There is no
+   * subscription behind these numbers, no period, and nothing to renew or cancel.
+   *
+   * Not the same as `trial`, which is a real row on a real clock. Anything that offers
+   * to upgrade, renew or cancel must check this first: the endpoint used to answer an
+   * admin with a 404, every caller read that as "unpaid", and the console showed the
+   * person who runs the platform a prompt to subscribe to it.
+   */
+  unbilled?: boolean;
   // Present on a freshly CREATED subscription: the Razorpay hosted checkout URL the
   // buyer is sent to in order to pay and activate the plan.
   paymentUrl?: string | null;

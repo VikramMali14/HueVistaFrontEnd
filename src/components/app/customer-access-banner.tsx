@@ -3,8 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
-import { api } from "@/lib/api";
+import { Spinner } from "@/components/ui/spinner";
+import { api, HttpError } from "@/lib/api";
+import { buyOneProject } from "@/lib/payments";
 import type { CustomerEntitlement, ProjectPurchaseOptions } from "@/lib/types";
+
+/** Paise → a rupee figure for a sentence ("₹99", "₹9", "₹49.50"). */
+function rupees(paise: number): string {
+  return paise % 100 === 0 ? `₹${paise / 100}` : `₹${(paise / 100).toFixed(2)}`;
+}
 
 const bannerStyle = (highlight: boolean): React.CSSProperties => ({
   display: "flex",
@@ -58,24 +65,31 @@ export function CustomerAccessBanner() {
 
   if (ent === undefined || ent === "error") return null;
 
-  // No entitlement at all: this account signed up on its own rather than being
-  // onboarded by a shop. It used to be able to buy a project outright, but everything
-  // chargeable is paid in points now and points are a shop currency — so the honest
-  // routes are a shop's code or a shop's in-store link, and offering a purchase they
-  // would be refused is worse than offering neither.
+  // No entitlement at all: this account signed up on its own rather than being onboarded
+  // by a shop, so there is no shop to ask. Both routes are offered — a code if one was
+  // given, and otherwise buying a project outright, which is the only route an account
+  // with nobody behind it has. Naming a shop it does not have was a dead end.
   if (ent === null) {
     const credits = options?.availableCredits ?? 0;
     return (
-      <div style={bannerStyle(false)}>
+      <div style={bannerStyle(credits <= 0)}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <Mono brass>No access yet</Mono>
+          <Mono brass>{credits > 0 ? "Ready to start" : "No access yet"}</Mono>
           <span style={{ font: "400 15px/1.3 var(--sans)", color: "var(--fg-soft)" }}>
             {credits > 0
               ? `${credits} project${credits === 1 ? "" : "s"} paid for and ready — start one whenever you like.`
-              : "Redeem a code from your paint shop to start, or visit their counter link to buy a visualisation there."}
+              : options
+                ? `Buy a project for ${rupees(options.projectPricePaise)} and it stays open for ${options.validDays} days. Got a code from a paint shop? Redeem that instead.`
+                : "Buy a project to start, or redeem a code from your paint shop."}
           </span>
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          {credits <= 0 && (
+            <BuyProjectButton
+              options={options}
+              onBought={(fresh) => setOptions(fresh)}
+            />
+          )}
           {redeemLink}
         </span>
       </div>
@@ -118,5 +132,79 @@ export function CustomerAccessBanner() {
       </span>
       {noneLeft && redeemLink}
     </div>
+  );
+}
+
+/**
+ * Buy one project with a card, for a customer who has no shop behind them.
+ *
+ * Deliberately NOT offered to a customer a shop onboarded: their projects come out of
+ * that shop's quota, the shop adds another in one click, and selling them one directly
+ * would take money for something their shop is already responsible for. The backend
+ * enforces the same split — this is the surface for the accounts it leaves to pay for
+ * themselves.
+ *
+ * The price is never named by the browser: it is read from the server's own quote for
+ * the label, and the order is priced server-side again when it is created.
+ */
+function BuyProjectButton({
+  options,
+  onBought,
+}: {
+  options: ProjectPurchaseOptions | null;
+  onBought: (fresh: ProjectPurchaseOptions) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const buy = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const fresh = await buyOneProject();
+      // null = the buyer closed Checkout without paying. Not an error, and saying
+      // nothing is the right response to someone who chose not to buy.
+      if (fresh) onBought(fresh);
+    } catch (e) {
+      setError(
+        e instanceof HttpError ? e.message : "Could not start the payment. Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <button
+        type="button"
+        onClick={() => void buy()}
+        disabled={busy}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 14px",
+          border: "1px solid var(--accent)",
+          background: "transparent",
+          color: "var(--accent)",
+          font: "400 12px/1 var(--mono)",
+          letterSpacing: ".18em",
+          textTransform: "uppercase",
+          cursor: busy ? "progress" : "pointer",
+        }}
+      >
+        {busy ? (
+          <><Spinner size={12} color="currentColor" /> Opening…</>
+        ) : (
+          <>Buy a project{options ? ` · ${rupees(options.projectPricePaise)}` : ""} →</>
+        )}
+      </button>
+      {error && (
+        <span role="alert" style={{ font: "400 13px/1.4 var(--sans)", color: "var(--danger, #c0392b)" }}>
+          {error}
+        </span>
+      )}
+    </span>
   );
 }

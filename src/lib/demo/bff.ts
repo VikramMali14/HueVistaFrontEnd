@@ -473,6 +473,23 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
       };
       return json(store.codeScheme);
     }
+    // --- Which paint companies the shop shows (its own half of the catalogue limit) ---
+    if (tail === "visible-brands" && method === "GET") {
+      return json(shopBrandVisibility());
+    }
+    if (tail === "visible-brands" && method === "PUT") {
+      const body = await readJson(req);
+      // showAll clears the shop's own limit; otherwise the list IS the selection, and an
+      // empty one really means none. Ids outside the demo catalogue are dropped, the way
+      // the backend drops ids the distributor never granted.
+      const known = new Set(store.brands.map((b) => b.id));
+      store.visibleBrandIds = body.showAll
+        ? null
+        : (Array.isArray(body.brandIds) ? body.brandIds : [])
+            .map((id: unknown) => Number(id))
+            .filter((id: number) => known.has(id));
+      return json(shopBrandVisibility());
+    }
     if (tail === "access-codes" && method === "GET") return json(store.accessCodes);
     if (tail === "access-codes" && method === "POST") {
       const body = await readJson(req);
@@ -639,6 +656,21 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
 }
 
 // --- helpers ---
+
+/** The demo's answer for GET/PUT visible-brands: the catalogue, each flagged. */
+function shopBrandVisibility() {
+  const store = getStore();
+  const chosen = store.visibleBrandIds;
+  return {
+    restricted: chosen !== null,
+    brands: store.brands.map((b) => ({
+      id: b.id,
+      name: b.name,
+      slug: b.slug,
+      shown: chosen === null || chosen.includes(b.id),
+    })),
+  };
+}
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 40) || "shop";
 }
