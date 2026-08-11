@@ -35,6 +35,7 @@ import {
 } from "@/lib/pdf-export";
 import { runColourBoardDownload } from "@/lib/colour-board-download";
 import { ShareDialog } from "./share-dialog";
+import { ReportDialog } from "./report-dialog";
 import { IMAGE_ACCEPT, cropAndEncode, imageFileError, loadImageFromFile } from "@/lib/image-upload";
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
@@ -42,6 +43,7 @@ import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
 import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
 import type {
+  MaskReportIssue,
   PaintShade,
   PdfAllowance,
   ProjectDetail,
@@ -422,6 +424,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // colours can be judged as on a sunnier day. Three fixed levels (Original /
   // Soft glow / Radiant, see BRIGHTEN_LEVELS); Original (untouched) default.
   const [brighten, setBrighten] = useState<BrightenLevel["id"]>("original");
+  // "Report a problem" — the channel for an AI run that came out visibly wrong.
+  // Nothing server-side can spot that: a run with the walls in the wrong places
+  // still returns SEGMENTED, so the person looking at their room is the only
+  // source. `reported` keeps the button honest after a send so the same
+  // complaint isn't fired twice by someone unsure it landed.
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reported, setReported] = useState(false);
   // Manual mask studio.
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
   // When set, the studio is REFINING this region's existing mask (AI or hand-drawn)
@@ -767,6 +776,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       if (detail.name) setProjectName(detail.name);
       if (detail.roomType) setProjectRoom(detail.roomType);
       if (detail.sentToShopAt) setSentToShop(true);
+      // A fresh run has landed on the canvas, so an earlier report was about a
+      // different one — the button goes back to being pressable.
+      setReported(false);
       setViewOnly(Boolean(detail.readOnly));
       setViewOnlyReason(detail.readOnlyReason ?? null);
       setReopenPoints(detail.reopenPricePoints ?? 0);
@@ -1791,6 +1803,28 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [guest, projectId, refreshQuota],
   );
 
+  /**
+   * File a "this came out wrong" report against the current project.
+   *
+   * Throws on failure rather than swallowing it: the dialog owns the error
+   * message, because the person who just described a problem needs to know
+   * whether the description actually left the building.
+   */
+  const submitReport = useCallback(
+    async (issues: MaskReportIssue[], note: string) => {
+      if (!projectId) throw new Error("This room hasn't been saved yet — try again in a moment.");
+      const body = { issues, ...(note ? { note } : {}) };
+      if (guest) await guestApi.reportMask(projectId, body);
+      else await api.reportMask(projectId, body);
+      setReported(true);
+    },
+    [guest, projectId],
+  );
+
+  // The report button belongs to a FINISHED run: while one is in flight there is
+  // nothing to judge, and before a project exists there is nothing to report against.
+  const canReport = Boolean(projectId) && stage === "recolor" && !uploading && !segmenting;
+
   const manualRun = !guest && segOptions.maskMode === "MANUAL";
   const overlayLabel = uploading && !segmenting
     ? "Uploading photo"
@@ -2195,6 +2229,23 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 Colours shown are indicative. The final painted shade may look different on your
                 wall — confirm the exact colour by its shade name and number before buying.
               </p>
+            )}
+            {/* "The AI got this wrong." Deliberately quiet and deliberately
+                ALWAYS THERE once a run has finished — a bad mask is invisible to
+                every check the backend makes, so this button is the only way the
+                team ever learns a run failed. Hiding it behind a menu would lose
+                exactly the reports worth having. */}
+            {canReport && (
+              <div className="hv-studio-report">
+                {reported ? (
+                  <Mono>Reported — thank you. Our team will take a look.</Mono>
+                ) : (
+                  <button type="button" className="hv-studio-report-btn" onClick={() => setReportOpen(true)}>
+                    <FlagIcon />
+                    Not right? Report a problem
+                  </button>
+                )}
+              </div>
             )}
             {imageUrl && !pendingFile && !uploading && !segmenting && (
               <div className="hv-pdf-tray" role="group" aria-label="Colour board PDF">
@@ -2691,6 +2742,14 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         />
       )}
 
+      {reportOpen && (
+        <ReportDialog
+          hadCleanedImage={canvasCleaned}
+          onSubmit={submitReport}
+          onClose={() => setReportOpen(false)}
+        />
+      )}
+
       {shareOpen && (
         <ShareDialog
           url={shareUrl}
@@ -2704,6 +2763,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         />
       )}
     </div>
+  );
+}
+
+function FlagIcon() {
+  // Flag — "report a problem with this run".
+  return (
+    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 22V4" />
+      <path d="M4 4h11l-1.5 4L15 12H4z" />
+    </svg>
   );
 }
 
