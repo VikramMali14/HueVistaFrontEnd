@@ -177,7 +177,7 @@ export const DEMO_STORE_LINKS: StoreLink[] = [
 ];
 
 /** Numbers are coherent with the backend's derivation: balance = earned − pending − redeemed.
- *  Each ₹99 kiosk sale is HueVista's in full and earns the shop 30 points. */
+ *  Each ₹199 kiosk sale is HueVista's in full and earns the shop 30 points. */
 export const DEMO_WALLET: WalletSummary = {
   organizationId: "org_demo",
   currency: "INR",

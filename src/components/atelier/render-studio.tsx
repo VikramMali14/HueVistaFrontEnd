@@ -1,0 +1,611 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { Button, LinkButton } from "@/components/ui/button";
+import { Eyebrow, Lead } from "@/components/ui/eyebrow";
+import { Spinner } from "@/components/ui/spinner";
+import { api, HttpError } from "@/lib/api";
+import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
+import { resolveMediaUrl } from "@/lib/media";
+import { formatRupees } from "@/lib/money";
+import { buyExtraRender } from "@/lib/payments";
+import type {
+  ProjectCombo,
+  ProjectDetail,
+  ProjectRender,
+  RegionDetail,
+  RenderOptions,
+} from "@/lib/types";
+
+/**
+ * The last page of a project: pick one of the combinations you were handed on a colour
+ * board, choose how it should be photographed, and get one real image of it.
+ *
+ * Two decisions shape this screen.
+ *
+ * **The combinations are fixed.** They are the pages of the boards the customer already
+ * took away — not a fresh palette picker. That is the whole reason the render is
+ * trustworthy: it shows a scheme they committed to on paper, in the exact catalogue
+ * shades, rather than a forty-first idea invented after the job closed.
+ *
+ * **One preview at a time, not eight.** The obvious build renders all eight combos as
+ * thumbnails, and it is the wrong one: each render needs every region mask, so eight
+ * previews is eight canvases and the mask set fetched over and over. Instead the cards
+ * carry their colour chips — enough to recognise a scheme you chose an hour ago — and the
+ * selected one is painted at full size into a single canvas, with the masks loaded once
+ * and reused as the selection moves. One engine, one mask fetch, a bigger picture.
+ */
+
+const POLL_INTERVAL_MS = 2500;
+/** Nano Banana Pro takes well under this; the deadline exists so a stuck job ends. */
+const POLL_DEADLINE_MS = 180_000;
+
+const DEFAULT_OPTIONS: RenderOptions = {
+  timeOfDay: "DAY",
+  borderMode: "KEEP_ORIGINAL",
+  lighting: "NATURAL",
+  furnishing: "KEEP",
+  style: "MODERN",
+};
+
+type Choice<T extends string> = { value: T; label: string; hint: string };
+
+const TIME_OF_DAY: Choice<RenderOptions["timeOfDay"]>[] = [
+  { value: "DAY", label: "Day", hint: "Natural daylight, as the photo was taken" },
+  { value: "NIGHT", label: "Night", hint: "After dark, lit by the lights that are there" },
+];
+
+const BORDERS: Choice<RenderOptions["borderMode"]>[] = [
+  {
+    value: "KEEP_ORIGINAL",
+    label: "Keep my borders",
+    hint: "Paint stays exactly inside the walls and trim as they are marked",
+  },
+  {
+    value: "AI_SUGGESTED",
+    label: "Suggest borders",
+    hint: "Let the AI propose the trim and banding, in these same colours",
+  },
+];
+
+const LIGHTING: Choice<RenderOptions["lighting"]>[] = [
+  { value: "NATURAL", label: "Natural", hint: "The light that is already in the room" },
+  { value: "WARM", label: "Warm", hint: "Golden, softer — an evening feel" },
+  { value: "COOL", label: "Cool", hint: "Crisp daylight, clean shadows" },
+  { value: "DRAMATIC", label: "Dramatic", hint: "Strong light and deep shadow" },
+];
+
+const FURNISHING: Choice<RenderOptions["furnishing"]>[] = [
+  { value: "KEEP", label: "As it is", hint: "Nothing moves — only the paint changes" },
+  { value: "STAGED", label: "Styled", hint: "Dressed to suit the colours" },
+  { value: "EMPTY", label: "Empty", hint: "Cleared, so the walls are fully visible" },
+];
+
+const STYLE: Choice<RenderOptions["style"]>[] = [
+  { value: "MODERN", label: "Modern", hint: "Contemporary and clean" },
+  { value: "MINIMAL", label: "Minimal", hint: "Quiet and restrained" },
+  { value: "TRADITIONAL", label: "Traditional", hint: "Classic and settled" },
+  { value: "HERITAGE", label: "Heritage", hint: "An older building, well kept" },
+  { value: "LUXE", label: "Luxe", hint: "Richer materials, deeper finishes" },
+];
+
+function comboName(combo: ProjectCombo, index: number): string {
+  return combo.title?.trim() || `Combination ${index + 1}`;
+}
+
+export function RenderStudio({ projectId }: { projectId: string }) {
+  const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [combos, setCombos] = useState<ProjectCombo[]>([]);
+  const [renders, setRenders] = useState<ProjectRender[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [options, setOptions] = useState<RenderOptions>(DEFAULT_OPTIONS);
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [active, setActive] = useState<ProjectRender | null>(null);
+  const [buying, setBuying] = useState(false);
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const engineRef = useRef<Canvas2DRecolor | null>(null);
+  /** Masks keyed by region id, loaded once and reused as the selection moves. */
+  const maskCache = useRef(new Map<number, HTMLImageElement>());
+
+  // ── Load the project, its combinations and anything already rendered ──────
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [detail, comboList, renderList] = await Promise.all([
+          api.getProject(projectId),
+          api.getProjectCombos(projectId),
+          api.listRenders(projectId),
+        ]);
+        if (cancelled) return;
+        setProject(detail);
+        setCombos(comboList);
+        setRenders(renderList);
+        setSelected(comboList[0]?.id ?? null);
+        // A render still in flight from a previous visit is picked back up rather
+        // than left to finish invisibly — the customer closed the tab, not the job.
+        const inFlight = renderList.find((r) => r.status === "QUEUED" || r.status === "RUNNING");
+        if (inFlight) {
+          setActive(inFlight);
+          setGenerating(true);
+        } else {
+          setActive(renderList.find((r) => r.status === "READY") ?? null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Could not load this project.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  // ── The preview: one combination painted onto the cleaned photo ───────────
+
+  const regionsById = useMemo(() => {
+    const map = new Map<number, RegionDetail>();
+    for (const r of project?.regions ?? []) map.set(r.id, r);
+    return map;
+  }, [project]);
+
+  const selectedCombo = useMemo(
+    () => combos.find((c) => c.id === selected) ?? null,
+    [combos, selected],
+  );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const photo = resolveMediaUrl(project?.cleanedImageUrl || project?.imageUrl);
+    if (!canvas || !photo || !selectedCombo) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        let engine = engineRef.current;
+        if (!engine) {
+          engine = new Canvas2DRecolor(canvas);
+          engineRef.current = engine;
+          engine.setImage(await loadImage(photo));
+        }
+        if (cancelled) return;
+
+        const paints = [];
+        for (const shade of selectedCombo.shades) {
+          const region = shade.regionId != null ? regionsById.get(shade.regionId) : undefined;
+          const maskUrl = resolveMediaUrl(region?.maskUrl);
+          if (!region || !maskUrl) continue;
+          let mask = maskCache.current.get(region.id);
+          if (!mask) {
+            try {
+              mask = await loadImage(maskUrl);
+              maskCache.current.set(region.id, mask);
+            } catch {
+              continue;
+            }
+          }
+          if (cancelled) return;
+          paints.push({ mask, target: hexToRgb01(shade.hex), preserve: 0.85, anchor: true });
+        }
+        if (cancelled) return;
+        engine.renderRegions(paints);
+      } catch {
+        /* The preview is a convenience — a failed one must not block generating. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCombo, project, regionsById]);
+
+  useEffect(() => () => engineRef.current?.dispose(), []);
+
+  // ── Generating, and waiting for it ───────────────────────────────────────
+
+  const poll = useCallback(
+    async (renderId: string) => {
+      const deadline = Date.now() + POLL_DEADLINE_MS;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        let latest: ProjectRender;
+        try {
+          latest = await api.getRender(projectId, renderId);
+        } catch {
+          continue; // a dropped poll is not a failed render
+        }
+        setActive(latest);
+        if (latest.status === "READY" || latest.status === "FAILED") {
+          setRenders((prev) => [latest, ...prev.filter((r) => r.id !== latest.id)]);
+          // The allowance moved either way — spent on success, handed back on
+          // failure — so the project is re-read rather than guessed at.
+          void api.getProject(projectId).then(setProject).catch(() => {});
+          return;
+        }
+      }
+      setError("Your image is taking longer than expected. It may still arrive — reload in a minute.");
+    },
+    [projectId],
+  );
+
+  const generate = useCallback(async () => {
+    if (!selected || generating) return;
+    setGenerating(true);
+    setError(null);
+    try {
+      const started = await api.requestRender(projectId, {
+        comboId: selected,
+        ...options,
+        note: note.trim() || undefined,
+      });
+      setActive(started);
+      await poll(started.id);
+    } catch (e) {
+      if (e instanceof HttpError && e.status === 402) {
+        setError(e.message);
+      } else {
+        setError(e instanceof Error ? e.message : "Could not start your image.");
+      }
+    } finally {
+      setGenerating(false);
+    }
+  }, [selected, generating, projectId, options, note, poll]);
+
+  const buyAnother = useCallback(async () => {
+    setBuying(true);
+    setError(null);
+    try {
+      await buyExtraRender(projectId);
+      setProject(await api.getProject(projectId));
+      setActive(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not start the payment.");
+    } finally {
+      setBuying(false);
+    }
+  }, [projectId]);
+
+  // ── Rendering ────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="hv-render-loading">
+        <Spinner /> <span>Opening your colour boards…</span>
+      </div>
+    );
+  }
+
+  if (combos.length === 0) {
+    return (
+      <div className="hv-render-empty">
+        <Eyebrow>Your AI image</Eyebrow>
+        <h1 className="display">No colour boards yet</h1>
+        <Lead>
+          The AI image is made from a combination on one of your colour boards, so there has
+          to be a board first. Go back, choose your colours and download one.
+        </Lead>
+        <LinkButton href={`/studio?project=${encodeURIComponent(projectId)}`} variant="brass">
+          Back to the studio <span className="arr">→</span>
+        </LinkButton>
+      </div>
+    );
+  }
+
+  const rendersLeft = (project?.rendersAllowed ?? 0) - (project?.rendersUsed ?? 0);
+  const busy = generating || active?.status === "QUEUED" || active?.status === "RUNNING";
+  const ready = active?.status === "READY" ? active : null;
+
+  return (
+    <div className="hv-render">
+      <header className="hv-render-head">
+        <Eyebrow>Project closed · your AI image</Eyebrow>
+        <h1 className="display">
+          Pick the one you want to <i>see for real.</i>
+        </h1>
+        <Lead>
+          These are the {combos.length} combinations from your colour boards. Choose one and
+          we&apos;ll photograph your room in it — the same shades, in real light.
+        </Lead>
+      </header>
+
+      <section className="hv-render-body">
+        <div className="hv-render-combos" role="radiogroup" aria-label="Your colour combinations">
+          {combos.map((combo, i) => (
+            <button
+              key={combo.id}
+              type="button"
+              role="radio"
+              aria-checked={combo.id === selected}
+              className={`hv-render-combo${combo.id === selected ? " is-selected" : ""}`}
+              onClick={() => setSelected(combo.id)}
+              disabled={busy}
+            >
+              <span className="hv-render-combo-chips" aria-hidden>
+                {combo.shades.map((s, j) => (
+                  <span key={j} style={{ background: s.hex }} />
+                ))}
+              </span>
+              <span className="hv-render-combo-name">{comboName(combo, i)}</span>
+              <span className="hv-render-combo-meta">
+                Board {combo.boardIndex}
+                {combo.rendered ? " · already made" : ""}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="hv-render-stage">
+          {ready ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={resolveMediaUrl(ready.imageUrl) ?? ""} alt="Your room, rendered" />
+          ) : (
+            <canvas ref={canvasRef} />
+          )}
+          {busy && (
+            <div className="hv-render-working" role="status">
+              <Spinner />
+              <p>Photographing your room…</p>
+              <p className="hv-render-working-sub">
+                This takes about a minute. You can leave this page — it will be here when
+                you come back.
+              </p>
+            </div>
+          )}
+          {!ready && !busy && (
+            <p className="hv-render-stage-note">
+              A preview of the shades. The AI image will be a photograph of this room.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {ready ? (
+        <section className="hv-render-done">
+          <p className="hv-render-done-text">Your image is ready.</p>
+          <div className="hv-render-done-actions">
+            <a className="btn btn-brass" href={resolveMediaUrl(ready.imageUrl) ?? "#"} download>
+              Download the image
+            </a>
+            {rendersLeft > 0 ? (
+              <Button variant="ghost" onClick={() => setActive(null)}>
+                Make another
+              </Button>
+            ) : (
+              <Button variant="ghost" disabled={buying} onClick={() => void buyAnother()}>
+                {buying ? "Opening checkout…" : anotherImageLabel(project)}
+              </Button>
+            )}
+            <Link className="btn btn-ghost" href="/dashboard">
+              Back to my rooms
+            </Link>
+          </div>
+        </section>
+      ) : (
+        <section className="hv-render-options">
+          <OptionRow label="Time of day" choices={TIME_OF_DAY} value={options.timeOfDay}
+            onChange={(timeOfDay) => setOptions((o) => ({ ...o, timeOfDay }))} disabled={busy} />
+          <OptionRow label="Borders and trim" choices={BORDERS} value={options.borderMode}
+            onChange={(borderMode) => setOptions((o) => ({ ...o, borderMode }))} disabled={busy} />
+          <OptionRow label="Light" choices={LIGHTING} value={options.lighting}
+            onChange={(lighting) => setOptions((o) => ({ ...o, lighting }))} disabled={busy} />
+          <OptionRow label="Furniture" choices={FURNISHING} value={options.furnishing}
+            onChange={(furnishing) => setOptions((o) => ({ ...o, furnishing }))} disabled={busy} />
+          <OptionRow label="Look" choices={STYLE} value={options.style}
+            onChange={(style) => setOptions((o) => ({ ...o, style }))} disabled={busy} />
+
+          <label className="hv-render-note">
+            <span>Anything else? (optional)</span>
+            <input
+              type="text"
+              maxLength={500}
+              value={note}
+              disabled={busy}
+              placeholder="e.g. show it with the curtains open"
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </label>
+
+          <div className="hv-render-go">
+            {rendersLeft > 0 ? (
+              <Button variant="brass" disabled={busy || !selected} onClick={() => void generate()}>
+                {busy ? "Making your image…" : "Make my image"}
+              </Button>
+            ) : (
+              <Button variant="brass" disabled={buying} onClick={() => void buyAnother()}>
+                {buying ? "Opening checkout…" : anotherImageLabel(project)}
+              </Button>
+            )}
+            <span className="hv-render-left">
+              {rendersLeft > 0
+                ? rendersLeft === 1
+                  ? "One image included with this project."
+                  : `${rendersLeft} images left on this project.`
+                : "You've used this project's image. Another one is a one-off payment."}
+            </span>
+          </div>
+        </section>
+      )}
+
+      {/* Anything made earlier on this project. Only shown once there is more than one,
+          because a strip with a single thumbnail of the picture already on screen is
+          noise — but a customer who bought a second image wants both side by side. */}
+      {renders.filter((r) => r.status === "READY").length > 1 && (
+        <section className="hv-render-history">
+          <h2 className="hv-render-history-title">Your images</h2>
+          <div className="hv-render-history-strip">
+            {renders
+              .filter((r) => r.status === "READY")
+              .map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  className={`hv-render-history-item${r.id === active?.id ? " is-on" : ""}`}
+                  onClick={() => setActive(r)}
+                  aria-label={`Show the ${r.style.toLowerCase()} ${r.timeOfDay.toLowerCase()} image`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={resolveMediaUrl(r.imageUrl) ?? ""} alt="" />
+                </button>
+              ))}
+          </div>
+          <style>{`
+            .hv-render-history { margin-top: 28px; }
+            .hv-render-history-title { font: 500 14px/1.2 var(--sans); color: var(--fg); margin: 0 0 10px; }
+            .hv-render-history-strip { display: flex; gap: 10px; flex-wrap: wrap; }
+            .hv-render-history-item {
+              width: 110px; padding: 0; cursor: pointer; background: none;
+              border: 1px solid var(--rule); border-radius: 3px; overflow: hidden;
+            }
+            .hv-render-history-item.is-on { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
+            .hv-render-history-item img { display: block; width: 100%; height: auto; }
+          `}</style>
+        </section>
+      )}
+
+      {active?.status === "FAILED" && (
+        <p className="hv-render-error" role="alert">
+          {active.failureReason ?? "That didn't work. Please try again."}
+        </p>
+      )}
+      {error && (
+        <p className="hv-render-error" role="alert">
+          {error}
+        </p>
+      )}
+
+      <style>{`
+        .hv-render { max-width: 1100px; margin: 0 auto; padding: 48px var(--gutter) 96px; }
+        .hv-render-head { text-align: center; margin-bottom: 32px; }
+        .hv-render-head .display { font-size: clamp(30px, 4vw, 48px); margin: 14px 0 12px; }
+        .hv-render-body { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 24px; }
+        @media (max-width: 860px) { .hv-render-body { grid-template-columns: 1fr; } }
+        .hv-render-combos { display: grid; gap: 10px; align-content: start; }
+        .hv-render-combo {
+          display: grid; gap: 6px; padding: 12px 14px; text-align: left; cursor: pointer;
+          border: 1px solid var(--rule); background: var(--surface); border-radius: 4px;
+        }
+        .hv-render-combo:disabled { opacity: .55; cursor: default; }
+        .hv-render-combo.is-selected { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
+        .hv-render-combo-chips { display: inline-flex; gap: 4px; }
+        .hv-render-combo-chips span { width: 26px; height: 18px; border: 1px solid var(--rule); border-radius: 2px; }
+        .hv-render-combo-name { font: 500 15px/1.2 var(--sans); color: var(--fg); }
+        .hv-render-combo-meta { font: 400 12px/1.2 var(--sans); color: var(--fg-soft); }
+        .hv-render-stage {
+          position: relative; min-height: 320px; display: grid; place-items: center;
+          border: 1px solid var(--rule); background: var(--surface-soft); border-radius: 4px; padding: 12px;
+        }
+        .hv-render-stage canvas, .hv-render-stage img { max-width: 100%; height: auto; display: block; }
+        .hv-render-stage-note { position: absolute; bottom: 8px; font: 400 12px/1.3 var(--sans); color: var(--fg-soft); }
+        .hv-render-working {
+          position: absolute; inset: 0; display: grid; place-content: center; gap: 8px; text-align: center;
+          background: color-mix(in srgb, var(--surface) 88%, transparent); padding: 24px;
+        }
+        .hv-render-working-sub { font: 400 13px/1.4 var(--sans); color: var(--fg-soft); max-width: 34ch; }
+        .hv-render-options { margin-top: 28px; display: grid; gap: 18px; }
+        .hv-render-note { display: grid; gap: 6px; font: 400 13px/1.3 var(--sans); color: var(--fg-soft); }
+        .hv-render-note input { padding: 10px 12px; border: 1px solid var(--rule); background: var(--surface); font: inherit; color: var(--fg); }
+        .hv-render-go { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 6px; }
+        .hv-render-left { font: 400 13px/1.4 var(--sans); color: var(--fg-soft); }
+        .hv-render-done { margin-top: 28px; display: grid; gap: 12px; justify-items: start; }
+        .hv-render-done-text { font: 500 16px/1.3 var(--sans); color: var(--fg); }
+        .hv-render-done-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+        .hv-render-error { margin-top: 16px; font: 400 14px/1.4 var(--sans); color: var(--danger, #b3261e); }
+        .hv-render-loading, .hv-render-empty {
+          max-width: 640px; margin: 0 auto; padding: 96px var(--gutter); text-align: center;
+          display: grid; gap: 16px; justify-items: center;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function OptionRow<T extends string>({
+  label,
+  choices,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  choices: Choice<T>[];
+  value: T;
+  onChange: (value: T) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="hv-render-row" role="radiogroup" aria-label={label}>
+      <span className="hv-render-row-label">{label}</span>
+      <span className="hv-render-row-choices">
+        {choices.map((c) => (
+          <button
+            key={c.value}
+            type="button"
+            role="radio"
+            aria-checked={c.value === value}
+            title={c.hint}
+            disabled={disabled}
+            className={`hv-render-choice${c.value === value ? " is-on" : ""}`}
+            onClick={() => onChange(c.value)}
+          >
+            {c.label}
+          </button>
+        ))}
+      </span>
+      <style>{`
+        .hv-render-row { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; align-items: center; }
+        @media (max-width: 640px) { .hv-render-row { grid-template-columns: 1fr; } }
+        .hv-render-row-label { font: 500 13px/1.3 var(--sans); color: var(--fg); }
+        .hv-render-row-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+        .hv-render-choice {
+          padding: 7px 13px; cursor: pointer; font: 400 13px/1.2 var(--sans); color: var(--fg);
+          border: 1px solid var(--rule); background: var(--surface); border-radius: 999px;
+        }
+        .hv-render-choice.is-on { border-color: var(--brass); background: var(--surface-soft); font-weight: 500; }
+        .hv-render-choice:disabled { opacity: .5; cursor: default; }
+      `}</style>
+    </div>
+  );
+}
+
+/**
+ * What one more image costs. The server is the authority and refuses any other amount, so
+ * this is only ever the label on a button — but a button that names a price the payment
+ * then refuses is worse than one that names none, so it reads the project's own figure
+ * rather than borrowing the reopen price the two happen to share today.
+ */
+function renderTopUpPaise(project: ProjectDetail | null): number | null {
+  return project?.renderPricePaise ?? null;
+}
+
+/** "Another image · ₹99", or just "Another image" until the price has loaded. */
+function anotherImageLabel(project: ProjectDetail | null): string {
+  const paise = renderTopUpPaise(project);
+  return paise == null ? "Another image" : `Another image · ${formatRupees(paise)}`;
+}
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Could not load ${url}`));
+    img.src = url;
+  });
+}
+
+function hexToRgb01(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  return [
+    parseInt(clean.slice(0, 2), 16) / 255,
+    parseInt(clean.slice(2, 4), 16) / 255,
+    parseInt(clean.slice(4, 6), 16) / 255,
+  ];
+}

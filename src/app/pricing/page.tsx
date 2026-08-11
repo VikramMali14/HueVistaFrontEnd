@@ -9,7 +9,12 @@ import { PricingTiers } from "@/components/pricing/pricing-tiers";
 import { PricingFaq } from "@/components/pricing/pricing-faq";
 import { getCurrentUser } from "@/lib/auth";
 import { fetchCatalogueSize } from "@/lib/catalogue";
-import { FREE_PLAN_PROJECTS, FREE_PLAN_PROJECTS_WORD } from "@/lib/free-plan";
+import {
+  FREE_PLAN_EXTRA_PROJECT_POINTS,
+  FREE_PLAN_EXTRA_PROJECT_RUPEES,
+  FREE_PLAN_PROJECTS,
+  FREE_PLAN_PROJECTS_WORD,
+} from "@/lib/free-plan";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -44,7 +49,7 @@ const MATRIX: ReadonlyArray<Section> = [
       ["Projects per month (clean-up + walls found for you)", String(FREE_PLAN_PROJECTS), "15", "45", "100"],
       ["Allowance renews every month", "●", "●", "●", "●"],
       ["Marking walls yourself", "Unlimited", "Unlimited", "Unlimited", "Unlimited"],
-      ["Extra project — by card, or with points (HueVista credit bought up front)", "₹99 or 80 pts", "₹65 or 60 pts", "₹55 or 50 pts", "₹45 or 40 pts"],
+      ["Extra project — by card, or with points (HueVista credit bought up front)", `₹${FREE_PLAN_EXTRA_PROJECT_RUPEES} or ${FREE_PLAN_EXTRA_PROJECT_POINTS} pts`, "₹65 or 60 pts", "₹55 or 50 pts", "₹45 or 40 pts"],
       ["Unused projects carried over when you upgrade", "●", "●", "●", "●"],
       ["Colour boards (PDF) per month", "5 (4 photos)", "25 (4 photos)", "100 (8 photos)", "300 (12 photos)"],
       ["Paint each wall its own colour", "●", "●", "●", "●"],

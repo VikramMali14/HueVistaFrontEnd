@@ -117,7 +117,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
     );
   }
 
-  const kioskPrice = wallet?.kioskPricePaise ?? 9900;
+  const kioskPrice = wallet?.kioskPricePaise ?? 19900;
   const pointsPerSale = wallet?.pointsPerSale ?? 30;
 
   return (

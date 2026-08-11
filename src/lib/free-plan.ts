@@ -20,7 +20,7 @@ export const FREE_PLAN_PROJECTS_WORD = "Two";
 
 /** What one extra project costs once the free month is spent — the dearest rate on the
  *  ladder, which is what makes subscribing the cheaper way to buy volume. */
-export const FREE_PLAN_EXTRA_PROJECT_RUPEES = 99;
+export const FREE_PLAN_EXTRA_PROJECT_RUPEES = 199;
 export const FREE_PLAN_EXTRA_PROJECT_POINTS = 80;
 
 /**

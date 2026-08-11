@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button, LinkButton } from "@/components/ui/button";
 import { LoaderOverlay } from "@/components/ui/loader-overlay";
@@ -272,6 +273,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // Guest mode swaps the CRUD calls to the access-code-scoped endpoints. Signatures
   // match the user `api`, so the rest of the flow is identical. User-only calls
   // (segmentation, share) are guarded by `!guest` at their call sites.
+  const router = useRouter();
   const uploadImageCall = guest ? guestApi.uploadImage : api.uploadImage;
   const createProjectCall = guest ? guestApi.createProject : api.createProject;
   const getProjectCall = guest ? guestApi.getProject : api.getProject;
@@ -321,7 +323,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [hideNames, setHideNames] = useState(false);
   const [viewOnly, setViewOnly] = useState(false);
   const [viewOnlyReason, setViewOnlyReason] = useState<string | null>(null);
+  /**
+   * The job is finished. A superset of viewOnly rather than a flavour of it: closing
+   * makes a project read-only, but a read-only project is not necessarily closed — it
+   * may just have run out of days. The two want opposite things said to the customer,
+   * so the studio has to be able to tell them apart.
+   */
+  const [closed, setClosed] = useState(false);
+  const [unlockedShadeCodes, setUnlockedShadeCodes] = useState<string[]>([]);
+  const [boardsUsed, setBoardsUsed] = useState(0);
+  const [boardsAllowed, setBoardsAllowed] = useState(0);
   const [reopenPoints, setReopenPoints] = useState(0);
+  const [reopenPaiseForProject, setReopenPaiseForProject] = useState(0);
   const [reopening, setReopening] = useState<"points" | "money" | null>(null);
   const [segmenting, setSegmenting] = useState(false);
   const [masksReady, setMasksReady] = useState(false);
@@ -464,6 +477,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [pdfNotice, setPdfNotice] = useState<string | null>(null);
   const [pdfAllowance, setPdfAllowance] = useState<PdfAllowance | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [closing, setClosing] = useState(false);
   // Plan-driven page cap, falling back to the historical constant when the
   // allowance hasn't loaded (or an older backend doesn't serve it yet).
   const maxPdfPages = pdfAllowance ? Math.max(1, pdfAllowance.imagesPerPdf) : MAX_PDF_PAGES;
@@ -549,9 +563,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   }, [guest]);
 
   const projectPrice = purchaseOptions?.projectPricePoints ?? null;
-  // The cash reopen price. Flat, so unlike the project price it doesn't move with the
-  // plan — still read from the server rather than hardcoded, since it is configuration.
-  const reopenPaise = purchaseOptions?.reopenPricePaise ?? 0;
+  /**
+   * The cash reopen price, taken from the PROJECT first and the account quote only as a
+   * fallback.
+   *
+   * Reopening stopped having one price when closing arrived: a lapsed window is ₹9 and a
+   * closed project ₹99. The account-level quote knows the buyer, not the room, so it can
+   * only ever answer with the lapsed rate — which on a closed project would have put ₹9
+   * on the banner and then had the payment refuse to match it.
+   */
+  const reopenPaise = reopenPaiseForProject || (purchaseOptions?.reopenPricePaise ?? 0);
   // Spendable points. Zero until the options land — and permanently zero for a customer,
   // who cannot hold points at all, which is what keeps the points rail from being
   // offered to someone the backend would refuse.
@@ -782,6 +803,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setViewOnly(Boolean(detail.readOnly));
       setViewOnlyReason(detail.readOnlyReason ?? null);
       setReopenPoints(detail.reopenPricePoints ?? 0);
+      setReopenPaiseForProject(detail.reopenPricePaise ?? 0);
+      setClosed(Boolean(detail.closedAt));
+      setBoardsUsed(detail.boardsUsed ?? 0);
+      setBoardsAllowed(detail.boardsAllowed ?? 0);
       // MANUAL-mode projects arrive SEGMENTED with zero auto regions — the
       // cleaned canvas is the deliverable and the user marks walls by hand.
       setManualMaskProject(detail.maskMode === "MANUAL");
@@ -1673,6 +1698,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           : undefined
         : r.shade?.code,
       hex: r.hex,
+      // Not printed. Both exist so this board can be reported to the server as it
+      // really is: the region so the combination can be re-rendered from the masks
+      // later, and the true code so a shop's display scheme cannot make its own
+      // customer's board unreadable back to us. backendId, not id — the local id is a
+      // client-side string, and a region drawn but not yet saved has no backend row.
+      regionId: r.backendId,
+      rawCode: r.shade?.code,
     }));
     setPdfPages((prev) => [...prev, { jpegDataUrl: jpeg, shades }]);
     setPdfNotice(null);
@@ -1708,24 +1740,68 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // server to put it back.
   const downloadPdf = useCallback(async () => {
     if (pdfPages.length === 0 || pdfDownloading) return;
+    const id = projectId ?? openProjectId;
     setPdfDownloading(true);
     setPdfNotice(null);
     try {
+      // What was on each page travels with the charge. The board is built here and the
+      // server never sees the file, so this is the only moment the combinations that
+      // went onto paper can be recorded — and the closing flow is built entirely on them.
+      const pages = pdfPages.map((page) => ({
+        shades: page.shades.map((s) => ({
+          regionId: s.regionId ?? null,
+          regionLabel: s.label,
+          shadeCode: s.rawCode ?? null,
+          shadeName: s.name || null,
+          hex: s.hex,
+        })),
+      }));
       const outcome = await runColourBoardDownload({
         build: () => buildColourBoardPdf(pdfPages, projectName || "HueVista colour board"),
-        charge: () => (guest ? guestApi.chargePdfDownload() : api.chargePdfDownload()),
+        charge: () =>
+          id
+            ? guest
+              ? guestApi.recordColourBoard(id, pages)
+              : api.recordColourBoard(id, pages)
+            : Promise.reject(new Error("no project to record this board against")),
         save: (blob) => downloadBlob(blob, `huevista-colours-${Date.now()}.pdf`),
-        onAllowance: setPdfAllowance,
+        onResult: (result) => {
+          setPdfAllowance(result.allowance);
+          setBoardsUsed(result.boardsUsed);
+          setBoardsAllowed(result.boardsAllowed);
+        },
       });
       if (outcome.status === "build-failed") {
         setPdfNotice("Could not make the PDF on this device — try removing a photo and downloading again.");
       } else if (outcome.status === "quota-spent") {
         setPdfNotice(outcome.message);
+      } else if (outcome.status === "closed" && id && !guest) {
+        // That was the last board, so the job is finished. The file has already been
+        // handed over by this point — see runColourBoardDownload — so navigating away
+        // cannot cost the customer the board they just paid for.
+        setClosed(true);
+        router.push(`/render?project=${encodeURIComponent(id)}`);
       }
     } finally {
       setPdfDownloading(false);
     }
-  }, [pdfPages, projectName, guest, pdfDownloading]);
+  }, [pdfPages, projectName, guest, pdfDownloading, projectId, openProjectId, router]);
+
+  /** Finish the job early, before both boards are spent. */
+  const closeProject = useCallback(async () => {
+    const id = projectId ?? openProjectId;
+    if (!id || guest || closing) return;
+    setClosing(true);
+    try {
+      await api.closeProject(id);
+      setClosed(true);
+      router.push(`/render?project=${encodeURIComponent(id)}`);
+    } catch (e) {
+      setPdfNotice(e instanceof Error ? e.message : "Could not close this project.");
+    } finally {
+      setClosing(false);
+    }
+  }, [projectId, openProjectId, guest, closing, router]);
 
   const active = useMemo(() => regions.find((r) => r.id === activeRegion)!, [regions, activeRegion]);
 
@@ -1742,10 +1818,54 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // re-imported under the picker, say — falls back to the whole list: an empty panel
   // would look like the studio had broken rather than like a filter needing clearing.
   const panelShades = useMemo(() => {
+    // A CLOSED project shows only the shades that went onto its colour boards. The job
+    // is finished and those are what the customer chose; the rest of the catalogue is
+    // what reopening buys back.
+    //
+    // This is presentation, not access control, and it is deliberately not pretending
+    // otherwise: /api/shades is a global catalogue endpoint with no project scope, so
+    // there is no server-side filter to mirror here. What the server DOES enforce is the
+    // thing that matters — a closed project refuses every recolour — so the worst a
+    // determined browser can do is look at a shade it cannot apply.
+    if (closed) {
+      const unlocked = new Set(
+        unlockedShadeCodes.map((c) => c.toUpperCase()),
+      );
+      const kept = (shades ?? []).filter((s) => unlocked.has(s.code.toUpperCase()));
+      // Never hand back an empty panel: a closed project whose boards recorded only
+      // custom colours would otherwise look broken rather than finished.
+      if (kept.length > 0) return kept;
+    }
     if (companies.length === 0) return shades;
     const scoped = (shades ?? []).filter((s) => companies.includes(s.brand));
     return scoped.length > 0 ? scoped : shades;
-  }, [shades, companies]);
+  }, [shades, companies, closed, unlockedShadeCodes]);
+
+  /**
+   * The shade codes this project's colour boards carried — what stays visible once it
+   * closes. Loaded only when it actually is closed: on a live project the whole
+   * catalogue is open and there is nothing to filter, so asking would be a request per
+   * project open for an answer nobody reads.
+   */
+  useEffect(() => {
+    const id = projectId ?? openProjectId;
+    if (!closed || !id || guest) return;
+    let cancelled = false;
+    api
+      .getProjectCombos(id)
+      .then((list) => {
+        if (cancelled) return;
+        setUnlockedShadeCodes(
+          list.flatMap((c) => c.shades.map((s) => s.shadeCode).filter((x): x is string => !!x)),
+        );
+      })
+      .catch(() => {
+        /* The panel falls back to the full catalogue, which is still unpaintable. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [closed, projectId, openProjectId, guest]);
 
   // Undertone check across every painted wall: the first warm-vs-cool (or
   // white-tint) fight found becomes a quiet note in the shade panel.
@@ -2286,7 +2406,30 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       </button>
                     </>
                   )}
+                  {/* Finishing early. Only offered once a board has actually been
+                      handed over: closing with nothing to show for it would lock the
+                      catalogue on a job that produced nothing to choose from. */}
+                  {!guest && !closed && boardsUsed > 0 && (
+                    <button
+                      type="button"
+                      className="hv-pdf-close-project"
+                      onClick={() => void closeProject()}
+                      disabled={closing}
+                      title="Finish this job and make your AI image"
+                    >
+                      {closing ? "Closing…" : "Close project"}
+                    </button>
+                  )}
                 </div>
+                {!guest && boardsAllowed > 0 && !closed && (
+                  <p className="hv-pdf-boards-left">
+                    {boardsUsed === 0
+                      ? `${boardsAllowed} colour boards on this project.`
+                      : boardsAllowed - boardsUsed === 1
+                        ? "One colour board left — the next one finishes this project."
+                        : `${boardsAllowed - boardsUsed} colour boards left on this project.`}
+                  </p>
+                )}
                 {pdfPages.length > 0 && (
                   <div className="hv-pdf-thumbs">
                     {pdfPages.map((page, i) => (

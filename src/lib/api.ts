@@ -1167,6 +1167,39 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(updates),
     }),
+  // Charge for a colour board AND record what was on it. The board is built in the
+  // browser, so this is the only moment the shades that went onto paper can be captured
+  // — and the response says whether that board was the one that closed the project.
+  recordColourBoard: (projectId: string, pages: import("./types").ColourBoardPage[]) =>
+    browserFetch<import("./types").ColourBoardResult>(
+      `api/projects/${encodeURIComponent(projectId)}/colour-boards`,
+      { method: "POST", body: JSON.stringify({ pages }) },
+    ),
+  // Finish the job early, before both boards are spent. Idempotent.
+  closeProject: (projectId: string) =>
+    browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/close`, {
+      method: "POST",
+    }),
+  // The combinations this project handed over — what a closed one still shows, and the
+  // set an AI render may be made from.
+  getProjectCombos: (projectId: string) =>
+    browserFetch<import("./types").ProjectCombo[]>(
+      `api/projects/${encodeURIComponent(projectId)}/combos`,
+    ),
+  // --- AI renders. Accepted immediately as QUEUED; poll until READY or FAILED.
+  requestRender: (projectId: string, body: { comboId: string } & import("./types").RenderOptions) =>
+    browserFetch<import("./types").ProjectRender>(
+      `api/projects/${encodeURIComponent(projectId)}/renders`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  listRenders: (projectId: string) =>
+    browserFetch<import("./types").ProjectRender[]>(
+      `api/projects/${encodeURIComponent(projectId)}/renders`,
+    ),
+  getRender: (projectId: string, renderId: string) =>
+    browserFetch<import("./types").ProjectRender>(
+      `api/projects/${encodeURIComponent(projectId)}/renders/${encodeURIComponent(renderId)}`,
+    ),
   // Persist a hand-drawn (polygon) mask as a new region. maskBase64 may be a bare
   // base64 string or a data URL; category is MAIN_WALL | ACCENT_WALL | TRIM | MANUAL.
   createCustomMask: (
@@ -1249,8 +1282,14 @@ export const api = {
     browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/points/project-options"),
   // Paying with money instead of points. Only the caller travels — the amount is priced
   // server-side from their plan, so the browser can never name its own price.
-  createProjectOrder: () =>
-    browserFetch<import("./types").ProjectOrder>("api/billing/projects/order", { method: "POST" }),
+  // `credits` buys one project or a bundle of three for two projects' money. No other
+  // quantity is priced: the server refuses anything else rather than multiplying a
+  // number the browser chose.
+  createProjectOrder: (credits = 1) =>
+    browserFetch<import("./types").ProjectOrder>(
+      `api/billing/projects/order?credits=${credits}`,
+      { method: "POST" },
+    ),
   verifyProjectPurchase: (body: { orderId: string; paymentId: string; signature: string }) =>
     browserFetch<import("./types").ProjectPurchaseOptions>("api/billing/projects/verify", {
       method: "POST",
@@ -1288,6 +1327,18 @@ export const api = {
     ),
   verifyReopen: (body: { orderId: string; paymentId: string; signature: string }) =>
     browserFetch<import("./types").ProjectReopenResult>("api/billing/projects/reopen/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  // One more AI image on a project that spent the one it came with. Refused up-front
+  // (409) while a render is still unspent, so nobody buys one they already have.
+  createRenderOrder: (projectId: string) =>
+    browserFetch<import("./types").ProjectOrder>(
+      `api/billing/projects/${encodeURIComponent(projectId)}/renders/order`,
+      { method: "POST" },
+    ),
+  verifyRenderPurchase: (body: { orderId: string; paymentId: string; signature: string }) =>
+    browserFetch<void>("api/billing/projects/renders/verify", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -1658,6 +1709,13 @@ export const guestApi = {
     browserFetch<import("./types").PdfAllowance>("api/guest/pdf-allowance"),
   chargePdfDownload: () =>
     browserFetch<import("./types").PdfAllowance>("api/guest/pdf-downloads", { method: "POST" }),
+  // Prefer this over chargePdfDownload: a board charged through the bare endpoint is
+  // not recorded, so it never becomes a combination and never closes anything.
+  recordColourBoard: (projectId: string, pages: import("./types").ColourBoardPage[]) =>
+    browserFetch<import("./types").ColourBoardResult>(
+      `api/guest/projects/${encodeURIComponent(projectId)}/colour-boards`,
+      { method: "POST", body: JSON.stringify({ pages }) },
+    ),
 };
 
 export { HttpError };

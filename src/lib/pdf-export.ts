@@ -20,6 +20,19 @@
 export interface PdfShade {
   /** Region this colour was applied to, e.g. "Main wall" / "Accent wall" / "Border". */
   label: string;
+  /**
+   * Which region that was. Never printed — it exists so the board can be REPORTED
+   * accurately once it has been built: the closing flow re-renders each combination
+   * from the project's masks, and a label alone cannot say which mask to paint.
+   */
+  regionId?: number;
+  /**
+   * The catalogue code as the catalogue has it, before the shop's own display scheme
+   * encodes or hides it. Also never printed — `code` is what goes on the page. The two
+   * differ deliberately: a shop that obfuscates its codes still needs the real one
+   * recorded, or its customer's own colour board could not be read back afterwards.
+   */
+  rawCode?: string;
   /** Catalogue shade name, or a generic label for an exact custom colour. */
   name: string;
   /** Shade code / number, when known (hidden for guests / custom colours). */

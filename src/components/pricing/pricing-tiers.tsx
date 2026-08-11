@@ -4,7 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { subscribeToPlan } from "@/lib/payments";
 import { HttpError } from "@/lib/http-error";
-import { FREE_PLAN_PROJECTS } from "@/lib/free-plan";
+import {
+  FREE_PLAN_EXTRA_PROJECT_POINTS,
+  FREE_PLAN_EXTRA_PROJECT_RUPEES,
+  FREE_PLAN_PROJECTS,
+} from "@/lib/free-plan";
 import type { PurchasablePlan } from "@/lib/types";
 
 /**
@@ -72,7 +76,7 @@ const TIERS: ReadonlyArray<Tier> = [
     { text: "For paint shops only", detail: "The free plan is a SHOP plan — it comes with a shop account and the counter tools that go with it. A customer visualising their own room doesn't need it: the access code their paint shop hands them is already free for them, at /unlock." },
     `${FREE_PLAN_PROJECTS} projects a month — clean-up and walls included`,
     { text: "Renews every month, for as long as you keep the account", detail: "Not a trial with a deadline: the two projects come back on the same monthly cycle a paid plan runs on, and nothing expires if you don't use them." },
-    { text: "Extra projects ₹99 each, or 80 points", detail: "Points are HueVista credit bought up front — they buy extras at a lower rate than paying by card. This is the dearest rate; every paid tier's is cheaper." },
+    { text: `Extra projects ₹${FREE_PLAN_EXTRA_PROJECT_RUPEES} each, or ${FREE_PLAN_EXTRA_PROJECT_POINTS} points`, detail: "Points are HueVista credit bought up front — they buy extras at a lower rate than paying by card. This is the dearest rate; every paid tier's is cheaper." },
     "Mark walls yourself as often as you like — no extra charge",
     "5 colour boards a month (4 photos each)",
     { text: "One paint company — Asian Paints, in full", detail: "Every shade, code and finish that company has, with the full search over it. The other companies your distributor has assigned you open on any paid plan." },
@@ -160,7 +164,7 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
           One project is one photo turned into a room you can paint, and it covers the
           clean-up and finding the walls together — there is no second allowance to run
           out of. Used up the month&apos;s projects? Buy more one at a time at your
-          plan&apos;s rate: 80 points or ₹99 on Free, 60 or ₹65 on Starter, down to 40 or
+          plan&apos;s rate: 80 points or ₹199 on Free, 60 or ₹65 on Starter, down to 40 or
           ₹45 on Business. Or wait — the month turns over and the allowance comes back, on
           the free plan as much as on a paid one. Upgrade any time and whatever you had
           left comes with you.
