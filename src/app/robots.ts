@@ -28,6 +28,9 @@ export default function robots(): MetadataRoute.Robots {
           "/colour-finder",
           "/dashboard",
           "/inbox",
+          // The in-app view of the library. Its public twin, /gallery, is the one
+          // meant to be indexed — this one only redirects a crawler to /sign-in.
+          "/library",
           "/network",
           "/portal",
           "/products",

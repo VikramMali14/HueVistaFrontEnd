@@ -13,7 +13,7 @@ import { SHOWCASE_CONTENT } from "@/lib/showcase";
 // from either one stops refreshing its access cookie and starts bouncing people
 // to /sign-in; src/lib/__tests__/protected-routes.test.ts checks both against
 // the pages that actually exist under (app).
-const PROTECTED_PREFIXES = ["/studio", "/render", "/dashboard", "/portal", "/inbox", "/products", "/assigned-products", "/colour-finder", "/account", "/admin", "/plan", "/network"];
+const PROTECTED_PREFIXES = ["/studio", "/render", "/dashboard", "/portal", "/inbox", "/products", "/assigned-products", "/colour-finder", "/account", "/admin", "/plan", "/network", "/library"];
 // Pages that only make sense for a signed-OUT visitor. A signed-in user landing
 // here is bounced home — they can't register or sign in again without signing
 // out first. The Google OAuth callback at /sign-in/google is deliberately NOT
@@ -279,6 +279,8 @@ export const config = {
     "/admin/:path*",
     "/plan/:path*",
     "/network/:path*",
+    // The free-room library, as a signed-in account browses it.
+    "/library/:path*",
     "/bff/:path*",
     // Rewritten-to-backend auth endpoints — X-Forwarded-For normalisation only.
     "/api/auth/:path*",

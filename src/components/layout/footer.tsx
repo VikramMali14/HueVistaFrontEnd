@@ -1,36 +1,53 @@
 import Link from "next/link";
 import { contact } from "@/lib/config";
+import { libraryHasRooms } from "@/lib/free-projects-server";
 import { SHOWCASE_CONTENT } from "@/lib/showcase";
 import { BrandMark } from "./brand-mark";
 
-// Gallery, Our work and Journal are placeholder editorial pages and 404 unless
+// Our work and Journal are placeholder editorial pages and 404 unless
 // NEXT_PUBLIC_SHOWCASE_CONTENT=1 (see lib/showcase) — don't link to a 404.
-const COLUMNS = [
-  {
-    title: "Product",
-    links: [
-      { href: "/method", label: "How it works" },
-      { href: "/catalogue", label: "Catalogue" },
-      ...(SHOWCASE_CONTENT ? [{ href: "/gallery", label: "Gallery" }] : []),
-      { href: "/pricing", label: "Pricing" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      ...(SHOWCASE_CONTENT
-        ? [
-            { href: "/work", label: "Our work" },
-            { href: "/journal", label: "Journal" },
-          ]
-        : []),
-      { href: "/legal/about", label: "About us" },
-      { href: "/legal/contact", label: "Contact" },
-    ],
-  },
-];
+//
+// Gallery is no longer one of them. It lists the rooms an admin has published and
+// opens by itself once the shelf is not empty, so its link follows the shelf too
+// — see the note in nav.tsx, which makes the same decision for the header.
+function columnsFor(galleryLive: boolean) {
+  return [
+    {
+      title: "Product",
+      links: [
+        { href: "/method", label: "How it works" },
+        { href: "/catalogue", label: "Catalogue" },
+        ...(SHOWCASE_CONTENT || galleryLive ? [{ href: "/gallery", label: "Gallery" }] : []),
+        { href: "/pricing", label: "Pricing" },
+      ],
+    },
+    {
+      title: "Company",
+      links: [
+        ...(SHOWCASE_CONTENT
+          ? [
+              { href: "/work", label: "Our work" },
+              { href: "/journal", label: "Journal" },
+            ]
+          : []),
+        { href: "/legal/about", label: "About us" },
+        { href: "/legal/contact", label: "Contact" },
+      ],
+    },
+  ];
+}
 
-export function Footer() {
+/**
+ * Async so it can ask whether the gallery has anything on it.
+ *
+ * A server component throughout — it is rendered by ~20 pages, all of them server
+ * components, and asking here rather than taking a prop keeps those pages from
+ * having to thread an answer none of them care about. The read is a tagged,
+ * revalidated fetch shared with the header, so it costs a cache hit.
+ */
+export async function Footer() {
+  const galleryLive = await libraryHasRooms();
+  const COLUMNS = columnsFor(galleryLive);
   return (
     <footer>
       <div className="footer-inner">
