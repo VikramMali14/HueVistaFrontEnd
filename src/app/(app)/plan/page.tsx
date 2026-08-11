@@ -21,7 +21,10 @@ export default async function SubscriptionPage() {
   const token = await requireAccessToken();
   const user = await getCurrentUser();
 
-  if (user?.role === "CUSTOMER") {
+  // An administrator runs the platform rather than buying from it. Sending them to the
+  // panel below meant a plan picker and a "your trial has ended" prompt aimed at the
+  // person who administers everyone else's subscriptions.
+  if (user?.role === "ADMIN") {
     return (
       <div style={{ maxWidth: 640 }}>
         <Eyebrow>Subscription</Eyebrow>
@@ -29,12 +32,40 @@ export default async function SubscriptionPage() {
           No plan <i>needed.</i>
         </h1>
         <Lead>
-          Plans are for paint shops. Visualising your own room is free for you — redeem the
-          access code from your paint shop and start painting.
+          Administrator accounts aren&rsquo;t billed. Every feature, every quota and every
+          shop&rsquo;s console is open to you without a subscription — there is nothing here
+          to buy, renew or cancel.
         </Lead>
-        <Link className="btn btn-brass" href="/redeem" style={{ marginTop: 28 }}>
-          I have a code <span className="arr">→</span>
+        <Link className="btn btn-brass" href="/admin" style={{ marginTop: 28 }}>
+          Admin console <span className="arr">→</span>
         </Link>
+      </div>
+    );
+  }
+
+  if (user?.role === "CUSTOMER") {
+    return (
+      <div style={{ maxWidth: 640 }}>
+        <Eyebrow>Subscription</Eyebrow>
+        <h1 className="display" style={{ fontSize: "clamp(34px, 5vw, 56px)", margin: "12px 0 14px" }}>
+          No plan <i>needed.</i>
+        </h1>
+        {/* Two routes, because there are two kinds of customer here and only one of them
+            has a shop. Naming just the code stranded anyone who signed up on their own —
+            they were told to fetch something from a party they had never dealt with. */}
+        <Lead>
+          Monthly plans are for paint shops. You pay per room instead: buy a project when
+          you want one, and it stays open for a month. If a paint shop gave you an access
+          code, redeem that and the room is on them.
+        </Lead>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 28 }}>
+          <Link className="btn btn-brass" href="/studio">
+            Start a room <span className="arr">→</span>
+          </Link>
+          <Link className="btn" href="/redeem">
+            I have a code <span className="arr">→</span>
+          </Link>
+        </div>
       </div>
     );
   }

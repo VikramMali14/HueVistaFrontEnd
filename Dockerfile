@@ -6,6 +6,15 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# The backend origin is needed at BUILD time (NEXT_PUBLIC_* is inlined into the bundles)
+# AND at RUN time (next.config.ts is loaded by Node at server start, and builds the
+# Content-Security-Policy from it). Supplying it to only one of the two is what let the
+# app request images from the real API while the CSP it was served only allowed
+# localhost — so the arg is declared here and re-exported into the runtime stage below.
+ARG NEXT_PUBLIC_API_ORIGIN
+ENV NEXT_PUBLIC_API_ORIGIN=${NEXT_PUBLIC_API_ORIGIN}
+ARG NEXT_PUBLIC_SITE_ORIGIN
+ENV NEXT_PUBLIC_SITE_ORIGIN=${NEXT_PUBLIC_SITE_ORIGIN}
 RUN npm run build
 
 # ---- Runtime ----
@@ -13,6 +22,12 @@ FROM node:26-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# Same values as the build stage — see the note there. Without these the server would
+# start with no API origin and write a CSP that contradicts the bundles it is serving.
+ARG NEXT_PUBLIC_API_ORIGIN
+ENV NEXT_PUBLIC_API_ORIGIN=${NEXT_PUBLIC_API_ORIGIN}
+ARG NEXT_PUBLIC_SITE_ORIGIN
+ENV NEXT_PUBLIC_SITE_ORIGIN=${NEXT_PUBLIC_SITE_ORIGIN}
 COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 # chown so the runtime user can write .next/cache (image optimizer, ISR).

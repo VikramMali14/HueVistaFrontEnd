@@ -61,6 +61,11 @@ export function PlanBanner() {
 
   if (!sub) return null;
 
+  // An administrator is not billed and holds no plan — there is no allowance to count
+  // down, no period to end and nothing to renew. Rendering the usual strip for them
+  // would print "0 / 2147483647 projects this month" beside a plan they never bought.
+  if (sub.unbilled) return null;
+
   // Mirrors the backend entitlement gate (and the subscription panel): ACTIVE, or
   // CANCELLED but still inside the period the shop paid for, and started either way.
   // Testing status === "ACTIVE" alone left this blank for a cancelled plan — no usage

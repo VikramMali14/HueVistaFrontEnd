@@ -537,6 +537,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // The cash reopen price. Flat, so unlike the project price it doesn't move with the
   // plan — still read from the server rather than hardcoded, since it is configuration.
   const reopenPaise = purchaseOptions?.reopenPricePaise ?? 0;
+  // Spendable points. Zero until the options land — and permanently zero for a customer,
+  // who cannot hold points at all, which is what keeps the points rail from being
+  // offered to someone the backend would refuse.
+  const pointsBalance = purchaseOptions?.pointsBalance ?? 0;
+  // Whether the points rail can actually pay for a project right now. Until the options
+  // land the price is unknown, and offering a rail we cannot price is how the button
+  // ended up reading "Buy a project ·  points".
+  const canPayProjectWithPoints =
+    purchaseOptions !== null && pointsBalance >= purchaseOptions.projectPricePoints;
   // The cash price of one project, at this account's tier. Zero until the options land,
   // which is what hides the card button rather than showing "or pay ₹0".
   const projectPaise = purchaseOptions?.projectPricePaise ?? 0;
@@ -1948,10 +1957,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               "This project is view-only — you can still see the colours last applied to it."}
           </span>
           <span className="hv-viewonly-actions">
-            {/* Both rails, priced from the server. Points are the cheaper one, so they
-                lead; the card button is for a shop that would rather not hold a balance.
-                A project a live plan already covers never gets here — it isn't view-only. */}
-            {reopenPoints > 0 && projectId && (
+            {/* Both rails, priced from the server. Points lead when they can actually
+                pay — they are the cheaper one — and the card button is always there.
+                A project a live plan already covers never gets here — it isn't view-only.
+
+                Gated on the BALANCE, not just the price. Points are a shop currency:
+                the backend refuses to sell or spend them for anyone but a RETAILER, so
+                "Reopen for 9 points" was a button that 403'd for every customer who
+                pressed it — and it led, so it was the one they pressed. It is equally
+                wrong for a shop holding 3 points. */}
+            {reopenPoints > 0 && pointsBalance >= reopenPoints && projectId && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -2428,34 +2443,41 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   )}
                   {projectLimitReached && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
-                      <Button
-                        variant="brass"
-                        onClick={() => void handleBuyProjectAndRetry("points")}
-                        disabled={buyingProject !== null}
-                      >
-                        {buyingProject === "points" ? (
-                          <>
-                            <Spinner size={14} color="currentColor" />
-                            <span>Paying…</span>
-                          </>
-                        ) : (
-                          <>
-                            Spend {projectPointPrice} points <span className="arr">→</span>
-                          </>
-                        )}
-                      </Button>
+                      {/* Points lead only when the balance covers the price — a shop
+                          holding 3 of the 80 it needs was shown "Spend 80 points" as its
+                          primary action, and got a 402 for pressing it. */}
+                      {canPayProjectWithPoints && (
+                        <Button
+                          variant="brass"
+                          onClick={() => void handleBuyProjectAndRetry("points")}
+                          disabled={buyingProject !== null}
+                        >
+                          {buyingProject === "points" ? (
+                            <>
+                              <Spinner size={14} color="currentColor" />
+                              <span>Paying…</span>
+                            </>
+                          ) : (
+                            <>
+                              Spend {projectPointPrice} points <span className="arr">→</span>
+                            </>
+                          )}
+                        </Button>
+                      )}
                       {/* The card rail, for a shop that has run out and holds no points.
                           It used to live on the subscription page, which meant leaving the
                           upload half-finished to go and find it. */}
                       {projectPaise > 0 && (
                         <Button
-                          variant="ghost"
+                          variant={canPayProjectWithPoints ? "ghost" : "brass"}
                           onClick={() => void handleBuyProjectAndRetry("money")}
                           disabled={buyingProject !== null}
                         >
                           {buyingProject === "money"
                             ? "Opening checkout…"
-                            : `or pay ₹${(projectPaise / 100).toLocaleString("en-IN")} by card`}
+                            : canPayProjectWithPoints
+                              ? `or pay ₹${(projectPaise / 100).toLocaleString("en-IN")} by card`
+                              : `Buy a project · ₹${(projectPaise / 100).toLocaleString("en-IN")}`}
                         </Button>
                       )}
                       {/* What the money buys, before it is spent. An extra project is not
@@ -2503,34 +2525,43 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       offering only the second strands anyone who has no shop to visit. */}
                   {limitReached && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "stretch" }}>
-                      <Button
-                        variant="brass"
-                        onClick={() => void handleBuyAndRetry("points")}
-                        disabled={buying !== null}
-                      >
-                        {buying === "points" ? (
-                          <>
-                            <Spinner size={14} color="currentColor" />
-                            <span>Paying…</span>
-                          </>
-                        ) : (
-                          <>
-                            {/* Points, not rupees — this button debits the balance. It
-                                said "₹80" for a price of 80 POINTS, which is the same
-                                figure in the wrong currency and a promise nobody kept. */}
-                            Buy a project{projectPrice ? ` · ${projectPrice} points` : ""} <span className="arr">→</span>
-                          </>
-                        )}
-                      </Button>
+                      {/* Points only when the balance can actually pay. This prompt is
+                          reached mainly by an account with no shop behind it — a CUSTOMER,
+                          who cannot hold points at all — so leading with a points button
+                          led with the one action the backend refuses. The card is the
+                          primary route whenever points cannot cover it. */}
+                      {canPayProjectWithPoints && (
+                        <Button
+                          variant="brass"
+                          onClick={() => void handleBuyAndRetry("points")}
+                          disabled={buying !== null}
+                        >
+                          {buying === "points" ? (
+                            <>
+                              <Spinner size={14} color="currentColor" />
+                              <span>Paying…</span>
+                            </>
+                          ) : (
+                            <>
+                              {/* Points, not rupees — this button debits the balance. It
+                                  said "₹80" for a price of 80 POINTS, which is the same
+                                  figure in the wrong currency and a promise nobody kept. */}
+                              Buy a project{projectPrice ? ` · ${projectPrice} points` : ""} <span className="arr">→</span>
+                            </>
+                          )}
+                        </Button>
+                      )}
                       {projectPaise > 0 && (
                         <Button
-                          variant="ghost"
+                          variant={canPayProjectWithPoints ? "ghost" : "brass"}
                           onClick={() => void handleBuyAndRetry("money")}
                           disabled={buying !== null}
                         >
                           {buying === "money"
                             ? "Opening checkout…"
-                            : `or pay ₹${(projectPaise / 100).toLocaleString("en-IN")} by card`}
+                            : canPayProjectWithPoints
+                              ? `or pay ₹${(projectPaise / 100).toLocaleString("en-IN")} by card`
+                              : `Buy a project · ₹${(projectPaise / 100).toLocaleString("en-IN")}`}
                         </Button>
                       )}
                       <a className="btn" href="/redeem">

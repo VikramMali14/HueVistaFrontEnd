@@ -10,6 +10,7 @@ import { PortalSubdomain } from "@/components/app/portal-subdomain";
 import { StoreKioskPanel } from "@/components/app/store-kiosk-panel";
 import { ShopCombos } from "@/components/app/shop-combos";
 import { ShadeCodePanel } from "@/components/app/shade-code-panel";
+import { ShopBrandsPanel } from "@/components/app/shop-brands-panel";
 import { SectionNav } from "@/components/ui/section-nav";
 import { getCatalogueOrSample } from "@/lib/catalogue";
 
@@ -51,6 +52,7 @@ export default async function PortalPage() {
       <SectionNav
         items={[
           { id: "active-codes", label: "Active codes", hint: "Issue customer access codes" },
+          { id: "paint-companies", label: "Paint companies", hint: "Choose which ones you show" },
           { id: "suggested-combos", label: "Suggested combos", hint: "Predefine shade combinations" },
           { id: "shade-codes", label: "Shade codes", hint: "Your custom code scheme" },
           { id: "store-kiosk", label: "Store kiosk & wallet", hint: "Public paid link + payouts" },
@@ -64,6 +66,18 @@ export default async function PortalPage() {
           visualising — with one project and a validity window you control.
         </p>
         <AccessCodes org={shopOrg} />
+      </section>
+      <section id="paint-companies" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
+        <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
+          Paint companies
+        </h2>
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+          Your distributor decides which companies you may carry. This is the other half: of
+          those, the ones you actually stock and want shown. It applies in one go — your own
+          studio, your kiosk link, every access code you issue and every customer you onboard —
+          so nobody is offered a colour you cannot sell them.
+        </p>
+        <ShopBrandsPanel org={shopOrg} />
       </section>
       <section id="suggested-combos" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
