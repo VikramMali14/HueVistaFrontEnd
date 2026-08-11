@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Eyebrow, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
 import { TiltCard } from "@/components/ui/tilt-card";
+import { startGalleryRoomAction } from "@/lib/free-projects";
 
 /** The categories the built-in editorial plates use. Real rooms bring their own. */
 export type PlateCategory = "Living rooms" | "Bedrooms" | "Kitchens" | "Verandas" | "Façades" | "Commercial";
@@ -32,7 +34,14 @@ export interface Plate {
   /** Where the card leads. Absent = the card is a picture, not a link — which is
    *  the case for published rooms, since there is no per-room page for them. */
   href?: string;
+  /** A real published room, so it can be opened and painted. The built-in
+   *  editorial plates are invented material with nothing behind them, and are
+   *  never startable — there is no room to copy. */
+  startable?: boolean;
 }
+
+/** Where a signed-out visitor is sent back to, to finish the click they made. */
+const RESUME_PARAM = "paint";
 
 const ALL = "All rooms";
 
@@ -42,6 +51,59 @@ const LIGHT_TONES: ReadonlyArray<Tone> = ["ivory", "sage", "brass"];
 export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
   const [category, setCategory] = useState<string>(ALL);
   const [sort, setSort] = useState<"latest" | "oldest">("latest");
+  const [busySlug, setBusySlug] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  const router = useRouter();
+
+  /**
+   * Open a copy of a published room and hand it to the studio.
+   *
+   * A signed-out visitor is the ordinary case here — this is a marketing page —
+   * so instead of an error they go to /sign-in with a `next` that returns to the
+   * gallery carrying the slug they clicked, and the effect below finishes the job.
+   * Losing the click and dropping them on a dashboard would be the rude version.
+   */
+  const paint = useCallback((slug: string) => {
+    setBusySlug(slug);
+    setError(null);
+    startTransition(async () => {
+      const res = await startGalleryRoomAction(slug);
+      if (res.signInRequired) {
+        const back = `/gallery?${RESUME_PARAM}=${encodeURIComponent(slug)}`;
+        router.push(`/sign-in?next=${encodeURIComponent(back)}`);
+        return;
+      }
+      if (res.started) {
+        // A normal project from here on — indistinguishable from an uploaded one.
+        router.push(`/studio?project=${encodeURIComponent(res.started.projectId)}`);
+        return;
+      }
+      setBusySlug(null);
+      setError(res.error ?? "Could not open this room. Please try again.");
+    });
+  }, [router]);
+
+  /**
+   * Finish a click that went through the sign-in page.
+   *
+   * The slug is read from `window.location` rather than `useSearchParams` on
+   * purpose: this page is statically rendered with a revalidate window, and
+   * reading search params during render would opt the whole thing into dynamic
+   * rendering (or demand a Suspense boundary) for a parameter that is only ever
+   * present on the way back from /sign-in.
+   */
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (resumed.current) return;
+    const slug = new URLSearchParams(window.location.search).get(RESUME_PARAM);
+    if (!slug) return;
+    resumed.current = true;
+    // Drop the parameter so a refresh (or a back-button) does not open a second
+    // copy of the same room.
+    window.history.replaceState(null, "", window.location.pathname);
+    if (plates.some((p) => p.startable && p.slug === slug)) paint(slug);
+  }, [plates, paint]);
 
   // Built from the plates on screen. A chip for a category nothing is filed under
   // is a filter that can only ever empty the grid, which is how the fixed list
@@ -88,6 +150,19 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
         </button>
       </div>
 
+      {error && (
+        <p
+          role="alert"
+          style={{
+            marginTop: 24, padding: "12px 16px",
+            border: "1px solid var(--rule-strong)",
+            font: "400 14px/1.5 var(--sans)", color: "var(--fg)",
+          }}
+        >
+          {error}
+        </p>
+      )}
+
       <section style={{ paddingTop: 60 }}>
         {/* The keyed inner div replays the entrance when filters change; the static
             outer div keeps .reveal (a remount would strip its .in and stay invisible). */}
@@ -132,6 +207,20 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
                     </div>
                     <Mono style={{ textAlign: "right", whiteSpace: "pre-line", flexShrink: 0 }}>{p.location}{"\n"}{p.date}</Mono>
                   </div>
+                  {p.startable && (
+                    <div style={{ marginTop: 14 }}>
+                      <button
+                        type="button"
+                        className="hv-paint-btn"
+                        onClick={() => paint(p.slug)}
+                        disabled={busySlug !== null}
+                        aria-label={`Paint ${p.location || "this room"} yourself`}
+                      >
+                        {busySlug === p.slug ? "Opening…" : "Paint this room"}
+                        <span className="arr" aria-hidden> →</span>
+                      </button>
+                    </div>
+                  )}
                 </>
               );
               return (
@@ -161,6 +250,20 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
       </section>
 
       <style>{`
+        .hv-paint-btn {
+          display: inline-flex; align-items: center; gap: 2px;
+          padding: 9px 16px; cursor: pointer;
+          font: 400 12px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase;
+          color: var(--brass); background: transparent;
+          border: 1px solid var(--rule-brass);
+          transition: background .25s var(--ease), color .25s var(--ease);
+        }
+        .hv-paint-btn:hover:not(:disabled) { background: var(--brass); color: var(--bg); }
+        .hv-paint-btn:hover:not(:disabled) .arr { transform: translateX(3px); }
+        .hv-paint-btn .arr { display: inline-block; transition: transform .25s var(--ease); }
+        /* Only the card being opened keeps full contrast; the rest dim so it is
+           obvious which one is loading, and that a second click will not land. */
+        .hv-paint-btn:disabled { cursor: default; opacity: .45; }
         .hv-grid-swap { animation: hv-grid-swap .45s var(--ease); }
         @keyframes hv-grid-swap { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
         .hv-plate-link:hover .arr { transform: translateX(4px); }
@@ -174,6 +277,7 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
         @media (prefers-reduced-motion: reduce) {
           .hv-grid-swap { animation: none; }
           .hv-plate-link .arr { transition: none; }
+          .hv-paint-btn, .hv-paint-btn .arr { transition: none; }
         }
       `}</style>
     </>

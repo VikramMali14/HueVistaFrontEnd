@@ -115,6 +115,9 @@ export default async function AdminPage() {
         <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Mask viewer →
         </Link>
+        <Link href="/admin/mask-reports" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          Reported runs →
+        </Link>
         <Link href="/admin/free-projects" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Free projects →
         </Link>

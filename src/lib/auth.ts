@@ -10,7 +10,7 @@ import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult,
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import { canUseFeature, planWithholds } from "./features";
-import type { AppFeatureKey, AuthResponse, AuthUser, MyAccess, NetworkReport, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary } from "./types";
+import type { AppFeatureKey, AuthResponse, AuthUser, MaskReport, MaskReportStatus, MyAccess, NetworkReport, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -702,6 +702,40 @@ export async function approveShopLeadAction(
       return { error: err.message };
     }
     return { error: "Could not create the account. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: the "the AI got this wrong" queue, newest first.
+ *
+ * NULL on any failure rather than an empty list — the two mean opposite things
+ * here, and rendering an outage as "no reports" would be the worst possible lie
+ * to tell about a queue whose entire job is to surface silent failures.
+ */
+export async function getMaskReports(includeResolved = false): Promise<MaskReport[] | null> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    return await adminApi.listMaskReports(token, includeResolved);
+  } catch {
+    return null;
+  }
+}
+
+/** ADMIN: move a report along and/or leave an internal note. */
+export async function updateMaskReportAction(
+  reportId: string,
+  body: { status?: MaskReportStatus; adminNote?: string },
+): Promise<{ report?: MaskReport; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { report: await adminApi.updateMaskReport(token, reportId, body) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not update the report. Please try again." };
   }
 }
 
