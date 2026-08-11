@@ -59,6 +59,13 @@ export interface DemoStore {
   wallet: WalletSummary;
   /** The shop's shade-code scheme (customer codes derive from this one pattern). */
   codeScheme: ShadeCodeScheme;
+  /**
+   * Which paint companies the shop shows, as brand ids — null while it shows every
+   * company it carries. Null rather than "all the ids" so the demo reproduces the same
+   * three-state shape the backend has: unset, an explicit list, and an explicit empty
+   * list meaning none.
+   */
+  visibleBrandIds: number[] | null;
   /** Monotonic counter for generated numeric ids (regions, etc.). */
   seq: number;
 }
@@ -88,6 +95,7 @@ function seed(): DemoStore {
     wallet: clone(DEMO_WALLET),
     // Mehta Paints reads shade L124 as MPL1K24 at the counter.
     codeScheme: { prefix: "MP", infix: "K", suffix: "" },
+    visibleBrandIds: null,
     seq: 1000,
   };
 }

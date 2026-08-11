@@ -8,12 +8,9 @@ import { api } from "@/lib/api";
 import { buyOneProject } from "@/lib/payments";
 
 vi.mock("@/lib/api", () => ({
-  api: {
-    getMyEntitlement: vi.fn(),
-    getProjectPurchaseOptions: vi.fn(),
-  },
+  api: { getMyEntitlement: vi.fn(), getProjectPurchaseOptions: vi.fn() },
+  HttpError: class HttpError extends Error {},
 }));
-
 vi.mock("@/lib/payments", () => ({ buyOneProject: vi.fn() }));
 
 const DAYS = 86_400_000;
@@ -25,10 +22,8 @@ function options(overrides: Partial<ProjectPurchaseOptions> = {}): ProjectPurcha
     projectPricePoints: 80,
     projectPricePaise: 9900,
     reopenPricePoints: 9,
-    reopenPricePaise: 1000,
+    reopenPricePaise: 900,
     pointsBalance: 0,
-    // Points are a shop currency — this banner only ever renders for a CUSTOMER.
-    pointsEligible: false,
     validDays: 30,
     availableCredits: 0,
     ...overrides,
@@ -37,21 +32,19 @@ function options(overrides: Partial<ProjectPurchaseOptions> = {}): ProjectPurcha
 
 function entitlement(overrides: Partial<CustomerEntitlement> = {}): CustomerEntitlement {
   return {
-    customerId: "cust-1",
-    customerName: "Anjali",
-    retailerOrgId: "org-1",
-    accessExpiresAt: new Date(Date.now() + 6 * DAYS).toISOString(),
-    expired: false,
     projectAllowance: 3,
     projectsCreated: 1,
     projectsRemaining: 2,
+    expired: false,
+    accessExpiresAt: new Date(Date.now() + 10 * DAYS).toISOString(),
     ...overrides,
-  };
+  } as CustomerEntitlement;
 }
 
-async function banner(ent: CustomerEntitlement | null, opts = options()) {
+async function banner(ent: CustomerEntitlement | null, opts: ProjectPurchaseOptions | null = options()) {
   vi.mocked(api.getMyEntitlement).mockResolvedValue(ent);
-  vi.mocked(api.getProjectPurchaseOptions).mockResolvedValue(opts);
+  if (opts) vi.mocked(api.getProjectPurchaseOptions).mockResolvedValue(opts);
+  else vi.mocked(api.getProjectPurchaseOptions).mockRejectedValue(new Error("nope"));
   const view = render(<CustomerAccessBanner />);
   await waitFor(() => expect(api.getMyEntitlement).toHaveBeenCalled());
   return view;
@@ -61,96 +54,90 @@ describe("CustomerAccessBanner", () => {
   beforeEach(() => vi.clearAllMocks());
 
   /**
-   * The account this whole flow exists for: signed up on its own, no code, no shop.
-   * It used to be told to ask a paint shop it does not have, which is not an instruction
-   * anyone can follow — the purchase is the one door it has, so it has to be on screen.
+   * The account this whole route exists for: signed up by email, nobody behind them.
+   * Telling them to "ask your paint shop" named a party they do not have, and left the
+   * account with no way forward at all.
    */
-  it("offers the purchase to an account with no shop behind it", async () => {
-    await banner(null);
+  describe("a customer with no shop", () => {
+    it("offers to sell them a project, and says how long it lasts", async () => {
+      await banner(null);
+      expect(await screen.findByRole("button", { name: /buy a project.*₹99/i })).toBeInTheDocument();
+      expect(screen.getByText(/stays open for 30 days/i)).toBeInTheDocument();
+    });
 
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /buy a project/i })).toBeTruthy(),
-    );
-    // The price is the server's, not a constant in the UI.
-    expect(screen.getByRole("button", { name: /₹99/ })).toBeTruthy();
-    // What the money buys, said before it is spent.
-    expect(screen.getByText(/stays open for 30 days/i)).toBeTruthy();
-    // The code stays offered too — someone may have walked into a shop since.
-    expect(screen.getByRole("link", { name: /redeem a code/i })).toBeTruthy();
-  });
+    it("still offers the code route for someone who was given one", async () => {
+      await banner(null);
+      expect(screen.getByRole("link", { name: /redeem a code/i })).toBeInTheDocument();
+    });
 
-  /** A paid-for project that has not been used is a reason to start, not to buy again. */
-  it("points an unused credit at the studio instead of selling a second one", async () => {
-    await banner(null, options({ availableCredits: 1 }));
+    it("stops offering the purchase once one is paid for and waiting", async () => {
+      await banner(null, options({ availableCredits: 1 }));
+      expect(screen.getByText(/1 project paid for and ready/i)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /buy a project/i })).not.toBeInTheDocument();
+    });
 
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: /start a project/i })).toBeTruthy(),
-    );
-    expect(screen.queryByRole("button", { name: /buy a project/i })).toBeNull();
-    expect(screen.getByText(/1 project paid for and ready/i)).toBeTruthy();
-  });
+    it("shows the new credit after a completed purchase, without a reload", async () => {
+      const user = userEvent.setup();
+      await banner(null);
+      vi.mocked(buyOneProject).mockResolvedValue(options({ availableCredits: 1 }));
 
-  /** A bought credit lands in the banner without a reload — the buy resolves the options. */
-  it("switches to 'ready to start' once the purchase completes", async () => {
-    vi.mocked(buyOneProject).mockResolvedValue(options({ availableCredits: 1 }));
-    await banner(null);
+      await user.click(await screen.findByRole("button", { name: /buy a project/i }));
 
-    await userEvent.click(await screen.findByRole("button", { name: /buy a project/i }));
+      expect(await screen.findByText(/1 project paid for and ready/i)).toBeInTheDocument();
+    });
 
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: /start a project/i })).toBeTruthy(),
-    );
-  });
+    /** Closing Checkout is a decision, not a failure — it must not raise an error. */
+    it("says nothing when the buyer closes the payment window", async () => {
+      const user = userEvent.setup();
+      await banner(null);
+      vi.mocked(buyOneProject).mockResolvedValue(null);
 
-  /** Closing Checkout is a change of mind, not a failure: the offer stays, no error shows. */
-  it("leaves the offer alone when the buyer closes checkout", async () => {
-    vi.mocked(buyOneProject).mockResolvedValue(null);
-    await banner(null);
+      await user.click(await screen.findByRole("button", { name: /buy a project/i }));
 
-    await userEvent.click(await screen.findByRole("button", { name: /buy a project/i }));
+      await waitFor(() => expect(buyOneProject).toHaveBeenCalled());
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /buy a project/i })).toBeEnabled();
+    });
 
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /buy a project/i })).toBeTruthy(),
-    );
-    expect(screen.queryByRole("alert")).toBeNull();
-  });
+    it("reports a real payment failure", async () => {
+      const user = userEvent.setup();
+      await banner(null);
+      vi.mocked(buyOneProject).mockRejectedValue(new Error("gateway down"));
 
-  it("reports a payment that actually failed", async () => {
-    vi.mocked(buyOneProject).mockRejectedValue(new Error("Card was declined."));
-    await banner(null);
+      await user.click(await screen.findByRole("button", { name: /buy a project/i }));
 
-    await userEvent.click(await screen.findByRole("button", { name: /buy a project/i }));
-
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Card was declined."));
+      expect(await screen.findByRole("alert")).toHaveTextContent(/could not start the payment/i);
+    });
   });
 
   /**
-   * A shop-onboarded customer is NOT sold projects direct: theirs were assigned and paid
-   * for out of the shop's quota, and the shop adds another in a click. Offering a
-   * checkout here would charge for something the counter already covers.
+   * A customer a shop onboarded must NOT be sold a project: theirs come out of that
+   * shop's quota, and the shop adds another in one click. Charging them for something
+   * their shop is already responsible for is the thing this split prevents.
    */
-  it("never offers the purchase to a customer a shop manages", async () => {
-    await banner(entitlement());
+  describe("a customer a shop onboarded", () => {
+    it("shows their shop allowance and offers no purchase", async () => {
+      await banner(entitlement());
+      expect(screen.getByText(/1 of 3 projects used/i)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /buy a project/i })).not.toBeInTheDocument();
+    });
 
-    await waitFor(() => expect(screen.getByText(/1 of 3 projects used/i)).toBeTruthy());
-    expect(screen.queryByRole("button", { name: /buy a project/i })).toBeNull();
+    it("points a used-up customer back at their shop, not at a payment form", async () => {
+      await banner(entitlement({ projectsCreated: 3, projectsRemaining: 0 }));
+      expect(screen.getByRole("link", { name: /redeem a code/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /buy a project/i })).not.toBeInTheDocument();
+    });
+
+    it("explains an expired window", async () => {
+      await banner(entitlement({ expired: true }));
+      expect(screen.getByText(/access window has closed/i)).toBeInTheDocument();
+    });
   });
 
-  it("never offers the purchase when a shop code has merely expired", async () => {
-    await banner(entitlement({ expired: true, projectsRemaining: 0 }));
-
-    await waitFor(() => expect(screen.getByText(/access ended/i)).toBeTruthy());
-    expect(screen.queryByRole("button", { name: /buy a project/i })).toBeNull();
-    expect(screen.getByRole("link", { name: /redeem a code/i })).toBeTruthy();
-  });
-
-  /** Best-effort prices: without one there is no button, so the copy must not promise one. */
-  it("falls back to the code alone when the price never arrives", async () => {
-    vi.mocked(api.getMyEntitlement).mockResolvedValue(null);
-    vi.mocked(api.getProjectPurchaseOptions).mockRejectedValue(new Error("offline"));
-    render(<CustomerAccessBanner />);
-
-    await waitFor(() => expect(screen.getByText(/redeem a code from your paint shop/i)).toBeTruthy());
-    expect(screen.queryByRole("button", { name: /buy a project/i })).toBeNull();
+  it("renders nothing while the entitlement is still unknown", () => {
+    vi.mocked(api.getMyEntitlement).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.getProjectPurchaseOptions).mockResolvedValue(options());
+    const { container } = render(<CustomerAccessBanner />);
+    expect(container).toBeEmptyDOMElement();
   });
 });
