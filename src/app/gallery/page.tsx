@@ -89,6 +89,10 @@ function plateOf(p: PublishedProject, i: number): Plate {
     aspect: p.imageWidth && p.imageHeight ? `${p.imageWidth} / ${p.imageHeight}` : "4 / 3",
     imageUrl: p.imageUrl,
     alt: p.description || `${p.title} — ${p.roomLabel} recoloured in HueVista`,
+    // A real room with real masks behind it, so it can be opened and painted.
+    // Costs the visitor nothing: the copy reuses the library's stored photo and
+    // walls, so there is no upload, no wall detection and no credit to spend.
+    startable: true,
   };
 }
 
@@ -122,7 +126,7 @@ export default async function GalleryPage() {
           <h1 className="display">A library of <i>finished rooms.</i></h1>
           <Lead className="page-lead">
             {live
-              ? "Rooms recoloured in the studio from a single photograph, each one with shades from the live catalogue on its walls. Only the wall changes."
+              ? "Rooms recoloured in the studio from a single photograph, each one with shades from the live catalogue on its walls. Open any of them and repaint it yourself — no photograph needed, and nothing to pay."
               : "Twelve rooms from ten cities across India, each recoloured from a single photograph with shades from the live catalogue. Only the wall changes."}
           </Lead>
           <GalleryGrid plates={plates} />

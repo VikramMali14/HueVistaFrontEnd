@@ -568,6 +568,29 @@ export const adminApi = {
     }),
 };
 
+/**
+ * The public gallery, as a signed-in visitor uses it.
+ *
+ * Separate from `adminApi` because it is a different path with a different gate:
+ * `/api/free-projects/**` needs a session but NOT ROLE_ADMIN, and it addresses
+ * rooms by the slug the gallery card already carries rather than by the internal
+ * template id, which the public listing deliberately never hands out.
+ */
+export const galleryApi = {
+  /**
+   * Take a copy of a published room away to paint.
+   *
+   * Creates a project for the caller from rows alone — it points at the photo and
+   * masks the library already stores, so nothing is uploaded, no wall detection
+   * runs, and no quota, plan credit or points are spent.
+   */
+  startPublishedRoom: (accessToken: string, slug: string) =>
+    serverFetch<StartedFreeProject>(
+      `/api/free-projects/${encodeURIComponent(slug)}/start`,
+      { method: "POST", accessToken },
+    ),
+};
+
 /** Interiors are shelved by room; exteriors by style. */
 export type TemplateSpace = "INTERIOR" | "EXTERIOR";
 

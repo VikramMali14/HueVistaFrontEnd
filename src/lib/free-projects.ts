@@ -1,7 +1,7 @@
 "use server";
 
 import { updateTag } from "next/cache";
-import { adminApi, HttpError } from "./api";
+import { adminApi, galleryApi, HttpError } from "./api";
 import { PUBLISHED_PROJECTS_TAG } from "./free-projects-server";
 import type {
   FreeProjectTemplate,
@@ -15,8 +15,14 @@ import { getAccessToken } from "./auth";
 /**
  * Server actions for the free-project library.
  *
- * Kept out of auth.ts because none of this is about sessions — it is one admin
- * screen's worth of calls, and auth.ts is already long enough to be hard to read.
+ * Kept out of auth.ts because none of this is about sessions — it is the admin
+ * screen's worth of calls plus the one visitors make, and auth.ts is already long
+ * enough to be hard to read.
+ *
+ * All but the last are ADMIN actions against `/api/admin/free-projects`. The
+ * exception is {@link startGalleryRoomAction}, which is how an ordinary signed-in
+ * visitor takes a room off the public gallery — a different path, a different gate,
+ * and the room named by slug rather than by an internal id.
  */
 
 /** The shelf, in gallery order. Null = could not be loaded (never "empty"). */
@@ -164,6 +170,42 @@ export async function deleteFreeProjectsAction(
       return { error: err.message };
     }
     return { error: "Could not remove the rooms. Please try again." };
+  }
+}
+
+/**
+ * Take a room off the public gallery and open it as the visitor's own project.
+ *
+ * The one action here that is not an admin action. It addresses the room by the
+ * slug already on the gallery card, because the public listing never hands out an
+ * internal template id — see PublicFreeProjectResponse on the backend.
+ *
+ * A signed-OUT visitor is the expected case, not an error: the gallery is a
+ * marketing page and most people reading it have no session. Rather than failing,
+ * this reports `signInRequired` and lets the caller bounce through /sign-in with a
+ * `next` that comes back here and finishes the job, so the click is not lost.
+ */
+export async function startGalleryRoomAction(
+  slug: string,
+): Promise<{ started?: StartedFreeProject; signInRequired?: boolean; error?: string }> {
+  const token = await getAccessToken();
+  if (!token) return { signInRequired: true };
+  try {
+    return { started: await galleryApi.startPublishedRoom(token, slug) };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      // The cookie was there but the backend rejected it — an expired session, so
+      // signing in again is the fix rather than an error to read.
+      if (err.status === 401 || err.status === 403) return { signInRequired: true };
+      if (err.status === 404) {
+        return { error: "That room is no longer in the gallery." };
+      }
+      if (err.status === 429) {
+        return { error: "You have opened a lot of rooms just now — give it a minute." };
+      }
+      return { error: err.message };
+    }
+    return { error: "Could not open this room. Please try again." };
   }
 }
 
