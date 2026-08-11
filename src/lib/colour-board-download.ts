@@ -1,5 +1,5 @@
 import { HttpError } from "./http-error";
-import type { PdfAllowance } from "./types";
+import type { ColourBoardResult } from "./types";
 
 /**
  * The order in which a colour board is built, charged for and handed over.
@@ -15,9 +15,22 @@ import type { PdfAllowance } from "./types";
  * with a few hundred milliseconds of wasted canvas work, which is the cheaper of
  * the two mistakes, and a rare one: the download button is already disabled once
  * the tray knows the remaining count is zero.
+ *
+ * The charge step now also REPORTS what was on the board — the shades, per page, per
+ * region — because the board is built entirely here and this is the only moment that
+ * information exists anywhere the server can see. Everything the closing flow does is
+ * built on it, which makes the fail-open below more consequential than it used to be:
+ * a board handed over after a network error is neither charged nor recorded, so it
+ * never becomes a combination and never moves the project towards closing. That is
+ * still the right way to be wrong — a customer standing at a counter should not lose
+ * their board to a flaky connection — but it is now a real gap and not just an
+ * undercount.
  */
 export type ColourBoardDownloadOutcome =
-  | { status: "downloaded" }
+  | { status: "downloaded"; result?: ColourBoardResult }
+  /** The board was handed over AND it was this project's last one, so the project
+   *  closed. The studio sends the customer on to choose a combination and render it. */
+  | { status: "closed"; result: ColourBoardResult }
   /** The file could not be made. Nothing was charged. */
   | { status: "build-failed" }
   /** The paying plan is out of downloads. Nothing was handed over. */
@@ -26,12 +39,13 @@ export type ColourBoardDownloadOutcome =
 export interface ColourBoardDownloadSteps {
   /** Render the board. Throws when the device cannot make the file. */
   build: () => Blob;
-  /** Reserve one download against the paying plan. Throws 402 when spent. */
-  charge: () => Promise<PdfAllowance>;
+  /** Reserve one download against the paying plan and record what was on the board.
+   *  Throws 402 when spent. */
+  charge: () => Promise<ColourBoardResult>;
   /** Hand the finished file to the browser. */
   save: (blob: Blob) => void;
-  /** Called with the post-charge allowance, so the tray can show what is left. */
-  onAllowance?: (allowance: PdfAllowance) => void;
+  /** Called with the post-charge result, so the tray can show what is left. */
+  onResult?: (result: ColourBoardResult) => void;
 }
 
 export async function runColourBoardDownload(
@@ -44,9 +58,10 @@ export async function runColourBoardDownload(
     return { status: "build-failed" };
   }
 
+  let result: ColourBoardResult | undefined;
   try {
-    const after = await steps.charge();
-    steps.onAllowance?.(after);
+    result = await steps.charge();
+    steps.onResult?.(result);
   } catch (e) {
     if (e instanceof HttpError && e.status === 402) {
       return {
@@ -61,5 +76,10 @@ export async function runColourBoardDownload(
   }
 
   steps.save(blob);
-  return { status: "downloaded" };
+  // The file is handed over BEFORE the closed branch, so a customer always gets the
+  // board they just paid for even if the studio then navigates them onward.
+  if (result?.closed) {
+    return { status: "closed", result };
+  }
+  return { status: "downloaded", result };
 }

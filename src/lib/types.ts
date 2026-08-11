@@ -349,8 +349,25 @@ export interface ProjectDetail {
   /** When this project's paid validity ends. Absent when it has no window of its
    *  own (covered by a plan or a shop's code) or while that window is paused. */
   accessExpiresAt?: string | null;
-  /** What reopening this project costs, in points. Only meaningful while readOnly. */
+  /** What reopening THIS project costs, on both rails. Only meaningful while readOnly,
+   *  and read from the project rather than the account quote: a lapsed window and a
+   *  closed project are different purchases at different prices, and only the project
+   *  knows which one this is. */
   reopenPricePoints?: number;
+  reopenPricePaise?: number;
+
+  /** When the job finished — by the customer closing it, or by its last colour board.
+   *  Absent while it is still running. A closed project is read-only whatever plan or
+   *  access code is covering it, and the studio shows only its board combinations. */
+  closedAt?: string | null;
+  /** Colour boards handed over, and how many this project gets. The tray counts down
+   *  with these so "one board left" can be said before the last one closes it. */
+  boardsUsed?: number;
+  boardsAllowed?: number;
+  /** AI renders this project may make, and how many it has. One comes included and is
+   *  unlocked by closing; the rest are bought one at a time. */
+  rendersAllowed?: number;
+  rendersUsed?: number;
 }
 
 /** Where a dashboard room came from, seen from the reader's side. */
@@ -381,6 +398,90 @@ export interface ProjectSummary {
   readOnly?: boolean;
   /** When this room's paid validity ends; absent when it has no window of its own. */
   accessExpiresAt?: string | null;
+  /** When the job finished. A closed room is DONE; a merely read-only one ran out.
+   *  They look the same on a card unless this is used to tell them apart. */
+  closedAt?: string | null;
+}
+
+/** One combination the customer was handed on a colour board — the unit the closing
+ *  flow asks them to choose between, and all a closed project will still show them. */
+export interface ProjectCombo {
+  id: string;
+  /** Which board it came from (1-based) and where it sat in it (0-based). */
+  boardIndex: number;
+  pageIndex: number;
+  title?: string | null;
+  /** Whether an AI render of this combination already exists. */
+  rendered: boolean;
+  shades: ProjectComboShade[];
+}
+
+export interface ProjectComboShade {
+  /** The region this colour was on, when it still exists — what the preview repaints. */
+  regionId?: number | null;
+  regionLabel?: string | null;
+  shadeCode?: string | null;
+  shadeName?: string | null;
+  /** The colour itself. The one field a combo cannot be re-rendered without. */
+  hex: string;
+}
+
+/** One page of a colour board, as it is reported to the server after being built.
+ *  Mirrors the studio's own PdfImageEntry minus the pixels — the server keeps the
+ *  shades, not the picture, and re-renders the combo from them when it needs to. */
+export interface ColourBoardPage {
+  title?: string;
+  shades: ColourBoardPageShade[];
+}
+
+export interface ColourBoardPageShade {
+  regionId?: number | null;
+  regionLabel?: string | null;
+  shadeCode?: string | null;
+  shadeName?: string | null;
+  /** #rrggbb. Validated server-side — it ends up in an AI prompt. */
+  hex: string;
+}
+
+/** What comes back from recording (and charging for) a colour board. */
+export interface ColourBoardResult {
+  allowance: PdfAllowance;
+  /** Boards this project has handed over, and how many it gets. */
+  boardsUsed: number;
+  boardsAllowed: number;
+  /** True when this board was the one that closed the project — the signal to send
+   *  the customer on to choose a combination and render it. */
+  closed: boolean;
+}
+
+export type RenderStatus = "QUEUED" | "RUNNING" | "READY" | "FAILED";
+
+/** The options a render is made with. All closed sets: the only free text is the note,
+ *  and it is bounded and framed as data before it reaches the model. */
+export interface RenderOptions {
+  timeOfDay: "DAY" | "NIGHT";
+  /** KEEP_ORIGINAL sends the project's own masks so the model paints inside the
+   *  boundaries that are already there; AI_SUGGESTED lets it propose the trim. */
+  borderMode: "KEEP_ORIGINAL" | "AI_SUGGESTED";
+  lighting: "NATURAL" | "WARM" | "COOL" | "DRAMATIC";
+  furnishing: "KEEP" | "STAGED" | "EMPTY";
+  style: "MODERN" | "MINIMAL" | "TRADITIONAL" | "HERITAGE" | "LUXE";
+  note?: string;
+}
+
+/** One AI render, while it is being made and after it lands. */
+export interface ProjectRender extends RenderOptions {
+  id: string;
+  /** The colour-board combination it was made from. */
+  comboId?: string | null;
+  status: RenderStatus;
+  /** The finished image, presigned fresh on every read. Null until READY. */
+  imageUrl?: string | null;
+  /** Why it failed, fit to show. Null unless FAILED — and a failed render has
+   *  already handed its credit back, so trying again costs nothing. */
+  failureReason?: string | null;
+  createdAt?: string;
+  completedAt?: string | null;
 }
 
 export interface RegionColorUpdate {
@@ -592,7 +693,7 @@ export interface AccessCode {
  * What one extra project costs THIS account on both rails, and what it buys
  * (backend ProjectPurchaseOptionsResponse).
  *
- * The price falls with the buyer's plan — 80 points / ₹99 with none, down to
+ * The price falls with the buyer's plan — 80 points / ₹199 with none, down to
  * 40 points / ₹45 on Business — so it is always read from here rather than held as a
  * constant in the UI, where it would quietly go wrong for everyone but one tier.
  */
@@ -606,6 +707,11 @@ export interface ProjectPurchaseOptions {
   /** What one project costs in money, in paise (GST included). Dearer than the points
    *  price on every tier — that gap is what makes topping up worth doing. */
   projectPricePaise: number;
+  /** The bundle: how many projects it grants, and what it costs in paise. Quoted beside
+   *  the single price, never instead of it — the saving is only legible next to the
+   *  thing it discounts. Optional so an older backend reads as "no bundle offered". */
+  bundleCredits?: number;
+  bundlePricePaise?: number;
   /** What another window on a lapsed project costs — points, and money in paise.
    *  Flat on both rails, unlike a new project: a reopen buys more time on work already
    *  paid for once, so it does not get cheaper with the tier. */

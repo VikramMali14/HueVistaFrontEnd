@@ -154,14 +154,14 @@ function BuyProjectButton({
   options: ProjectPurchaseOptions | null;
   onBought: (fresh: ProjectPurchaseOptions) => void;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const buy = async () => {
-    setBusy(true);
+  const buy = async (credits: number) => {
+    setBusy(credits);
     setError(null);
     try {
-      const fresh = await buyOneProject();
+      const fresh = await buyOneProject(undefined, credits);
       // null = the buyer closed Checkout without paying. Not an error, and saying
       // nothing is the right response to someone who chose not to buy.
       if (fresh) onBought(fresh);
@@ -170,16 +170,24 @@ function BuyProjectButton({
         e instanceof HttpError ? e.message : "Could not start the payment. Please try again.",
       );
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
+
+  // The bundle is only offered when the server quotes one. It sits BESIDE the single
+  // price and never replaces it: "3 for ₹398" says nothing on its own, and a customer
+  // who wants one room should not have to work out that they are being upsold.
+  const bundle =
+    options?.bundleCredits && options.bundlePricePaise
+      ? { credits: options.bundleCredits, paise: options.bundlePricePaise }
+      : null;
 
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
       <button
         type="button"
-        onClick={() => void buy()}
-        disabled={busy}
+        onClick={() => void buy(1)}
+        disabled={busy !== null}
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -191,15 +199,41 @@ function BuyProjectButton({
           font: "400 12px/1 var(--mono)",
           letterSpacing: ".18em",
           textTransform: "uppercase",
-          cursor: busy ? "progress" : "pointer",
+          cursor: busy !== null ? "progress" : "pointer",
         }}
       >
-        {busy ? (
+        {busy === 1 ? (
           <><Spinner size={12} color="currentColor" /> Opening…</>
         ) : (
           <>Buy a project{options ? ` · ${rupees(options.projectPricePaise)}` : ""} →</>
         )}
       </button>
+      {bundle && (
+        <button
+          type="button"
+          onClick={() => void buy(bundle.credits)}
+          disabled={busy !== null}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 14px",
+            border: "1px solid var(--rule)",
+            background: "transparent",
+            color: "var(--fg-soft)",
+            font: "400 12px/1 var(--mono)",
+            letterSpacing: ".18em",
+            textTransform: "uppercase",
+            cursor: busy !== null ? "progress" : "pointer",
+          }}
+        >
+          {busy === bundle.credits ? (
+            <><Spinner size={12} color="currentColor" /> Opening…</>
+          ) : (
+            <>or {bundle.credits} for {rupees(bundle.paise)} →</>
+          )}
+        </button>
+      )}
       {error && (
         <span role="alert" style={{ font: "400 13px/1.4 var(--sans)", color: "var(--danger, #c0392b)" }}>
           {error}

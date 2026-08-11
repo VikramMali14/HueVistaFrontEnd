@@ -26,6 +26,11 @@ import { Visualizer } from "../visualizer";
 // Mocks
 // ---------------------------------------------------------------------------
 
+// The studio navigates to the render page when a project closes, so it holds a router.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
+}));
+
 vi.mock("@/lib/api", () => {
   /**
    * What buying costs this account: served on mount, and again by the purchase endpoints

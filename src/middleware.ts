@@ -13,7 +13,7 @@ import { SHOWCASE_CONTENT } from "@/lib/showcase";
 // from either one stops refreshing its access cookie and starts bouncing people
 // to /sign-in; src/lib/__tests__/protected-routes.test.ts checks both against
 // the pages that actually exist under (app).
-const PROTECTED_PREFIXES = ["/studio", "/dashboard", "/portal", "/inbox", "/products", "/assigned-products", "/colour-finder", "/account", "/admin", "/plan", "/network"];
+const PROTECTED_PREFIXES = ["/studio", "/render", "/dashboard", "/portal", "/inbox", "/products", "/assigned-products", "/colour-finder", "/account", "/admin", "/plan", "/network"];
 // Pages that only make sense for a signed-OUT visitor. A signed-in user landing
 // here is bounced home — they can't register or sign in again without signing
 // out first. The Google OAuth callback at /sign-in/google is deliberately NOT
@@ -267,6 +267,8 @@ export const config = {
   // matcher must be a static literal, so it can't be built from those consts.
   matcher: [
     "/studio/:path*",
+    // The closing flow: pick a colour-board combination and render it.
+    "/render/:path*",
     "/dashboard/:path*",
     "/portal/:path*",
     "/inbox/:path*",

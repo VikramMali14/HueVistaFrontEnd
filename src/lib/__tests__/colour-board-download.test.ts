@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { HttpError } from "../http-error";
 import { runColourBoardDownload } from "../colour-board-download";
-import type { PdfAllowance } from "../types";
+import type { ColourBoardResult, PdfAllowance } from "../types";
 
 const allowance: PdfAllowance = {
   imagesPerPdf: 8,
@@ -11,12 +11,18 @@ const allowance: PdfAllowance = {
   unlimited: false,
 };
 
+/** A board that left the project with one still to give. */
+const result: ColourBoardResult = { allowance, boardsUsed: 1, boardsAllowed: 2, closed: false };
+
+/** The board that finished the job. */
+const closingResult: ColourBoardResult = { ...result, boardsUsed: 2, closed: true };
+
 function steps(overrides: Partial<Parameters<typeof runColourBoardDownload>[0]> = {}) {
   return {
     build: vi.fn(() => new Blob(["%PDF"], { type: "application/pdf" })),
-    charge: vi.fn(async () => allowance),
+    charge: vi.fn(async () => result),
     save: vi.fn(),
-    onAllowance: vi.fn(),
+    onResult: vi.fn(),
     ...overrides,
   };
 }
@@ -31,14 +37,14 @@ describe("runColourBoardDownload", () => {
       }),
       charge: vi.fn(async () => {
         order.push("charge");
-        return allowance;
+        return result;
       }),
       save: vi.fn(() => void order.push("save")),
     });
 
     const outcome = await runColourBoardDownload(s);
 
-    expect(outcome).toEqual({ status: "downloaded" });
+    expect(outcome).toEqual({ status: "downloaded", result });
     expect(order).toEqual(["build", "charge", "save"]);
   });
 
@@ -87,16 +93,34 @@ describe("runColourBoardDownload", () => {
 
     const outcome = await runColourBoardDownload(s);
 
-    expect(outcome).toEqual({ status: "downloaded" });
+    expect(outcome).toEqual({ status: "downloaded", result: undefined });
     expect(s.save).toHaveBeenCalledTimes(1);
-    expect(s.onAllowance).not.toHaveBeenCalled();
+    expect(s.onResult).not.toHaveBeenCalled();
   });
 
-  it("reports the post-charge allowance so the tray can show what is left", async () => {
+  it("reports the post-charge result so the tray can show what is left", async () => {
     const s = steps();
 
     await runColourBoardDownload(s);
 
-    expect(s.onAllowance).toHaveBeenCalledWith(allowance);
+    expect(s.onResult).toHaveBeenCalledWith(result);
+  });
+
+  it("says so when that board was the one that closed the project", async () => {
+    const s = steps({ charge: vi.fn(async () => closingResult) });
+
+    const outcome = await runColourBoardDownload(s);
+
+    expect(outcome).toEqual({ status: "closed", result: closingResult });
+  });
+
+  it("still hands over the file on the board that closes the project", async () => {
+    // The customer paid for this one. Whatever the studio does next — and it navigates
+    // them to the render page — it must not be at the cost of the board itself.
+    const s = steps({ charge: vi.fn(async () => closingResult) });
+
+    await runColourBoardDownload(s);
+
+    expect(s.save).toHaveBeenCalledTimes(1);
   });
 });

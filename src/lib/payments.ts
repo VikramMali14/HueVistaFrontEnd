@@ -345,7 +345,7 @@ export async function buyPoints(
 }
 
 /**
- * Buy ONE extra project with money, at the buyer's own plan rate (₹99 with no plan,
+ * Buy ONE extra project with money, at the buyer's own plan rate (₹199 with no plan,
  * down to ₹45 on Business).
  *
  * Nothing about the price travels from the browser: the order is created server-side
@@ -358,8 +358,9 @@ export async function buyPoints(
  */
 export async function buyOneProject(
   prefill?: { name?: string; email?: string },
+  credits = 1,
 ): Promise<ProjectPurchaseOptions | null> {
-  const order = await api.createProjectOrder();
+  const order = await api.createProjectOrder(credits);
   await loadCheckout();
   if (!window.Razorpay) throw new Error("Payment library unavailable.");
 
@@ -372,7 +373,7 @@ export async function buyOneProject(
       currency: order.currency,
       order_id: order.orderId,
       name: "HueVista",
-      description: "1 extra project",
+      description: credits === 1 ? "1 extra project" : `${credits} projects`,
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
       theme: { color: "#7c5cff" },
       handler: async (resp: CheckoutSuccess) => {
@@ -442,6 +443,56 @@ export async function reopenProjectWithMoney(
         }
       },
       modal: { ondismiss: () => { tracker.dismissed(); resolve(null); } },
+    });
+    openTracked(rzp, tracker);
+  });
+}
+
+/**
+ * Pay by card for one more AI image on a project that has spent the one it came with.
+ *
+ * Refused server-side (409) while a render is still unspent, so nobody reaches Checkout
+ * to buy something they already have. Which project gets the image comes off the order,
+ * not from the browser.
+ *
+ * Resolves true when the image is credited, false if the buyer closes Checkout, and
+ * throws on a real error.
+ */
+export async function buyExtraRender(
+  projectId: string,
+  prefill?: { name?: string; email?: string },
+): Promise<boolean> {
+  const order = await api.createRenderOrder(projectId);
+  await loadCheckout();
+  if (!window.Razorpay) throw new Error("Payment library unavailable.");
+
+  const tracker = track(order.orderId);
+
+  return new Promise<boolean>((resolve, reject) => {
+    const rzp = new window.Razorpay!({
+      key: order.razorpayKeyId,
+      amount: order.amount,
+      currency: order.currency,
+      order_id: order.orderId,
+      name: "HueVista",
+      description: "1 more AI image",
+      prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
+      theme: { color: "#7c5cff" },
+      handler: async (resp: CheckoutSuccess) => {
+        tracker.settle();
+        try {
+          await api.verifyRenderPurchase({
+            orderId: resp.razorpay_order_id,
+            paymentId: resp.razorpay_payment_id,
+            signature: resp.razorpay_signature,
+          });
+          resolve(true);
+        } catch (e) {
+          tracker.verifyFailed(resp.razorpay_payment_id, String(e));
+          reject(verificationFailed(e));
+        }
+      },
+      modal: { ondismiss: () => { tracker.dismissed(); resolve(false); } },
     });
     openTracked(rzp, tracker);
   });

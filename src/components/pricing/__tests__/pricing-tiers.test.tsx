@@ -73,7 +73,7 @@ describe("PricingTiers", () => {
     expect(screen.getByText(/^2 projects a month/)).toBeTruthy();
     // "Renews" is the whole difference from the seven-day trial it replaced.
     expect(screen.getByText(/Renews every month/)).toBeTruthy();
-    expect(screen.getByText(/Extra projects ₹99 each, or 80 points/)).toBeTruthy();
+    expect(screen.getByText(/Extra projects ₹199 each, or 80 points/)).toBeTruthy();
     // Colour matching is one tier line, and the card says so rather than leaving a
     // shop to notice the tab missing later.
     expect(screen.getByText("No colour finder")).toBeTruthy();
