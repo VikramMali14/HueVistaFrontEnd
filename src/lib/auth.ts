@@ -10,7 +10,7 @@ import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult,
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import { canUseFeature, planWithholds } from "./features";
-import type { AppFeatureKey, AuthResponse, AuthUser, MaskReport, MaskReportStatus, MyAccess, NetworkReport, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary } from "./types";
+import type { AdminProjectRow, AppFeatureKey, AuthResponse, AuthUser, MaskReport, MaskReportStatus, MyAccess, NetworkReport, ProjectDetail, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -736,6 +736,48 @@ export async function updateMaskReportAction(
   } catch (err) {
     if (err instanceof HttpError) return { error: err.message };
     return { error: "Could not update the report. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: every room on the platform, for the mask viewer's picker.
+ *
+ * NULL on failure, empty array for "nothing matched" — the picker says something
+ * different for each, and an outage rendered as "no rooms" would send an admin looking
+ * for a room that is actually right there.
+ */
+export async function searchAllProjectsAction(
+  q = "",
+): Promise<{ rows?: AdminProjectRow[]; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { rows: await adminApi.listAllProjects(token, q) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not load the rooms. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: one room's full detail, whoever owns it.
+ *
+ * Goes through a server action rather than the BFF because the BFF's allow-list
+ * deliberately does not carry `api/admin` — opening that prefix to the browser would
+ * expose the whole admin surface to it, for the sake of one diagnostics screen.
+ */
+export async function loadAdminProjectAction(
+  projectId: string,
+): Promise<{ project?: ProjectDetail; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { project: await adminApi.getProject(token, projectId) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not open that room. Please try again." };
   }
 }
 

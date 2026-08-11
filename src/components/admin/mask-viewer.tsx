@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
-import type { ProjectDetail, ProjectSummary, RegionCategory } from "@/lib/types";
+import type { AdminProjectRow, ProjectDetail, RegionCategory } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -14,6 +13,14 @@ import { Spinner } from "@/components/ui/spinner";
  * everything over the photo as toggleable overlays — including a per-category
  * diff of pixels the split/resize step added or removed. Pure diagnostics;
  * nothing here writes to the backend.
+ *
+ * Reads EVERY room on the platform, not the signed-in admin's own. It used to read
+ * only their own, which meant the one set of rooms it could inspect was the set nobody
+ * ever reports: a bad run is invisible to the backend, so the only ones worth opening
+ * are other people's — and often a walk-in customer's, with no account behind it.
+ *
+ * Rooms and detail both arrive through server actions rather than the browser API
+ * client, because the BFF's allow-list deliberately does not carry `api/admin`.
  */
 
 /** Longest side of the working canvas — everything is rasterized to one grid. */
@@ -129,11 +136,49 @@ const pctOf = (bits: Uint8Array) => {
   return Math.round((n / bits.length) * 1000) / 10;
 };
 
-export function MaskViewer() {
-  const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
-  const [selected, setSelected] = useState("");
+/** How one room reads in the picker: whose it is, then what its run produced. */
+function describeOwner(p: AdminProjectRow): string {
+  // Both can be set — a walk-in who later signed up keeps the code that started them.
+  const who = p.ownerEmail || p.ownerName || (p.customerName ? `${p.customerName} (walk-in)` : null);
+  const where = p.shopName ?? (p.accessCode ? `code ${p.accessCode}` : null);
+  return [who, where].filter(Boolean).join(" · ") || "no owner on record";
+}
+
+/** Segmented rooms first (the only ones with masks), then newest. */
+function forPicker(rows: AdminProjectRow[]): AdminProjectRow[] {
+  return [...rows].sort((a, b) => {
+    if ((a.status === "SEGMENTED") !== (b.status === "SEGMENTED")) {
+      return a.status === "SEGMENTED" ? -1 : 1;
+    }
+    return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
+  });
+}
+
+interface MaskViewerProps {
+  /** The first page of rooms, fetched on the server. Null means the fetch FAILED —
+   *  distinct from an empty list, which means the platform genuinely has none. */
+  initial: AdminProjectRow[] | null;
+  /** Re-runs the platform-wide search. */
+  searchAction: (q: string) => Promise<{ rows?: AdminProjectRow[]; error?: string }>;
+  /** Opens one room's full detail, whoever owns it. */
+  loadAction: (projectId: string) => Promise<{ project?: ProjectDetail; error?: string }>;
+  /** Room to select on mount — set when arriving from a report in the queue. */
+  initialProjectId?: string;
+}
+
+export function MaskViewer({ initial, searchAction, loadAction, initialProjectId }: MaskViewerProps) {
+  const [projects, setProjects] = useState<AdminProjectRow[] | null>(
+    initial ? forPicker(initial) : null,
+  );
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [selected, setSelected] = useState(
+    () => initialProjectId ?? (initial ? forPicker(initial)[0]?.id ?? "" : ""),
+  );
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    initial ? null : "Could not load the rooms. Refresh to retry.",
+  );
   const [notes, setNotes] = useState<string[]>([]);
   const [layers, setLayers] = useState<Layer[]>([]);
   const [visible, setVisible] = useState<Record<string, boolean>>({});
@@ -146,23 +191,24 @@ export function MaskViewer() {
   const originalRef = useRef<HTMLImageElement | null>(null);
   const cleanedRef = useRef<HTMLImageElement | null>(null);
 
-  useEffect(() => {
-    api
-      .listProjects()
-      .then((list) => {
-        // Segmented projects first (the only ones with masks), then newest.
-        const sorted = [...list].sort((a, b) => {
-          if ((a.status === "SEGMENTED") !== (b.status === "SEGMENTED")) {
-            return a.status === "SEGMENTED" ? -1 : 1;
-          }
-          return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
-        });
-        setProjects(sorted);
-        const first = sorted[0];
-        if (first) setSelected(first.id);
-      })
-      .catch(() => setError("Could not load your projects. Refresh to retry."));
-  }, []);
+  const search = useCallback(async (q: string) => {
+    setSearching(true);
+    setError(null);
+    try {
+      const res = await searchAction(q);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      const rows = forPicker(res.rows ?? []);
+      setProjects(rows);
+      // Keep the current selection when it survives the new search, so refining a
+      // query doesn't silently move the admin to a different room.
+      setSelected((prev) => (rows.some((r) => r.id === prev) ? prev : rows[0]?.id ?? ""));
+    } finally {
+      setSearching(false);
+    }
+  }, [searchAction]);
 
   const load = useCallback(async (projectId: string) => {
     setLoading(true);
@@ -171,7 +217,11 @@ export function MaskViewer() {
     setLayers([]);
     setMeta(null);
     try {
-      const detail: ProjectDetail = await api.getProject(projectId);
+      const res = await loadAction(projectId);
+      if (res.error || !res.project) {
+        throw new Error(res.error ?? "Could not open that room.");
+      }
+      const detail: ProjectDetail = res.project;
       const warn: string[] = [];
 
       const originalUrl = resolveMediaUrl(detail.imageUrl);
@@ -337,17 +387,17 @@ export function MaskViewer() {
       }
 
       // Default view: the three raw layers on (the screenshot view).
-      const initial: Record<string, boolean> = {};
-      for (const l of built) initial[l.id] = l.group === "raw" && l.id !== "raw-off";
+      const defaultVisible: Record<string, boolean> = {};
+      for (const l of built) defaultVisible[l.id] = l.group === "raw" && l.id !== "raw-off";
       setLayers(built);
-      setVisible(initial);
+      setVisible(defaultVisible);
       setNotes(warn);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load the project.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadAction]);
 
   // Composite base + visible overlays whenever anything changes.
   useEffect(() => {
@@ -379,19 +429,52 @@ export function MaskViewer() {
   return (
     <div style={{ marginTop: 32 }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 20 }}>
-        <div className="field" style={{ minWidth: 260, flex: "0 1 380px" }}>
-          <label className="field-label" htmlFor="mv-project">Project</label>
+        {/* A report names a person and a shop, rarely a room — so the search takes
+            whichever of those the admin was given, and the backend matches them all. */}
+        <form
+          className="field"
+          style={{ minWidth: 220, flex: "0 1 300px" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void search(query);
+          }}
+        >
+          <label className="field-label" htmlFor="mv-search">Find a room</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              id="mv-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Room, owner, e-mail, shop, code"
+              disabled={searching || loading}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+            <Button type="submit" variant="ghost" size="sm" disabled={searching || loading}>
+              {searching ? <Spinner size={14} color="currentColor" decorative /> : "Search"}
+            </Button>
+          </div>
+        </form>
+        <div className="field" style={{ minWidth: 280, flex: "1 1 420px" }}>
+          <label className="field-label" htmlFor="mv-project">
+            Room {projects ? `(${projects.length})` : ""}
+          </label>
           <select
             id="mv-project"
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
-            disabled={!projects || loading}
+            disabled={!projects || loading || searching}
           >
-            {!projects && <option value="">Loading projects…</option>}
-            {projects?.length === 0 && <option value="">No projects on this account</option>}
+            {!projects && <option value="">Rooms unavailable</option>}
+            {projects?.length === 0 && (
+              <option value="">{query ? "Nothing matched that search" : "No rooms yet"}</option>
+            )}
             {projects?.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name} — {p.status.toLowerCase()}{p.regionCount ? ` · ${p.regionCount} regions` : ""}
+                {p.name} — {describeOwner(p)} · {p.status.toLowerCase()}
+                {p.regionCount ? ` · ${p.regionCount} regions` : " · no regions"}
+                {p.maskMode === "MANUAL" ? " · manual" : ""}
+                {p.hasCleanedImage ? "" : " · not cleaned"}
               </option>
             ))}
           </select>

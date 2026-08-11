@@ -455,6 +455,23 @@ export const adminApi = {
       `/api/admin/mask-reports/${encodeURIComponent(reportId)}`,
       { method: "PATCH", accessToken, body: JSON.stringify(body) },
     ),
+  // --- Every room on the platform, for the mask viewer ---
+  // The rest of the project API is scoped to whoever is asking, which is right
+  // everywhere else and wrong here: following up a reported bad run means opening
+  // somebody else's room, often a walk-in's with no account behind it at all.
+  // `q` matches the room name or id, the owner's name or e-mail, the shop's name,
+  // or the access code — whatever the report happened to give the admin.
+  listAllProjects: (accessToken: string, q = "") =>
+    serverFetch<import("./types").AdminProjectRow[]>(
+      `/api/admin/projects${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+      { accessToken },
+    ),
+  /** Full detail — both canvases and every stored region mask. Always read-only. */
+  getProject: (accessToken: string, projectId: string) =>
+    serverFetch<import("./types").ProjectDetail>(
+      `/api/admin/projects/${encodeURIComponent(projectId)}`,
+      { accessToken },
+    ),
   // --- Marketing-site images (see lib/site-assets.ts for the slot registry) ---
   listSiteAssets: (accessToken: string) =>
     serverFetch<SiteAsset[]>("/api/admin/site-assets", { accessToken }),
