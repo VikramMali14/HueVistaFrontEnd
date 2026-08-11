@@ -1098,20 +1098,28 @@ export async function deleteAccountAction() {
 
 /**
  * Subscription guard for subscriber-only pages (e.g. the colour finder). Any
- * ACTIVE subscription — free trial OR paid — passes. A CUSTOMER (who can never
- * hold a shop subscription) is sent to unlock with an access code instead of being
- * sold retailer plans; everyone else lands on pricing.
+ * ACTIVE subscription — free trial OR paid — passes, as does an account the platform
+ * does not bill. A CUSTOMER (who can never hold a shop subscription) is sent to unlock
+ * with an access code or buy a project; everyone else lands on pricing.
  */
 export async function requireActiveSubscription(): Promise<void> {
   const token = await getAccessToken();
   if (!token) redirect("/sign-in");
+
+  // An administrator holds no subscription and is not meant to. Checked BEFORE the
+  // lookup rather than relying on what it answers: this guard fronts pages an admin
+  // must always be able to open, and it should not depend on a billing call — which
+  // for years answered 404 here and bounced them to a page selling them their own
+  // product — nor break again if that call is unreachable.
+  const user = await getCurrentUser();
+  if (user?.role === "ADMIN") return;
+
   try {
     const sub = await billingApi.currentSubscription(token);
-    if (sub?.status === "ACTIVE") return;
+    if (sub?.unbilled || sub?.status === "ACTIVE") return;
   } catch {
     /* 404 = no subscription → fall through to the redirect below */
   }
-  const user = await getCurrentUser();
   if (user?.role === "CUSTOMER") redirect("/unlock");
   // The in-app subscription page shows why access is paused AND the renew
   // buttons — a better landing than the public pricing pitch.

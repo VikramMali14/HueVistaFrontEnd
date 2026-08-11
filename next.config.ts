@@ -3,33 +3,21 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV === "development";
 
-// Where the backend lives, and — because the CSP below is derived from it — which
-// image host the browser is willing to load.
+// Must match `src/lib/config.ts`. This file is loaded by Node at SERVER START, while
+// NEXT_PUBLIC_* is inlined into the app at BUILD time — so when the variable is set in
+// one and not the other, the CSP written here and the URLs the app actually requests
+// disagree, and the browser blocks images that were never going to be malicious. A
+// production default that names a real host keeps them agreeing when neither is set.
+// Blank counts as unset: `ENV FOO=${FOO}` with no --build-arg yields an empty string,
+// and a `??` fallback would happily accept it and emit a CSP with no API host at all.
 //
-// This has to be right at BUILD time, not just at run time: `next build` bakes
-// headers() into the routes manifest, so the CSP a container serves is the one
-// its image was built with. A production build that ran without
-// NEXT_PUBLIC_API_ORIGIN used to fall back to `http://localhost:8080` and ship a
-// policy allowing only localhost, while the pages it rendered pointed their
-// <img> tags at the real API (that origin IS in the runtime environment). Every
-// site-asset image on the marketing pages was then blocked by the browser:
-//
-//   Loading the image 'https://api.huevista.org/api/site-assets/…' violates the
-//   following Content Security Policy directive: "img-src 'self' data: blob:
-//   http://localhost:8080 …"
-//
-// So the fallback is per-environment: localhost is only ever a DEVELOPMENT
-// default. A production build with the variable unset now defaults to the public
-// API host rather than to a policy that cannot work in production. Set
-// NEXT_PUBLIC_API_ORIGIN at build time (see the Dockerfile's build args) for any
-// deployment whose API is somewhere else — a preview stack, a self-hosted copy.
-//
-// `||` rather than `??`: `docker run -e NEXT_PUBLIC_API_ORIGIN=` and an unset
-// variable in CI both hand us an empty string, which is not a usable origin.
-const DEFAULT_API_ORIGIN = isDev ? "http://localhost:8080" : "https://api.huevista.org";
-const apiOrigin = (process.env.NEXT_PUBLIC_API_ORIGIN || DEFAULT_API_ORIGIN)
-  .trim()
-  .replace(/\/$/, "");
+// `next build` also bakes headers() into the routes manifest, which is the other half
+// of the same trap: the policy a container serves is the one its IMAGE was built with,
+// so the Dockerfile carries these through as build args too.
+const apiOrigin = (
+  process.env.NEXT_PUBLIC_API_ORIGIN?.trim() ||
+  (isDev ? "http://localhost:8080" : "https://api.huevista.org")
+).replace(/\/$/, "");
 
 const extraImageHosts = (process.env.IMAGE_REMOTE_HOSTS ?? "")
   .split(",")

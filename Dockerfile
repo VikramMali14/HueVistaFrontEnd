@@ -6,22 +6,22 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-
-# These three decide the Content-Security-Policy, and the CSP is baked into the
-# build: `next build` writes headers() into the routes manifest, so passing them
-# only to `docker run` is too late — the image already carries whatever policy the
-# build saw. Get them wrong and the browser blocks every image the API serves.
-#
-# Defaults live in next.config.ts and are correct for the production deployment
-# (api.huevista.org, ap-south-1); pass these only for a stack that differs:
-#   docker build --build-arg NEXT_PUBLIC_API_ORIGIN=https://api.staging.example .
+# The backend origin is needed at BUILD time (NEXT_PUBLIC_* is inlined into the bundles)
+# AND at RUN time (next.config.ts is loaded by Node at server start, and builds the
+# Content-Security-Policy from it). Supplying it to only one of the two is what let the
+# app request images from the real API while the CSP it was served only allowed
+# localhost — so the arg is declared here and re-exported into the runtime stage below.
 ARG NEXT_PUBLIC_API_ORIGIN
+ENV NEXT_PUBLIC_API_ORIGIN=${NEXT_PUBLIC_API_ORIGIN}
+ARG NEXT_PUBLIC_SITE_ORIGIN
+ENV NEXT_PUBLIC_SITE_ORIGIN=${NEXT_PUBLIC_SITE_ORIGIN}
+# The other two inputs to the CSP. Same build-time reasoning: the img-src the image
+# ships with is the one computed from these, so a deployment on another S3 region or
+# with a CDN in front has to say so here, not at `docker run`.
 ARG S3_REGION
+ENV S3_REGION=${S3_REGION}
 ARG IMAGE_REMOTE_HOSTS
-ENV NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN \
-    S3_REGION=$S3_REGION \
-    IMAGE_REMOTE_HOSTS=$IMAGE_REMOTE_HOSTS
-
+ENV IMAGE_REMOTE_HOSTS=${IMAGE_REMOTE_HOSTS}
 RUN npm run build
 
 # ---- Runtime ----
@@ -29,6 +29,12 @@ FROM node:26-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# Same values as the build stage — see the note there. Without these the server would
+# start with no API origin and write a CSP that contradicts the bundles it is serving.
+ARG NEXT_PUBLIC_API_ORIGIN
+ENV NEXT_PUBLIC_API_ORIGIN=${NEXT_PUBLIC_API_ORIGIN}
+ARG NEXT_PUBLIC_SITE_ORIGIN
+ENV NEXT_PUBLIC_SITE_ORIGIN=${NEXT_PUBLIC_SITE_ORIGIN}
 COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 # chown so the runtime user can write .next/cache (image optimizer, ISR).

@@ -61,7 +61,11 @@ const PROJECT_VALID_DAYS = 30;
 /** A shop-issued code is always good for 10 days, and an extension resets it to 10. */
 const ACCESS_CODE_VALID_DAYS = 10;
 
-function projectPurchaseOptions(): import("../types").ProjectPurchaseOptions {
+/**
+ * @param role who is asking — points are a shop currency, so only a RETAILER is offered
+ *   that rail. Mirrors the backend, which refuses every other role outright.
+ */
+function projectPurchaseOptions(role: string): import("../types").ProjectPurchaseOptions {
   const store = getStore();
   const subscribed = store.subscription.status === "ACTIVE" && !store.subscription.trial;
   return {
@@ -72,6 +76,7 @@ function projectPurchaseOptions(): import("../types").ProjectPurchaseOptions {
     reopenPricePoints: POINTS_REOPEN,
     reopenPricePaise: REOPEN_PRICE_PAISE,
     pointsBalance: store.wallet.pointsBalance,
+    pointsEligible: role === "RETAILER",
     validDays: PROJECT_VALID_DAYS,
     availableCredits: store.projectCredits,
   };
@@ -326,7 +331,7 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   }
   // Points are the only balance: buy them, spend them. No per-item checkout.
   if (path === "api/billing/points/project-options" && method === "GET") {
-    return json(projectPurchaseOptions());
+    return json(projectPurchaseOptions(user.role));
   }
   if (path === "api/billing/points/pay/project-credit" && method === "POST") {
     if (store.wallet.pointsBalance < POINTS_PROJECT) {
@@ -336,7 +341,7 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
     store.projectCredits += 1;
     store.entitlement.projectAllowance += 1;
     store.entitlement.projectsRemaining += 1;
-    return json(projectPurchaseOptions());
+    return json(projectPurchaseOptions(user.role));
   }
 
   // ---------- Paint catalogue (shop-managed) ----------
@@ -472,6 +477,23 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
         suffix: part(body.suffix, 4),
       };
       return json(store.codeScheme);
+    }
+    // --- Which paint companies the shop shows (its own half of the catalogue limit) ---
+    if (tail === "visible-brands" && method === "GET") {
+      return json(shopBrandVisibility());
+    }
+    if (tail === "visible-brands" && method === "PUT") {
+      const body = await readJson(req);
+      // showAll clears the shop's own limit; otherwise the list IS the selection, and an
+      // empty one really means none. Ids outside the demo catalogue are dropped, the way
+      // the backend drops ids the distributor never granted.
+      const known = new Set(store.brands.map((b) => b.id));
+      store.visibleBrandIds = body.showAll
+        ? null
+        : (Array.isArray(body.brandIds) ? body.brandIds : [])
+            .map((id: unknown) => Number(id))
+            .filter((id: number) => known.has(id));
+      return json(shopBrandVisibility());
     }
     if (tail === "access-codes" && method === "GET") return json(store.accessCodes);
     if (tail === "access-codes" && method === "POST") {
@@ -639,6 +661,21 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
 }
 
 // --- helpers ---
+
+/** The demo's answer for GET/PUT visible-brands: the catalogue, each flagged. */
+function shopBrandVisibility() {
+  const store = getStore();
+  const chosen = store.visibleBrandIds;
+  return {
+    restricted: chosen !== null,
+    brands: store.brands.map((b) => ({
+      id: b.id,
+      name: b.name,
+      slug: b.slug,
+      shown: chosen === null || chosen.includes(b.id),
+    })),
+  };
+}
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 40) || "shop";
 }

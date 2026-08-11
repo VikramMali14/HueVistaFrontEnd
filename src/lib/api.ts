@@ -1443,6 +1443,19 @@ export const api = {
   // same way as retailer combos). All parts empty = no scheme.
   getMyShadeCodeScheme: () =>
     browserFetch<import("./shade-codes").ShadeCodeScheme>("api/me/shade-code-scheme"),
+  // --- Retailer: which paint companies the shop actually shows ---
+  // The options are the DISTRIBUTOR's grant, not the whole catalogue: a shop cannot
+  // display a company it was never assigned. Saving applies everywhere its catalogue
+  // is read — the counter's studio, the kiosk, its access codes and its customers.
+  getVisibleBrands: (orgId: string) =>
+    browserFetch<import("./types").ShopBrandVisibility>(
+      `api/organizations/${encodeURIComponent(orgId)}/visible-brands`,
+    ),
+  setVisibleBrands: (orgId: string, body: { showAll: boolean; brandIds?: number[] }) =>
+    browserFetch<import("./types").ShopBrandVisibility>(
+      `api/organizations/${encodeURIComponent(orgId)}/visible-brands`,
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
   // --- Retailer: public store kiosk links + earnings wallet ---
   listStoreLinks: (orgId: string) =>
     browserFetch<import("./types").StoreLink[]>(
