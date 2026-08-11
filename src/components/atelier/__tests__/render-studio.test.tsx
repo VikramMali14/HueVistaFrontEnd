@@ -66,6 +66,7 @@ const PROJECT: ProjectDetail = {
   rendersUsed: 0,
   readOnly: true,
   reopenPricePaise: 9900,
+  renderPricePaise: 9900,
 };
 
 /** Two boards of four — the eight combinations the closing flow is built on. */

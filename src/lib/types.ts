@@ -368,6 +368,9 @@ export interface ProjectDetail {
    *  unlocked by closing; the rest are bought one at a time. */
   rendersAllowed?: number;
   rendersUsed?: number;
+  /** What one more costs, in paise. Quoted by the server rather than inferred from the
+   *  reopen price they happen to share today — they are two separate settings. */
+  renderPricePaise?: number;
 }
 
 /** Where a dashboard room came from, seen from the reader's side. */

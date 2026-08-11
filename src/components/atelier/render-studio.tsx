@@ -380,9 +380,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
               </Button>
             ) : (
               <Button variant="ghost" disabled={buying} onClick={() => void buyAnother()}>
-                {buying
-                  ? "Opening checkout…"
-                  : `Another image · ${formatRupees(renderTopUpPaise(project))}`}
+                {buying ? "Opening checkout…" : anotherImageLabel(project)}
               </Button>
             )}
             <Link className="btn btn-ghost" href="/dashboard">
@@ -422,9 +420,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
               </Button>
             ) : (
               <Button variant="brass" disabled={buying} onClick={() => void buyAnother()}>
-                {buying
-                  ? "Opening checkout…"
-                  : `Another image · ${formatRupees(renderTopUpPaise(project))}`}
+                {buying ? "Opening checkout…" : anotherImageLabel(project)}
               </Button>
             )}
             <span className="hv-render-left">
@@ -580,12 +576,19 @@ function OptionRow<T extends string>({
 }
 
 /**
- * What one more image costs. The server is the authority and refuses any other amount,
- * so this is only ever the label on the button — but it has to agree with the server, so
- * it reads the one number the project response carries rather than a second constant.
+ * What one more image costs. The server is the authority and refuses any other amount, so
+ * this is only ever the label on a button — but a button that names a price the payment
+ * then refuses is worse than one that names none, so it reads the project's own figure
+ * rather than borrowing the reopen price the two happen to share today.
  */
-function renderTopUpPaise(project: ProjectDetail | null): number {
-  return project?.reopenPricePaise ?? 9900;
+function renderTopUpPaise(project: ProjectDetail | null): number | null {
+  return project?.renderPricePaise ?? null;
+}
+
+/** "Another image · ₹99", or just "Another image" until the price has loaded. */
+function anotherImageLabel(project: ProjectDetail | null): string {
+  const paise = renderTopUpPaise(project);
+  return paise == null ? "Another image" : `Another image · ${formatRupees(paise)}`;
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {
