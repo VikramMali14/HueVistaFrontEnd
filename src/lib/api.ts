@@ -436,6 +436,25 @@ export const adminApi = {
   // Distributors a shop can be filed under, house org first.
   listDistributors: (accessToken: string) =>
     serverFetch<DistributorOption[]>("/api/admin/distributors", { accessToken }),
+  // --- "The AI got this wrong" queue (studio report button feeds it) ---
+  // Open reports only unless includeResolved — the queue is a worklist, and a
+  // console that opens onto months of closed tickets stops being read.
+  listMaskReports: (accessToken: string, includeResolved = false) =>
+    serverFetch<import("./types").MaskReport[]>(
+      `/api/admin/mask-reports?includeResolved=${includeResolved}`,
+      { accessToken },
+    ),
+  // Move a report along and/or leave an internal note. Both fields optional:
+  // omitting status makes it a note-only edit.
+  updateMaskReport: (
+    accessToken: string,
+    reportId: string,
+    body: { status?: import("./types").MaskReportStatus; adminNote?: string },
+  ) =>
+    serverFetch<import("./types").MaskReport>(
+      `/api/admin/mask-reports/${encodeURIComponent(reportId)}`,
+      { method: "PATCH", accessToken, body: JSON.stringify(body) },
+    ),
   // --- Marketing-site images (see lib/site-assets.ts for the slot registry) ---
   listSiteAssets: (accessToken: string) =>
     serverFetch<SiteAsset[]>("/api/admin/site-assets", { accessToken }),
@@ -1080,6 +1099,20 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  // "The AI got this wrong" — raised from the studio once a run has finished and
+  // the result is visibly bad (walls in the wrong places, or a clean-up that
+  // damaged the photo). Nothing in the pipeline can detect this: a bad run still
+  // returns SEGMENTED, so the person looking at their own room is the only source.
+  // Reporting the same project twice while the first report is still open UPDATES
+  // it rather than filing a duplicate.
+  reportMask: (
+    projectId: string,
+    body: { issues: import("./types").MaskReportIssue[]; note?: string },
+  ) =>
+    browserFetch<import("./types").MaskReport>(
+      `api/projects/${encodeURIComponent(projectId)}/mask-reports`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
   // Claude palette suggestions for the project photo. Costs 1 AI preview from
   // the retailer's monthly quota — 402 when out of credits or unsubscribed.
   getAiRecommendations: (projectId: string) =>
@@ -1586,6 +1619,17 @@ export const guestApi = {
     browserFetch<ProjectDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/send-to-shop`, {
       method: "POST",
     }),
+  // Same "the AI got this wrong" channel as the signed-in studio. The guest has no
+  // account, so the report is filed against the access code and the admin follows
+  // up through the shop that issued it.
+  reportMask: (
+    projectId: string,
+    body: { issues: import("./types").MaskReportIssue[]; note?: string },
+  ) =>
+    browserFetch<import("./types").MaskReport>(
+      `api/guest/projects/${encodeURIComponent(projectId)}/mask-reports`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
   // Colour-board PDF quota — billed to the issuing shop's plan.
   getPdfAllowance: () =>
     browserFetch<import("./types").PdfAllowance>("api/guest/pdf-allowance"),

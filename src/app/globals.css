@@ -2972,6 +2972,35 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: var(--fg-mute);
 }
 
+/* "Not right? Report a problem" — the channel for an AI run that came out wrong.
+   Quiet on purpose: it sits under every finished preview, so it must not compete
+   with the colours, but it is never hidden behind a menu either. A bad mask is
+   invisible to every check the backend makes, which makes this button the only
+   way the team ever finds out a run failed. */
+.hv-studio-report {
+  margin: 8px auto 0;
+  display: flex;
+  justify-content: center;
+}
+.hv-studio-report-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--fg-mute);
+  font: 500 12px/1 var(--sans);
+  cursor: pointer;
+  transition: color .16s ease, border-color .16s ease;
+}
+.hv-studio-report-btn:hover,
+.hv-studio-report-btn:focus-visible {
+  color: var(--fg-soft);
+  border-color: var(--rule-strong);
+}
+
 /* ----- "Add to PDF" colour board (glass tray, overlaid bottom-centre) ----- */
 .hv-pdf-tray {
   position: absolute;

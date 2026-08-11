@@ -955,6 +955,58 @@ export interface PlanOption {
   colorMatching?: boolean;
 }
 
+// ─── Mask reports ──────────────────────────────────────────────────────────
+// "The AI got this wrong", raised from the studio after a run and worked by the
+// admin. Mirrors the backend's MaskReportIssue / MaskReportStatus / MaskReportResponse.
+
+/**
+ * What the reporter says went wrong. The two named values are the two halves of
+ * the pipeline a user can actually SEE — the photo clean-up and the wall
+ * detection — so the ticked box tells the admin which stage to open first.
+ */
+export type MaskReportIssue =
+  | "MASK_NOT_GENERATED_PROPERLY"
+  | "IMAGE_NOT_CLEANED_PROPERLY"
+  | "OTHER";
+
+export type MaskReportStatus = "NEW" | "IN_REVIEW" | "RESOLVED";
+
+/**
+ * One report.
+ *
+ * The reporter's copy back from POST carries only the first block (id, issues,
+ * note, status, createdAt); everything below it is filled in on the admin queue's
+ * view and is absent on the receipt.
+ */
+export interface MaskReport {
+  id: string;
+  issues: MaskReportIssue[];
+  note?: string | null;
+  status: MaskReportStatus;
+  createdAt?: string;
+
+  projectId?: string;
+  projectName?: string;
+  /** Null on a guest report — no account exists; the shop is the contact. */
+  reporterName?: string | null;
+  reporterEmail?: string | null;
+  reporterRole?: string | null;
+  /** Set on guest reports: the shop whose code the walk-in was working under. */
+  shopName?: string | null;
+
+  /** What the reported RUN produced, captured when the report was raised — a
+   *  re-run overwrites all of these on the project itself. */
+  projectStatus?: string | null;
+  maskMode?: string | null;
+  regionCount?: number | null;
+  hadCleanedImage?: boolean | null;
+
+  adminNote?: string | null;
+  resolvedByName?: string | null;
+  resolvedAt?: string | null;
+  updatedAt?: string;
+}
+
 /** Colour-board PDF allowance (backend PdfAllowanceResponse) — resolved against
  *  whichever plan pays for the caller (own plan, or the issuing shop's). */
 export interface PdfAllowance {
