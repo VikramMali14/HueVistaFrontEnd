@@ -11,7 +11,7 @@ import { DEMO_ACCOUNT_LIST, DEMO_PASSWORD } from "@/lib/demo/accounts";
 const ROLE_BLURB: Record<string, string> = {
   RETAILER: "Shop owner — dashboard, studio, portal, products, colour finder",
   ADMIN: "Administrator — everything, plus Inbox & Admin",
-  CUSTOMER: "Walk-in customer — dashboard, studio, redeem a code",
+  CUSTOMER: "Walk-in customer — dashboard, studio, unlock with a code",
 };
 
 export function DemoCredentials() {

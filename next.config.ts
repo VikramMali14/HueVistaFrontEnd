@@ -10,9 +10,14 @@ const isDev = process.env.NODE_ENV === "development";
 // production default that names a real host keeps them agreeing when neither is set.
 // Blank counts as unset: `ENV FOO=${FOO}` with no --build-arg yields an empty string,
 // and a `??` fallback would happily accept it and emit a CSP with no API host at all.
-const apiOrigin =
+//
+// `next build` also bakes headers() into the routes manifest, which is the other half
+// of the same trap: the policy a container serves is the one its IMAGE was built with,
+// so the Dockerfile carries these through as build args too.
+const apiOrigin = (
   process.env.NEXT_PUBLIC_API_ORIGIN?.trim() ||
-  (isDev ? "http://localhost:8080" : "https://api.huevista.org");
+  (isDev ? "http://localhost:8080" : "https://api.huevista.org")
+).replace(/\/$/, "");
 
 const extraImageHosts = (process.env.IMAGE_REMOTE_HOSTS ?? "")
   .split(",")
@@ -24,7 +29,7 @@ const extraImageHosts = (process.env.IMAGE_REMOTE_HOSTS ?? "")
 // configured region so the browser can fetch them. CSP only supports one
 // wildcard label, so we key off the region (matches backend `app.s3.region`,
 // default `ap-south-1`).
-const s3Region = (process.env.S3_REGION ?? "ap-south-1").trim();
+const s3Region = (process.env.S3_REGION || "ap-south-1").trim();
 const s3ImageHost = `https://*.s3.${s3Region}.amazonaws.com`;
 
 // CSP — keep tight in prod, loosen for dev tooling (HMR websocket, eval).
@@ -75,8 +80,16 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
+    // No `interest-cohort=()`. That opt-out was for FLoC, which Chrome shipped as
+    // an origin trial in 2021, abandoned, and replaced with the Topics API; the
+    // feature name no longer exists in any browser. What is left of it is a
+    // console error on every single page load —
+    //   Error with Permissions-Policy header: Unrecognized feature: 'interest-cohort'.
+    // — because an unknown feature name invalidates that entry. It bought nothing
+    // (there is no FLoC to opt out of) and cost a permanent error in every
+    // visitor's console, which is where real errors are supposed to stand out.
     key: "Permissions-Policy",
-    value: "camera=(self), microphone=(), geolocation=(), interest-cohort=(), payment=(self \"https://checkout.razorpay.com\")",
+    value: "camera=(self), microphone=(), geolocation=(), payment=(self \"https://checkout.razorpay.com\")",
   },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
@@ -140,6 +153,16 @@ const nextConfig: NextConfig = {
       { source: "/subscription/:path*", destination: "/plan/:path*", permanent: true },
       { source: "/color-finder", destination: "/colour-finder", permanent: true },
       { source: "/color-finder/:path*", destination: "/colour-finder/:path*", permanent: true },
+      // "Redeem" was the wrong verb: it describes trading a voucher in once, while
+      // the code actually opens a window of access that the shop sets in days and
+      // can extend or top up. The page is /unlock now.
+      //
+      // This redirect is not optional housekeeping. The old address was PRINTED —
+      // it is the instruction on the "Paid. You're in." screen after a kiosk
+      // payment, and it has gone out on counter cards and QR codes that cannot be
+      // recalled. Every one of those has to keep landing somewhere real.
+      { source: "/redeem", destination: "/unlock", permanent: true },
+      { source: "/redeem/:path*", destination: "/unlock/:path*", permanent: true },
     ];
   },
   async headers() {

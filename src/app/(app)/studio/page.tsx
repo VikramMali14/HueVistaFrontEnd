@@ -16,7 +16,7 @@ type CustomerGate = "missing" | "expired" | null;
 
 /**
  * A CUSTOMER's studio access comes from a retailer-issued code. Check it up
- * front so they see a clear "redeem your code" screen instead of being invited
+ * front so they see a clear "unlock with your code" screen instead of being invited
  * to upload a photo and rejected afterwards. Fail-open on any fetch problem —
  * the backend enforces the same rules authoritatively on every write.
  */
@@ -45,12 +45,12 @@ function AccessGate({ kind }: { kind: "missing" | "expired" }) {
       </h1>
       <Lead style={{ maxWidth: "46ch", margin: "0 auto 28px" }}>
         {kind === "missing"
-          ? "The studio unlocks with an access code from your paint shop. Ask at the counter — redeeming it gives you a project and a validity window."
+          ? "The studio unlocks with an access code from your paint shop. Ask at the counter — unlocking it gives you a project and a validity window."
           : "Your access window has closed. Ask your paint shop for a fresh code to keep working — your saved work comes right back."}
       </Lead>
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
-        <Link className="btn btn-brass" href="/redeem">
-          Redeem a code <span className="arr">→</span>
+        <Link className="btn btn-brass" href="/unlock">
+          Unlock with a code <span className="arr">→</span>
         </Link>
         <Link className="btn btn-ghost" href="/dashboard">
           Back to dashboard
@@ -69,7 +69,7 @@ export default async function AtelierPage({
   const token = await requireAccessToken();
   // A shop's distributor may not have included the studio in what they sold.
   // Checked before the customer gate below so a restricted SHOP is bounced to
-  // its dashboard rather than shown a "redeem your code" screen meant for
+  // its dashboard rather than shown an "unlock with your code" screen meant for
   // customers — requireFeature is a no-op for every non-retailer, customers
   // included, so the two guards don't overlap.
   await requireFeature("STUDIO");

@@ -33,6 +33,8 @@ import {
   downloadBlob,
   type PdfImageEntry,
 } from "@/lib/pdf-export";
+import { runColourBoardDownload } from "@/lib/colour-board-download";
+import { ShareDialog } from "./share-dialog";
 import { IMAGE_ACCEPT, cropAndEncode, imageFileError, loadImageFromFile } from "@/lib/image-upload";
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
@@ -59,7 +61,7 @@ interface VisualizerProps {
   shades?: ReadonlyArray<PaintShade>;
   /** Pre-seeded project name (e.g. from the dashboard "New project" form). */
   initialName?: string;
-  /** Anonymous guest mode (redeemed a shop code, no account): CRUD goes to the
+  /** Anonymous guest mode (unlocked with a shop code, no account): CRUD goes to the
    *  guest endpoints, there's no AI auto-segment or share link, and the single
    *  project is owned by the access code. The shop resolves real shade codes. */
   guest?: boolean;
@@ -398,7 +400,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [companies, setCompanies] = useState<ReadonlyArray<string>>([]);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
+  // The share sheet's own open state and error, kept apart from the studio's global
+  // `error` banner: a link that failed to mint belongs in the sheet the person is
+  // looking at, not behind it.
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   // Guest "I'm done" hand-off to the issuing shop (guest mode only).
   const [sentToShop, setSentToShop] = useState(false);
   const [sendingToShop, setSendingToShop] = useState(false);
@@ -1499,31 +1505,67 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [regions, projectId, deleteRegionCall, runSave],
   );
 
-  // Generate a public, code-hidden share link for this project and copy it.
+  // Open the share sheet, creating the public link if this project has not been
+  // shared yet.
   //
   // 10 days, matching a walk-in access code: a share link lets whoever holds it repaint
   // the room, so it hands out the same thing a code does and should not outlive one.
+  //
+  // The sheet opens FIRST and the link arrives into it. Sharing used to be a
+  // clipboard write reported by a two-word status pill, which left the link
+  // unreachable whenever the clipboard was refused — a non-secure origin, Safari
+  // outside a direct gesture, a locked-down shop tablet — because the only other
+  // copy of it was in a `title` attribute, and a tablet has no hover.
   const handleShare = useCallback(async () => {
     if (!projectId) return;
+    setShareOpen(true);
+    // Already have one: a share link is stable for its 10 days, so re-opening the
+    // sheet must not mint a second token for the same room.
+    if (shareUrl || sharing) return;
     setSharing(true);
-    setError(null);
+    setShareError(null);
     try {
       const res = await api.generateShareLink(projectId, SHARE_VALID_DAYS);
-      const url = `${window.location.origin}/share/${res.shareToken}`;
-      setShareUrl(url);
-      try {
-        await navigator.clipboard.writeText(url);
-        setShareCopied(true);
-        setTimeout(() => setShareCopied(false), 1600);
-      } catch {
-        /* clipboard blocked — the link is still shown for manual copy */
-      }
+      setShareUrl(`${window.location.origin}/share/${res.shareToken}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create a share link.");
+      setShareError(err instanceof Error ? err.message : "Could not create a share link.");
     } finally {
       setSharing(false);
     }
-  }, [projectId]);
+  }, [projectId, shareUrl, sharing]);
+
+  /**
+   * The colours on the shared room, for the sheet's summary.
+   *
+   * Reduced by exactly the rules the rest of the studio uses: no paint name where
+   * the shop hides names, and the shop's own numbering in place of the
+   * manufacturer's wherever it runs a pattern. A share sheet that listed
+   * "Asian Paints Ivory Mist" would undo the scheme in the one artefact most
+   * likely to be forwarded on.
+   */
+  const shareShades = useMemo(
+    () =>
+      regions
+        .filter((r) => r.applied)
+        .map((r) => ({
+          label: r.label,
+          name: hideNames ? "" : (r.shade?.name ?? "Custom colour"),
+          code: hideRawCodes
+            ? r.shade && encodeCode
+              ? encodeCode(r.shade.code)
+              : undefined
+            : r.shade?.code,
+          hex: r.hex,
+        })),
+    [regions, hideNames, hideRawCodes, encodeCode],
+  );
+
+  /** Snapshot the painted room for the sheet's "Download image". */
+  const captureRoomImage = useCallback(() => {
+    const engine = recolorRef.current;
+    if (!engine || !imageUrl) return null;
+    return canvasToJpegDataUrl(engine.canvas, 1500, 0.85);
+  }, [imageUrl]);
 
   // Commit the inline rename: optimistic (the topbar updates immediately), with
   // a revert + error message if the backend rejects it. No-ops on blank/unchanged.
@@ -1648,32 +1690,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setPdfNotice(null);
   }, []);
 
-  // Charge one download against the paying plan FIRST, then build the file — a
-  // 402 (monthly PDF limit spent) must stop the download, while a missing/older
-  // backend endpoint fails open so the tray never bricks the feature.
+  // Build the file, THEN charge for it — see runColourBoardDownload, which owns
+  // that order and the reasoning behind it. Charging first used to mean a build
+  // failure spent a download and produced nothing, with no refund path on the
+  // server to put it back.
   const downloadPdf = useCallback(async () => {
     if (pdfPages.length === 0 || pdfDownloading) return;
     setPdfDownloading(true);
     setPdfNotice(null);
     try {
-      const after = await (guest ? guestApi.chargePdfDownload() : api.chargePdfDownload());
-      setPdfAllowance(after);
-    } catch (e) {
-      if (e instanceof HttpError && e.status === 402) {
-        setPdfNotice(e.message || "You've used this month's colour-board downloads.");
-        setPdfDownloading(false);
-        return;
+      const outcome = await runColourBoardDownload({
+        build: () => buildColourBoardPdf(pdfPages, projectName || "HueVista colour board"),
+        charge: () => (guest ? guestApi.chargePdfDownload() : api.chargePdfDownload()),
+        save: (blob) => downloadBlob(blob, `huevista-colours-${Date.now()}.pdf`),
+        onAllowance: setPdfAllowance,
+      });
+      if (outcome.status === "build-failed") {
+        setPdfNotice("Could not make the PDF on this device — try removing a photo and downloading again.");
+      } else if (outcome.status === "quota-spent") {
+        setPdfNotice(outcome.message);
       }
-      // Network hiccup / endpoint not deployed — the server-side quota still
-      // governs real usage; don't strand the customer at the counter.
-    }
-    try {
-      const blob = buildColourBoardPdf(pdfPages, projectName || "HueVista colour board");
-      downloadBlob(blob, `huevista-colours-${Date.now()}.pdf`);
-    } catch {
-      // Building the PDF can genuinely fail (e.g. a full board on a low-memory
-      // phone). Without this the button would stay on "Preparing…" forever.
-      setPdfNotice("Could not make the PDF on this device — try removing a photo and downloading again.");
     } finally {
       setPdfDownloading(false);
     }
@@ -1900,10 +1936,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               Could not save · <span style={{ textDecoration: "underline" }}>Retry</span>
             </button>
           )}
-          {shareUrl && (
-            <span className="hv-status-pill is-accent" title={shareUrl}>
-              {shareCopied ? "Link copied" : "Share link"}
-            </span>
+          {shareUrl && !shareOpen && (
+            // Clickable, not decorative: once the sheet is closed this is the way
+            // back to a link that already exists.
+            <button
+              type="button"
+              className="hv-status-pill is-accent"
+              onClick={() => setShareOpen(true)}
+            >
+              Share link
+            </button>
           )}
         </div>
 
@@ -1919,11 +1961,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             <Button
               size="sm"
               variant="brass"
-              disabled={!projectId || sharing}
+              disabled={!projectId}
               onClick={() => void handleShare()}
               title={projectId ? "Create a public link (colours shown, codes hidden)" : "Save the project first"}
             >
-              {sharing ? "Sharing…" : "Share"}
+              Share
             </Button>
           )}
           {guest && (
@@ -2528,7 +2570,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     </div>
                   )}
                   {/* An account with no shop behind it. Two honest routes, side by side:
-                      pay for a project, or redeem a code if they have walked into a paint
+                      pay for a project, or unlock with a code if they have walked into a paint
                       shop since. Offering only the first strands anyone holding a code;
                       offering only the second strands anyone who has no shop to visit. */}
                   {limitReached && (
@@ -2572,8 +2614,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                               : `Buy a project · ₹${(projectPaise / 100).toLocaleString("en-IN")}`}
                         </Button>
                       )}
-                      <a className="btn" href="/redeem">
-                        Redeem a shop code <span className="arr">→</span>
+                      <a className="btn" href="/unlock">
+                        Unlock with a shop code <span className="arr">→</span>
                       </a>
                       <Mono>{projectValidityNote}</Mono>
                     </div>
@@ -2649,7 +2691,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         />
       )}
 
-
+      {shareOpen && (
+        <ShareDialog
+          url={shareUrl}
+          creating={sharing}
+          error={shareError}
+          projectName={projectName || "HueVista room"}
+          shades={shareShades}
+          captureImage={captureRoomImage}
+          onRetry={() => void handleShare()}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </div>
   );
 }

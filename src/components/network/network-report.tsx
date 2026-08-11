@@ -66,7 +66,7 @@ const TOTAL_LABELS: Record<string, string> = {
   painters: "Painters",
   customers: "Customers",
   codesIssued: "Codes issued",
-  codesRedeemed: "Codes redeemed",
+  codesRedeemed: "Codes unlocked",
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -1278,7 +1278,7 @@ function BrandEditor({
  * codes were handed out, not who holds one or whether it did anything. Two shops
  * with "40 issued" can be a busy counter and a stack of dead codes, and the
  * report gave no way to tell them apart. Reading the projects column does: a
- * customer at 0 / 1 redeemed a code and never came back.
+ * customer at 0 / 1 unlocked a code and never came back.
  */
 function CustomerTable({
   rows,
@@ -1329,7 +1329,7 @@ function CustomerTable({
   if (rows.length === 0) {
     return (
       <p className="net-empty">
-        No customers yet. They appear here once someone redeems a shop&apos;s access code.
+        No customers yet. They appear here once someone unlocks a shop&apos;s access code.
       </p>
     );
   }
@@ -1370,7 +1370,7 @@ function CustomerTable({
                   <tr key={r.node.userId ?? `${shopName(r)}-${r.node.name}`}>
                     <td className="strong">{isDeletedAccount(r.node) ? "Account removed" : r.node.name}</td>
                     <td>
-                      {/* An account created by redeeming a code has no real address —
+                      {/* An account created by unlocking a code has no real address —
                           the stored one is synthesised from the code, and the backend
                           withholds it rather than present a machine id as a contact. */}
                       <ContactCell node={r.node} />

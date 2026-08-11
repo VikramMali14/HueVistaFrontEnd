@@ -5,31 +5,31 @@ import Link from "next/link";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { redeemAccountAction } from "@/lib/auth";
+import { unlockAccountAction } from "@/lib/auth";
 import { ACCESS_CODE_LENGTH, normalizeAccessCode, validateAccessCode } from "@/lib/validation";
 
 /**
- * Public, no-login redemption. Entering the code auto-creates the customer's
- * account (named by the shop) and signs them in — no password, no sign-up. On
- * success we send them to their dashboard, where their assigned projects and
- * products are waiting.
+ * Public, no-login unlock. Entering the code auto-creates the customer's account
+ * (named by the shop) and signs them in — no password, no sign-up. On success we
+ * send them to their dashboard, where their assigned projects and products are
+ * waiting.
  */
-export function RedeemForm() {
+export function UnlockForm() {
   const [code, setCode] = useState("");
-  const [status, setStatus] = useState<"idle" | "redeeming" | "done">("idle");
+  const [status, setStatus] = useState<"idle" | "unlocking" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ name: string; shopName: string } | null>(null);
 
-  async function redeem() {
+  async function unlock() {
     const value = normalizeAccessCode(code);
     const invalid = validateAccessCode(value);
     if (invalid) {
       setError(invalid);
       return;
     }
-    setStatus("redeeming");
+    setStatus("unlocking");
     setError(null);
-    const res = await redeemAccountAction(value);
+    const res = await unlockAccountAction(value);
     if ("error" in res) {
       setError(res.error);
       setStatus("idle");
@@ -62,7 +62,7 @@ export function RedeemForm() {
   return (
     <div>
       <header style={{ marginBottom: 32 }}>
-        <Eyebrow>Redeem · access code</Eyebrow>
+        <Eyebrow>Unlock · shop code</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(40px, 5vw, 72px)", marginTop: 12 }}>
           Have a code from{" "}<br /><i>your paint shop?</i>
         </h1>
@@ -78,7 +78,7 @@ export function RedeemForm() {
             setCode(normalizeAccessCode(e.target.value));
             setError(null);
           }}
-          onKeyDown={(e) => e.key === "Enter" && void redeem()}
+          onKeyDown={(e) => e.key === "Enter" && void unlock()}
           placeholder="e.g. 7K2NQ9PX"
           aria-label="Access code"
           maxLength={ACCESS_CODE_LENGTH}
@@ -96,17 +96,17 @@ export function RedeemForm() {
             fontSize: 16,
           }}
         />
-        <Button onClick={() => void redeem()} disabled={status === "redeeming" || validateAccessCode(code) !== null}>
-          {status === "redeeming" ? <><Spinner size={14} color="currentColor" /> Redeeming…</> : <>Redeem <span className="arr">→</span></>}
+        <Button onClick={() => void unlock()} disabled={status === "unlocking" || validateAccessCode(code) !== null}>
+          {status === "unlocking" ? <><Spinner size={14} color="currentColor" /> Unlocking…</> : <>Unlock <span className="arr">→</span></>}
         </Button>
       </div>
 
       {error && <p className="field-error" role="alert" style={{ marginTop: 16 }}>{error}</p>}
 
       <p style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 20, maxWidth: "52ch" }}>
-        Redeeming creates a customer account in your name and signs you in for the code&apos;s window
-        (10 days). Already signed in as someone else? Redeeming logs you out first. Retailers don&apos;t
-        need a code —{" "}
+        Unlocking creates a customer account in your name and signs you in for as long as your
+        shop&apos;s code lasts. Already signed in as someone else? Unlocking logs you out first.
+        Retailers don&apos;t need a code —{" "}
         <Link href="/sign-in" style={{ color: "var(--accent-soft)" }}>sign in here</Link>.
       </p>
     </div>

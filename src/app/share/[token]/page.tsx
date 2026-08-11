@@ -5,9 +5,11 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { config } from "@/lib/config";
+import { hasSession } from "@/lib/auth";
 import type { ProjectDetail, ShadeBrandSummary } from "@/lib/types";
 import { ShareRepaint, type RepaintBrand, type RepaintRegion } from "./share-repaint";
 import { ShadeAccuracyNote } from "@/components/shared/accuracy-note";
+import { ClaimSharedRoom } from "./claim-shared-room";
 
 // Public, read-only view of a shared project — colours are shown, shade codes hidden
 // (the backend's /api/share endpoint serves the code-hidden projection).
@@ -75,6 +77,10 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
 export default async function SharePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const project = await fetchShared(token);
+  // Only ever used to decide which footer pitch to show. The page itself stays
+  // public and identical for everyone — a share link is anonymous by design, and
+  // reading the session here must not start gating what the room looks like.
+  const signedIn = await hasSession();
 
   if (!project) {
     return (
@@ -134,25 +140,46 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           <Mono>Preview unavailable</Mono>
         )}
 
-        <div
-          className="r-cols-md-1"
-          style={{ marginTop: 64, paddingTop: 40, borderTop: "1px solid var(--rule)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}
-        >
-          <div>
-            <Mono brass style={{ display: "block", marginBottom: 12 }}>For your room</Mono>
-            <p style={{ font: "400 19px/1.45 var(--serif)", color: "var(--fg)", margin: "0 0 18px", maxWidth: "36ch" }}>
-              Want to see colours on your own walls? Ask your paint shop for a HueVista code.
-            </p>
-            <Link className="btn btn-ghost" href="/redeem">I have a code <span className="arr">→</span></Link>
+        {/* Both cards are pitches at someone who has no account. Signed in, they are
+            noise at best and wrong at worst: telling a customer who is already using
+            HueVista to go and ask their shop for a code, and inviting a retailer who
+            is paying for a plan to request the plan they are on. The page then just
+            shows the way back to their own work. */}
+        {signedIn ? (
+          <div
+            className="r-cols-md-1"
+            style={{ marginTop: 64, paddingTop: 40, borderTop: "1px solid var(--rule)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}
+          >
+            <ClaimSharedRoom token={token} />
+            <div>
+              <Mono brass style={{ display: "block", marginBottom: 12 }}>Your own work</Mono>
+              <p style={{ font: "400 19px/1.45 var(--serif)", color: "var(--fg)", margin: "0 0 18px", maxWidth: "36ch" }}>
+                Your rooms are where you left them.
+              </p>
+              <Link className="btn btn-ghost" href="/studio">Back to your studio <span className="arr">→</span></Link>
+            </div>
           </div>
-          <div>
-            <Mono brass style={{ display: "block", marginBottom: 12 }}>For your counter</Mono>
-            <p style={{ font: "400 19px/1.45 var(--serif)", color: "var(--fg)", margin: "0 0 18px", maxWidth: "36ch" }}>
-              Run a paint shop? Show previews like this at your counter. Free plan, no card — open within a day.
-            </p>
-            <Link className="btn btn-brass" href="/trial">Request a shop account <span className="arr">→</span></Link>
+        ) : (
+          <div
+            className="r-cols-md-1"
+            style={{ marginTop: 64, paddingTop: 40, borderTop: "1px solid var(--rule)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}
+          >
+            <div>
+              <Mono brass style={{ display: "block", marginBottom: 12 }}>For your room</Mono>
+              <p style={{ font: "400 19px/1.45 var(--serif)", color: "var(--fg)", margin: "0 0 18px", maxWidth: "36ch" }}>
+                Want to see colours on your own walls? Ask your paint shop for a HueVista code.
+              </p>
+              <Link className="btn btn-ghost" href="/unlock">I have a code <span className="arr">→</span></Link>
+            </div>
+            <div>
+              <Mono brass style={{ display: "block", marginBottom: 12 }}>For your counter</Mono>
+              <p style={{ font: "400 19px/1.45 var(--serif)", color: "var(--fg)", margin: "0 0 18px", maxWidth: "36ch" }}>
+                Run a paint shop? Show previews like this at your counter. Free plan, no card — open within a day.
+              </p>
+              <Link className="btn btn-brass" href="/trial">Request a shop account <span className="arr">→</span></Link>
+            </div>
           </div>
-        </div>
+        )}
       </main>
       <Footer />
     </>

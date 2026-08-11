@@ -121,7 +121,7 @@ export function PlanBanner() {
   // and projects carried over from a plan the shop upgraded away from are real and
   // usable, and a bar that ignored them read as "full" while runs were still available.
   const limit = formatLimitSymbol(projectAllowance(sub));
-  // Projects already spoken for by access codes nobody has redeemed yet. The fraction
+  // Projects already spoken for by access codes nobody has used yet. The fraction
   // above is the allowance, so on its own it implied capacity this shop does not have:
   // a plan of 15 with 3 used and 10 held reads "3/15" while the portal will assign 2
   // and creation refuses after 5. Naming the holds is what closes that gap — the same
@@ -189,7 +189,7 @@ export function PlanBanner() {
           <span className="hv-plan-chip">
             <Mono>Held for codes</Mono>
             <strong>{held}</strong>
-            <small>not redeemed yet</small>
+            <small>not used yet</small>
           </span>
         )}
 

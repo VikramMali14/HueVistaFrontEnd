@@ -33,7 +33,7 @@ const STEPS = [
 /**
  * The kiosk flow: one big price, one big button. Pay → Razorpay Checkout
  * (UPI/QR) → server-verified → the guest studio opens with a pickup code the
- * shop redeems later. Mirrors the /redeem guest flow but the payment IS the code.
+ * shop unlocks later. Mirrors the /unlock guest flow but the payment IS the code.
  */
 export function StoreKiosk({ info, hasGuestSession }: { info: StorePublicInfo; hasGuestSession: boolean }) {
   const [status, setStatus] = useState<"idle" | "paying" | "done">("idle");
@@ -103,7 +103,7 @@ export function StoreKiosk({ info, hasGuestSession }: { info: StorePublicInfo; h
         </div>
         <p style={{ font: "400 14px/1.6 var(--serif)", color: "var(--fg-mute)", marginTop: 20, maxWidth: "52ch", marginInline: "auto" }}>
           Your session lasts {done.validDays} day{done.validDays === 1 ? "" : "s"}. Lose the tab or switch
-          phones? Enter this same code at {site.redeemLabel} and your room comes back.
+          phones? Enter this same code at {site.unlockLabel} and your room comes back.
         </p>
       </div>
     );
@@ -143,7 +143,7 @@ export function StoreKiosk({ info, hasGuestSession }: { info: StorePublicInfo; h
       ) : !info.paymentsConfigured ? (
         <div style={{ border: "1px solid var(--rule)", padding: "18px 22px", maxWidth: 460 }}>
           <Mono>Online payment isn&apos;t available here — pay at the counter and the shop will give you a code
-            to enter at {site.redeemLabel}.</Mono>
+            to enter at {site.unlockLabel}.</Mono>
         </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>

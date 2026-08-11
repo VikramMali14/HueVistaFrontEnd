@@ -22,6 +22,7 @@ vi.mock("@/lib/api", () => {
       createAccessCode: vi.fn(),
       createOrganization: vi.fn(),
       listShadeBrands: vi.fn(),
+      listMyShadeBrands: vi.fn(),
       listShopProducts: vi.fn(),
       revokeAccessCode: vi.fn(),
       // Read by the "projects available to assign" line above the issue form. Both are
@@ -66,8 +67,10 @@ beforeEach(() => {
   vi.mocked(api.listMyOrgs).mockResolvedValue([ORG]);
   vi.mocked(api.listAccessCodes).mockResolvedValue(CODES);
   vi.mocked(api.listShopProducts).mockResolvedValue([]);
-  vi.mocked(api.listShadeBrands).mockResolvedValue([
-    { name: "Sample palette", slug: "asian-paints", shadeCount: 2200 },
+  // The shop's OWN companies, not the catalogue's — this picker decides what a code
+  // may unlock, and a shop can only hand out paint it carries.
+  vi.mocked(api.listMyShadeBrands).mockResolvedValue([
+    { name: "Asian Paints", slug: "asian-paints", shadeCount: 2200 },
     { name: "Birla Opus", slug: "birla-opus", shadeCount: 2322 },
   ]);
 });
@@ -101,10 +104,10 @@ describe("AccessCodes — accessible table semantics", () => {
     expect(active.getByText("Priya Sharma")).toBeInTheDocument();
     expect(active.getByText("active")).toBeInTheDocument();
 
-    const redeemed = within(rows[2]!);
-    expect(redeemed.getByText("B4DD00D1")).toBeInTheDocument();
-    expect(redeemed.getByText("Ravi Kumar")).toBeInTheDocument();
-    expect(redeemed.getByText("redeemed")).toBeInTheDocument();
+    const unlocked = within(rows[2]!);
+    expect(unlocked.getByText("B4DD00D1")).toBeInTheDocument();
+    expect(unlocked.getByText("Ravi Kumar")).toBeInTheDocument();
+    expect(unlocked.getByText("unlocked")).toBeInTheDocument();
   });
 
   it("shows the assigned project quota counting down as rooms are created", async () => {
@@ -152,7 +155,7 @@ describe("AccessCodes — cancelling an unredeemed code", () => {
 
   it("surfaces a refusal from the server instead of pretending the code was cancelled", async () => {
     const user = userEvent.setup();
-    vi.mocked(api.revokeAccessCode).mockRejectedValue(new Error("This code has already been redeemed."));
+    vi.mocked(api.revokeAccessCode).mockRejectedValue(new Error("This code has already been used."));
 
     render(<AccessCodes />);
     const table = await screen.findByRole("table", { name: "Access codes" });
@@ -161,7 +164,7 @@ describe("AccessCodes — cancelling an unredeemed code", () => {
     await user.click(within(rows[1]!).getByRole("button", { name: /cancel/i }));
     await user.click(within(rows[1]!).getByRole("button", { name: /confirm/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("already been redeemed");
+    expect(await screen.findByRole("alert")).toHaveTextContent("already been used");
     expect(within(rows[1]!).getByText("active")).toBeInTheDocument();
   });
 });

@@ -19,7 +19,7 @@ export const metadata: Metadata = {
  */
 export default async function StudioPage() {
   const jar = await cookies();
-  if (!jar.get(config.guestCookie)?.value) redirect("/redeem");
+  if (!jar.get(config.guestCookie)?.value) redirect("/unlock");
 
   // Already narrowed to the companies this guest's code unlocks: getCatalogueOrSample
   // sends the guest token, and the backend resolves the restriction from the code.

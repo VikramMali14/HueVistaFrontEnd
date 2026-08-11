@@ -1091,6 +1091,13 @@ export const api = {
   // (omit / empty = every brand). A share link hands its holder the ability to
   // repaint, exactly like a walk-in access code — so it gets the same 10-day
   // ceiling, and 10 days is the default.
+  // Take a copy of someone else's shared room into your own account. Costs one
+  // project (402 when there is none left); no AI runs, the walls come with it.
+  claimSharedProject: (token: string) =>
+    browserFetch<import("./types").ProjectDetail>(
+      `api/share/${encodeURIComponent(token)}/claim`,
+      { method: "POST" },
+    ),
   generateShareLink: (projectId: string, days = 10, brands?: string[]) =>
     browserFetch<import("./types").ShareLink>(
       `api/projects/${encodeURIComponent(projectId)}/share?days=${days}` +
@@ -1258,6 +1265,11 @@ export const api = {
   // Companies that actually have shades in the catalogue (name + slug + count).
   listShadeBrands: () =>
     browserFetch<import("./types").ShadeBrandSummary[]>("api/shades/brands"),
+  // The shop's OWN companies — what its distributor assigned it, not the whole
+  // catalogue. Anywhere a shop is choosing what to hand a customer must use this:
+  // offering a company it cannot sell from is a promise it cannot keep.
+  listMyShadeBrands: () =>
+    browserFetch<import("./types").ShadeBrandSummary[]>("api/shades/mine/brands"),
   // --- Paint product catalogue (shopkeeper-managed) ---
   listPaintBrands: () => browserFetch<PaintBrand[]>("api/paint/brands"),
   addPaintBrand: (body: { name: string }) =>

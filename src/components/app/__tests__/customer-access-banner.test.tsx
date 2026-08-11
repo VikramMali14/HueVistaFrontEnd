@@ -67,7 +67,7 @@ describe("CustomerAccessBanner", () => {
 
     it("still offers the code route for someone who was given one", async () => {
       await banner(null);
-      expect(screen.getByRole("link", { name: /redeem a code/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /unlock with a code/i })).toBeInTheDocument();
     });
 
     it("stops offering the purchase once one is paid for and waiting", async () => {
@@ -124,7 +124,7 @@ describe("CustomerAccessBanner", () => {
 
     it("points a used-up customer back at their shop, not at a payment form", async () => {
       await banner(entitlement({ projectsCreated: 3, projectsRemaining: 0 }));
-      expect(screen.getByRole("link", { name: /redeem a code/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /unlock with a code/i })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /buy a project/i })).not.toBeInTheDocument();
     });
 

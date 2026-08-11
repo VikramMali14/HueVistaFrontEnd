@@ -62,12 +62,12 @@ export function AssignedProductsView() {
       <div>
         <Eyebrow>Your products</Eyebrow>
         <Lead style={{ marginTop: 16, maxWidth: "48ch" }}>
-          We couldn&apos;t find products for your account yet. Redeem a code from your shop to unlock
+          We couldn&apos;t find products for your account yet. Use a code from your shop to unlock
           your colours.
         </Lead>
         <p style={{ marginTop: 20 }}>
-          <Link href="/redeem" style={{ color: "var(--accent)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
-            Redeem a code →
+          <Link href="/unlock" style={{ color: "var(--accent)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
+            Unlock with a code →
           </Link>
         </p>
       </div>

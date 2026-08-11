@@ -102,10 +102,12 @@ async function fetchMyCatalogue(accessToken: string): Promise<PaintShade[]> {
  * for one paint company never sees a shade it can't sell. Signed-out visitors (and
  * every non-retailer) get the full public catalogue, unchanged.
  *
- * The empty-result fallback to bundled samples is skipped for a restricted shop:
- * "no shades" is a legitimate answer there — a distributor may have granted them
- * nothing yet — and quietly substituting a sample catalogue would show a shop
- * companies it was explicitly not given.
+ * Neither fallback applies to a signed-in caller — not the empty result, and not a
+ * failed lookup either. "No shades" is a legitimate answer for a restricted shop (a
+ * distributor may have granted it nothing yet), and a failure is not a verdict about
+ * what the shop may see, but in both cases substituting a catalogue would show
+ * companies it was explicitly not given. The bundled sample is worse still: its
+ * company is literally called "Sample palette" and its codes buy nothing at a counter.
  */
 export async function getCatalogueOrSample(): Promise<PaintShade[]> {
   if (!isDemoMode()) {
@@ -123,8 +125,14 @@ export async function getCatalogueOrSample(): Promise<PaintShade[]> {
       try {
         return await fetchMyCatalogue(token);
       } catch {
-        // Fall through to the public catalogue below — a failure here is a
-        // backend problem, not a verdict about what this shop may see.
+        // Nothing to fall through TO. Both fallbacks below are wrong for a signed-in
+        // caller: the public catalogue is every company in the market, and the bundled
+        // sample is a made-up company ("Sample palette") with made-up codes. Either one
+        // shows a shop paint it cannot sell and a customer paint their shop does not
+        // stock — in the portal that meant the sample company sitting in the list of
+        // what a code could unlock. An empty catalogue reads as "nothing loaded", which
+        // is true and recoverable; an invented one reads as stock.
+        return [];
       }
     }
   }

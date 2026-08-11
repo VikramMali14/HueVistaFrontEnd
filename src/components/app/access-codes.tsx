@@ -9,7 +9,7 @@ import { useCopied } from "@/hooks/use-copied";
 import { AssignableProjects } from "@/components/app/assignable-projects";
 import { api, HttpError } from "@/lib/api";
 import { site } from "@/lib/config";
-import { PAINT_BRANDS, type AccessCode, type OrgResponse, type ProjectDetail, type ShopProduct } from "@/lib/types";
+import { type AccessCode, type OrgResponse, type ProjectDetail, type ShopProduct } from "@/lib/types";
 
 const FIXED_VALID_DAYS = 10;
 
@@ -28,7 +28,7 @@ function slugify(name: string): string {
  * Retailer-facing: create your shop org (once) and issue customer access codes.
  * When you issue a code you name the customer, choose how many projects they get
  * (charged against your monthly image quota) and which companies / individual
- * products they may see. The customer redeems it at /redeem with no login — that
+ * products they may see. The customer unlocks it at /unlock with no login — that
  * auto-creates their account and signs them in.
  *
  * `org` comes from the portal page's single org fetch (null = resolved, no
@@ -52,10 +52,13 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   // The next code's assignment.
   const [customerName, setCustomerName] = useState("");
   const [projectQuota, setProjectQuota] = useState(1);
-  // Paint companies a shop can unlock — the live list of companies that actually have
-  // shades in the catalogue. Falls back to the well-known brands if the endpoint is
-  // unreachable. Leaving none selected unlocks every company.
-  const [companyOptions, setCompanyOptions] = useState<ReadonlyArray<string>>(PAINT_BRANDS);
+  // Paint companies a shop can unlock on a code: the ones its DISTRIBUTOR assigned
+  // it, not the whole catalogue. The picker used to load every company with shades in
+  // it, so a shop could hand a customer a code unlocking paint the shop does not
+  // carry — the customer picks a shade, walks to the counter, and the counter cannot
+  // sell it. Empty until the shop's own list lands, because guessing here is exactly
+  // the failure. Leaving none selected unlocks everything the shop itself has.
+  const [companyOptions, setCompanyOptions] = useState<ReadonlyArray<string>>([]);
   const [companies, setCompanies] = useState<string[]>([]);
   // Individual shop products the retailer can single out (in addition to whole companies).
   const [products, setProducts] = useState<ShopProduct[]>([]);
@@ -131,7 +134,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   }
 
   const codeStatus = (c: AccessCode) =>
-    c.used ? "redeemed" : c.revoked ? "cancelled" : c.expired ? "expired" : "active";
+    c.used ? "unlocked" : c.revoked ? "cancelled" : c.expired ? "expired" : "active";
 
   const codeCompanyOptions = useMemo(
     () => facetOptionsFrom(codes, (c) => c.allowedBrands ?? []),
@@ -193,12 +196,14 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
 
   useEffect(() => {
     api
-      .listShadeBrands()
+      .listMyShadeBrands()
       .then((brands) => {
-        const names = brands.map((b) => b.name).filter(Boolean);
-        if (names.length > 0) setCompanyOptions(names);
+        setCompanyOptions(brands.map((b) => b.name).filter(Boolean));
       })
-      .catch(() => {}); // keep the static fallback
+      // No static fallback. PAINT_BRANDS is every well-known company in the market,
+      // which is precisely the list this shop may not offer from; showing it after a
+      // failed lookup would reintroduce the bug whenever the network hiccuped.
+      .catch(() => setCompanyOptions([]));
   }, []);
 
   useEffect(() => {
@@ -286,7 +291,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
 
   // WhatsApp-ready message so the retailer never types the URL and instructions by hand.
   const copyMessage = useCallback((code: string) => {
-    const message = `Your HueVista code: ${code}. Open ${window.location.origin}/redeem and enter it — no sign-up needed. Valid ${FIXED_VALID_DAYS} days.`;
+    const message = `Your HueVista code: ${code}. Open ${window.location.origin}/unlock and enter it — no sign-up needed. Valid ${FIXED_VALID_DAYS} days.`;
     copyText("whatsapp-message", message);
   }, [copyText]);
 
@@ -376,9 +381,16 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
           </span>
         </div>
 
-        {/* Which paint companies this customer may browse. None selected = all companies. */}
+        {/* Which paint companies this customer may browse — from the shop's OWN list,
+            so a code can never unlock paint the counter cannot sell. None selected
+            means everything the shop itself carries. */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <Mono>Companies</Mono>
+          {companyOptions.length === 0 && (
+            <span style={{ font: "400 12.5px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+              Loading your companies — the code will unlock all of them unless you pick.
+            </span>
+          )}
           {companyOptions.map((name) => {
             const on = companies.includes(name);
             return (
@@ -452,7 +464,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyMessage(justIssued)}>
             {copied === "whatsapp-message" ? "Message copied" : "Copy message"}
           </button>
-          <Mono>Share with your customer — they enter it at {site.redeemLabel}</Mono>
+          <Mono>Share with your customer — they enter it at {site.unlockLabel}</Mono>
         </div>
       )}
 
@@ -477,7 +489,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
               allLabel: "Any status",
               options: [
                 { value: "active", label: "Active", count: codes.filter((c) => codeStatus(c) === "active").length },
-                { value: "redeemed", label: "Redeemed", count: codes.filter((c) => codeStatus(c) === "redeemed").length },
+                { value: "unlocked", label: "Unlocked", count: codes.filter((c) => codeStatus(c) === "unlocked").length },
                 { value: "expired", label: "Expired", count: codes.filter((c) => codeStatus(c) === "expired").length },
                 { value: "cancelled", label: "Cancelled", count: codes.filter((c) => codeStatus(c) === "cancelled").length },
               ],

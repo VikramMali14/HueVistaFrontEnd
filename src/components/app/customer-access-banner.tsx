@@ -26,12 +26,12 @@ const bannerStyle = (highlight: boolean): React.CSSProperties => ({
   borderRadius: 8,
 });
 
-const redeemLink = (
+const unlockLink = (
   <Link
-    href="/redeem"
+    href="/unlock"
     style={{ color: "var(--accent)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
   >
-    Redeem a code →
+    Unlock with a code →
   </Link>
 );
 
@@ -79,8 +79,8 @@ export function CustomerAccessBanner() {
             {credits > 0
               ? `${credits} project${credits === 1 ? "" : "s"} paid for and ready — start one whenever you like.`
               : options
-                ? `Buy a project for ${rupees(options.projectPricePaise)} and it stays open for ${options.validDays} days. Got a code from a paint shop? Redeem that instead.`
-                : "Buy a project to start, or redeem a code from your paint shop."}
+                ? `Buy a project for ${rupees(options.projectPricePaise)} and it stays open for ${options.validDays} days. Got a code from a paint shop? Unlock with that instead.`
+                : "Buy a project to start, or unlock with a code from your paint shop."}
           </span>
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -90,7 +90,7 @@ export function CustomerAccessBanner() {
               onBought={(fresh) => setOptions(fresh)}
             />
           )}
-          {redeemLink}
+          {unlockLink}
         </span>
       </div>
     );
@@ -105,7 +105,7 @@ export function CustomerAccessBanner() {
             Your access window has closed. A fresh code from your shop brings your work right back.
           </span>
         </span>
-        {redeemLink}
+        {unlockLink}
       </div>
     );
   }
@@ -130,7 +130,7 @@ export function CustomerAccessBanner() {
           {daysLeft !== null ? ` · ${daysLeft} day${daysLeft === 1 ? "" : "s"} of access` : ""}
         </span>
       </span>
-      {noneLeft && redeemLink}
+      {noneLeft && unlockLink}
     </div>
   );
 }

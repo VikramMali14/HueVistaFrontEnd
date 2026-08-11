@@ -24,7 +24,7 @@ export const metadata: Metadata = {
  *  - RETAILER creates their painters here and sees their painter roster.
  *
  * Customers are deliberately not in this tree — they enter through the shop's
- * access codes on /redeem, which the report counts per shop.
+ * access codes on /unlock, which the report counts per shop.
  *
  * The RETAILER half is switched off while the painter module is in testing (see
  * SHOP_PAINTER_MODULE_ENABLED). It is gated in the allow-list rather than left

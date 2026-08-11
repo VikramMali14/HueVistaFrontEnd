@@ -15,6 +15,13 @@ ARG NEXT_PUBLIC_API_ORIGIN
 ENV NEXT_PUBLIC_API_ORIGIN=${NEXT_PUBLIC_API_ORIGIN}
 ARG NEXT_PUBLIC_SITE_ORIGIN
 ENV NEXT_PUBLIC_SITE_ORIGIN=${NEXT_PUBLIC_SITE_ORIGIN}
+# The other two inputs to the CSP. Same build-time reasoning: the img-src the image
+# ships with is the one computed from these, so a deployment on another S3 region or
+# with a CDN in front has to say so here, not at `docker run`.
+ARG S3_REGION
+ENV S3_REGION=${S3_REGION}
+ARG IMAGE_REMOTE_HOSTS
+ENV IMAGE_REMOTE_HOSTS=${IMAGE_REMOTE_HOSTS}
 RUN npm run build
 
 # ---- Runtime ----

@@ -56,13 +56,13 @@ export default async function SubscriptionPage() {
         <Lead>
           Monthly plans are for paint shops. You pay per room instead: buy a project when
           you want one, and it stays open for a month. If a paint shop gave you an access
-          code, redeem that and the room is on them.
+          code, unlock with that and the room is on them.
         </Lead>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 28 }}>
           <Link className="btn btn-brass" href="/studio">
             Start a room <span className="arr">→</span>
           </Link>
-          <Link className="btn" href="/redeem">
+          <Link className="btn" href="/unlock">
             I have a code <span className="arr">→</span>
           </Link>
         </div>

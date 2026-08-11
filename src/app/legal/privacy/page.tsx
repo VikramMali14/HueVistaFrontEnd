@@ -32,7 +32,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "Sharing",
-    p: "We share data only with processors that help run the service — hosting, storage, payments (Razorpay), email/SMS, AI — under contract, and with the paint retailer whose access code you redeem. We do not sell personal data.",
+    p: "We share data only with processors that help run the service — hosting, storage, payments (Razorpay), email/SMS, AI — under contract, and with the paint retailer whose access code you unlock with. We do not sell personal data.",
   },
   {
     h: "Retention",

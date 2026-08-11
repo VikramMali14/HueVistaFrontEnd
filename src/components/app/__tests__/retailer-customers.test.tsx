@@ -109,7 +109,7 @@ describe("RetailerCustomers — accessible table semantics", () => {
     vi.mocked(api.listCustomers).mockResolvedValue([]);
     render(<RetailerCustomers />);
 
-    expect(await screen.findByText("No customers have redeemed an access code yet.")).toBeInTheDocument();
+    expect(await screen.findByText("No customers have used an access code yet.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 

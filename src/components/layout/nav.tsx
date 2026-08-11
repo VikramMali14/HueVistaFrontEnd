@@ -18,7 +18,7 @@ const PUBLIC_LINKS = [
   ...(SHOWCASE_CONTENT ? [{ href: "/gallery", label: "Gallery" }] : []),
   { href: "/pricing", label: "Pricing" },
   ...(SHOWCASE_CONTENT ? [{ href: "/journal", label: "Journal" }] : []),
-  { href: "/redeem", label: "Redeem" },
+  { href: "/unlock", label: "Unlock" },
 ];
 
 interface NavProps {

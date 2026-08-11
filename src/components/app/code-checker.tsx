@@ -6,7 +6,9 @@ import {
   decodeShadeCodeAnyScheme,
   encodeShadeCode,
   hasScheme,
+  schemeTimeline,
   type RetiredShadeCodeScheme,
+  type SchemePeriod,
   type ShadeCodeScheme,
 } from "@/lib/shade-codes";
 import type { PaintShade } from "@/lib/types";
@@ -24,6 +26,38 @@ function fmtRetired(iso: string): string {
   return Number.isNaN(d.getTime())
     ? "earlier"
     : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+/** A date and the time of day, because two patterns can be swapped on one afternoon. */
+function fmtMoment(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString("en-IN", {
+    day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit",
+  });
+}
+
+/** "12 Mar 2026, 4:05 pm → 8 Aug 2026, 11:20 am", or the open-ended forms. */
+function fmtPeriod(period: SchemePeriod): string {
+  const from = fmtMoment(period.from);
+  const to = fmtMoment(period.to);
+  if (period.live) return from ? `${from} → in use now` : "In use now";
+  if (from && to) return `${from} → ${to}`;
+  if (to) return `Until ${to}`;
+  return "Dates not recorded";
+}
+
+/** True when this period is the pattern that just read the entered code. */
+function readBy(period: SchemePeriod, via: RetiredShadeCodeScheme | null): boolean {
+  if (via === null) return period.live;
+  return (
+    !period.live
+    && period.prefix === via.prefix
+    && period.infix === via.infix
+    && period.suffix === via.suffix
+    && (period.to ?? null) === (via.retiredAt ?? null)
+  );
 }
 
 /**
@@ -62,6 +96,8 @@ export function CodeChecker({
     }
     return out;
   }, [mode, q, shades]);
+
+  const timeline = useMemo(() => schemeTimeline(scheme), [scheme]);
 
   const decoded = useMemo(() => {
     if (mode !== "read" || !q) return null;
@@ -191,6 +227,54 @@ export function CodeChecker({
             ))
           )}
         </div>
+      )}
+
+      {/* Every pattern this shop has issued codes under, and when.
+          "Read with an older pattern" tells the counter the card is old; it does not
+          tell them HOW old, which is the next question every time — a quote from a
+          pattern retired last week is still worth honouring, one from two years ago
+          probably is not. The dates are derived, not stored: each pattern ran from the
+          moment the one before it was retired, so the retirement dates chain the whole
+          history end to end. */}
+      {timeline.length > 1 && (
+        <details style={{ marginTop: 18, borderTop: "1px solid var(--rule)", paddingTop: 14 }}>
+          <summary style={{ cursor: "pointer", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+            Pattern history · {timeline.length}
+          </summary>
+          <ul style={{ listStyle: "none", margin: "14px 0 0", padding: 0, display: "grid", gap: 10 }}>
+            {timeline.map((period, i) => {
+              const matched = mode === "read" && q !== "" && decoded?.code != null
+                && readBy(period, decoded.via);
+              return (
+                <li
+                  key={`${period.prefix}-${period.infix}-${period.suffix}-${period.to ?? "live"}-${i}`}
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "baseline",
+                    gap: 10,
+                    padding: "8px 10px",
+                    border: "1px solid " + (matched ? "var(--accent)" : "var(--rule)"),
+                    background: matched ? "rgba(var(--fg-rgb), .04)" : "transparent",
+                  }}
+                >
+                  <span style={{ font: "600 14px/1 var(--code)", color: matched ? "var(--accent)" : "var(--fg)" }}>
+                    {describeScheme(period)}
+                  </span>
+                  {period.live && <Mono brass>In use</Mono>}
+                  <span style={{ font: "400 12.5px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+                    {fmtPeriod(period)}
+                  </span>
+                  {matched && (
+                    <span style={{ font: "500 12.5px/1.4 var(--sans)", color: "var(--accent)", width: "100%" }}>
+                      This is the one that read the code above.
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </details>
       )}
 
       <p style={{ font: "400 13px/1.6 var(--sans)", color: "var(--fg-mute)", marginTop: 16, maxWidth: "58ch" }}>

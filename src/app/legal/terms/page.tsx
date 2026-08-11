@@ -16,7 +16,7 @@ const SECTIONS: ReadonlyArray<{ h: string; p: string }> = [
   },
   {
     h: "2 · Your account",
-    p: "You are responsible for keeping your credentials secure and for activity under your account. Notify us promptly of any unauthorised use. Access codes issued by a paint retailer are personal to the redeeming customer.",
+    p: "You are responsible for keeping your credentials secure and for activity under your account. Notify us promptly of any unauthorised use. Access codes issued by a paint retailer are personal to the customer who unlocks them.",
   },
   {
     h: "3 · Acceptable use",
