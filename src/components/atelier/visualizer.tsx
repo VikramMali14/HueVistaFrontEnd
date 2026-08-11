@@ -541,11 +541,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // who cannot hold points at all, which is what keeps the points rail from being
   // offered to someone the backend would refuse.
   const pointsBalance = purchaseOptions?.pointsBalance ?? 0;
+  // Whether the account may use points AT ALL, which is a different question from whether
+  // it holds enough. The balance answers both today only because a customer's is always
+  // zero — an accident of the data, not a rule, and one a stray non-zero balance on a
+  // non-retailer account would quietly break. The server states the rule; absent (an
+  // older backend) falls back to the balance alone, exactly as before.
+  const pointsRailOpen = purchaseOptions?.pointsEligible !== false;
   // Whether the points rail can actually pay for a project right now. Until the options
   // land the price is unknown, and offering a rail we cannot price is how the button
   // ended up reading "Buy a project ·  points".
   const canPayProjectWithPoints =
-    purchaseOptions !== null && pointsBalance >= purchaseOptions.projectPricePoints;
+    purchaseOptions !== null && pointsRailOpen
+    && pointsBalance >= purchaseOptions.projectPricePoints;
   // The cash price of one project, at this account's tier. Zero until the options land,
   // which is what hides the card button rather than showing "or pay ₹0".
   const projectPaise = purchaseOptions?.projectPricePaise ?? 0;
@@ -1961,12 +1968,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 pay — they are the cheaper one — and the card button is always there.
                 A project a live plan already covers never gets here — it isn't view-only.
 
-                Gated on the BALANCE, not just the price. Points are a shop currency:
-                the backend refuses to sell or spend them for anyone but a RETAILER, so
-                "Reopen for 9 points" was a button that 403'd for every customer who
-                pressed it — and it led, so it was the one they pressed. It is equally
-                wrong for a shop holding 3 points. */}
-            {reopenPoints > 0 && pointsBalance >= reopenPoints && projectId && (
+                Gated on eligibility AND the balance, not on the price. Points are a shop
+                currency: the backend refuses to sell or spend them for anyone but a
+                RETAILER, so "Reopen for 9 points" was a button that 403'd for every
+                customer who pressed it — and it led, so it was the one they pressed. It
+                is equally wrong for a shop holding 3 points, which is what the balance
+                catches; eligibility is what catches the account that may never hold any. */}
+            {reopenPoints > 0 && pointsRailOpen && pointsBalance >= reopenPoints && projectId && (
               <Button
                 size="sm"
                 variant="ghost"

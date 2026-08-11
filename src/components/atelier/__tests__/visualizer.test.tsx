@@ -681,6 +681,61 @@ describe("Visualizer — buying one extra project", () => {
     // Named as the action, not as an alternative to something that isn't there.
     expect(screen.getByRole("button", { name: /Buy a project · ₹99/i })).toBeInTheDocument();
   });
+
+  /**
+   * The balance and the eligibility are different questions, and only the second one is
+   * a rule. A customer's balance is zero today, so gating on the balance alone happens
+   * to hide the rail from them — but that is a property of the data, not a guarantee,
+   * and a non-retailer account that somehow carried a balance would be steered straight
+   * back into the 403 the balance check was added to prevent.
+   */
+  it("keeps the points rail shut for an ineligible account that does hold a balance", async () => {
+    vi.mocked(api.getProjectPurchaseOptions).mockResolvedValue({
+      subscribed: false,
+      pricingPlan: "FREE",
+      projectPricePoints: 80,
+      projectPricePaise: 9900,
+      reopenPricePoints: 9,
+      reopenPricePaise: 900,
+      // Enough to pay, and still refused: points are not this account's to spend.
+      pointsBalance: 500,
+      pointsEligible: false,
+      validDays: 30,
+      availableCredits: 0,
+    });
+    vi.mocked(api.createProject).mockRejectedValueOnce(limitReached());
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect(await screen.findByText(/Monthly projects used up/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Spend 80 points/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Buy a project · ₹99/i })).toBeInTheDocument();
+  });
+
+  /** An eligible shop with the balance to cover it still gets the cheaper rail. */
+  it("keeps the points rail open for an eligible account", async () => {
+    vi.mocked(api.getProjectPurchaseOptions).mockResolvedValue({
+      subscribed: true,
+      pricingPlan: "STARTER",
+      projectPricePoints: 80,
+      projectPricePaise: 9900,
+      reopenPricePoints: 9,
+      reopenPricePaise: 900,
+      pointsBalance: 500,
+      pointsEligible: true,
+      validDays: 30,
+      availableCredits: 0,
+    });
+    vi.mocked(api.createProject).mockRejectedValueOnce(limitReached());
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect(await screen.findByRole("button", { name: /Spend 80 points/i })).toBeInTheDocument();
+  });
 });
 
 describe("Visualizer — segmentation give-up and retry", () => {
