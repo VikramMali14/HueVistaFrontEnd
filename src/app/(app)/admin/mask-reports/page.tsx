@@ -6,7 +6,7 @@ import { MaskReports } from "@/components/admin/mask-reports";
 
 export const metadata: Metadata = {
   title: "Admin · Mask reports",
-  description: "AI runs users reported as wrong — bad wall detection or a damaged clean-up.",
+  description: "AI runs reported as wrong — bad wall detection, a damaged clean-up, or a run that found no walls at all.",
 };
 
 /**
@@ -46,6 +46,13 @@ export default async function AdminMaskReportsPage({
         tell the difference. These are the rooms where somebody looked at the result and said so.
         Each row carries the state of that particular run, because re-running segmentation
         overwrites it on the project itself.
+      </Lead>
+      <Lead style={{ maxWidth: "62ch", marginTop: 14 }}>
+        Some rows nobody wrote in about. When the photo clean-up succeeds and wall detection
+        then finds nothing, the room is handed over for the walls to be marked by hand rather
+        than failed — so the customer has something that works and no reason to complain. The
+        run files that one itself, marked{" "}
+        <strong style={{ fontWeight: 500 }}>raised by the pipeline</strong>.
       </Lead>
 
       <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>

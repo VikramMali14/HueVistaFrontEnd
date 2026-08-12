@@ -99,6 +99,13 @@ export default async function AdminPage() {
             Shop owners choose their own password when they request an account. It is stored
             scrambled, so it is never shown to you and never appears in a log.
           </li>
+          <li>
+            The <strong>public gallery</strong> is filled from your own finished rooms:
+            open one in the studio, then press <strong>Add to gallery</strong> there — or
+            go straight to <Link href="/admin/free-projects" style={{ color: "var(--accent-soft)" }}>
+            Gallery &amp; free projects</Link> and pick the room from the list. Only rooms
+            with at least one marked wall can go up, and only your own.
+          </li>
         </ul>
       </div>
 
@@ -118,8 +125,12 @@ export default async function AdminPage() {
         <Link href="/admin/mask-reports" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Reported runs →
         </Link>
-        <Link href="/admin/free-projects" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
-          Free projects →
+        <Link
+          href="/admin/free-projects"
+          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}
+          title="Publish a finished room to the public gallery, and manage what is already on the shelf."
+        >
+          Gallery &amp; free projects →
         </Link>
         <Link href="/admin/site-assets" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Site images →

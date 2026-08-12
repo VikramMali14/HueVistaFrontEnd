@@ -27,8 +27,17 @@ export const metadata: Metadata = {
  * and no quota or credit is touched. That is what makes it safe for the same
  * five living rooms to be opened by everybody.
  */
-export default async function AdminFreeProjectsPage() {
+export default async function AdminFreeProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string; title?: string }>;
+}) {
   await requireRole(["ADMIN"]);
+  // Arriving from the studio's "Add to gallery": the room to publish is already
+  // decided, so the form opens on it instead of asking the admin to find it again
+  // in a list of sixty. Ignored when it names a project that isn't publishable —
+  // the picker is the authority on that, not the link.
+  const { project: preselectProjectId, title: preselectTitle } = await searchParams;
   const [templates, sources] = await Promise.all([getFreeProjects(), getFreeProjectSources()]);
   // Both pages the shelf feeds only exist once something is published — /gallery
   // is 404'd while it is empty, and the in-app Library has nothing to show — so
@@ -119,6 +128,8 @@ export default async function AdminFreeProjectsPage() {
       <FreeProjectLibrary
         initial={templates}
         sources={sources}
+        preselectProjectId={preselectProjectId}
+        preselectTitle={preselectTitle}
         publishAction={publishFreeProjectAction}
         startAction={startFreeProjectAction}
         setPublishedAction={setFreeProjectPublishedAction}

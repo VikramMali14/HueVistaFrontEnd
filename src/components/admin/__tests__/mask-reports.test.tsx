@@ -58,6 +58,25 @@ describe("MaskReports", () => {
     expect(screen.getByText(/clean-up did not run/i)).toBeInTheDocument();
   });
 
+  it("marks the reports the pipeline filed for itself", () => {
+    // These arrive from a room the user is probably perfectly happy with — the photo
+    // came out, only the walls didn't — so an admin reading this row as an ordinary
+    // complaint would go looking for a person who never wrote in.
+    render(
+      <MaskReports
+        initial={[report({ autoRaised: true, regionCount: 0, note: "Raised automatically by the pipeline." })]}
+        updateAction={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/raised by the pipeline/i)).toBeInTheDocument();
+    expect(screen.getByText(/no complaint/i)).toBeInTheDocument();
+  });
+
+  it("does not mark an ordinary report as the pipeline's", () => {
+    render(<MaskReports initial={[report()]} updateAction={vi.fn()} />);
+    expect(screen.queryByText(/raised by the pipeline/i)).not.toBeInTheDocument();
+  });
+
   it("names the shop on a guest report, which has no account behind it", () => {
     render(
       <MaskReports

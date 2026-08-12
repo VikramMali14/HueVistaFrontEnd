@@ -421,9 +421,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // result the shop wants, not which one it can afford.
   // cleanImage is the ADMIN-only testing knob (backend strips it otherwise).
   // Masks are always stored raw — exactly as the model painted them.
+  // simulateFailure is spelled out as "NONE" rather than left undefined on purpose.
+  // The backend keeps the last value it was given (like cleanImage), so an omitted
+  // field means "carry on as before" — and an admin who rehearsed a failure once,
+  // then reloaded the page, would have every later run on that project keep failing
+  // with nothing on screen saying why. Sending NONE makes each run state its intent.
   const [segOptions, setSegOptions] = useState<SegmentationOptions>({
     cleanImage: true,
     maskMode: "AUTO",
+    simulateFailure: "NONE",
   });
   // The project quota, shown in the topbar so the cost is visible at the moment it's
   // spent. One project covers the whole automatic pipeline — clean-up and wall
@@ -527,6 +533,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // finished but walls are the user's to mark, so notices must not claim the AI
   // detected anything.
   const [manualMaskProject, setManualMaskProject] = useState(false);
+  // The same ENDING, reached the other way: this project asked for AI wall
+  // detection, got its cleaned photo, and the model found nothing. The room is
+  // open and workable — it just has no walls on it yet. Kept apart from
+  // `manualMaskProject` because the two need different words: one is what the
+  // user chose, the other is something that went wrong and has already been
+  // reported to the team on their behalf.
+  const [autoMaskFailed, setAutoMaskFailed] = useState(false);
+  // The "mark them yourself" card is an instruction, not a warning, so it can be
+  // waved away — the standing pill in the topbar keeps the explanation available.
+  const [autoMaskNoticeDismissed, setAutoMaskNoticeDismissed] = useState(false);
   // Transient topbar notices — "Walls detected" / "Saved" auto-hide after a beat.
   const [wallsNoticeVisible, setWallsNoticeVisible] = useState(false);
   const [savedNoticeVisible, setSavedNoticeVisible] = useState(false);
@@ -867,6 +883,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       // MANUAL-mode projects arrive SEGMENTED with zero auto regions — the
       // cleaned canvas is the deliverable and the user marks walls by hand.
       setManualMaskProject(detail.maskMode === "MANUAL");
+      // Same shape, different story: an AUTO run whose walls never came out. The
+      // backend hands the cleaned canvas over instead of failing the project, so
+      // this is the only thing that says the AI missed rather than that the room
+      // was always going to be marked by hand.
+      setAutoMaskFailed(Boolean(detail.autoMaskFailed));
       const openingBrand = pickOpeningBrand(shades ?? []);
       const mapped = detail.regions
         .slice()
@@ -965,6 +986,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       // session, and takes the button with it.
       setReported(false);
       setFailedStage(null);
+      // A previous run's "mark them yourself" notice must not sit over a run in flight.
+      setAutoMaskFailed(false);
       setLimitReached(false);
       setAccessExpired(false);
       setNeedVerification(false);
@@ -1178,6 +1201,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     // rather than filing a duplicate.
     setReported(false);
     setFailedStage(null);
+    setAutoMaskFailed(false);
     setProjectLimitReached(false);
     setSegmenting(true);
     try {
@@ -2103,6 +2127,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     !projectLimitReached,
   );
 
+  // "The photo came out, the walls didn't." Shown until the first wall exists —
+  // a persisted region is proof the user has understood and started, and a card
+  // still telling them to start would then just be in the way. It also stands
+  // down for the gates and errors above, which are about a room that ISN'T open.
+  const showAutoMaskNotice = Boolean(
+    autoMaskFailed && masksReady && imageUrl && !autoMaskNoticeDismissed &&
+    !regions.some((r) => r.backendId) &&
+    !pendingFile && !uploading && !segmenting && !showCanvasError &&
+    !limitReached && !askRetailer && !accessExpired && !needVerification && !needSubscription &&
+    !projectLimitReached,
+  );
+
   // A ?project= that names nothing gets a plain answer instead of an empty studio.
   // The old behaviour was worse than a blank page: it looked like a real, working,
   // untitled project, and it skipped the name-first step the normal flow enforces,
@@ -2214,9 +2250,21 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               Detecting walls…
             </span>
           )}
-          {masksReady && wallsNoticeVisible && !guestAiUnavailable && (
+          {masksReady && wallsNoticeVisible && !guestAiUnavailable && !autoMaskFailed && (
             <span className="hv-status-pill is-success">
               {manualMaskProject ? "Photo cleaned — click walls to mark them" : "Walls detected"}
+            </span>
+          )}
+          {/* Not is-success and not is-error: the photo IS ready (the expensive half
+              worked), the walls simply aren't. And unlike the transient notices
+              beside it this one stays put — it is the standing explanation for why
+              a finished project has nothing to paint yet. */}
+          {masksReady && autoMaskFailed && (
+            <span
+              className="hv-status-pill"
+              title="The photo was cleaned, but wall detection didn't find anything usable. Mark the walls yourself with 'Add a wall' — it's free and unlimited. Our team has already been told."
+            >
+              Photo ready · walls not detected
             </span>
           )}
           {guest && guestAiUnavailable && masksReady && (
@@ -2256,6 +2304,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               selected={companies}
               onChange={setCompanies}
             />
+          )}
+          {/* Putting a room in the public gallery starts with a finished room, and
+              this is where a finished room is. The publishing itself still lives in
+              the admin console — it copies files and picks a shelf — but nothing
+              pointed there from the one screen where you can see that a project is
+              worth publishing, so the whole feature read as missing. Carries the
+              project id across, so the console opens with this room already chosen. */}
+          {isAdmin && !guest && projectId && masksReady && (
+            <LinkButton
+              href={`/admin/free-projects?project=${encodeURIComponent(projectId)}&title=${encodeURIComponent(projectName || "")}`}
+              size="sm"
+              variant="ghost"
+              title="Publish this room to the public gallery — its photo and walls are copied once, and anyone can then open a free copy without running the AI."
+            >
+              Add to gallery
+            </LinkButton>
           )}
           {!guest && (
             <Button
@@ -2714,26 +2778,78 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   </fieldset>
                 )}
                 {isAdmin && !guest && (
-                  <label
+                  <fieldset
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
+                      border: "1px solid var(--rule)",
+                      borderRadius: 8,
+                      padding: "10px 12px",
+                      margin: 0,
+                      display: "flex",
+                      flexDirection: "column",
                       gap: 8,
-                      font: "400 13px/1.4 var(--sans)",
-                      color: "var(--fg-soft)",
-                      cursor: "pointer",
+                      textAlign: "left",
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={Boolean(segOptions.cleanImage)}
-                      onChange={(e) => setSegOptions((o) => ({ ...o, cleanImage: e.target.checked }))}
-                    />
-                    Clean the photo before mask generation
-                    <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
-                      admin · testing
-                    </span>
-                  </label>
+                    <legend style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)", padding: "0 6px" }}>
+                      Admin · testing
+                    </legend>
+                    <label
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                        font: "400 13px/1.4 var(--sans)",
+                        color: "var(--fg-soft)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={Boolean(segOptions.cleanImage)}
+                        onChange={(e) => setSegOptions((o) => ({ ...o, cleanImage: e.target.checked }))}
+                      />
+                      Clean the photo before mask generation
+                    </label>
+                    {/* Rehearsing a failure, rather than waiting for one. The models
+                        aren't called for whichever half is picked, so this costs
+                        nothing — and each option lands on a different path: CLEAN
+                        fails the run outright, MASK hands the cleaned photo over with
+                        the walls to mark by hand and files a report with the admin. */}
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                        font: "400 13px/1.4 var(--sans)",
+                        color: "var(--fg-soft)",
+                      }}
+                    >
+                      Make the AI models fail
+                      <select
+                        value={segOptions.simulateFailure ?? "NONE"}
+                        onChange={(e) =>
+                          setSegOptions((o) => ({
+                            ...o,
+                            simulateFailure: e.target.value as NonNullable<SegmentationOptions["simulateFailure"]>,
+                          }))
+                        }
+                        style={{
+                          padding: "6px 8px",
+                          border: "1px solid var(--rule-strong)",
+                          borderRadius: 6,
+                          background: "var(--bg)",
+                          color: "var(--fg)",
+                          font: "400 13px/1.4 var(--sans)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <option value="NONE">No — run it for real</option>
+                        <option value="CLEAN">Fail the photo clean-up (run fails)</option>
+                        <option value="MASK">Fail wall detection (walls marked by hand)</option>
+                        <option value="BOTH">Fail both</option>
+                      </select>
+                    </label>
+                  </fieldset>
                 )}
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
                   <button type="button" className="btn btn-ghost" onClick={chooseDifferent}>
@@ -2834,6 +2950,61 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 >
                   ×
                 </button>
+              </div>
+            )}
+            {/* The walls didn't come out — but the photo did, and that is the whole
+                point of saying it here rather than on a failure screen. The room is
+                open behind this card; all that is missing is three clicks with a tool
+                that costs nothing. It disappears the moment the first wall is marked,
+                and can be dismissed before that. */}
+            {showAutoMaskNotice && (
+              <div
+                role="status"
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  bottom: 20,
+                  transform: "translateX(-50%)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "14px 18px",
+                  background: "var(--bg)",
+                  border: "1px solid var(--rule-strong)",
+                  borderRadius: 12,
+                  maxWidth: "min(92%, 460px)",
+                  textAlign: "center",
+                  zIndex: 5,
+                }}
+              >
+                <p style={{ margin: 0, font: "400 15px/1.45 var(--serif)", color: "var(--fg)" }}>
+                  Your photo is cleaned and ready — but we couldn&rsquo;t pick out the walls in
+                  it. Mark them yourself: press <strong style={{ fontWeight: 500 }}>Add a wall</strong>{" "}
+                  and click a surface. It&rsquo;s free, and there&rsquo;s no limit.
+                </p>
+                <Mono style={{ color: "var(--fg-mute)" }}>
+                  This run has already been sent to our team to look at
+                </Mono>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                  <button
+                    type="button"
+                    className="btn btn-brass"
+                    onClick={() => {
+                      setEditingRegionId(null);
+                      setMaskStudioOpen(true);
+                    }}
+                  >
+                    Add a wall
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setAutoMaskNoticeDismissed(true)}
+                  >
+                    Not now
+                  </button>
+                </div>
               </div>
             )}
             <LoaderOverlay show={uploading || segmenting} label={overlayLabel} hint={overlayHint} />

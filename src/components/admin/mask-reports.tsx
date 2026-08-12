@@ -117,6 +117,28 @@ export function MaskReports({ initial, updateAction }: MaskReportsProps) {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "baseline" }}>
               <Mono brass={r.status === "NEW"}>{STATUS_LABEL[r.status]}</Mono>
               <Mono>{when(r.createdAt)}</Mono>
+              {/* Nobody wrote in about this one: the run filed it. Worth marking,
+                  because the two read completely differently — a person's report is
+                  a judgement about what they could SEE, while this is the pipeline
+                  stating a fact it already knows, on a room the user is probably
+                  quite happy with. */}
+              {r.autoRaised && (
+                <span
+                  title="Filed by the pipeline: the photo was cleaned, wall detection returned nothing usable, and the room was handed over for hand-marked walls."
+                  style={{
+                    padding: "3px 9px",
+                    borderRadius: 999,
+                    border: "1px solid var(--rule-strong)",
+                    font: "500 11px/1 var(--mono)",
+                    letterSpacing: ".12em",
+                    textTransform: "uppercase",
+                    color: "var(--fg-mute)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Raised by the pipeline
+                </span>
+              )}
               <span style={{ flex: 1 }} />
               {r.projectId && (
                 // Straight into THIS room's masks — the viewer is where "is this
@@ -139,6 +161,7 @@ export function MaskReports({ initial, updateAction }: MaskReportsProps) {
               {r.projectName ?? "Untitled room"}
               {r.projectId ? ` · ${r.projectId}` : ""}
               {" — "}
+              {r.autoRaised ? "no complaint — " : ""}
               {r.reporterName ?? "Walk-in customer"}
               {r.reporterEmail ? ` · ${r.reporterEmail}` : ""}
               {r.shopName ? ` · via ${r.shopName}` : ""}
