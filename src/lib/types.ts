@@ -820,7 +820,13 @@ export interface StoreLink {
   /** What a walk-in pays. One flat platform price — the shop does not set it. */
   pricePaise: number;
   currency: string;
+  /**
+   * The window on the code a walk-in buys — a platform default, not a per-link
+   * choice. Still served because links created under the old form carry the number
+   * their shop picked, and a code sold under one keeps the window it was sold with.
+   */
   validDays: number;
+  /** False while the shop has the kiosk paused. A deleted link is not returned at all. */
   active: boolean;
   createdAt?: string | null;
   /** Points the shop earns per sale — its reward, in place of a share of the price. */
