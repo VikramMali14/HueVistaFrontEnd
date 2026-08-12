@@ -52,6 +52,29 @@ describe("pollUntilSegmented", () => {
     expect(sleep).toHaveBeenCalledWith(250);
   });
 
+  it("backs off between polls and holds at the ceiling", async () => {
+    const getStatus = statusSequence([
+      "SEGMENTING", "SEGMENTING", "SEGMENTING", "SEGMENTING", "SEGMENTING", "SEGMENTED",
+    ]);
+    const { now, sleep } = fakeClock();
+
+    await pollUntilSegmented({
+      getStatus, now, sleep, intervalMs: 1000, backoffFactor: 2, maxIntervalMs: 5000,
+    });
+
+    // 1000 → 2000 → 4000 → capped at 5000 and stays there.
+    expect(sleep.mock.calls.map((c) => c[0])).toEqual([1000, 2000, 4000, 5000, 5000]);
+  });
+
+  it("keeps a flat cadence when the ceiling is below the starting interval", async () => {
+    const getStatus = statusSequence(["SEGMENTING", "SEGMENTING", "SEGMENTED"]);
+    const { now, sleep } = fakeClock();
+
+    await pollUntilSegmented({ getStatus, now, sleep, intervalMs: 3000, maxIntervalMs: 500 });
+
+    expect(sleep.mock.calls.map((c) => c[0])).toEqual([3000, 3000]);
+  });
+
   it("throws PollFailedError carrying the backend failureReason on FAILED", async () => {
     const getStatus = statusSequence(["SEGMENTING", "FAILED"], "No walls were found in this photo.");
     const { now, sleep } = fakeClock();
@@ -85,6 +108,8 @@ describe("pollUntilSegmented", () => {
       sleep,
       timeoutMs: 5000,
       intervalMs: 1000,
+      // Flat cadence: this test is about the deadline, not the backoff.
+      backoffFactor: 1,
     }).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(PollTimeoutError);

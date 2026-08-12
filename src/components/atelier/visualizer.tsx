@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mono } from "@/components/ui/eyebrow";
+import Link from "next/link";
+import { Eyebrow, Mono } from "@/components/ui/eyebrow";
 import { Button, LinkButton } from "@/components/ui/button";
 import { LoaderOverlay } from "@/components/ui/loader-overlay";
 import { Spinner } from "@/components/ui/spinner";
@@ -132,7 +133,7 @@ const MAX_PDF_PAGES = 4;
 const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
   { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#e8d5b0" },
   { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#b0603e" },
-  { id: "trim", kind: "TRIM", label: "Border", hex: "#4a362a" },
+  { id: "trim", kind: "TRIM", label: "Trim & frames", hex: "#4a362a" },
 ];
 
 const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
@@ -157,10 +158,15 @@ const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
   MANUAL: "#ffffff",
 };
 
+// One name per surface, matching RegionCategory.getDefaultLabel() on the backend.
+// These are the placeholders shown BEFORE a photo, and detection replaces them
+// with the backend's own labels — so any disagreement shows up as the walls
+// renaming themselves the moment the AI finishes ("Border" became "Trim &
+// Frames" mid-flow).
 const KIND_LABEL: Record<RegionKind, string> = {
   MAIN_WALL: "Main wall",
   ACCENT_WALL: "Accent wall",
-  TRIM: "Border",
+  TRIM: "Trim & frames",
   MANUAL: "Wall",
 };
 
@@ -323,6 +329,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [hideNames, setHideNames] = useState(false);
   const [viewOnly, setViewOnly] = useState(false);
   const [viewOnlyReason, setViewOnlyReason] = useState<string | null>(null);
+  /**
+   * Opening a project named in the URL failed. "notFound" is a 404/400 — the id
+   * names nothing this account can open; "error" is anything else (a 5xx, a
+   * network blip), which is worth retrying rather than abandoning.
+   */
+  const [openFailed, setOpenFailed] = useState<"notFound" | "error" | null>(null);
   /**
    * The job is finished. A superset of viewOnly rather than a flavour of it: closing
    * makes a project read-only, but a read-only project is not necessarily closed — it
@@ -831,6 +843,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     let cancelled = false;
     (async () => {
       setError(null);
+      setOpenFailed(null);
       setUploading(true);
       try {
         const detail = await getProjectCall(openProjectId);
@@ -848,6 +861,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           window.location.href = "/sign-in?next=/dashboard";
           return;
         }
+        // A project that cannot be opened needs its own screen, not the error
+        // strip. Both surfaces that render `error` are conditioned on there being
+        // a photo or a dropzone, and opening a project by id has neither — so a
+        // ?project= pointing at nothing showed a working, empty, "Untitled
+        // project" studio and said nothing at all about why.
+        setOpenFailed(
+          err instanceof HttpError && (err.status === 404 || err.status === 400)
+            ? "notFound"
+            : "error",
+        );
         setError(err instanceof Error ? err.message : "Could not open this project.");
       } finally {
         if (!cancelled) setUploading(false);
@@ -1975,7 +1998,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     : segmenting
       ? manualRun
         ? "Tidying up the photo. When it's done, click each wall to mark it yourself."
-        : "Finding the walls and other paintable surfaces. This usually takes about a minute; a busy photo can take longer."
+        // "About a minute" against a job the backend gives eight minutes to finish:
+        // detection is two generative model calls in sequence, and a real upload
+        // took two and a half. An estimate the wait routinely beats is worse than a
+        // wider one, because the person reading it starts wondering what broke.
+        : "Finding the walls and other paintable surfaces. This usually takes one to three minutes; a busy photo can take longer."
       : undefined;
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
@@ -2010,8 +2037,42 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     !projectLimitReached,
   );
 
+  // A ?project= that names nothing gets a plain answer instead of an empty studio.
+  // The old behaviour was worse than a blank page: it looked like a real, working,
+  // untitled project, and it skipped the name-first step the normal flow enforces,
+  // so anything done in it belonged to no project at all.
+  if (openFailed) {
+    const missing = openFailed === "notFound";
+    return (
+      <div className="hv-visualizer">
+        <div style={{ maxWidth: 560, margin: "0 auto", padding: "72px var(--gutter) 96px", textAlign: "center" }}>
+          <Eyebrow>Studio · project</Eyebrow>
+          <h1 className="display" style={{ fontSize: "clamp(32px, 4.5vw, 52px)", margin: "16px 0 14px" }}>
+            {missing ? <>No such <i>project.</i></> : <>That didn&apos;t <i>open.</i></>}
+          </h1>
+          <p style={{ font: "400 16px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "46ch", margin: "0 auto 28px" }}>
+            {missing
+              ? "This link points at a project that doesn't exist, or isn't one this account can open. It may have been deleted."
+              : error || "Something went wrong opening this project. Try again in a moment."}
+          </p>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
+            <Link className="btn btn-brass" href="/dashboard">Back to your projects <span className="arr">→</span></Link>
+            <Link className="btn btn-ghost" href="/studio">Start a new project</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="hv-visualizer">
+      {/* The studio had no heading of any level. It is a full-bleed working surface,
+          so there is no room for a display title, but a page with no h1 gives a
+          screen reader nothing to land on and no way to tell one project from the
+          next in a heading list. Visually hidden, and it names the actual project. */}
+      <h1 className="sr-only">
+        Studio — {projectName || (openProjectId ? "project" : "new project")}
+      </h1>
       <div className="hv-studio-topbar">
         <div className="hv-studio-project">
           <Mono>Project</Mono>
@@ -2231,15 +2292,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       <div className="hv-studio-body">
         <div className="hv-studio-canvas-wrap" ref={canvasWrapRef}>
           <div className="hv-studio-canvas">
+            {/* The one thing on the page a screen reader most needs named, and the
+                only canvas here that had no name at all — the little colour wheel
+                beside it has carried one all along. `img` because that is what it
+                is to a reader: a picture of the room, not a control. */}
             <canvas
               key={engineEpoch}
               ref={canvasRef}
+              role="img"
+              aria-label={
+                regions.some((r) => r.applied)
+                  ? `${projectName || "Your room"} — preview with ${regions.filter((r) => r.applied).length} surface${regions.filter((r) => r.applied).length === 1 ? "" : "s"} painted`
+                  : `${projectName || "Your room"} — room photo, no colours applied yet`
+              }
               style={{
                 display: imageUrl ? "block" : "none",
               }}
             />
             {showDetailsGate && (
               <ProjectDetailsGate
+                initial={details ?? undefined}
                 onSubmit={(d) => {
                   setDetails(d);
                   setProjectName(d.name);
@@ -2248,12 +2320,28 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               />
             )}
             {!imageUrl && !showDetailsGate && !openProjectId && (
-              <DropZone
-                uploading={uploading}
-                error={error}
-                onChoose={() => fileRef.current?.click()}
-                onDrop={(file) => void selectFile(file)}
-              />
+              <>
+                <DropZone
+                  uploading={uploading}
+                  error={error}
+                  onChoose={() => fileRef.current?.click()}
+                  onDrop={(file) => void selectFile(file)}
+                />
+                {/* The way back. "Continue to photo" was one-way: a name, a room type
+                    and notes typed on the previous step became uneditable the moment
+                    it was pressed, and the only route back to them was abandoning the
+                    project. Nothing has been created on the backend yet at this point
+                    — the details are still local — so returning costs nothing. */}
+                {details && (
+                  <button
+                    type="button"
+                    onClick={() => setDetails(null)}
+                    className="hv-studio-back"
+                  >
+                    <span aria-hidden>←</span> Edit project details
+                  </button>
+                )}
+              </>
             )}
             <input
               ref={fileRef}
@@ -2335,26 +2423,36 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 </button>
               </>
             )}
-            {/* On-canvas legend: every painted surface with its shade NAME and
-                CODE, so the colours in the preview are never anonymous — the
+            {/* On-canvas legend: every painted surface with its shade name and
+                code, so the colours in the preview are never anonymous — the
                 counter (or a screenshot) reads them straight off the image.
-                Guests see the shop-encoded code, mirroring the PDF. */}
+                Labelled by the SAME rules as the share sheet and the PDF: this
+                branched on `guest` alone, so a signed-in customer of a shop
+                running its own numbering was shown the manufacturer's real code
+                right under a picker that had just shown them the coded one. The
+                customer uses this exact screen, so that one label undid the
+                scheme everywhere else it was honoured. */}
             {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
               <div className="hv-studio-legend" role="list" aria-label="Colours in this preview">
                 {regions.filter((r) => r.applied).map((r) => {
+                  // A custom-picked colour is nobody's catalogue shade, so its hex
+                  // is all there is to name it by and nothing is being protected.
                   const code = r.shade
-                    ? guest
+                    ? hideRawCodes
                       ? encodeCode
                         ? encodeCode(r.shade.code)
                         : undefined
                       : r.shade.code
-                    : undefined;
+                    : r.hex.toUpperCase();
+                  const name = hideNames ? "" : (r.shade?.name ?? "Custom colour");
                   return (
                     <div key={r.id} className="hv-studio-legend-row" role="listitem">
                       <span aria-hidden className="hv-studio-legend-chip" style={{ background: r.hex }} />
                       <span className="hv-studio-legend-region">{r.label}</span>
-                      <span className="hv-studio-legend-name">{r.shade?.name ?? "Custom colour"}</span>
-                      <span className="hv-studio-legend-code">{code ?? r.hex.toUpperCase()}</span>
+                      {name && <span className="hv-studio-legend-name">{name}</span>}
+                      {/* No code to show and no name either → the swatch itself is
+                          the only handle, and the hex is a worse leak than none. */}
+                      {code && <span className="hv-studio-legend-code">{code}</span>}
                     </div>
                   );
                 })}
@@ -2749,7 +2847,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       <Mono>{projectValidityNote}</Mono>
                       <a
                         href="/plan"
-                        style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-soft)" }}
+                        style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-text)" }}
                       >
                         top up your points or upgrade your plan →
                       </a>

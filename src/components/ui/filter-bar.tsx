@@ -121,7 +121,10 @@ export function FilterBar({
       <style>{`
         .hv-filter { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 16px; margin-bottom: 18px; }
         .hv-filter-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; }
-        .hv-filter-search { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--surface); padding: 0 10px; height: 38px; min-width: 220px; flex: 1 1 220px; max-width: 340px; }
+        /* Wide enough for the placeholders these boxes actually carry — at 340px
+           "Search company, line or finish" was cut to "…line or fin", which reads
+           as a rendering fault rather than a hint. */
+        .hv-filter-search { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--surface); padding: 0 10px; height: 38px; min-width: 220px; flex: 1 1 300px; max-width: 420px; }
         .hv-filter-search-icon { display: inline-flex; color: var(--fg-mute); flex-shrink: 0; }
         .hv-filter-search input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--fg); font: 400 14px/1 var(--sans); height: 100%; }
         .hv-filter-search input::placeholder { color: var(--fg-mute); }

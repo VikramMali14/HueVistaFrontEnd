@@ -47,11 +47,19 @@ export function SectionNav({ items }: { items: SectionNavItem[] }) {
     const onPointer = (e: PointerEvent) => {
       if (navRef.current && !navRef.current.contains(e.target as Node)) setOpen(false);
     };
+    // Scrolling closes it. The panel is an overlay pinned over the right of the
+    // page, so on the portal it sat on top of the Active-codes card — hiding the
+    // code count and part of the table — and stayed there for the whole scroll.
+    // Anyone scrolling has stopped using the jump menu and started reading the
+    // thing it is covering.
+    const onScroll = () => setOpen(false);
     window.addEventListener("keydown", onKey);
     window.addEventListener("pointerdown", onPointer);
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("scroll", onScroll);
     };
   }, [open]);
 
@@ -104,16 +112,20 @@ export function SectionNav({ items }: { items: SectionNavItem[] }) {
       </div>
 
       <style>{`
+        /* Held a few pixels off the edge. Flush against it the tab's right side had
+           no border and its hit area ended exactly at the client edge, so it read as
+           a panel clipped by the window rather than a handle, and a click aimed at
+           its visible right-hand strip could land on the scrollbar instead. */
         .hv-sidenav {
           position: fixed;
           top: 50%;
-          right: 0;
+          right: 8px;
           transform: translateY(-50%);
           z-index: 70;
           display: flex;
           align-items: center;
-          /* row-reverse: the tab sits flush to the viewport edge, the panel grows
-             out to its left. */
+          /* row-reverse: the tab sits at the viewport edge, the panel grows out to
+             its left. */
           flex-direction: row-reverse;
         }
         .hv-sidenav-tab {
@@ -121,13 +133,12 @@ export function SectionNav({ items }: { items: SectionNavItem[] }) {
           flex-direction: column;
           align-items: center;
           gap: 8px;
-          padding: 16px 8px;
+          padding: 16px 10px;
           background: var(--nav-bg);
           -webkit-backdrop-filter: blur(18px) saturate(150%);
           backdrop-filter: blur(18px) saturate(150%);
           border: 1px solid var(--rule-strong);
-          border-right: none;
-          border-radius: 12px 0 0 12px;
+          border-radius: 12px;
           color: var(--fg-mute);
           cursor: pointer;
           box-shadow: -12px 0 32px -20px rgba(0,0,0,.5);

@@ -218,10 +218,15 @@ export async function unlockGuestAction(
 }
 
 /**
- * The primary walk-in flow: unlock with a retailer code and NO login. Any existing
- * session (or guest cookie) is cleared FIRST — unlocking always starts fresh — then
- * the backend auto-provisions a passwordless CUSTOMER account and returns a full
- * session, which we persist as cookies so the customer is signed straight in.
+ * The primary walk-in flow: unlock with a retailer code and NO login. The backend
+ * auto-provisions a passwordless CUSTOMER account and returns a full session, which
+ * we persist as cookies so the customer is signed straight in.
+ *
+ * Redemption is anonymous, so we redeem BEFORE touching the caller's cookies and
+ * only swap sessions once the code has actually been accepted. A retailer who
+ * mistypes a customer's code therefore keeps their own session — the old order
+ * (clear, then redeem) signed them out on every bad code, which mattered because
+ * the portal sends retailers to this very page.
  */
 export async function unlockAccountAction(
   code: string,
@@ -230,17 +235,16 @@ export async function unlockAccountAction(
   const value = code.trim();
   if (!value) return { error: "Enter the code from your shop." };
 
-  // Log out whoever is here now (retailer, another customer, a stale guest) before
-  // unlocking, so the code's own account is the only session that survives.
-  await clearSession();
-  const jar = await cookies();
-  jar.delete(config.guestCookie);
-  jar.delete(config.guestBrandsCookie);
-
   const hdrs = await headers();
   const clientIp = clientIpFromHeaders(hdrs);
   try {
     const res = await guestServerApi.redeemAccount(value, clientIp);
+    // The code is good — now log out whoever is here (retailer, another customer, a
+    // stale guest) so the code's own account is the only session that survives.
+    await clearSession();
+    const jar = await cookies();
+    jar.delete(config.guestCookie);
+    jar.delete(config.guestBrandsCookie);
     await persistSession({
       accessToken: res.accessToken,
       refreshToken: res.refreshToken,
@@ -1289,6 +1293,12 @@ export async function requireRole(
     }
     redirect("/sign-in");
   }
-  if (!allowed.includes(user.role)) redirect("/dashboard?denied=role");
+  // Carry WHICH roles the page wanted. The message was a fixed sentence naming
+  // retailers and administrators, so a retailer bounced off an admin-only page was
+  // told the page is for retailers — a denial that contradicts itself reads as a
+  // bug in the app rather than a rule about the page.
+  if (!allowed.includes(user.role)) {
+    redirect(`/dashboard?denied=role&need=${encodeURIComponent(allowed.join(","))}`);
+  }
   return user;
 }

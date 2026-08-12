@@ -134,6 +134,10 @@ export function ShopBrandsPanel({ org: orgProp }: { org?: OrgResponse | null }) 
   }
 
   const noneOn = restricted && shown.size === 0;
+  // Assigned but empty: no shades have been loaded for these companies, so ticking
+  // one adds a name to the list and not a single colour behind it. This is what made
+  // "8 companies" here and "6 companies" in the studio both true at the same time.
+  const empty = options.filter((b) => b.shadeCount === 0);
 
   return (
     <div>
@@ -146,7 +150,11 @@ export function ShopBrandsPanel({ org: orgProp }: { org?: OrgResponse | null }) 
             setError(null);
           }}
           title="Show every company I carry"
-          hint={`All ${options.length} ${options.length === 1 ? "company" : "companies"} your distributor has assigned you.`}
+          hint={
+            empty.length > 0
+              ? `All ${options.length} ${options.length === 1 ? "company" : "companies"} your distributor has assigned you — ${options.length - empty.length} with colours loaded.`
+              : `All ${options.length} ${options.length === 1 ? "company" : "companies"} your distributor has assigned you.`
+          }
         />
         <Choice
           checked={restricted}
@@ -165,9 +173,23 @@ export function ShopBrandsPanel({ org: orgProp }: { org?: OrgResponse | null }) 
               <label key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
                 <input type="checkbox" checked={shown.has(b.id)} onChange={() => toggle(b.id)} />
                 <span style={{ font: "400 15px/1.3 var(--sans)", color: "var(--fg)" }}>{b.name}</span>
+                {b.shadeCount === 0 && (
+                  <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".12em", textTransform: "uppercase", color: "var(--fg-mute)" }}>
+                    no colours yet
+                  </span>
+                )}
               </label>
             ))}
           </div>
+        )}
+
+        {empty.length > 0 && (
+          <p role="note" style={{ font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)", margin: 0 }}>
+            {empty.map((b) => b.name).join(" and ")}{" "}
+            {empty.length === 1 ? "has" : "have"} no shades loaded yet, so{" "}
+            {empty.length === 1 ? "it adds" : "they add"} a company name to your lists without
+            adding a colour to choose from. Ask your distributor when the catalogue is coming.
+          </p>
         )}
 
         {/* Saving nothing is allowed — a shop between suppliers may genuinely stock

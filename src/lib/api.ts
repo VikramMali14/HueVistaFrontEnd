@@ -1585,15 +1585,26 @@ export const api = {
     browserFetch<import("./types").StoreLink[]>(
       `api/organizations/${encodeURIComponent(orgId)}/store-links`,
     ),
-  createStoreLink: (orgId: string, body: { validDays?: number }) =>
+  // Nothing to configure: a kiosk link is the shop's, permanently. The price is the
+  // platform's and so is the window on the code a walk-in buys, so the shop's only
+  // controls are pause, resume and delete.
+  createStoreLink: (orgId: string) =>
     browserFetch<import("./types").StoreLink>(
       `api/organizations/${encodeURIComponent(orgId)}/store-links`,
-      { method: "POST", body: JSON.stringify(body) },
+      { method: "POST", body: JSON.stringify({}) },
     ),
-  updateStoreLink: (linkId: string, body: { validDays?: number; active?: boolean }) =>
+  updateStoreLink: (linkId: string, body: { active?: boolean }) =>
     browserFetch<import("./types").StoreLink>(
       `api/store-links/${encodeURIComponent(linkId)}`,
       { method: "PATCH", body: JSON.stringify(body) },
+    ),
+  // Retires the link: its URL stops working at once and it leaves the shop's list. The
+  // sales it made stay on the books, and the walk-ins who already bought through it
+  // keep the codes they paid for.
+  deleteStoreLink: (linkId: string) =>
+    browserFetch<import("./types").StoreLink>(
+      `api/store-links/${encodeURIComponent(linkId)}`,
+      { method: "DELETE" },
     ),
   getWallet: (orgId: string) =>
     browserFetch<import("./types").WalletSummary>(

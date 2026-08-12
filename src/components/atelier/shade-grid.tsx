@@ -14,6 +14,7 @@ import {
   pairCeilingAndTrim,
   sunFadeRisk,
 } from "@/lib/color-science";
+import { PARENT_FAMILIES, parentFamilyOf } from "@/lib/colour-families";
 import { UndertoneTag } from "@/components/catalogue/undertone-tag";
 import { SHADE_ACCURACY_TEXT } from "@/components/shared/accuracy-note";
 import { generatePalettes } from "@/lib/palettes";
@@ -215,16 +216,24 @@ export function ShadeGrid({
     [shades],
   );
 
-  // Family pills come from whatever families the shades table actually holds.
-  const families = useMemo(
-    () => ["All", ...Array.from(new Set(catalogue.map((s) => s.family))).sort((a, b) => a.localeCompare(b))],
-    [catalogue],
-  );
+  // Family pills are the NORMALISED parents, not the raw vendor strings.
+  //
+  // Each paint company ships its own family vocabulary, and pouring them all into
+  // one row produced about forty peers containing "Blue" and "Blues", "Grey" and
+  // "Greys", "Earth Tones" and "Earths" — the same idea listed twice because two
+  // companies spell it differently, and picking one silently excluded the other
+  // company's shades of that exact colour. The catalogue page has mapped these to
+  // nine parents since it was built; the studio was the screen still showing the
+  // raw merge.
+  const families = useMemo(() => {
+    const present = new Set(catalogue.map((s) => parentFamilyOf(s.family)));
+    return ["All", ...PARENT_FAMILIES.filter((f) => present.has(f))];
+  }, [catalogue]);
 
   const shown = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
     return catalogue.filter((s) => {
-      if (family !== "All" && s.family !== family) return false;
+      if (family !== "All" && parentFamilyOf(s.family) !== family) return false;
       if (tone !== "All" && toneOf(s.lrv) !== tone) return false;
       return matchesQuery(s, q, { hideCodes, hideNames, encodeCode });
     });

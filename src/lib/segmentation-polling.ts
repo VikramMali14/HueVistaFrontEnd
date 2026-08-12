@@ -23,8 +23,12 @@ export interface PollOptions<T extends SegmentationStatusLike = SegmentationStat
   getStatus: () => Promise<T>;
   /** Give-up deadline in ms. Default 90_000. */
   timeoutMs?: number;
-  /** Delay between polls in ms. Default 1500. */
+  /** Delay before the FIRST re-check, in ms. Default 1500. Grows from there. */
   intervalMs?: number;
+  /** Ceiling the backing-off interval never exceeds, in ms. Default 8000. */
+  maxIntervalMs?: number;
+  /** How fast the interval grows each round. Default 1.5; 1 keeps a flat cadence. */
+  backoffFactor?: number;
   /** Cooperative cancellation — checked before every request and after every sleep. */
   isCancelled?: () => boolean;
   /** Injectable so tests can use fake timers. Default: setTimeout-based sleep. */
@@ -35,6 +39,19 @@ export interface PollOptions<T extends SegmentationStatusLike = SegmentationStat
 
 export const DEFAULT_TIMEOUT_MS = 90_000;
 export const DEFAULT_INTERVAL_MS = 1500;
+/**
+ * The interval backs off rather than holding a fixed cadence for the whole run.
+ *
+ * Wall detection is two generative model calls back to back and the deadline that
+ * covers their worst case is eight minutes. At a flat 1.5s that was a request every
+ * second and a half for as long as it took — over a hundred of them on a slow run,
+ * every one of them asking a question whose answer had not changed. The first few
+ * checks stay quick, because a fast run should still feel instant; after that the
+ * gap grows to eight seconds, which turns a two-and-a-half minute wait from about a
+ * hundred requests into roughly twenty-five.
+ */
+export const DEFAULT_MAX_INTERVAL_MS = 8_000;
+export const DEFAULT_BACKOFF_FACTOR = 1.5;
 
 export class PollTimeoutError extends Error {
   readonly kind = "timeout" as const;
@@ -75,11 +92,16 @@ export async function pollUntilSegmented<T extends SegmentationStatusLike>(optio
     getStatus,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     intervalMs = DEFAULT_INTERVAL_MS,
+    maxIntervalMs = DEFAULT_MAX_INTERVAL_MS,
+    backoffFactor = DEFAULT_BACKOFF_FACTOR,
     isCancelled = () => false,
     sleep = defaultSleep,
     now = Date.now,
   } = options;
   const start = now();
+  // Never below the starting interval, even if a caller passes a smaller ceiling.
+  const ceiling = Math.max(intervalMs, maxIntervalMs);
+  let wait = intervalMs;
   for (;;) {
     if (isCancelled()) throw new PollCancelledError();
     if (now() - start > timeoutMs) throw new PollTimeoutError();
@@ -88,6 +110,7 @@ export async function pollUntilSegmented<T extends SegmentationStatusLike>(optio
     if (isCancelled()) throw new PollCancelledError();
     if (status.status === "SEGMENTED") return status;
     if (status.status === "FAILED") throw new PollFailedError(status.failureReason);
-    await sleep(intervalMs);
+    await sleep(wait);
+    wait = Math.min(ceiling, Math.round(wait * backoffFactor));
   }
 }

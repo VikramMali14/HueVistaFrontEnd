@@ -47,10 +47,13 @@ interface MaskStudioProps {
   onSave: (mask: HTMLCanvasElement, category: RegionKind, label: string) => void;
 }
 
+// The same four names the studio, the dock and the backend use. "Accent /
+// border" and "Trim" here against "Accent wall" and "Trim & frames" there meant
+// the surface a shop had just drawn came back under a different name.
 const CATEGORY_OPTIONS: ReadonlyArray<readonly [RegionKind, string]> = [
   ["MAIN_WALL", "Main wall"],
-  ["ACCENT_WALL", "Accent / border"],
-  ["TRIM", "Trim"],
+  ["ACCENT_WALL", "Accent wall"],
+  ["TRIM", "Trim & frames"],
   ["MANUAL", "Other"],
 ];
 
@@ -1842,9 +1845,9 @@ function labelForKind(kind: RegionKind): string {
     case "MAIN_WALL":
       return "Main wall";
     case "ACCENT_WALL":
-      return "Accent / border";
+      return "Accent wall";
     case "TRIM":
-      return "Trim";
+      return "Trim & frames";
     default:
       return "Wall";
   }

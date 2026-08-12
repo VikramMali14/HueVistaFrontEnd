@@ -7,6 +7,12 @@ import { SwatchCube } from "@/components/ui/swatch-cube";
 export default function NotFound() {
   return (
     <>
+      {/* Next.js does not read a `metadata` export from not-found.tsx, so every 404
+          inherited the root layout's title — the marketing tagline — and a tab, a
+          bookmark or a history entry for a missing page was indistinguishable from
+          the home page. A <title> rendered here is hoisted into <head>. */}
+      <title>404 — Page not found · HueVista</title>
+      <meta name="robots" content="noindex" />
       <SiteHeader />
       <main id="main" style={{ textAlign: "center", padding: "120px 0 160px" }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 56 }}>

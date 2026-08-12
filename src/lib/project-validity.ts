@@ -1,3 +1,5 @@
+import { formatDate } from "./dates";
+
 /**
  * How long a bought project stays open, and how to say so.
  *
@@ -13,9 +15,10 @@
  */
 export const PROJECT_VALID_DAYS = 30;
 
-/** "30 August 2026" — a date the buyer can hold against a calendar. */
+/** "30 Aug 2026" — a date the buyer can hold against a calendar, in the app's one
+ *  date format so it lines up with the expiry dates on every other screen. */
 export function formatValidUntil(date: Date): string {
-  return date.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+  return formatDate(date.toISOString());
 }
 
 /**

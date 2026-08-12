@@ -640,8 +640,11 @@ describe("Visualizer — buying one extra project", () => {
     expect(screen.getByRole("button", { name: /pay ₹99 by card/i })).toBeInTheDocument();
     // 30 days from the served options, and the date they run to — a length alone leaves
     // the buyer counting, and a date alone leaves them working out whether it is generous.
+    // The app's one date format (see lib/dates) — short month, always with the year.
     const until = new Date(Date.now() + 30 * 86_400_000)
-      .toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+      .toLocaleDateString("en-IN", {
+        day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata",
+      });
     expect(screen.getByText(new RegExp(`Valid 30 days from purchase.*${until}`))).toBeInTheDocument();
   });
 

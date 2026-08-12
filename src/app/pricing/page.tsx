@@ -53,7 +53,15 @@ const MATRIX: ReadonlyArray<Section> = [
       ["Unused projects carried over when you upgrade", "●", "●", "●", "●"],
       ["Colour boards (PDF) per month", "5 (4 photos)", "25 (4 photos)", "100 (8 photos)", "300 (12 photos)"],
       ["Paint each wall its own colour", "●", "●", "●", "●"],
-      ["Colour scheme suggestions", "—", "—", "●", "●"],
+      // Ships to every tier, and always has. Nothing in the product gates it:
+      // AppFeature (the only entitlement the backend knows) enumerates whole
+      // PAGES, and there is no COLOUR_SCHEMES among them — so the studio's "AI
+      // Suggest" tab and the portal's combination builder are open on Free and
+      // Starter exactly as they are on Professional. This row said otherwise,
+      // which made the page a promise the product does not keep in either
+      // direction: a Starter shop reading it thinks it cannot do something it
+      // can, and a shop upgrading FOR it pays for something it already had.
+      ["Colour scheme suggestions", "●", "●", "●", "●"],
     ],
   },
   {
@@ -70,7 +78,11 @@ const MATRIX: ReadonlyArray<Section> = [
       // shade codes — is the one tool that earns at the counter without a project behind
       // it, so it is what the free plan does not carry.
       ["Colour finder — shade codes from any photo", "—", "●", "●", "●"],
-      ["Find the closest shade across companies", "—", "—", "●", "●"],
+      // Follows the colour finder, because it IS the colour finder: the finder
+      // searches whatever catalogue the shop has, and from Starter up that is every
+      // company its distributor assigned. There is no separate single-company mode
+      // to sell — a Starter account gets Dulux and Berger back in one list today.
+      ["Find the closest shade across companies", "—", "●", "●", "●"],
     ],
   },
   {
@@ -85,8 +97,13 @@ const MATRIX: ReadonlyArray<Section> = [
   {
     title: "Engineering",
     rows: [
-      ["SLA", "Best-effort", "Best-effort", "Business hrs", "99.5%"],
-      ["Support", "Community", "Email", "Priority", "Account lead"],
+      // One row, one unit. A single "SLA" row mixed two different promises across
+      // its cells — three support-response commitments and one uptime figure — so
+      // the columns were not comparable with each other at all. Split, with each
+      // promise stated only where it is actually made.
+      ["Reply to a support request", "Best-effort", "Best-effort", "Business hours", "Business hours"],
+      ["Uptime commitment", "—", "—", "—", "99.5%"],
+      ["Support channel", "Community", "Email", "Priority email", "Account lead"],
     ],
   },
 ];
@@ -94,9 +111,14 @@ const MATRIX: ReadonlyArray<Section> = [
 const cellStyle: React.CSSProperties = { textAlign: "left", padding: "22px 24px", borderBottom: "1px solid var(--rule)", fontFamily: "var(--sans)", fontWeight: 400, fontSize: 15, color: "var(--ivory-soft)", verticalAlign: "top" };
 const featCellStyle: React.CSSProperties = { ...cellStyle, color: "var(--ivory)", fontFamily: "var(--serif)", fontSize: 19 };
 const featuredColStyle: React.CSSProperties = { background: "rgba(124,92,255,.05)", color: "var(--ivory)" };
-const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px", borderBottom: "1px solid var(--rule-strong)", font: "400 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", color: "var(--brass)" };
+// The soft cut of the accent, not the base one, for everything small on the band.
+// #7c5cff measures 4.01:1 on the band in light and 4.47:1 in dark — both under AA
+// for 12–13px text, and the whole matrix is 12–13px text. #a080ff is 5.83:1 and
+// 6.51:1 on the same two grounds. The band is always dark, so this is one choice
+// serving both themes.
+const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px", borderBottom: "1px solid var(--rule-strong)", font: "400 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", color: "var(--brass-soft)" };
 const sectionHeadStyle: React.CSSProperties = { font: "400 22px/1 var(--serif)", color: "var(--brass-soft)", padding: "56px 24px 12px" };
-const yesStyle: React.CSSProperties = { color: "var(--brass)", fontFamily: "var(--mono)", fontSize: 13 };
+const yesStyle: React.CSSProperties = { color: "var(--brass-soft)", fontFamily: "var(--mono)", fontSize: 13 };
 const noStyle: React.CSSProperties = { color: "var(--mute-deep)", fontFamily: "var(--mono)", fontSize: 13 };
 const thPriceStyle: React.CSSProperties = { marginTop: 10, font: "400 14px/1.2 var(--serif)", letterSpacing: "normal", textTransform: "none", color: "var(--ivory-soft)" };
 const visuallyHidden: React.CSSProperties = { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" };

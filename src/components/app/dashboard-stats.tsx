@@ -18,8 +18,14 @@ interface DashboardStatsProps {
 export function DashboardStats({ projects }: DashboardStatsProps) {
   const loading = projects === null;
   const total = projects?.length ?? 0;
-  const ready = projects?.filter((p) => p.status === "SEGMENTED").length ?? 0;
-  const attention = projects?.filter((p) => p.status === "FAILED").length ?? 0;
+  // A run that finished and found NOTHING is not ready. It reports SEGMENTED with
+  // zero regions, which counted towards "Ready" and opened a studio with no walls,
+  // a permanently greyed Apply and nothing the shop could do — the one project that
+  // most needs attention was filed under the heading that says it needs none.
+  const ready = projects?.filter((p) => p.status === "SEGMENTED" && (p.regionCount ?? 0) > 0).length ?? 0;
+  const attention = projects?.filter(
+    (p) => p.status === "FAILED" || (p.status === "SEGMENTED" && (p.regionCount ?? 0) === 0),
+  ).length ?? 0;
   const surfaces = projects?.reduce((n, p) => n + (p.regionCount ?? 0), 0) ?? 0;
 
   if (!loading && total === 0) return null;
@@ -48,11 +54,14 @@ export function DashboardStats({ projects }: DashboardStatsProps) {
     );
   }
 
+  // Every sub-line names the unit its number is counted in. "Ready · walls
+  // detected" sat under a PROJECT count and read as a number of walls, right
+  // beside a card that really was counting walls.
   const cards: ReadonlyArray<{ n: number; l: string; sub: string }> = [
     { n: total, l: "Projects saved", sub: "in your suite" },
-    { n: ready, l: "Ready", sub: "walls detected" },
-    { n: surfaces, l: "Walls & surfaces", sub: "across all projects" },
-    { n: attention, l: "Needs attention", sub: "detection failed — reopen in Studio" },
+    { n: ready, l: "Ready", sub: "projects with walls found" },
+    { n: surfaces, l: "Walls & surfaces", sub: "regions across all projects" },
+    { n: attention, l: "Needs attention", sub: "no walls found — reopen in Studio" },
   ];
 
   return (

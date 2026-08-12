@@ -374,7 +374,20 @@ section + section { border-top: var(--hairline) solid var(--rule); }
 .btn .arr { transition: transform .3s var(--ease); }
 .btn:hover { opacity: .85; }
 .btn:hover .arr { transform: translateX(5px); }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
+/* A disabled button stops looking like the button it is. Opacity alone kept a
+   filled accent recognisably bright purple — the studio's greyed-out Share and
+   Download read as live primary actions that simply did nothing when pressed — so
+   the fill is drained as well as faded, and hover stops responding. */
+.btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  filter: grayscale(1);
+  background: var(--surface-soft);
+  color: var(--fg-mute);
+  border-color: var(--rule-strong);
+}
+.btn:disabled:hover { opacity: .55; }
+.btn:disabled .arr { transform: none; }
 .btn-ghost { background: transparent; color: var(--fg); border-color: var(--rule-strong); }
 .btn-ghost:hover { opacity: 1; background: var(--surface-soft); border-color: var(--rule-strong); color: var(--fg); }
 /* Large filled accent — "Buy now", the Recommended tier, the studio's primary.
@@ -472,6 +485,14 @@ footer { background: var(--bg-deep); border-top: 1px solid var(--rule); padding:
 /* Darker caret in light theme so it matches the (now dark) field text. */
 html[data-theme="light"] .field select { background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%232b2823' d='M5 6L0 0h10z'/%3E%3C/svg%3E"); }
 .field-error { color: var(--terracotta); font: 500 13px/1.4 var(--sans); font-style: normal; }
+
+/* A <select> that matches the app's own controls rather than the browser's.
+   `.field select` above only reaches selects inside a .field wrapper; the app
+   screens style their controls inline, so a plain <select> among them rendered
+   as a raw OS dropdown next to custom-drawn siblings. This is the same caret and
+   the same box, available to any select that asks for it. */
+.hv-select { appearance: none; background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%2371716c' d='M5 6L0 0h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; cursor: pointer; }
+html[data-theme="light"] .hv-select { background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%232b2823' d='M5 6L0 0h10z'/%3E%3C/svg%3E"); }
 
 /* ====== UTILS ====== */
 .center { display: flex; align-items: center; justify-content: center; }
@@ -3178,6 +3199,12 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   padding: 12px 16px;
   border-bottom: 1px solid var(--rule);
   background: var(--surface-soft);
+  /* Sticks to the top of the panel: the library below it is several screens
+     long, and scrolling away from the one sentence explaining why nothing
+     responds is what made the panel read as broken. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 .hv-studio-gate-text {
   margin: 0;
@@ -3185,18 +3212,30 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: var(--fg-soft);
   max-width: 42ch;
 }
-.hv-studio-panel.is-awaiting-photo [inert] { opacity: .38; }
+/* Dimmed enough to read as waiting, not so far that the colours stop being
+   colours. At .38 twelve thousand swatches went uniformly grey, which looks like
+   a library that failed to load rather than one that is not ready yet — and a
+   pointer that still says "click me" over inert controls tells the same lie, so
+   the cursor says otherwise. */
+.hv-studio-panel.is-awaiting-photo [inert] { opacity: .62; cursor: not-allowed; }
+.hv-studio-panel.is-awaiting-photo [inert] * { pointer-events: none; }
 @media (prefers-reduced-transparency: reduce) {
-  .hv-studio-panel.is-awaiting-photo [inert] { opacity: .55; }
+  .hv-studio-panel.is-awaiting-photo [inert] { opacity: .8; }
 }
 .hv-studio-tabs {
   display: flex;
   border-bottom: 1px solid var(--rule);
   background: var(--surface);
   flex-shrink: 0;
+  /* Keeps the last tab's active underline inside the panel. A flex item's
+     min-width is auto, so a tab whose label and icon are wider than its share
+     grew past the container and took its 2px accent rule with it — the "Custom"
+     underline ran off the right edge of the panel. */
+  overflow: hidden;
 }
 .hv-studio-tab {
   flex: 1;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4005,6 +4044,28 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-region-card:hover { background: var(--surface-soft); }
 .hv-studio-region-card.is-active { background: var(--surface-soft); border-color: var(--rule-strong); }
+
+/* "← Edit project details": the way back from the photo step to the name step. */
+.hv-studio-back {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  color: var(--fg-soft);
+  font: 400 13px/1 var(--sans);
+  cursor: pointer;
+  transition: color .18s var(--ease), border-color .18s var(--ease);
+}
+.hv-studio-back:hover { color: var(--fg); border-color: var(--accent); }
+.hv-studio-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Body layout — left image stays fixed, right side scrolls */
 .hv-studio-body {

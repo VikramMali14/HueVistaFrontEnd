@@ -10,7 +10,7 @@ import { decodeShadeCode, encodeShadeCode, hasScheme } from "@/lib/shade-codes";
 import type { ComboScope, OrgResponse, PaintShade, RetailerCombo } from "@/lib/types";
 
 /** The three combo slots, in the studio's palette role order. */
-const SLOT_LABELS = ["Main wall", "Accent wall", "Trim"] as const;
+const SLOT_LABELS = ["Main wall", "Accent wall", "Trim & frames"] as const;
 const MAX_RESULTS = 8;
 
 /**

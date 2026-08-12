@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { getCurrentUser, requireAccessToken, requireFeature } from "@/lib/auth";
 import { entitlementApi } from "@/lib/api";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
@@ -10,6 +11,9 @@ export const metadata: Metadata = {
   title: "Studio",
   description: "Upload a photo, mark the walls, recolour — in seconds.",
 };
+
+/** Project ids are backend UUIDs; anything else in ?project= is a typo or a probe. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Why a CUSTOMER can't enter the studio right now (never set for other roles). */
 type CustomerGate = "missing" | "expired" | null;
@@ -79,6 +83,13 @@ export default async function AtelierPage({
     return <AccessGate kind={gate} />;
   }
   const { project, name } = await searchParams;
+  // A ?project= that isn't even shaped like an id never reaches the backend — it
+  // would 400 and leave the studio to work out what to say. Answering here also
+  // covers the case the client cannot: nothing is mounted, so nothing renders an
+  // empty "Untitled project" while the failed lookup is in flight.
+  if (project !== undefined && !UUID_RE.test(project)) {
+    notFound();
+  }
   // Live catalogue from the backend; falls back to the bundled sample if it's unreachable.
   const shades = await getCatalogueOrSample();
   return (

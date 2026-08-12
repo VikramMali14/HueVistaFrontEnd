@@ -158,7 +158,7 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
         <button
           type="button"
           onClick={() => void load()}
-          style={{ background: "none", border: "none", color: "var(--accent-soft)", cursor: "pointer", textDecoration: "underline" }}
+          style={{ background: "none", border: "none", color: "var(--accent-text)", cursor: "pointer", textDecoration: "underline" }}
         >
           Retry
         </button>
