@@ -955,6 +955,12 @@ export interface ShopBrandOption {
   slug: string;
   /** Whether this company is currently shown to anyone working under the shop. */
   shown: boolean;
+  /**
+   * How many shades this company has in the catalogue. Zero means assigned but not
+   * yet loaded — the reason a shop can be granted eight companies and find colours
+   * for only six. Absent from an older backend, which reads as "unknown", not zero.
+   */
+  shadeCount?: number;
 }
 
 export interface SubscriptionSummary {

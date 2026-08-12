@@ -15,8 +15,13 @@ import type { PurchasablePlan } from "@/lib/types";
  * One line in a tier's feature list. A plain string is the whole line; the
  * object form carries a `detail` shown on hover/focus, for the arithmetic and
  * the jargon that used to live in the line itself.
+ *
+ * `excluded` marks a line that says what the tier does NOT carry. Every line was
+ * drawn with a ✓, so the free card's "No colour finder" appeared as a tick beside
+ * a thing you do not get, in the same list and the same colour as the things you
+ * do.
  */
-type Feature = string | { text: string; detail: string };
+type Feature = string | { text: string; detail?: string; excluded?: boolean };
 
 interface Tier {
   name: string;
@@ -82,7 +87,7 @@ const TIERS: ReadonlyArray<Tier> = [
     { text: "One paint company — Asian Paints, in full", detail: "Every shade, code and finish that company has, with the full search over it. The other companies your distributor has assigned you open on any paid plan." },
     "Send by link or WhatsApp",
     "Codes for your customers",
-    { text: "No colour finder", detail: "Reading a photograph and answering with the nearest catalogue shade codes is on the paid tiers. It's the one tool that earns at the counter without a project behind it." },
+    { text: "No colour finder", excluded: true, detail: "Reading a photograph and answering with the nearest catalogue shade codes is on the paid tiers. It's the one tool that earns at the counter without a project behind it." },
   ] },
   { name: "Starter", plan: "STARTER", monthlyN: 999, lede: "For a single shop. Photos cleaned up and walls found for you on every project.", featured: false, inherits: "Everything in Free, plus", features: [
     "15 projects a month — clean-up and walls included",
@@ -92,12 +97,15 @@ const TIERS: ReadonlyArray<Tier> = [
     "25 colour boards a month (4 photos each)",
     "Email support",
   ] },
+  // No "Paint each wall its own colour" and no "Colour scheme suggestions" here.
+  // The feature matrix on the same page marked the first as included on Free — the
+  // card and the table contradicted each other — and the second ships on every tier
+  // too (nothing in the backend gates either). A card that lists what you already
+  // have as a reason to upgrade is worse than a shorter card.
   { name: "Professional", plan: "PROFESSIONAL", monthlyN: 2499, lede: "For busy shops. Three times the projects, and extras cost less.", featured: true, ribbon: "Recommended", inherits: "Everything in Starter, plus", features: [
     { text: "45 projects a month", detail: "Starter's 15 plus 30 more on this plan — 45 in total, not 15 and another 45." },
     { text: "Extra projects ₹55 each, or 50 points", detail: "Points are HueVista credit bought up front — they buy extras at a lower rate than paying by card." },
-    "Paint each wall its own colour",
     { text: "100 colour boards a month (8 photos each)", detail: "Starter's 25 plus 75 more on this plan — 100 in total." },
-    "Colour scheme suggestions",
     "Priority support",
   ] },
   { name: "Business", plan: "BUSINESS", monthlyN: 4999, lede: "For dealers running more than one counter on one account.", featured: false, inherits: "Everything in Professional, plus", note: "Your own web address and the painter portal are on the way — Business shops get them first.", features: [
@@ -225,9 +233,13 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
                 {t.features.map((f) => {
                   const text = typeof f === "string" ? f : f.text;
                   const detail = typeof f === "string" ? null : f.detail;
+                  const excluded = typeof f === "string" ? false : f.excluded === true;
                   return (
-                    <div key={text} style={{ display: "flex", gap: 10, font: "300 15px/1.45 var(--sans)", color: t.featured ? "#fff" : "var(--ivory-soft)" }}>
-                      <span aria-hidden style={{ color: t.featured ? "#fff" : "var(--brass)", fontFamily: "var(--mono)", fontSize: 12, lineHeight: "22px" }}>✓</span>
+                    <div key={text} style={{ display: "flex", gap: 10, font: "300 15px/1.45 var(--sans)", color: excluded ? (t.featured ? "rgba(255,255,255,.62)" : "var(--tier-ink-soft)") : (t.featured ? "#fff" : "var(--ivory-soft)") }}>
+                      <span aria-hidden style={{ color: excluded ? (t.featured ? "rgba(255,255,255,.55)" : "var(--tier-ink-soft)") : (t.featured ? "#fff" : "var(--brass)"), fontFamily: "var(--mono)", fontSize: 12, lineHeight: "22px" }}>{excluded ? "—" : "✓"}</span>
+                      <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
+                        {excluded ? "Not included:" : "Included:"}
+                      </span>
                       {detail ? (
                         // The derivation (and what a "point" is) sits behind a
                         // dotted underline rather than inside the sentence, so

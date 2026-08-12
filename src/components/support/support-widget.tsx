@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { api, HttpError } from "@/lib/api";
 import type { SupportConversation, SupportMessage } from "@/lib/types";
 
@@ -13,7 +14,24 @@ import type { SupportConversation, SupportMessage } from "@/lib/types";
  *  out-of-band — without polling the customer never sees them). */
 const POLL_MS = 4000;
 
+/**
+ * Routes whose own primary action lives in the bottom-right corner.
+ *
+ * The studio's Apply button and the strip of recent colours under it sit exactly
+ * where this bubble is pinned, so the bubble covered the main action of the app's
+ * main screen on every project. The canvas side of the studio is clear along the
+ * bottom — its float bar is top-left — so the bubble goes there instead.
+ */
+const LEFT_CORNER_ROUTES = ["/studio", "/guest-studio"];
+
 export function SupportWidget() {
+  const pathname = usePathname() ?? "";
+  const leftCorner = LEFT_CORNER_ROUTES.some(
+    (r) => pathname === r || pathname.startsWith(`${r}/`),
+  );
+  const corner = leftCorner
+    ? { left: 20, right: "auto" as const }
+    : { left: "auto" as const, right: 20 };
   const [open, setOpen] = useState(false);
   const [convo, setConvo] = useState<SupportConversation | null>(null);
   const [input, setInput] = useState("");
@@ -118,7 +136,7 @@ export function SupportWidget() {
         style={{
           position: "fixed",
           bottom: 20,
-          right: 20,
+          ...corner,
           zIndex: 90,
           width: 56,
           height: 56,
@@ -145,7 +163,7 @@ export function SupportWidget() {
           style={{
             position: "fixed",
             bottom: 88,
-            right: 20,
+            ...corner,
             zIndex: 90,
             width: "min(380px, calc(100vw - 40px))",
             height: "min(560px, calc(100vh - 130px))",

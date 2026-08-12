@@ -146,12 +146,17 @@ export function CodeChecker({
         </div>
       </div>
 
+      {/* Read mode uppercases as you type. Decoding was always case-insensitive, but
+          the box echoed back whatever case was typed, so a code that read fine looked
+          like it had been rejected on a technicality. */}
       <input
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={mode === "read" ? "Customer code from a screen or PDF — e.g. ABL1XY24CD" : "Shade name or real code"}
+        onChange={(e) => setQuery(mode === "read" ? e.target.value.toUpperCase() : e.target.value)}
+        placeholder={mode === "read" ? "e.g. ABL1XY24CD" : "Shade name or real code"}
         aria-label={mode === "read" ? "Customer code to decode" : "Shade name or code to encode"}
         spellCheck={false}
+        autoCapitalize={mode === "read" ? "characters" : undefined}
+        autoComplete="off"
         style={{
           width: "100%",
           maxWidth: 460,
@@ -164,12 +169,17 @@ export function CodeChecker({
           fontSize: 15,
         }}
       />
+      <p style={{ font: "400 12.5px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "8px 0 0", maxWidth: "58ch" }}>
+        {mode === "read"
+          ? "Paste a customer code off a screen, a PDF board or a printed estimate — upper or lower case, either reads."
+          : "Search the catalogue by shade name or the manufacturer's own code."}
+      </p>
 
       {mode === "read" && q && decoded && (
         <div style={{ marginTop: 14 }}>
           {decoded.code === null ? (
             <p style={{ font: "400 14.5px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
-              That doesn&apos;t follow your scheme{(scheme.retired?.length ?? 0) > 0 ? ", or any you've used before," : ""} —
+              That doesn&apos;t follow your scheme{(scheme.retired?.length ?? 0) > 0 ? ", or any you've used before" : ""} —
               check the prefix, the pair after the first two characters, and the suffix.
             </p>
           ) : (
@@ -215,10 +225,15 @@ export function CodeChecker({
             </span>
           ) : (
             findMatches.map((s) => (
-              <div key={s.code} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px" }}>
+              // Keyed by company AND code: two companies can carry the same code, and
+              // React silently drops the duplicate when the code alone is the key.
+              <div key={`${s.brand}-${s.code}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px" }}>
                 <span aria-hidden style={{ width: 20, height: 20, background: s.hex, border: "1px solid var(--rule-strong)", borderRadius: 4, flexShrink: 0 }} />
+                {/* The company is what tells two same-named shades apart — searching
+                    "banana cream" returned a 7850 and a 2010 with nothing to choose
+                    between them. "Read" showed the company all along. */}
                 <span style={{ flex: 1, minWidth: 0, font: "400 13.5px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {s.name} <Mono>· <span className="shade-code">{s.code}</span></Mono>
+                  {s.name} <Mono>· <span className="shade-code">{s.code}</span> · {s.brand}</Mono>
                 </span>
                 <span style={{ font: "600 14px/1 var(--code)", color: "var(--accent)" }}>
                   {encodeShadeCode(scheme, s.code)}
@@ -277,9 +292,20 @@ export function CodeChecker({
         </details>
       )}
 
+      {/* Follows the tab. The decode explanation was left standing under "Find a
+          customer code", where it describes the opposite direction. */}
       <p style={{ font: "400 13px/1.6 var(--sans)", color: "var(--fg-mute)", marginTop: 16, maxWidth: "58ch" }}>
-        Customers only ever see the coded number. You read it back by dropping your prefix and
-        suffix and the pair after the first two characters — or paste it here.
+        {mode === "read" ? (
+          <>
+            Read a code back by dropping your prefix and suffix and the pair after the first two
+            characters — or paste it above and let this do it.
+          </>
+        ) : (
+          <>
+            Look up what a customer would have been shown for a shade, so you can quote the coded
+            number without opening a project.
+          </>
+        )}
       </p>
     </div>
   );

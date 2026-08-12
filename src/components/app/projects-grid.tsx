@@ -21,10 +21,18 @@ function expiryNote(accessExpiresAt: string | null | undefined): string {
   return ` · ended ${when.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`;
 }
 
-function statusLabel(s: ProjectSummary["status"]): string {
+/**
+ * What a card says about a project.
+ *
+ * Takes the region count as well as the status, because a run can finish and find
+ * nothing: SEGMENTED with zero regions was labelled "Ready" beside its own "0
+ * regions", and opening it gave a studio with no walls to paint and an Apply
+ * button that could never enable. The pipeline succeeded; the project did not.
+ */
+function statusLabel(s: ProjectSummary["status"], regionCount: number | null | undefined): string {
   switch (s) {
     case "SEGMENTED":
-      return "Ready";
+      return (regionCount ?? 0) > 0 ? "Ready" : "Needs attention";
     case "SEGMENTING":
       return "Detecting walls…";
     case "FAILED":
@@ -183,7 +191,7 @@ export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
                     {p.updatedAt ? (
                       <Mono>{new Date(p.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</Mono>
                     ) : null}
-                    <Mono>{statusLabel(p.status)}</Mono>
+                    <Mono>{statusLabel(p.status, p.regionCount)}</Mono>
                   </span>
                 </div>
               </div>

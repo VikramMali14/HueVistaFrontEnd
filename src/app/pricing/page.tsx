@@ -53,7 +53,15 @@ const MATRIX: ReadonlyArray<Section> = [
       ["Unused projects carried over when you upgrade", "●", "●", "●", "●"],
       ["Colour boards (PDF) per month", "5 (4 photos)", "25 (4 photos)", "100 (8 photos)", "300 (12 photos)"],
       ["Paint each wall its own colour", "●", "●", "●", "●"],
-      ["Colour scheme suggestions", "—", "—", "●", "●"],
+      // Ships to every tier, and always has. Nothing in the product gates it:
+      // AppFeature (the only entitlement the backend knows) enumerates whole
+      // PAGES, and there is no COLOUR_SCHEMES among them — so the studio's "AI
+      // Suggest" tab and the portal's combination builder are open on Free and
+      // Starter exactly as they are on Professional. This row said otherwise,
+      // which made the page a promise the product does not keep in either
+      // direction: a Starter shop reading it thinks it cannot do something it
+      // can, and a shop upgrading FOR it pays for something it already had.
+      ["Colour scheme suggestions", "●", "●", "●", "●"],
     ],
   },
   {
@@ -70,7 +78,11 @@ const MATRIX: ReadonlyArray<Section> = [
       // shade codes — is the one tool that earns at the counter without a project behind
       // it, so it is what the free plan does not carry.
       ["Colour finder — shade codes from any photo", "—", "●", "●", "●"],
-      ["Find the closest shade across companies", "—", "—", "●", "●"],
+      // Follows the colour finder, because it IS the colour finder: the finder
+      // searches whatever catalogue the shop has, and from Starter up that is every
+      // company its distributor assigned. There is no separate single-company mode
+      // to sell — a Starter account gets Dulux and Berger back in one list today.
+      ["Find the closest shade across companies", "—", "●", "●", "●"],
     ],
   },
   {
@@ -85,8 +97,13 @@ const MATRIX: ReadonlyArray<Section> = [
   {
     title: "Engineering",
     rows: [
-      ["SLA", "Best-effort", "Best-effort", "Business hrs", "99.5%"],
-      ["Support", "Community", "Email", "Priority", "Account lead"],
+      // One row, one unit. A single "SLA" row mixed two different promises across
+      // its cells — three support-response commitments and one uptime figure — so
+      // the columns were not comparable with each other at all. Split, with each
+      // promise stated only where it is actually made.
+      ["Reply to a support request", "Best-effort", "Best-effort", "Business hours", "Business hours"],
+      ["Uptime commitment", "—", "—", "—", "99.5%"],
+      ["Support channel", "Community", "Email", "Priority email", "Account lead"],
     ],
   },
 ];

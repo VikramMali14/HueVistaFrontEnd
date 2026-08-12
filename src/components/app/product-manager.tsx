@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,9 @@ function initDraft(line: PaintLine): Draft {
   return {
     price: "",
     priceUnit: DEFAULT_PRICE_UNIT,
-    packSize: DEFAULT_PRICE_UNIT,
+    // Left empty, not pre-filled with the price unit: seeding both to "20 L" put two
+    // fields side by side saying the same thing, so neither read as meaning anything.
+    packSize: "",
     coverage: "",
     finish: line.defaultFinish ?? "",
     qualityTier: line.qualityTier,
@@ -80,7 +82,11 @@ function draftFromProduct(p: ShopProduct): Draft {
     finish: p.finish ?? "",
     qualityTier: tier,
     brightness: p.brightness ?? tierBrightness(tier),
-    brightnessTouched: true, // keep the stored value; don't let a tier change stomp it
+    // Only a STORED brightness counts as set. Editing a product that never had one
+    // must not quietly commit the slider's starting position — that is how an
+    // untouched field becomes a published spec. A stored value stays put, so
+    // changing the tier can't stomp it.
+    brightnessTouched: p.brightness != null,
     imageUrl: p.imageUrl ?? "",
     previewUrl: "",
     uploading: false,
@@ -90,18 +96,43 @@ function draftFromProduct(p: ShopProduct): Draft {
   };
 }
 
-/** The body shared by create and update. */
+/** Highest price we'll accept, so a stray keypress can't list a ₹10-crore bucket. */
+const MAX_PRICE = 1_000_000;
+
+/**
+ * Why a product cannot be saved yet, or null when it can.
+ *
+ * A listing IS its price — a card reading "— /20 L" tells a customer nothing, and
+ * the field was previously a bare `type=number` that took an empty value, a
+ * negative one and a fraction of a paisa alike.
+ */
+function priceProblem(price: string): string | null {
+  const raw = price.trim();
+  if (!raw) return "Enter a price — a product without one shows customers a blank card.";
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return "That price isn't a number.";
+  if (n < 0) return "A price can't be negative.";
+  if (n === 0) return "Enter a price above zero.";
+  if (n > MAX_PRICE) return `That price looks wrong — the most we'll list is ₹${MAX_PRICE.toLocaleString("en-IN")}.`;
+  if (Math.round(n * 100) !== n * 100) return "Round the price to the nearest paisa.";
+  return null;
+}
+
+/** The body shared by create and update. Assumes {@link priceProblem} already passed. */
 function draftToBody(lineId: number, d: Draft) {
-  const priceNum = d.price.trim() ? Number(d.price) : undefined;
   return {
     lineId,
-    price: priceNum != null && !Number.isNaN(priceNum) ? priceNum : undefined,
+    price: Number(d.price.trim()),
     priceUnit: d.priceUnit || undefined,
     packSize: d.packSize || undefined,
     coverage: d.coverage || undefined,
     finish: d.finish || undefined,
     qualityTier: d.qualityTier,
-    brightness: d.brightness,
+    // Only sent once someone has actually set it. Seeding it from the line's tier
+    // and sending it anyway meant a product saved without a single field filled in
+    // came back showing "Brightness 4/10" — a specific-looking number the shop
+    // never chose, on a card its customers read.
+    brightness: d.brightnessTouched ? d.brightness : undefined,
     imageUrl: d.imageUrl || undefined,
     features: d.features || undefined,
     description: d.description || undefined,
@@ -249,6 +280,8 @@ export function ProductManager() {
     if (!org) return;
     const d = drafts[line.id];
     if (!d) return;
+    const bad = priceProblem(d.price);
+    if (bad) { setError(bad); return; }
     // Same line can be listed more than once, but not at the same "Per" size —
     // that would be an exact duplicate. Nudge the shopkeeper to change the size.
     const per = (d.priceUnit ?? "").trim().toLowerCase();
@@ -305,6 +338,8 @@ export function ProductManager() {
     if (!org) return;
     const d = editing[p.id];
     if (!d) return;
+    const bad = priceProblem(d.price);
+    if (bad) { setError(bad); return; }
     patchEdit(p.id, { saving: true });
     try {
       const updated = await api.updateShopProduct(org.id, p.id, draftToBody(p.lineId, d));
@@ -371,6 +406,7 @@ export function ProductManager() {
             value={brandId ?? ""}
             onChange={(e) => setBrandId(e.target.value ? Number(e.target.value) : null)}
             aria-label="Brand"
+            className="hv-select"
             style={{ padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "300 16px/1 var(--serif)", minWidth: 200 }}
           >
             <option value="">Select a company…</option>
@@ -528,7 +564,7 @@ export function ProductManager() {
                 No product matches these filters.
               </p>
             ) : (
-              <div className="r-cols-md-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+              <div className="r-cols-md-1" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
                 {visibleProducts.map((p) => (
                   <ProductCard
                     key={p.id}
@@ -547,11 +583,21 @@ export function ProductManager() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * A labelled control. The label WRAPS its input, which is what associates the two —
+ * but a wrapped input still has no `id` for anything outside to point at and no
+ * `name` for a password manager or autofill to recognise, so callers pass those in
+ * on the control itself. `hint` carries the one-line distinction between fields
+ * that would otherwise read as duplicates of each other.
+ */
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label style={{ display: "block" }}>
       <span style={{ display: "block", marginBottom: 4, font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)" }}>{label}</span>
       {children}
+      {hint && (
+        <span style={{ display: "block", marginTop: 4, font: "400 12px/1.4 var(--sans)", color: "var(--fg-mute)" }}>{hint}</span>
+      )}
     </label>
   );
 }
@@ -573,11 +619,16 @@ function ProductForm({
   onPickImage: (f: File) => void;
   actions: React.ReactNode;
 }) {
+  const uid = useId();
   const img = draft.previewUrl || resolveMediaUrl(draft.imageUrl) || "";
   // Keep an unusual saved "Per" value selectable rather than silently dropping it.
   const perOptions = PRICE_UNITS.includes(draft.priceUnit) || !draft.priceUnit
     ? PRICE_UNITS
     : [draft.priceUnit, ...PRICE_UNITS];
+  // Flag a price that is present but wrong as it is typed. An EMPTY price is not
+  // shouted about here — the field starts empty on every new product, and the
+  // save button says so when it matters.
+  const priceHint = draft.price.trim() ? priceProblem(draft.price) : null;
   return (
     <div className="r-cols-md-1" style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 18, alignItems: "start" }}>
       {/* image */}
@@ -597,28 +648,52 @@ function ProductForm({
       </div>
       {/* fields */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-        <Field label="Price (₹)"><input type="number" value={draft.price} onChange={(e) => patch({ price: e.target.value })} style={inp} /></Field>
-        <Field label="Per">
-          <select value={draft.priceUnit} onChange={(e) => patch({ priceUnit: e.target.value })} style={inp}>
+        <Field label="Price (₹)">
+          <input
+            id={`${uid}-price`}
+            name="price"
+            type="number"
+            min={0}
+            max={MAX_PRICE}
+            step="0.01"
+            inputMode="decimal"
+            required
+            value={draft.price}
+            onChange={(e) => patch({ price: e.target.value })}
+            aria-invalid={priceHint ? "true" : undefined}
+            aria-describedby={priceHint ? `${uid}-price-err` : undefined}
+            style={{ ...inp, borderColor: priceHint ? "var(--terracotta)" : "var(--rule-strong)" }}
+          />
+          {priceHint && (
+            <span id={`${uid}-price-err`} className="field-error" style={{ display: "block", marginTop: 4 }}>{priceHint}</span>
+          )}
+        </Field>
+        <Field label="Price is for" hint="The bucket size this price buys.">
+          <select id={`${uid}-per`} name="priceUnit" className="hv-select" value={draft.priceUnit} onChange={(e) => patch({ priceUnit: e.target.value })} style={inp}>
             {perOptions.map((u) => <option key={u} value={u}>{u}</option>)}
           </select>
         </Field>
-        <Field label="Pack size"><input value={draft.packSize} onChange={(e) => patch({ packSize: e.target.value })} style={inp} /></Field>
-        <Field label="Finish"><input value={draft.finish} onChange={(e) => patch({ finish: e.target.value })} style={inp} /></Field>
-        <Field label="Coverage"><input value={draft.coverage} onChange={(e) => patch({ coverage: e.target.value })} placeholder="e.g. 120–140 sq ft/L" style={inp} /></Field>
+        <Field label="Pack size" hint="Only if the tin is labelled differently — e.g. 18 L sold as a 20 L pack.">
+          <input id={`${uid}-pack`} name="packSize" value={draft.packSize} onChange={(e) => patch({ packSize: e.target.value })} placeholder={draft.priceUnit || "20 L"} style={inp} />
+        </Field>
+        <Field label="Finish"><input id={`${uid}-finish`} name="finish" value={draft.finish} onChange={(e) => patch({ finish: e.target.value })} placeholder="e.g. Matt, Sheen" style={inp} /></Field>
+        <Field label="Coverage"><input id={`${uid}-coverage`} name="coverage" value={draft.coverage} onChange={(e) => patch({ coverage: e.target.value })} placeholder="e.g. 120–140 sq ft/L" style={inp} /></Field>
         <Field label="Quality">
-          <select value={draft.qualityTier} onChange={(e) => { const t = e.target.value as QualityTier; patch(draft.brightnessTouched ? { qualityTier: t } : { qualityTier: t, brightness: tierBrightness(t) }); }} style={inp}>
+          <select id={`${uid}-tier`} name="qualityTier" className="hv-select" value={draft.qualityTier} onChange={(e) => { const t = e.target.value as QualityTier; patch(draft.brightnessTouched ? { qualityTier: t } : { qualityTier: t, brightness: tierBrightness(t) }); }} style={inp}>
             {TIERS.map((t) => <option key={t} value={t}>{tierLabel(t)}</option>)}
           </select>
         </Field>
-        <Field label={`Brightness (${draft.brightness}/${BRIGHTNESS_MAX})`}>
-          <input type="range" min={1} max={BRIGHTNESS_MAX} step={1} value={draft.brightness} onChange={(e) => patch({ brightness: Number(e.target.value), brightnessTouched: true })} style={{ width: "100%", accentColor: "var(--accent)" }} />
+        <Field
+          label={`Brightness (${draft.brightnessTouched ? `${draft.brightness}/${BRIGHTNESS_MAX}` : "not set"})`}
+          hint={draft.brightnessTouched ? undefined : "Move the slider to publish a brightness — left alone, the card shows none."}
+        >
+          <input id={`${uid}-brightness`} name="brightness" type="range" min={1} max={BRIGHTNESS_MAX} step={1} value={draft.brightness} onChange={(e) => patch({ brightness: Number(e.target.value), brightnessTouched: true })} style={{ width: "100%", accentColor: "var(--accent)", opacity: draft.brightnessTouched ? 1 : 0.55 }} />
         </Field>
         <div style={{ gridColumn: "1 / -1" }}>
-          <Field label="Features"><textarea value={draft.features} onChange={(e) => patch({ features: e.target.value })} rows={2} placeholder="washable, anti-fungal, 7-yr warranty…" style={{ ...inp, resize: "vertical" }} /></Field>
+          <Field label="Features"><textarea id={`${uid}-features`} name="features" value={draft.features} onChange={(e) => patch({ features: e.target.value })} rows={2} placeholder="washable, anti-fungal, 7-yr warranty…" style={{ ...inp, resize: "vertical" }} /></Field>
         </div>
         <div style={{ gridColumn: "1 / -1" }}>
-          <Field label="Description"><textarea value={draft.description} onChange={(e) => patch({ description: e.target.value })} rows={2} placeholder="A short description of the product…" style={{ ...inp, resize: "vertical" }} /></Field>
+          <Field label="Description"><textarea id={`${uid}-description`} name="description" value={draft.description} onChange={(e) => patch({ description: e.target.value })} rows={2} placeholder="A short description of the product…" style={{ ...inp, resize: "vertical" }} /></Field>
         </div>
         <div style={{ gridColumn: "1 / -1", display: "flex", gap: 10, justifyContent: "flex-end" }}>{actions}</div>
       </div>
@@ -638,10 +713,15 @@ const inp: React.CSSProperties = {
 
 function ProductCard({ product, editing, onEdit, onDelete }: { product: ShopProduct; editing: boolean; onEdit: () => void; onDelete: () => void }) {
   const img = resolveMediaUrl(product.imageUrl) || "";
-  const bright = Math.max(0, Math.min(BRIGHTNESS_MAX, product.brightness ?? 0));
+  const bright = product.brightness != null
+    ? Math.max(0, Math.min(BRIGHTNESS_MAX, product.brightness))
+    : null;
   return (
     <div style={{ border: "1px solid " + (editing ? "var(--accent)" : "var(--rule)"), borderRadius: "var(--radius)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      <div style={{ aspectRatio: "4/3", background: "var(--surface)", overflow: "hidden" }}>
+      {/* A 4:3 block in a three-up grid made one product fill a quarter of the
+          screen, and an empty one was 320px of the words "no image". Capped, and
+          the placeholder shrinks further than a real photo needs to. */}
+      <div style={{ aspectRatio: "4/3", maxHeight: img ? 190 : 96, background: "var(--surface)", overflow: "hidden" }}>
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={img} alt={product.lineName ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -656,22 +736,28 @@ function ProductCard({ product, editing, onEdit, onDelete }: { product: ShopProd
           {product.finish && <Mono>{product.finish}</Mono>}
           {product.coverage && <Mono>{product.coverage}</Mono>}
         </div>
-        {/* quality + brightness indicator */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-          <span aria-hidden style={{ color: "var(--accent)", letterSpacing: 2 }}>
-            {"★".repeat(tierStars(product.qualityTier))}{"☆".repeat(5 - tierStars(product.qualityTier))}
-          </span>
-          <Mono>{tierLabel(product.qualityTier)}</Mono>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Mono>Brightness</Mono>
-          <span aria-hidden style={{ display: "inline-flex", gap: 2 }}>
-            {Array.from({ length: BRIGHTNESS_MAX }, (_, i) => i + 1).map((n) => (
-              <span key={n} style={{ width: 8, height: 8, background: n <= bright ? "var(--accent)" : "var(--rule-strong)" }} />
-            ))}
-          </span>
-          <Mono>{bright}/{BRIGHTNESS_MAX}</Mono>
-        </div>
+        {/* Quality + brightness. Both are drawn only when the product actually
+            carries them — a blank brightness used to render as a filled bar
+            reading "0/10", which is a claim about the paint, not an absence. */}
+        {product.qualityTier && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+            <span aria-hidden style={{ color: "var(--accent)", letterSpacing: 2 }}>
+              {"★".repeat(tierStars(product.qualityTier))}{"☆".repeat(5 - tierStars(product.qualityTier))}
+            </span>
+            <Mono>{tierLabel(product.qualityTier)}</Mono>
+          </div>
+        )}
+        {bright != null && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Mono>Brightness</Mono>
+            <span aria-hidden style={{ display: "inline-flex", gap: 2 }}>
+              {Array.from({ length: BRIGHTNESS_MAX }, (_, i) => i + 1).map((n) => (
+                <span key={n} style={{ width: 8, height: 8, background: n <= bright ? "var(--accent)" : "var(--rule-strong)" }} />
+              ))}
+            </span>
+            <Mono>{bright}/{BRIGHTNESS_MAX}</Mono>
+          </div>
+        )}
         {product.features && (
           <p style={{ font: "300 13px/1.4 var(--serif)", color: "var(--fg-soft)", margin: "4px 0 0" }}>{product.features}</p>
         )}

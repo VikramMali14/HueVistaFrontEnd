@@ -18,11 +18,31 @@ export const metadata: Metadata = {
 };
 
 interface DashboardPageProps {
-  searchParams: Promise<{ denied?: string; page?: string; subscribed?: string }>;
+  searchParams: Promise<{ denied?: string; page?: string; need?: string; subscribed?: string }>;
+}
+
+/** Plural, human names for the roles a page can require — "administrators". */
+const ROLE_NAMES: Record<string, string> = {
+  ADMIN: "administrators",
+  RETAILER: "retailers",
+  DISTRIBUTOR: "distributors",
+  PAINTER: "painters",
+  CUSTOMER: "customers",
+};
+
+/** "administrators", or "retailers and administrators" — whoever the page is for. */
+function audience(need: string | undefined): string {
+  const names = (need ?? "")
+    .split(",")
+    .map((r) => ROLE_NAMES[r.trim().toUpperCase()])
+    .filter(Boolean);
+  if (names.length === 0) return "another kind of account";
+  if (names.length === 1) return names[0]!;
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const [{ denied, page, subscribed }, { user, unavailable }, libraryLive] = await Promise.all([
+  const [{ denied, page, need, subscribed }, { user, unavailable }, libraryLive] = await Promise.all([
     searchParams,
     getCurrentUserResult(),
     libraryHasRooms(),
@@ -45,7 +65,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             borderRadius: "var(--radius)",
           }}
         >
-          That page is reserved for retailers and administrators. We brought you back to your dashboard.
+          That page is reserved for {audience(need)}. We brought you back to your dashboard.
         </div>
       )}
       {denied === "feature" && (
