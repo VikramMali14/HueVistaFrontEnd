@@ -166,7 +166,23 @@ export function MaskReports({ initial, updateAction }: MaskReportsProps) {
               at report time · status {r.projectStatus ?? "—"} · mode {r.maskMode ?? "AUTO"} ·{" "}
               {r.regionCount ?? 0} region{(r.regionCount ?? 0) === 1 ? "" : "s"} · clean-up{" "}
               {r.hadCleanedImage ? "ran" : "did not run"}
+              {/* Which half gave up, when the run failed outright. This is the first
+                  thing to know: the clean-up and the wall detection are different
+                  models, and a report that names neither is the case where the
+                  pipeline thought it had succeeded. */}
+              {r.failureStage && (
+                <>
+                  {" "}· failed at{" "}
+                  {r.failureStage === "CLEAN" ? "the photo clean-up" : "wall detection"}
+                </>
+              )}
             </p>
+
+            {r.failureReason && (
+              <p style={{ font: "400 12px/1.5 var(--mono)", color: "var(--fg-mute)", margin: "-8px 0 14px" }}>
+                the run said: {r.failureReason}
+              </p>
+            )}
 
             {r.status === "RESOLVED" && r.resolvedByName && (
               <Mono style={{ display: "block", marginBottom: 10 }}>

@@ -26,6 +26,7 @@ import {
 } from "@/lib/recolor-engine";
 import {
   PollCancelledError,
+  PollFailedError,
   pollUntilSegmented as pollSegmentationStatus,
 } from "@/lib/segmentation-polling";
 import { api, guestApi, HttpError } from "@/lib/api";
@@ -45,6 +46,7 @@ import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
 import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
 import type {
+  FailureStage,
   MaskReportIssue,
   PaintShade,
   PdfAllowance,
@@ -275,6 +277,27 @@ type PayRail = "points" | "money";
 /** How long a share link stays live — the same 10 days a walk-in access code gets. */
 const SHARE_VALID_DAYS = 10;
 
+/**
+ * Which stage a failed run gave up at, narrowed from the backend's string.
+ *
+ * An unrecognised value becomes "UNKNOWN" rather than null, because the two mean
+ * different things here: null is "no run has failed" and controls whether the report
+ * is offered at all, while "UNKNOWN" is "a run failed and we can't say where" — still
+ * very much worth reporting, just without a box ticked in advance.
+ */
+function stageOf(error: PollFailedError): FailureStage | "UNKNOWN" {
+  return error.failureStage === "CLEAN" || error.failureStage === "MASK"
+    ? error.failureStage
+    : "UNKNOWN";
+}
+
+/** The problem a failed run opens the report dialog with already ticked. */
+function presetIssuesFor(stage: FailureStage | "UNKNOWN" | null): MaskReportIssue[] {
+  if (stage === "CLEAN") return ["IMAGE_NOT_CLEANED_PROPERLY"];
+  if (stage === "MASK") return ["MASK_NOT_GENERATED_PROPERLY"];
+  return [];
+}
+
 export function Visualizer({ projectId: openProjectId, shades, initialName, guest = false, isAdmin = false }: VisualizerProps) {
   // Guest mode swaps the CRUD calls to the access-code-scoped endpoints. Signatures
   // match the user `api`, so the rest of the flow is identical. User-only calls
@@ -456,6 +479,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // complaint isn't fired twice by someone unsure it landed.
   const [reportOpen, setReportOpen] = useState(false);
   const [reported, setReported] = useState(false);
+  // Set when a run ends FAILED, to the stage that gave up ("CLEAN" / "MASK", or null
+  // when the backend didn't name one). Two jobs: it keeps the report button reachable
+  // on a run that produced no canvas to judge — which is precisely the run most worth
+  // hearing about, and the one the old `masksReady` gate hid — and it decides which
+  // problem the dialog opens with ticked.
+  const [failedStage, setFailedStage] = useState<FailureStage | "UNKNOWN" | null>(null);
   // Manual mask studio.
   const [maskStudioOpen, setMaskStudioOpen] = useState(false);
   // When set, the studio is REFINING this region's existing mask (AI or hand-drawn)
@@ -808,10 +837,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       }
       if (detail.name) setProjectName(detail.name);
       if (detail.roomType) setProjectRoom(detail.roomType);
+      // The backend's scene beats the upload's. It is the same value for a signed-in
+      // upload, but it is the ONLY value for a guest (whose kiosk upload skips
+      // classification and comes back UNKNOWN) and for a project being reopened,
+      // where nothing had ever set it — the pill was blank and the colour advice
+      // silently treated the house as a room.
+      if (detail.imageType) setClassification(detail.imageType);
       if (detail.sentToShopAt) setSentToShop(true);
       // A fresh run has landed on the canvas, so an earlier report was about a
       // different one — the button goes back to being pressable.
       setReported(false);
+      // Reopening a project that FAILED is the same situation as watching it fail:
+      // there is nothing on the canvas to judge, and the report is the only thing
+      // left to offer. Any other status clears the flag.
+      setFailedStage(
+        detail.status === "FAILED"
+          ? (detail.failureStage === "CLEAN" || detail.failureStage === "MASK"
+              ? detail.failureStage
+              : "UNKNOWN")
+          : null,
+      );
       setViewOnly(Boolean(detail.readOnly));
       setViewOnlyReason(detail.readOnlyReason ?? null);
       setReopenPoints(detail.reopenPricePoints ?? 0);
@@ -919,6 +964,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       // acknowledgement from an earlier room survives into every later one in the
       // session, and takes the button with it.
       setReported(false);
+      setFailedStage(null);
       setLimitReached(false);
       setAccessExpired(false);
       setNeedVerification(false);
@@ -945,6 +991,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             await applyProjectDetail(segmented);
           } catch (segErr) {
             if (segErr instanceof PollCancelledError) return;
+            if (segErr instanceof PollFailedError) setFailedStage(stageOf(segErr));
             setGuestAiUnavailable(true);
           }
           setMasksReady(true);
@@ -983,6 +1030,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           // Retailer "verify email + mobile" (coded) vs customer access window ended.
           if (err.code === "VERIFICATION_REQUIRED") setNeedVerification(true);
           else setAccessExpired(true);
+          setError(err.message);
+        } else if (err instanceof PollFailedError) {
+          // The run reached the backend and gave up there. That is the case this
+          // studio has no other channel for: nothing is on the canvas to look at,
+          // so unless the user is invited to report it, nobody ever learns.
+          setFailedStage(stageOf(err));
           setError(err.message);
         } else if (err instanceof Error) {
           setError(err.message);
@@ -1124,6 +1177,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     // backend expects, since a second report on the same project updates the open one
     // rather than filing a duplicate.
     setReported(false);
+    setFailedStage(null);
     setProjectLimitReached(false);
     setSegmenting(true);
     try {
@@ -1137,6 +1191,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           await applyProjectDetail(segmented);
         } catch (segErr) {
           if (segErr instanceof PollCancelledError) return;
+          if (segErr instanceof PollFailedError) setFailedStage(stageOf(segErr));
           setGuestAiUnavailable(true);
         }
       } else {
@@ -1157,6 +1212,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         else if (err.code === "PROJECT_LIMIT_REACHED") setProjectLimitReached(true);
         else if (err.code === "ASK_RETAILER") setAskRetailer(true);
         else setLimitReached(true);
+        setError(err.message);
+      } else if (err instanceof PollFailedError) {
+        setFailedStage(stageOf(err));
         setError(err.message);
       } else {
         setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -1985,7 +2043,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // reach "recolor" to report that no walls were detected. `stage` is the pipeline's
   // idea of what the user is DOING; `masksReady` is whether a run has produced its
   // result, and that is the question here.
-  const canReport = Boolean(projectId) && masksReady && !uploading && !segmenting;
+  //
+  // A run that FAILED counts as finished too, and it is the case that needs this most:
+  // it produces no masks, so `masksReady` never flips, so the one user who watched the
+  // pipeline fail was the one user who could not tell us about it. `failedStage` is set
+  // by every path that can end in FAILED — first run, retry, guest run, and reopening a
+  // project that had already failed.
+  const runFailed = failedStage !== null;
+  const canReport =
+    Boolean(projectId) && (masksReady || runFailed) && !uploading && !segmenting;
 
   const manualRun = !guest && segOptions.maskMode === "MANUAL";
   const overlayLabel = uploading && !segmenting
@@ -2700,6 +2766,35 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 }}
               >
                 <span>{error}</span>
+                {/* A failed run gets the report offered right here, next to the
+                    failure it is about — the quiet button further down the panel is
+                    for a run that LOOKS fine and isn't, which is a different moment.
+                    Pressing it opens the dialog with the failed stage already
+                    ticked, so this is one press and a Send. */}
+                {runFailed && !reported && (
+                  <button
+                    type="button"
+                    onClick={() => setReportOpen(true)}
+                    style={{
+                      padding: "6px 12px",
+                      background: "transparent",
+                      border: "1px solid var(--rule-strong)",
+                      borderRadius: 6,
+                      color: "var(--fg-soft)",
+                      whiteSpace: "nowrap",
+                      font: "500 12px/1 var(--sans)",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    Report this
+                  </button>
+                )}
+                {runFailed && reported && (
+                  <span style={{ font: "500 12px/1 var(--mono)", whiteSpace: "nowrap", flexShrink: 0 }}>
+                    Reported — thank you
+                  </span>
+                )}
                 {(canRetrySegmentation || canRetryCreate) && (
                   <button
                     type="button"
@@ -3005,6 +3100,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       {reportOpen && (
         <ReportDialog
           hadCleanedImage={canvasCleaned}
+          cleanFailed={failedStage === "CLEAN"}
+          presetIssues={presetIssuesFor(failedStage)}
           onSubmit={submitReport}
           onClose={() => setReportOpen(false)}
         />
