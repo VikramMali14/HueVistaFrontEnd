@@ -138,6 +138,7 @@ vi.mock("@/lib/api", () => {
         remaining: 99,
         unlimited: false,
       })),
+      reportMask: vi.fn(async () => ({ id: "rep-1", issues: [], status: "NEW" })),
     },
     guestApi: {
       uploadImage: vi.fn(),
@@ -793,6 +794,97 @@ describe("Visualizer — segmentation give-up and retry", () => {
       fireEvent.click(screen.getByRole("button", { name: "Dismiss error" }));
     });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The report button is the ONLY way the team learns a run came out wrong — a run with
+ * the walls in the wrong places still returns SEGMENTED and passes every check the
+ * backend makes. So "is it on screen" is the whole feature, and it was not: the button
+ * was gated on the pipeline reaching the "recolor" stage, which only happens when a
+ * colour is applied or a saved project is reopened, never when a run finishes.
+ */
+describe("Visualizer — reporting a bad run", () => {
+  it("offers the report as soon as a run finishes, before any colour is applied", async () => {
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect((await screen.findAllByText("Walls detected")).length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("button", { name: /Not right\? Report a problem/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers it on a run that detected NOTHING — the case most worth reporting", async () => {
+    // A MANUAL-mode run, or one where wall detection found nothing, comes back
+    // SEGMENTED with zero regions. There is no wall to put a colour on, so the old
+    // gate made it impossible to report that no walls were found.
+    vi.mocked(api.getProjectStatus).mockResolvedValue(
+      projectDetail({ status: "SEGMENTED", regions: [] }),
+    );
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect(
+      await screen.findByRole("button", { name: /Not right\? Report a problem/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("stays hidden while a run is still in flight", async () => {
+    vi.mocked(api.getProjectStatus).mockResolvedValue(projectDetail({ status: "SEGMENTING" }));
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    // Gave up rather than finished — there is no result to judge.
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Not right\? Report a problem/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("sends the ticked issue and then acknowledges it", async () => {
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: /Report a problem/i }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText(/The walls weren't detected properly/i));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Send report" }));
+    });
+
+    expect(api.reportMask).toHaveBeenCalledWith("p-1", {
+      issues: ["MASK_NOT_GENERATED_PROPERLY"],
+    });
+    expect(await screen.findByText(/Thank you — we have it/i)).toBeInTheDocument();
+  });
+
+  it("replaces the button with an acknowledgement so the same complaint isn't sent twice", async () => {
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: /Report a problem/i }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText(/The walls weren't detected properly/i));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Send report" }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    });
+
+    expect(screen.getByText(/Reported — thank you/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Not right\? Report a problem/i }),
+    ).not.toBeInTheDocument();
   });
 });
 

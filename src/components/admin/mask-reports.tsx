@@ -119,13 +119,14 @@ export function MaskReports({ initial, updateAction }: MaskReportsProps) {
               <Mono>{when(r.createdAt)}</Mono>
               <span style={{ flex: 1 }} />
               {r.projectId && (
-                // Straight into the diagnostics view — the mask viewer is where
-                // "is this actually wrong?" gets answered.
+                // Straight into THIS room's masks — the viewer is where "is this
+                // actually wrong?" gets answered, and it can now open a room the
+                // admin does not own, which is every room that ever gets reported.
                 <Link
-                  href="/admin/mask-viewer"
+                  href={`/admin/mask-viewer?project=${encodeURIComponent(r.projectId)}`}
                   style={{ font: "500 12px/1 var(--mono)", color: "var(--accent-soft)" }}
                 >
-                  Mask viewer →
+                  Open the masks →
                 </Link>
               )}
             </div>

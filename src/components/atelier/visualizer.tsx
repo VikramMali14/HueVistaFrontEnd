@@ -840,6 +840,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         if (cancelled) return;
         setStage("recolor");
         setMasksReady(true);
+        // Whatever was reported was reported about a DIFFERENT room.
+        setReported(false);
       } catch (err) {
         if (cancelled) return;
         if (err instanceof HttpError && err.status === 401) {
@@ -890,6 +892,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const createAndSegment = useCallback(
     async (imageId: string) => {
       setError(null);
+      // A new run is a new thing to judge. Without this the "Reported — thank you"
+      // acknowledgement from an earlier room survives into every later one in the
+      // session, and takes the button with it.
+      setReported(false);
       setLimitReached(false);
       setAccessExpired(false);
       setNeedVerification(false);
@@ -1091,6 +1097,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const handleRetrySegmentation = useCallback(async (forcedMaskMode?: "AUTO" | "MANUAL") => {
     if (!projectId) return;
     setError(null);
+    // A re-run is a fresh result to judge — and re-reporting it is exactly what the
+    // backend expects, since a second report on the same project updates the open one
+    // rather than filing a duplicate.
+    setReported(false);
     setProjectLimitReached(false);
     setSegmenting(true);
     try {
@@ -1943,7 +1953,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
   // The report button belongs to a FINISHED run: while one is in flight there is
   // nothing to judge, and before a project exists there is nothing to report against.
-  const canReport = Boolean(projectId) && stage === "recolor" && !uploading && !segmenting;
+  //
+  // "Finished" is `masksReady`, NOT `stage === "recolor"`. Nothing moves `stage` past
+  // "mask" when a run completes — only applying a colour or REOPENING the project does
+  // — so a freshly segmented room failed this test and the button never rendered. That
+  // hid it in precisely the case it exists for: a MANUAL-mode run, or one where wall
+  // detection found nothing, has no region to put a colour on, so the user could never
+  // reach "recolor" to report that no walls were detected. `stage` is the pipeline's
+  // idea of what the user is DOING; `masksReady` is whether a run has produced its
+  // result, and that is the question here.
+  const canReport = Boolean(projectId) && masksReady && !uploading && !segmenting;
 
   const manualRun = !guest && segOptions.maskMode === "MANUAL";
   const overlayLabel = uploading && !segmenting

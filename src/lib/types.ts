@@ -1116,6 +1116,41 @@ export interface MaskReport {
   updatedAt?: string;
 }
 
+/**
+ * One room in the admin's platform-wide list (backend AdminProjectRow).
+ *
+ * Deliberately not a ProjectSummary. That type describes a room to somebody who owns or
+ * issued it, and its `source` says "mine" or "my customer's" — categories that mean
+ * nothing to an admin, who owns none of them. What an admin needs is identification, so
+ * a room somebody reported can be found among everyone else's.
+ *
+ * Owner and shop are both optional and both are shown: a room belongs to a registered
+ * user, to a walk-in's access code alone, or (after a walk-in signs up) to both.
+ */
+export interface AdminProjectRow {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  /** "AUTO" / "MANUAL"; absent means the default AUTO. */
+  maskMode?: string | null;
+  regionCount: number;
+  /** False means the clean-up produced nothing and the masks sit on the original photo. */
+  hasCleanedImage: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+
+  /** The registered owner, when there is one. Absent for a walk-in's room. */
+  ownerId?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  ownerRole?: string | null;
+  /** The shop whose code the room was created under, when it was. */
+  shopName?: string | null;
+  accessCode?: string | null;
+  /** The name the shop typed when it issued that code. */
+  customerName?: string | null;
+}
+
 /** Colour-board PDF allowance (backend PdfAllowanceResponse) — resolved against
  *  whichever plan pays for the caller (own plan, or the issuing shop's). */
 export interface PdfAllowance {
