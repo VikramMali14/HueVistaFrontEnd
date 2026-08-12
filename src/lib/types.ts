@@ -582,7 +582,7 @@ export interface OrgResponse {
 // --- Customer support ---
 export type SupportSender = "USER" | "AI" | "AGENT" | "SYSTEM";
 export type SupportConversationStatus = "OPEN" | "NEEDS_HUMAN" | "RESOLVED";
-export type SupportChannel = "IN_APP" | "WHATSAPP" | "VOICE" | "EMAIL";
+export type SupportChannel = "IN_APP";
 
 export interface SupportMessage {
   id: string;

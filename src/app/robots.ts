@@ -9,10 +9,6 @@ import { site } from "@/lib/config";
  * to index: the signed-in app under (app), the auth pages, the BFF proxy, and the
  * tokenised share/handoff/kiosk-code URLs. Keeping them out saves crawl budget and
  * stops a share token from turning up in a search result.
- *
- * The editorial routes (/gallery, /work, /journal) are NOT listed: middleware already
- * answers them with a real 404 while NEXT_PUBLIC_SHOWCASE_CONTENT is blank, which
- * drops them from an index rather than merely asking politely.
  */
 export default function robots(): MetadataRoute.Robots {
   return {

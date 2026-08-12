@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { showcaseContentEnabled } from "@/lib/showcase";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
@@ -24,9 +23,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function WorkDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  // Invented projects, no real imagery — see lib/showcase.
-  // Backstop behind the middleware gate, not the primary one.
-  if (!showcaseContentEnabled()) notFound();
   const work = getWork(slug);
   if (!work) notFound();
   const { prev, next } = getWorkNeighbours(slug);
