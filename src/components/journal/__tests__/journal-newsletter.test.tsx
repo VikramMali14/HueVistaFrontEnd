@@ -56,7 +56,14 @@ describe("JournalNewsletter", () => {
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/too many signups/i));
     expect(screen.queryByRole("status")).toBeNull();
-    // Still editable, so they can try again.
-    expect((screen.getByLabelText(/email address/i) as HTMLInputElement).disabled).toBe(false);
+    // Still editable, so they can try again. Waited for rather than read straight
+    // off the commit that rendered the error: the field is disabled on `pending`,
+    // which useTransition clears in a LATER commit than the setError inside the
+    // transition. Both land in the same tick on a fast machine and in separate ones
+    // on a loaded CI runner, which is what made this flake by machine rather than
+    // by code. The assertion itself is unchanged — the field really must come back.
+    await waitFor(() =>
+      expect((screen.getByLabelText(/email address/i) as HTMLInputElement).disabled).toBe(false),
+    );
   });
 });

@@ -20,6 +20,12 @@ interface FreeProjectLibraryProps {
   initial: FreeProjectTemplate[] | null;
   /** Null = the admin's own projects could not be loaded. */
   sources: PublishableProject[] | null;
+  /** Arriving from the studio's "Add to gallery": the room to publish, already
+   *  chosen. Ignored when it names a project with no walls — the picker decides
+   *  what is publishable, not whoever built the link. */
+  preselectProjectId?: string;
+  /** That room's name, so the title field opens filled in rather than blank. */
+  preselectTitle?: string;
   publishAction: (input: PublishFreeProjectBody) => Promise<{ template?: FreeProjectTemplate; error?: string }>;
   startAction: (templateId: string) => Promise<{ started?: StartedFreeProject; error?: string }>;
   setPublishedAction: (templateId: string, published: boolean) => Promise<{ template?: FreeProjectTemplate; error?: string }>;
@@ -72,6 +78,8 @@ const LABEL: React.CSSProperties = {
 export function FreeProjectLibrary({
   initial,
   sources,
+  preselectProjectId,
+  preselectTitle,
   publishAction,
   startAction,
   setPublishedAction,
@@ -249,6 +257,8 @@ export function FreeProjectLibrary({
       <PublishPanel
         sources={sources}
         eligibleSources={eligibleSources}
+        preselectProjectId={preselectProjectId}
+        preselectTitle={preselectTitle}
         publishAction={publishAction}
         onPublished={handlePublished}
         onError={setError}
@@ -672,18 +682,28 @@ function RemoveConfirm({
 function PublishPanel({
   sources,
   eligibleSources,
+  preselectProjectId,
+  preselectTitle,
   publishAction,
   onPublished,
   onError,
 }: {
   sources: PublishableProject[] | null;
   eligibleSources: PublishableProject[];
+  preselectProjectId?: string;
+  preselectTitle?: string;
   publishAction: (input: PublishFreeProjectBody) => Promise<{ template?: FreeProjectTemplate; error?: string }>;
   onPublished: (template: FreeProjectTemplate) => void;
   onError: (message: string) => void;
 }) {
-  const [projectId, setProjectId] = useState("");
-  const [title, setTitle] = useState("");
+  // Only honoured when the room is actually publishable. A link naming a project
+  // with no walls would otherwise select an option that isn't in the list, which
+  // renders as a blank picker and reads like the page is broken.
+  const arriving = preselectProjectId
+    ? eligibleSources.find((p) => p.id === preselectProjectId)
+    : undefined;
+  const [projectId, setProjectId] = useState(arriving?.id ?? "");
+  const [title, setTitle] = useState(arriving ? (preselectTitle?.trim() || arriving.name) : "");
   const [space, setSpace] = useState<TemplateSpace>("INTERIOR");
   const [roomKey, setRoomKey] = useState(firstShelfFor("INTERIOR").key);
   const [description, setDescription] = useState("");
@@ -746,6 +766,18 @@ function PublishPanel({
         for anyone straight from those files, and wall detection never runs on it again.
       </p>
 
+      {/* Came in from the studio and the room could not be taken. Saying so beats
+          the form quietly opening on nothing, which reads as the link being broken
+          rather than as the room not being ready. */}
+      {preselectProjectId && !arriving && sources !== null && (
+        <p style={{ margin: "0 0 20px", font: "300 15px/1.7 var(--serif)", color: "var(--fg-mute)" }}>
+          The room you came from can&rsquo;t go on the shelf yet — a room needs at least
+          one marked wall before it can be published, and it needs to be one of your own
+          projects. Mark a wall in the studio (or open the room yourself first), then try
+          again.
+        </p>
+      )}
+
       {sources === null ? (
         <p className="field-error" role="alert">
           Could not load your projects — refresh the page and try again.
@@ -754,7 +786,8 @@ function PublishPanel({
         <p style={{ margin: 0, font: "300 15px/1.7 var(--serif)", color: "var(--fg-mute)" }}>
           None of your projects have walls yet. Open the studio, upload a room, let it
           detect the walls (or mark them yourself), then come back — that finished
-          project is what becomes a free one.
+          project is what becomes a free one. A room somebody else made can&rsquo;t be
+          published from here: open a copy of your own first, then publish that.
         </p>
       ) : (
         <form onSubmit={submit} style={{ display: "grid", gap: 18 }}>

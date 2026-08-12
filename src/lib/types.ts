@@ -315,6 +315,14 @@ export interface RegionDetail {
 export interface SegmentationOptions {
   cleanImage?: boolean;
   maskMode?: "AUTO" | "MANUAL";
+  /** ADMIN-only testing knob (the backend strips it for other roles): make the
+   *  image models decline for one half of this run, so the recovery paths can be
+   *  walked through on demand instead of waited for. "CLEAN" fails the run at the
+   *  clean-up stage; "MASK" lets the clean land and returns no walls (the project
+   *  comes back on its cleaned canvas with `autoMaskFailed`); "BOTH" is a wholly
+   *  unavailable Nano Banana; "NONE" forces an honest run on a deployment where
+   *  the simulation is switched on globally. */
+  simulateFailure?: "NONE" | "CLEAN" | "MASK" | "BOTH";
 }
 
 export interface ProjectDetail {
@@ -341,6 +349,13 @@ export interface ProjectDetail {
    *  with; null/undefined = default AUTO. MANUAL projects arrive SEGMENTED with
    *  zero auto regions: the cleaned canvas is ready for hand-marked walls. */
   maskMode?: "AUTO" | "MANUAL" | null;
+  /** This project ASKED for AI wall detection, got its cleaned photo, and the mask
+   *  model still found nothing. The project is SEGMENTED and fully workable — it
+   *  just has no walls yet, so they are the user's to mark. Not a failure and not
+   *  a choice: `maskMode` stays "AUTO", and this is what tells the two apart. The
+   *  team has already been told; the pipeline files its own report here, because
+   *  somebody holding a working room never would. */
+  autoMaskFailed?: boolean;
   regions: RegionDetail[];
   hasShareLink?: boolean;
   shareExpiresAt?: string | null;
@@ -1121,6 +1136,11 @@ export interface MaskReport {
   note?: string | null;
   status: MaskReportStatus;
   createdAt?: string;
+  /** The PIPELINE filed this one, not a person: the photo was cleaned and wall
+   *  detection then returned nothing, so the room was handed over for hand-marked
+   *  walls. Nobody complains about a room that works, which is exactly why the run
+   *  has to report itself — and why the queue must show which reports came that way. */
+  autoRaised?: boolean;
 
   projectId?: string;
   projectName?: string;

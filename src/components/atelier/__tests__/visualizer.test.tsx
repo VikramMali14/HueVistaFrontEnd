@@ -534,10 +534,56 @@ describe("Visualizer — confirm before processing", () => {
       fireEvent.click(confirm);
     });
 
+    // simulateFailure rides along as an explicit NONE. The backend keeps whatever
+    // it was last given, so an omitted field would silently carry a rehearsal from
+    // one run into every run after it.
     expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
       cleanImage: false,
       maskMode: "AUTO",
+      simulateFailure: "NONE",
     });
+  });
+
+  it("an admin can make the models fail on purpose, and the choice is sent", async () => {
+    // Waiting for Nano Banana to have a bad day is not a test plan: the two recovery
+    // paths (run fails at the clean, or the walls come back empty) are otherwise
+    // unreachable on demand.
+    const { container } = render(<Visualizer initialName="Test room" isAdmin />);
+    await screen.findByText("Add a photo of the room");
+
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/Make the AI models fail/i), {
+        target: { value: "MASK" },
+      });
+    });
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
+      cleanImage: true,
+      maskMode: "AUTO",
+      simulateFailure: "MASK",
+    });
+  });
+
+  it("keeps the failure knob away from non-admins", async () => {
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    await screen.findByRole("button", { name: /Continue with this image/i });
+
+    expect(screen.queryByLabelText(/Make the AI models fail/i)).not.toBeInTheDocument();
   });
 
   it("discards the preview on 'choose different' without any backend call", async () => {
@@ -799,6 +845,84 @@ describe("Visualizer — segmentation give-up and retry", () => {
       fireEvent.click(screen.getByRole("button", { name: "Dismiss error" }));
     });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The clean landed, the walls didn't.
+ *
+ * The backend stopped failing this case: the photo is cleaned, repainted and paid
+ * for, so the project comes back SEGMENTED with no regions and `autoMaskFailed`.
+ * What that costs is a room that looks finished and has nothing on it — so the
+ * studio has to say, without being asked, that the walls are the user's to mark and
+ * that the team already knows. Everything pinned here is about that being SAID.
+ */
+describe("Visualizer — a run that cleaned the photo but found no walls", () => {
+  const HANDED_OVER = {
+    status: "SEGMENTED" as const,
+    maskMode: "AUTO" as const,
+    autoMaskFailed: true,
+    cleanedImageUrl: "https://media.example.com/rooms/img-1-clean.jpg",
+    regions: [],
+  };
+
+  it("hands the room over with instructions instead of an error", async () => {
+    vi.mocked(api.getProjectStatus).mockResolvedValue(projectDetail(HANDED_OVER));
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    // The instruction, and the reassurance that reporting it is already done — the
+    // user is not being asked to chase anything.
+    expect(await screen.findByText(/couldn.t pick out the walls/i)).toBeInTheDocument();
+    expect(screen.getByText(/already been sent to our team/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add a wall" })).toBeInTheDocument();
+
+    // Not an error and not a success: claiming "Walls detected" over an empty room
+    // is how this went unnoticed in the first place.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("Walls detected")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/walls not detected/i).length).toBeGreaterThan(0);
+  });
+
+  it("the card can be waved away, and the standing explanation survives it", async () => {
+    vi.mocked(api.getProjectStatus).mockResolvedValue(projectDetail(HANDED_OVER));
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Not now" }));
+    });
+
+    expect(screen.queryByText(/couldn.t pick out the walls/i)).not.toBeInTheDocument();
+    // Dismissing the instruction must not dismiss the FACT: the topbar still says
+    // why this room has nothing on it.
+    expect(screen.getAllByText(/walls not detected/i).length).toBeGreaterThan(0);
+  });
+
+  it("still offers the report, so a user who disagrees can say more", async () => {
+    // The pipeline has filed its own report already. That one says "detection
+    // returned nothing"; a person can add what the photo actually looked like, and
+    // the backend folds their words into the same row rather than duplicating it.
+    vi.mocked(api.getProjectStatus).mockResolvedValue(projectDetail(HANDED_OVER));
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: /Report a problem/i }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText(/The walls weren't detected properly/i));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Send report" }));
+    });
+
+    expect(api.reportMask).toHaveBeenCalledWith("p-1", {
+      issues: ["MASK_NOT_GENERATED_PROPERLY"],
+    });
   });
 });
 
