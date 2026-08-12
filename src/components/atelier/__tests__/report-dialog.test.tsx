@@ -10,6 +10,8 @@ function open(props: Partial<React.ComponentProps<typeof ReportDialog>> = {}) {
   render(
     <ReportDialog
       hadCleanedImage={props.hadCleanedImage ?? true}
+      cleanFailed={props.cleanFailed}
+      presetIssues={props.presetIssues}
       onSubmit={onSubmit}
       onClose={onClose}
     />,
@@ -104,5 +106,54 @@ describe("ReportDialog", () => {
     // Losing what they wrote on a failed send is how a report never gets made twice.
     expect(screen.getByLabelText(/anything else/i)).toHaveValue("half the wall is missing");
     expect(screen.getByLabelText(/walls weren't detected properly/i)).toBeChecked();
+  });
+
+  it("opens with the failed stage already ticked so reporting is one press", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = open({ presetIssues: ["MASK_NOT_GENERATED_PROPERLY"] });
+
+    // The user was just told the walls could not be found. Making them describe
+    // that back to us is how a report stops being worth making.
+    expect(screen.getByLabelText(/walls weren't detected properly/i)).toBeChecked();
+    await user.click(screen.getByRole("button", { name: /send report/i }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(["MASK_NOT_GENERATED_PROPERLY"], ""),
+    );
+  });
+
+  it("lets the reporter overrule the preset", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = open({ presetIssues: ["MASK_NOT_GENERATED_PROPERLY"] });
+
+    await user.click(screen.getByLabelText(/walls weren't detected properly/i)); // untick
+    await user.click(screen.getByLabelText(/something else/i));
+    await user.click(screen.getByRole("button", { name: /send report/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(["OTHER"], ""));
+  });
+
+  it("offers the clean-up option when the clean-up is what FAILED", () => {
+    // There is no cleaned image in this case either — but here its absence is the
+    // complaint, not a reason to hide the box.
+    open({ hadCleanedImage: false, cleanFailed: true,
+           presetIssues: ["IMAGE_NOT_CLEANED_PROPERLY"] });
+
+    const option = screen.getByLabelText(/photo clean-up didn't come through/i);
+    expect(option).toBeInTheDocument();
+    expect(option).toBeChecked();
+  });
+
+  it("tells the reporter where the report goes", async () => {
+    const user = userEvent.setup();
+    open({ presetIssues: ["MASK_NOT_GENERATED_PROPERLY"] });
+
+    await user.click(screen.getByRole("button", { name: /send report/i }));
+
+    // A report that vanishes into "our team" reads like a form that goes nowhere.
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: /support@huevista\.org/i }))
+        .toHaveAttribute("href", "mailto:support@huevista.org"),
+    );
   });
 });

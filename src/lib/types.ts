@@ -279,6 +279,16 @@ export interface Region {
 
 export type ProjectStatus = "CREATED" | "SEGMENTING" | "SEGMENTED" | "FAILED";
 
+/**
+ * Which half of a FAILED run gave up: the photo clean-up, or wall detection.
+ *
+ * Carried so the studio can offer the report with the right problem already ticked
+ * — the two are different bugs in different models, and a user who has just been
+ * told their run failed should not also have to diagnose it. Absent on runs that
+ * failed for a reason belonging to neither stage.
+ */
+export type FailureStage = "CLEAN" | "MASK";
+
 export type RegionCategory = "MAIN_WALL" | "ACCENT_WALL" | "OTHER_WALL" | "TRIM" | "MANUAL";
 
 export interface RegionDetail {
@@ -315,12 +325,18 @@ export interface ProjectDetail {
   status: ProjectStatus;
   imageId: string;
   imageUrl: string;
+  /** The scene the pipeline ran this project as. Travels with the project because
+   *  the upload response is not where it is finally decided: a guest upload arrives
+   *  UNKNOWN and is classified when segmentation runs. */
+  imageType?: ImageClassification | null;
   cleanedImageUrl?: string | null;
   /** The model's raw colour-coded mask (RED/GREEN/BLUE/BLACK) from the accepted
    *  generation — admin mask-viewer diagnostics. Null for projects segmented
    *  before raw-mask capture shipped or with manual-only regions. */
   rawMaskUrl?: string | null;
   failureReason?: string | null;
+  /** Set when status is FAILED: which stage gave up. See FailureStage. */
+  failureStage?: FailureStage | null;
   /** "AUTO" / "MANUAL" — the wall-creation choice this project was segmented
    *  with; null/undefined = default AUTO. MANUAL projects arrive SEGMENTED with
    *  zero auto regions: the cleaned canvas is ready for hand-marked walls. */
@@ -1121,6 +1137,12 @@ export interface MaskReport {
   maskMode?: string | null;
   regionCount?: number | null;
   hadCleanedImage?: boolean | null;
+  /** "CLEAN" / "MASK" when the reported run FAILED outright — which half gave up.
+   *  Null when the run believed it had succeeded, which is the harder bug: the
+   *  pipeline passed every check it makes and the walls are still wrong. */
+  failureStage?: string | null;
+  /** What the failed run told the reporter, verbatim. Null when it didn't fail. */
+  failureReason?: string | null;
 
   adminNote?: string | null;
   resolvedByName?: string | null;

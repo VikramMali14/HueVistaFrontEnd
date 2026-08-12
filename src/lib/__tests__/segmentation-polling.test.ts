@@ -88,6 +88,32 @@ describe("pollUntilSegmented", () => {
     expect(failed.message).toBe("No walls were found in this photo.");
   });
 
+  it("carries the failed STAGE alongside the reason", async () => {
+    // The studio turns a failure into a "report this" prompt and ticks the box for
+    // the user; which box depends on this, so it has to survive the throw.
+    const getStatus = vi.fn(async () => ({
+      status: "FAILED",
+      failureReason: "The photo clean-up didn't come through.",
+      failureStage: "CLEAN",
+    }));
+    const { now, sleep } = fakeClock();
+
+    const err = await pollUntilSegmented({ getStatus, now, sleep }).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(PollFailedError);
+    expect((err as PollFailedError).failureStage).toBe("CLEAN");
+  });
+
+  it("leaves the stage undefined when the backend names none", async () => {
+    const getStatus = statusSequence(["FAILED"], "Segmentation failed.");
+    const { now, sleep } = fakeClock();
+
+    const err = await pollUntilSegmented({ getStatus, now, sleep }).catch((e: unknown) => e);
+
+    // Still a report worth making — just without a box ticked in advance.
+    expect((err as PollFailedError).failureStage).toBeFalsy();
+  });
+
   it("falls back to a friendly message when FAILED has no failureReason", async () => {
     const getStatus = statusSequence(["FAILED"], null);
     const { now, sleep } = fakeClock();

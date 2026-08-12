@@ -361,7 +361,9 @@ beforeEach(() => {
     for (let i = 0; i < 10; i += 1) {
       const status = await options.getStatus();
       if (status.status === "SEGMENTED") return status;
-      if (status.status === "FAILED") throw new PollFailedError(status.failureReason);
+      if (status.status === "FAILED") {
+        throw new PollFailedError(status.failureReason, status.failureStage);
+      }
     }
     throw new PollTimeoutError();
   }) as typeof pollUntilSegmented);
@@ -865,6 +867,75 @@ describe("Visualizer — reporting a bad run", () => {
       issues: ["MASK_NOT_GENERATED_PROPERLY"],
     });
     expect(await screen.findByText(/Thank you — we have it/i)).toBeInTheDocument();
+  });
+
+  it("offers the report on a run that FAILED — the run with nothing to look at", async () => {
+    // The hardest case to reach and the one worth hearing about most: a failed run
+    // produces no canvas and no masks, so every "has the studio finished" signal the
+    // button used to depend on stays false forever.
+    vi.mocked(api.getProjectStatus).mockResolvedValue(
+      projectDetail({
+        status: "FAILED",
+        failureStage: "MASK",
+        failureReason: "We couldn't pick out the walls in this photo.",
+      }),
+    );
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Report this" }));
+    });
+    // Already ticked from the stage the backend named — the user just presses Send.
+    expect(screen.getByLabelText(/The walls weren't detected properly/i)).toBeChecked();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Send report" }));
+    });
+
+    expect(api.reportMask).toHaveBeenCalledWith("p-1", {
+      issues: ["MASK_NOT_GENERATED_PROPERLY"],
+    });
+  });
+
+  it("ticks the clean-up box when the CLEAN stage is what failed", async () => {
+    // No cleaned image exists on this run — and that IS the complaint, so the option
+    // has to be offered rather than hidden as "the cleaner never ran".
+    vi.mocked(api.getProjectStatus).mockResolvedValue(
+      projectDetail({
+        status: "FAILED",
+        failureStage: "CLEAN",
+        failureReason: "The photo clean-up didn't come through.",
+      }),
+    );
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Report this" }));
+    });
+    expect(screen.getByLabelText(/photo clean-up didn't come through/i)).toBeChecked();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Send report" }));
+    });
+
+    expect(api.reportMask).toHaveBeenCalledWith("p-1", {
+      issues: ["IMAGE_NOT_CLEANED_PROPERLY"],
+    });
+  });
+
+  it("does not offer the report when a run merely timed out", async () => {
+    // A timeout is not a verdict — the run may still be going. Retrying is the
+    // answer there, and inviting a complaint about it would fill the queue with
+    // reports nobody can act on.
+    vi.mocked(api.getProjectStatus).mockResolvedValue(projectDetail({ status: "SEGMENTING" }));
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Report this" })).not.toBeInTheDocument();
   });
 
   it("replaces the button with an acknowledgement so the same complaint isn't sent twice", async () => {

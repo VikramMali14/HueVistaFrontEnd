@@ -16,6 +16,8 @@
 export interface SegmentationStatusLike {
   status: string;
   failureReason?: string | null;
+  /** "CLEAN" / "MASK" on a FAILED status — which half of the run gave up. */
+  failureStage?: string | null;
 }
 
 export interface PollOptions<T extends SegmentationStatusLike = SegmentationStatusLike & Record<string, unknown>> {
@@ -63,7 +65,15 @@ export class PollTimeoutError extends Error {
 
 export class PollFailedError extends Error {
   readonly kind = "failed" as const;
-  constructor(public readonly failureReason?: string | null) {
+  /**
+   * `failureStage` travels with the error rather than being re-fetched: the caller
+   * turns this into a "report this" prompt, and which box it ticks for the user
+   * depends on which stage failed.
+   */
+  constructor(
+    public readonly failureReason?: string | null,
+    public readonly failureStage?: string | null,
+  ) {
     super(failureReason || "Could not detect the walls.");
     this.name = "PollFailedError";
   }
@@ -109,7 +119,9 @@ export async function pollUntilSegmented<T extends SegmentationStatusLike>(optio
     // The request may have resolved AFTER cancellation — don't act on it.
     if (isCancelled()) throw new PollCancelledError();
     if (status.status === "SEGMENTED") return status;
-    if (status.status === "FAILED") throw new PollFailedError(status.failureReason);
+    if (status.status === "FAILED") {
+      throw new PollFailedError(status.failureReason, status.failureStage);
+    }
     await sleep(wait);
     wait = Math.min(ceiling, Math.round(wait * backoffFactor));
   }

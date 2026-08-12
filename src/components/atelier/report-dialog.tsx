@@ -10,10 +10,27 @@ interface ReportDialogProps {
   /** True while the photo clean-up produced an image — decides whether the
    *  "photo wasn't cleaned up properly" option is worth offering at all. */
   hadCleanedImage: boolean;
+  /**
+   * The clean-up stage FAILED on this run — it was asked for and produced nothing.
+   * Distinct from `hadCleanedImage` being false, which usually means it was never
+   * asked for at all: the option has to be offered here (there is no cleaned image,
+   * and that IS the complaint), and it needs to describe a clean that didn't happen
+   * rather than one that came out badly.
+   */
+  cleanFailed?: boolean;
+  /**
+   * Ticked on open. Set when the run FAILED and the backend named the stage, so
+   * someone who has just been told "we couldn't pick out the walls" doesn't have to
+   * re-describe it — they press Send. Still editable: the user may know better.
+   */
+  presetIssues?: MaskReportIssue[];
   /** Fires the report. Resolves on success, rejects with a message-bearing error. */
   onSubmit: (issues: MaskReportIssue[], note: string) => Promise<void>;
   onClose: () => void;
 }
+
+/** Where a report lands, said out loud so it doesn't read as a message into a void. */
+const SUPPORT_EMAIL = "support@huevista.org";
 
 /** The options, in the order the pipeline runs — clean-up, then wall detection. */
 const OPTIONS: ReadonlyArray<{
@@ -56,8 +73,16 @@ const OPTIONS: ReadonlyArray<{
  * the ones from a customer standing at a shop counter who is not going to compose
  * a paragraph about it.
  */
-export function ReportDialog({ hadCleanedImage, onSubmit, onClose }: ReportDialogProps) {
-  const [picked, setPicked] = useState<Set<MaskReportIssue>>(new Set());
+export function ReportDialog({
+  hadCleanedImage,
+  cleanFailed = false,
+  presetIssues,
+  onSubmit,
+  onClose,
+}: ReportDialogProps) {
+  // Initialiser, not an effect: the preset is what the dialog opens WITH, and the
+  // user's ticking from that moment on is theirs to keep.
+  const [picked, setPicked] = useState<Set<MaskReportIssue>>(() => new Set(presetIssues ?? []));
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +107,16 @@ export function ReportDialog({ hadCleanedImage, onSubmit, onClose }: ReportDialo
     });
   }, []);
 
-  const options = OPTIONS.filter((o) => !o.needsCleanedImage || hadCleanedImage);
+  // The clean-up option shows when there is a clean to judge — or when the clean is
+  // exactly what failed, which is the one case where its absence is the complaint.
+  const options = OPTIONS.filter(
+    (o) => !o.needsCleanedImage || hadCleanedImage || cleanFailed,
+  ).map((o) =>
+    o.id === "IMAGE_NOT_CLEANED_PROPERLY" && cleanFailed
+      ? { ...o, label: "The photo clean-up didn't come through",
+          hint: "The tidy-up never finished, so the walls were never looked for." }
+      : o,
+  );
 
   const send = useCallback(async () => {
     if (picked.size === 0 || sending) return;
@@ -138,10 +172,13 @@ export function ReportDialog({ hadCleanedImage, onSubmit, onClose }: ReportDialo
           <>
             <Mono brass>Thank you — we have it</Mono>
             <p style={{ font: "400 16px/1.5 var(--serif)", color: "var(--fg-soft)", margin: 0 }}>
-              Your report has gone to our team along with this room, so they can see exactly what
-              you saw. In the meantime you can mark the walls yourself — press{" "}
-              <strong style={{ fontWeight: 500 }}>Add a wall</strong> in the colour panel and click
-              the surfaces you want to paint.
+              Your report has gone to our team at{" "}
+              <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: "var(--fg)" }}>
+                {SUPPORT_EMAIL}
+              </a>{" "}
+              along with this room, so they can see exactly what you saw. In the meantime you can
+              mark the walls yourself — press <strong style={{ fontWeight: 500 }}>Add a wall</strong>{" "}
+              in the colour panel and click the surfaces you want to paint.
             </p>
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               {/* Newly mounted when `sent` flips, so autoFocus fires here and
