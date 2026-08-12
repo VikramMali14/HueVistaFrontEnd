@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { formatDate, formatDateTime } from "@/lib/dates";
 import { Mono } from "@/components/ui/eyebrow";
 import {
   decodeShadeCodeAnyScheme,
@@ -23,9 +24,7 @@ function describeScheme(s: RetiredShadeCodeScheme): string {
 
 function fmtRetired(iso: string): string {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? "earlier"
-    : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  return Number.isNaN(d.getTime()) ? "earlier" : formatDate(iso);
 }
 
 /** A date and the time of day, because two patterns can be swapped on one afternoon. */
@@ -33,9 +32,7 @@ function fmtMoment(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleString("en-IN", {
-    day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit",
-  });
+  return formatDateTime(iso);
 }
 
 /** "12 Mar 2026, 4:05 pm → 8 Aug 2026, 11:20 am", or the open-ended forms. */

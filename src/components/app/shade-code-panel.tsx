@@ -163,6 +163,13 @@ export function ShadeCodePanel({ shades, org: orgProp }: { shades: ReadonlyArray
             <span style={{ display: "block", font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)", marginTop: 2 }}>
               Names disappear everywhere a colour is shown — studio, PDF boards, share
               links and the kiosk. Your code becomes the only handle on a shade.
+              {/* Not an independent nicety. Our public catalogue publishes paint names
+                  next to the manufacturers' real codes, so a name a customer can read
+                  is a code they can look up — a pattern with names left on hides the
+                  number from nobody who thinks to search for it. */}
+              {" "}Worth knowing: our public catalogue lists paint names beside their real
+              codes, so leaving names visible lets a customer search the name and find the
+              number your pattern is replacing.
             </span>
           </span>
         </label>

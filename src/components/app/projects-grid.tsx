@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { formatDate } from "@/lib/dates";
 import { resolveMediaUrl } from "@/lib/media";
 import { Mono } from "@/components/ui/eyebrow";
 import { ImageCompare } from "@/components/ui/image-compare";
@@ -13,12 +14,14 @@ import type { ProjectSummary } from "@/lib/types";
 const INITIAL_VISIBLE = 11;
 const LOAD_STEP = 8;
 
-/** " · ended 3 Aug" — only when there is a date worth naming. */
+/** " · ended 3 Aug 2026" — only when there is a date worth naming. Carries the year
+ *  like every other date in the app: a project list spans years, and "3 Aug" cannot
+ *  be compared with the "3 Aug 2026" on the code that opened it. */
 function expiryNote(accessExpiresAt: string | null | undefined): string {
   if (!accessExpiresAt) return "";
   const when = new Date(accessExpiresAt);
   if (Number.isNaN(when.getTime())) return "";
-  return ` · ended ${when.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`;
+  return ` · ended ${formatDate(accessExpiresAt)}`;
 }
 
 /**
@@ -189,7 +192,7 @@ export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
                   </Mono>
                   <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10 }}>
                     {p.updatedAt ? (
-                      <Mono>{new Date(p.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</Mono>
+                      <Mono>{formatDate(p.updatedAt)}</Mono>
                     ) : null}
                     <Mono>{statusLabel(p.status, p.regionCount)}</Mono>
                   </span>

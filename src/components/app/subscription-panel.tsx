@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { HttpError } from "@/lib/http-error";
 import { buyPoints, PaymentVerificationError, subscribeToPlan } from "@/lib/payments";
+import { formatDate } from "@/lib/dates";
 import { formatLimit, isUnlimited } from "@/lib/plan-quota";
 import { PROJECT_VALID_DAYS } from "@/lib/project-validity";
 import { contact } from "@/lib/config";
@@ -67,13 +68,30 @@ const POINTS_LABEL: Record<string, string> = {
 };
 
 /** "3 August 2027" — points expiry is a date the shop should be able to act on. */
-const fmtExpiry = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+const fmtExpiry = formatDate;
 
-/** Whole days from now until an expiry date, floored at 0. */
+/** A date's day-number in IST, so two of them subtract to a calendar-day count. */
+function istDayNumber(d: Date): number {
+  // en-CA gives YYYY-MM-DD, which Date.UTC can be fed directly.
+  const [y, m, day] = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(d).split("-").map(Number);
+  return Math.floor(Date.UTC(y!, m! - 1, day!) / 86_400_000);
+}
+
+/**
+ * Calendar days from today until an expiry DATE, floored at 0.
+ *
+ * Counted between dates, not between instants. Ceiling a millisecond difference
+ * disagreed with the date printed next to it — 12 Aug 2026 to 5 Aug 2027 is 358
+ * days, and any leftover hours in the expiry timestamp rounded that up to 359 —
+ * so the sentence contradicted its own two halves. The audience is India-only,
+ * which is what makes IST the right calendar to count in.
+ */
 function daysUntil(iso: string): number {
-  const ms = new Date(iso).getTime() - Date.now();
-  return Math.max(0, Math.ceil(ms / 86_400_000));
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return 0;
+  return Math.max(0, istDayNumber(then) - istDayNumber(new Date()));
 }
 
 /** Quick purchase choices, in POINTS (one rupee each). */
@@ -107,10 +125,7 @@ const buttonStyle: React.CSSProperties = {
   textTransform: "uppercase",
 };
 
-function fmtDate(iso?: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-}
+const fmtDate = formatDate;
 
 const fmtLimit = formatLimit;
 
@@ -145,23 +160,23 @@ function statusLabel(s: SubscriptionSummary): { text: string; color: string } {
   // the same future start date, and labelling it "Starts 3 September" told a shop that
   // had abandoned checkout it had a plan coming — it has nothing until it pays.
   if (notStartedYet(s) && s.status !== "EXPIRED" && s.status !== "CREATED") {
-    return { text: `Starts ${fmtDate(s.currentPeriodStart)}`, color: "var(--accent)" };
+    return { text: `Starts ${fmtDate(s.currentPeriodStart)}`, color: "var(--accent-text)" };
   }
   if (s.status === "ACTIVE") {
     // The free plan reads as what it is: a live plan that renews, not a countdown and
     // not something winding down. It carries no cancelAtPeriodEnd meaning either —
     // nothing renews it at a gateway, so there is nothing for that flag to stop.
     if (s.plan === "FREE" && !s.trial) {
-      return { text: "Free plan · renews monthly", color: "var(--accent)" };
+      return { text: "Free plan · renews monthly", color: "var(--accent-text)" };
     }
     if (s.cancelAtPeriodEnd) {
       return s.trial
-        ? { text: "Trial · won't renew", color: "var(--accent)" }
-        : { text: "Active · ends at period close", color: "var(--accent)" };
+        ? { text: "Trial · won't renew", color: "var(--accent-text)" }
+        : { text: "Active · ends at period close", color: "var(--accent-text)" };
     }
     return s.trial
-      ? { text: "Trial", color: "var(--accent)" }
-      : { text: "Active", color: "var(--accent)" };
+      ? { text: "Trial", color: "var(--accent-text)" }
+      : { text: "Active", color: "var(--accent-text)" };
   }
   if (s.status === "EXPIRED") return { text: "Ended", color: "var(--terracotta)" };
   if (s.status === "HALTED") return { text: "Payment failed", color: "var(--terracotta)" };
@@ -171,11 +186,53 @@ function statusLabel(s: SubscriptionSummary): { text: string; color: string } {
     // condition (period end, not the cancelAtPeriodEnd flag), so what this says and what
     // the API allows can't drift apart.
     return withinPaidPeriod(s)
-      ? { text: "Cancelled · active till period end", color: "var(--accent)" }
+      ? { text: "Cancelled · active till period end", color: "var(--accent-text)" }
       : { text: "Cancelled", color: "var(--fg-mute)" };
   }
   if (s.status === "CREATED") return { text: "Awaiting payment", color: "var(--fg-mute)" };
   return { text: s.status, color: "var(--fg-mute)" };
+}
+
+/**
+ * What a HISTORY row says — which is not what the same row says at the top of the
+ * page.
+ *
+ * {@link statusLabel} answers "what is this subscription doing?", which is right for
+ * the one plan card. In a list of every row the account has ever had, it produced
+ * two Starters ending on the same day, one reading ACTIVE and the other CANCELLED ·
+ * ACTIVE TILL PERIOD END, above a card showing a single active Starter — three
+ * claims about one entitlement, only one of which can be true. A row that is not the
+ * subscription in force must not describe itself in the present tense, and an
+ * abandoned checkout (CREATED, no dates, nothing ever charged) is not a subscription
+ * the account HAD at all.
+ */
+function historyLabel(
+  s: SubscriptionSummary,
+  currentId: string | null | undefined,
+): { text: string; color: string } {
+  if (s.status === "CREATED") {
+    return { text: "Checkout not completed", color: "var(--fg-mute)" };
+  }
+  if (currentId && s.id === currentId) {
+    const live = statusLabel(s);
+    return { text: `${live.text} · in force now`, color: live.color };
+  }
+  if (notStartedYet(s)) return { text: `Starts ${fmtDate(s.currentPeriodStart)}`, color: "var(--accent-text)" };
+  if (s.status === "HALTED") return { text: "Payment failed", color: "var(--terracotta)" };
+  // Everything else is over, whatever ended it. Past tense, and never "active".
+  if (s.status === "CANCELLED") return { text: "Cancelled", color: "var(--fg-mute)" };
+  if (s.status === "EXPIRED") return { text: "Ended", color: "var(--fg-mute)" };
+  return { text: "Replaced", color: "var(--fg-mute)" };
+}
+
+/** "12 Mar – 5 Sep 2026", or one end of it, or nothing worth printing. */
+function fmtSpan(s: SubscriptionSummary): string | null {
+  const from = s.currentPeriodStart ? fmtDate(s.currentPeriodStart) : null;
+  const to = s.currentPeriodEnd ? fmtDate(s.currentPeriodEnd) : null;
+  if (from && to) return `${from} – ${to}`;
+  if (to) return `till ${to}`;
+  if (from) return `from ${from}`;
+  return null;
 }
 
 function UsageBar({ used, limit }: { used: number; limit: number }) {
@@ -372,7 +429,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
       {error && <p className="field-error" role="alert">{error}</p>}
       {notice && (
-        <p role="status" style={{ font: "400 15px/1.5 var(--sans)", color: "var(--accent)", margin: 0 }}>
+        <p role="status" style={{ font: "400 15px/1.5 var(--sans)", color: "var(--accent-text)", margin: 0 }}>
           {notice}
         </p>
       )}
@@ -558,10 +615,15 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                   </button>
                 ) : (
                   <>
+                    {/* Says where you land. There is no Free card on this page — the
+                        pricing page shows four tiers and this one sells three — so
+                        cancelling IS the route back to free, and it has to name the
+                        destination rather than leave "drop back to free" as a promise
+                        made only on the marketing page. */}
                     <span style={{ font: "400 14px/1.4 var(--sans)", color: "var(--fg-soft)" }}>
                       {sub.trial
-                        ? "Stop your trial from renewing? You keep every remaining day of it."
-                        : "End your plan at the close of this billing period? Everything keeps working until then."}
+                        ? "Stop your trial from renewing? You keep every remaining day of it, then drop back to the free plan."
+                        : "End your plan at the close of this billing period? Everything keeps working until then, and your shop drops back to the free plan — not to nothing."}
                     </span>
                     <button
                       type="button"
@@ -603,7 +665,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
         <section style={card}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "8px 16px" }}>
             <h2 style={{ font: "600 20px/1.2 var(--serif)", color: "var(--fg)", margin: 0 }}>Points</h2>
-            <span style={{ font: "600 18px/1 var(--mono)", color: "var(--accent)" }}>
+            <span style={{ font: "600 18px/1 var(--mono)", color: "var(--accent-text)" }}>
               {points.balance.toLocaleString("en-IN")}
             </span>
             <span style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
@@ -622,7 +684,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                 type="button"
                 onClick={() => void purchasePoints(n)}
                 disabled={toppingUp}
-                style={{ ...buttonStyle, borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }}
+                style={{ ...buttonStyle, borderColor: "var(--accent)", color: "var(--accent-text)" }}
               >
                 + {n.toLocaleString("en-IN")} pts · {paise(n * points.rupeesPerPoint * 100)}
               </button>
@@ -782,7 +844,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                     marginTop: "auto",
                     ...(isCurrent || isDowngrade
                       ? {}
-                      : { borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }),
+                      : { borderColor: "var(--accent)", color: "var(--accent-text)" }),
                   }}
                 >
                   {isCurrent
@@ -824,31 +886,40 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
             History
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {history.map((h) => (
-              <div
-                key={h.id}
-                style={{
-                  border: "1px solid var(--rule)",
-                  borderRadius: 8,
-                  padding: "10px 16px",
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "baseline",
-                  gap: "6px 16px",
-                }}
-              >
-                <span style={{ font: "500 15px/1.3 var(--serif)", color: "var(--fg)" }}>
-                  {h.planDisplayName}
-                  {h.trial ? " (trial)" : ""}
-                </span>
-                <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: statusLabel(h).color }}>
-                  {statusLabel(h).text}
-                </span>
-                <span style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", color: "var(--fg-mute)" }}>
-                  till {fmtDate(h.currentPeriodEnd)}
-                </span>
-              </div>
-            ))}
+            {history.map((h) => {
+              const label = historyLabel(h, sub?.id);
+              const span = fmtSpan(h);
+              const isCurrent = Boolean(sub?.id && h.id === sub.id);
+              return (
+                <div
+                  key={h.id}
+                  style={{
+                    border: "1px solid " + (isCurrent ? "var(--accent)" : "var(--rule)"),
+                    borderRadius: 8,
+                    padding: "10px 16px",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "baseline",
+                    gap: "6px 16px",
+                  }}
+                >
+                  <span style={{ font: "500 15px/1.3 var(--serif)", color: "var(--fg)" }}>
+                    {h.planDisplayName}
+                    {h.trial ? " (trial)" : ""}
+                  </span>
+                  <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: label.color }}>
+                    {label.text}
+                  </span>
+                  {/* Both ends of the period, not just the far one. Two rows reading
+                      "till 5 Sep 2026" told you nothing about which came first. A
+                      row with no dates was never charged, and says that instead of
+                      printing an em dash where a date belongs. */}
+                  <span style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", color: "var(--fg-mute)" }}>
+                    {span ?? "never started"}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

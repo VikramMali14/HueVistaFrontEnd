@@ -133,7 +133,7 @@ const MAX_PDF_PAGES = 4;
 const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
   { id: "main", kind: "MAIN_WALL", label: "Main wall", hex: "#e8d5b0" },
   { id: "accent", kind: "ACCENT_WALL", label: "Accent wall", hex: "#b0603e" },
-  { id: "trim", kind: "TRIM", label: "Border", hex: "#4a362a" },
+  { id: "trim", kind: "TRIM", label: "Trim & frames", hex: "#4a362a" },
 ];
 
 const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
@@ -158,10 +158,15 @@ const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
   MANUAL: "#ffffff",
 };
 
+// One name per surface, matching RegionCategory.getDefaultLabel() on the backend.
+// These are the placeholders shown BEFORE a photo, and detection replaces them
+// with the backend's own labels — so any disagreement shows up as the walls
+// renaming themselves the moment the AI finishes ("Border" became "Trim &
+// Frames" mid-flow).
 const KIND_LABEL: Record<RegionKind, string> = {
   MAIN_WALL: "Main wall",
   ACCENT_WALL: "Accent wall",
-  TRIM: "Border",
+  TRIM: "Trim & frames",
   MANUAL: "Wall",
 };
 
@@ -1993,7 +1998,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     : segmenting
       ? manualRun
         ? "Tidying up the photo. When it's done, click each wall to mark it yourself."
-        : "Finding the walls and other paintable surfaces. This usually takes about a minute; a busy photo can take longer."
+        // "About a minute" against a job the backend gives eight minutes to finish:
+        // detection is two generative model calls in sequence, and a real upload
+        // took two and a half. An estimate the wait routinely beats is worse than a
+        // wider one, because the person reading it starts wondering what broke.
+        : "Finding the walls and other paintable surfaces. This usually takes one to three minutes; a busy photo can take longer."
       : undefined;
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
@@ -2057,6 +2066,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
   return (
     <div className="hv-visualizer">
+      {/* The studio had no heading of any level. It is a full-bleed working surface,
+          so there is no room for a display title, but a page with no h1 gives a
+          screen reader nothing to land on and no way to tell one project from the
+          next in a heading list. Visually hidden, and it names the actual project. */}
+      <h1 className="sr-only">
+        Studio — {projectName || (openProjectId ? "project" : "new project")}
+      </h1>
       <div className="hv-studio-topbar">
         <div className="hv-studio-project">
           <Mono>Project</Mono>
@@ -2276,15 +2292,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       <div className="hv-studio-body">
         <div className="hv-studio-canvas-wrap" ref={canvasWrapRef}>
           <div className="hv-studio-canvas">
+            {/* The one thing on the page a screen reader most needs named, and the
+                only canvas here that had no name at all — the little colour wheel
+                beside it has carried one all along. `img` because that is what it
+                is to a reader: a picture of the room, not a control. */}
             <canvas
               key={engineEpoch}
               ref={canvasRef}
+              role="img"
+              aria-label={
+                regions.some((r) => r.applied)
+                  ? `${projectName || "Your room"} — preview with ${regions.filter((r) => r.applied).length} surface${regions.filter((r) => r.applied).length === 1 ? "" : "s"} painted`
+                  : `${projectName || "Your room"} — room photo, no colours applied yet`
+              }
               style={{
                 display: imageUrl ? "block" : "none",
               }}
             />
             {showDetailsGate && (
               <ProjectDetailsGate
+                initial={details ?? undefined}
                 onSubmit={(d) => {
                   setDetails(d);
                   setProjectName(d.name);
@@ -2293,12 +2320,28 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               />
             )}
             {!imageUrl && !showDetailsGate && !openProjectId && (
-              <DropZone
-                uploading={uploading}
-                error={error}
-                onChoose={() => fileRef.current?.click()}
-                onDrop={(file) => void selectFile(file)}
-              />
+              <>
+                <DropZone
+                  uploading={uploading}
+                  error={error}
+                  onChoose={() => fileRef.current?.click()}
+                  onDrop={(file) => void selectFile(file)}
+                />
+                {/* The way back. "Continue to photo" was one-way: a name, a room type
+                    and notes typed on the previous step became uneditable the moment
+                    it was pressed, and the only route back to them was abandoning the
+                    project. Nothing has been created on the backend yet at this point
+                    — the details are still local — so returning costs nothing. */}
+                {details && (
+                  <button
+                    type="button"
+                    onClick={() => setDetails(null)}
+                    className="hv-studio-back"
+                  >
+                    <span aria-hidden>←</span> Edit project details
+                  </button>
+                )}
+              </>
             )}
             <input
               ref={fileRef}
@@ -2804,7 +2847,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       <Mono>{projectValidityNote}</Mono>
                       <a
                         href="/plan"
-                        style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-soft)" }}
+                        style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-text)" }}
                       >
                         top up your points or upgrade your plan →
                       </a>

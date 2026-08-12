@@ -26,13 +26,16 @@ const ROOM_TYPES = [
  * photo silently created an untitled project.
  */
 export function ProjectDetailsGate({
+  initial,
   onSubmit,
 }: {
+  /** What was entered last time, when the user has come BACK to this step. */
+  initial?: ProjectDetails;
   onSubmit: (details: ProjectDetails) => void;
 }) {
-  const [name, setName] = useState("");
-  const [roomType, setRoomType] = useState<string>("");
-  const [notes, setNotes] = useState("");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [roomType, setRoomType] = useState<string>(initial?.roomType ?? "");
+  const [notes, setNotes] = useState(initial?.notes ?? "");
   const [touched, setTouched] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 

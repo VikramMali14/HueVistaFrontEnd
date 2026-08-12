@@ -111,9 +111,14 @@ const MATRIX: ReadonlyArray<Section> = [
 const cellStyle: React.CSSProperties = { textAlign: "left", padding: "22px 24px", borderBottom: "1px solid var(--rule)", fontFamily: "var(--sans)", fontWeight: 400, fontSize: 15, color: "var(--ivory-soft)", verticalAlign: "top" };
 const featCellStyle: React.CSSProperties = { ...cellStyle, color: "var(--ivory)", fontFamily: "var(--serif)", fontSize: 19 };
 const featuredColStyle: React.CSSProperties = { background: "rgba(124,92,255,.05)", color: "var(--ivory)" };
-const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px", borderBottom: "1px solid var(--rule-strong)", font: "400 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", color: "var(--brass)" };
+// The soft cut of the accent, not the base one, for everything small on the band.
+// #7c5cff measures 4.01:1 on the band in light and 4.47:1 in dark — both under AA
+// for 12–13px text, and the whole matrix is 12–13px text. #a080ff is 5.83:1 and
+// 6.51:1 on the same two grounds. The band is always dark, so this is one choice
+// serving both themes.
+const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px", borderBottom: "1px solid var(--rule-strong)", font: "400 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", color: "var(--brass-soft)" };
 const sectionHeadStyle: React.CSSProperties = { font: "400 22px/1 var(--serif)", color: "var(--brass-soft)", padding: "56px 24px 12px" };
-const yesStyle: React.CSSProperties = { color: "var(--brass)", fontFamily: "var(--mono)", fontSize: 13 };
+const yesStyle: React.CSSProperties = { color: "var(--brass-soft)", fontFamily: "var(--mono)", fontSize: 13 };
 const noStyle: React.CSSProperties = { color: "var(--mute-deep)", fontFamily: "var(--mono)", fontSize: 13 };
 const thPriceStyle: React.CSSProperties = { marginTop: 10, font: "400 14px/1.2 var(--serif)", letterSpacing: "normal", textTransform: "none", color: "var(--ivory-soft)" };
 const visuallyHidden: React.CSSProperties = { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" };

@@ -414,8 +414,13 @@ export function ProductManager() {
           </select>
           <span style={{ color: "var(--fg-mute)" }}>or</span>
           <input value={newBrand} onChange={(e) => setNewBrand(e.target.value)} placeholder="add a company" aria-label="New brand"
+            onKeyDown={(e) => { if (e.key === "Enter" && newBrand.trim()) void addBrand(); }}
             style={{ padding: "10px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "400 15px/1 var(--sans)" }} />
-          <Button size="sm" variant="ghost" onClick={() => void addBrand()} disabled={!newBrand.trim()}>Add</Button>
+          {/* `title` on the disabled button says why it is disabled. Pressing a greyed
+              Add with an empty box did nothing and explained nothing, which reads as a
+              broken button rather than a missing input. */}
+          <Button size="sm" variant="ghost" onClick={() => void addBrand()} disabled={!newBrand.trim()}
+            title={newBrand.trim() ? "Add this company" : "Type a company name first"}>Add</Button>
         </div>
       </section>
 
@@ -454,8 +459,10 @@ export function ProductManager() {
           )}
           <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center" }}>
             <input value={newLine} onChange={(e) => setNewLine(e.target.value)} placeholder="add a line not listed" aria-label="New line"
+              onKeyDown={(e) => { if (e.key === "Enter" && newLine.trim()) void addLine(); }}
               style={{ padding: "9px 12px", border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg)", font: "400 15px/1 var(--sans)" }} />
-            <Button size="sm" variant="ghost" onClick={() => void addLine()} disabled={!newLine.trim()}>Add line</Button>
+            <Button size="sm" variant="ghost" onClick={() => void addLine()} disabled={!newLine.trim()}
+              title={newLine.trim() ? "Add this line" : "Type a line name first"}>Add line</Button>
           </div>
         </section>
       )}

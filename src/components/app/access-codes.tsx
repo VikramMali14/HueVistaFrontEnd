@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatDate } from "@/lib/dates";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -376,8 +377,10 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
             {issuing ? <><Spinner size={14} color="currentColor" /> Issuing…</> : <>Issue code <span className="arr">→</span></>}
           </Button>
           <span style={{ font: "400 12px/1.4 var(--sans)", color: "var(--fg-mute)", maxWidth: "34ch" }}>
-            {projectQuota} project{projectQuota === 1 ? "" : "s"} will be taken from this
-            month&rsquo;s allowance, or from the extra projects you&rsquo;ve bought once it runs out.
+            {/* One interpolation for the whole count phrase. Split across a plural
+                expression and a JSX line break, the spacing depended on where the
+                source happened to wrap. */}
+            {`${projectQuota} project${projectQuota === 1 ? "" : "s"} will be taken from this month's allowance, or from the extra projects you've bought once it runs out.`}
           </span>
         </div>
 
@@ -539,7 +542,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                   <span role="cell" className="mono" data-label="Projects">
                     {c.projectsUsed ?? 0} / {c.projectQuota ?? 1}
                   </span>
-                  <span role="cell" className="mono" data-label="Expires">{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</span>
+                  <span role="cell" className="mono" data-label="Expires">{formatDate(c.expiresAt)}</span>
                   <span role="cell" data-label="Status" style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: statusColor }}>{status}</span>
                   <span role="cell" data-label="Rooms">
                     {c.used ? (

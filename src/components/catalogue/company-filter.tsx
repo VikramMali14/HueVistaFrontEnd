@@ -29,13 +29,17 @@ export function CompanyFilter({
   return (
     <label htmlFor={id} style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
       <Mono>Company</Mono>
+      {/* .hv-select so this matches the pill dropdowns it sits beside. Left plain it
+          rendered as the operating system's own control among custom-drawn ones. */}
       <select
         id={id}
+        className="hv-select"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={{
           padding: "9px 12px",
           border: "1px solid var(--rule-strong)",
+          borderRadius: 6,
           background: "var(--surface)",
           color: "var(--fg)",
           font: "400 15px/1 var(--sans)",

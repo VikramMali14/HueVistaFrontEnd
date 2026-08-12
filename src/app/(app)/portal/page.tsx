@@ -57,6 +57,10 @@ export default async function PortalPage() {
           { id: "shade-codes", label: "Shade codes", hint: "Your custom code scheme" },
           { id: "store-kiosk", label: "Store kiosk & wallet", hint: "Public paid link + payouts" },
           { id: "customers", label: "Customers & projects", hint: "Everyone under your shop" },
+          // Seven sections on the page, seven in the index. "What they see" was the
+          // one section this list left out — and the only one that describes the
+          // customer's side of everything above it.
+          { id: "what-they-see", label: "What they see", hint: "The customer's side of it" },
         ]}
       />
       <section id="active-codes" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
@@ -94,12 +98,20 @@ export default async function PortalPage() {
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
           Shade codes your customers see
         </h2>
+        {/* The old wording promised more than the product can deliver: "customers see
+            only the coded number" is true of every HueVista screen, but our public
+            catalogue at /catalogue lists shade names beside their real codes to
+            anyone, signed in or not. A customer who can read the paint's NAME can
+            search it there and get the number back. Hiding names is therefore not a
+            second, optional switch — it is the half that makes the numbering hold. */}
         <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
           One pattern instead of a custom code per shade. Add a prefix (up to 4 characters), a pair
           inserted after the first two characters of the real code, and a suffix (up to 4) — shade
-          L124 with prefix AB, pair XY and suffix CD reads ABL1XY24CD. Customers see only the coded
-          number; you read the real shade straight off their screen, and the checker below decodes
-          any code without opening a project.
+          L124 with prefix AB, pair XY and suffix CD reads ABL1XY24CD. Your customers see the coded
+          number on every HueVista screen; you read the real shade straight off theirs, and the
+          checker below decodes any code without opening a project. Turn on &ldquo;Hide paint
+          names&rdquo; below to make it hold: our public catalogue lists paint names with their
+          manufacturer codes, so a customer who can read the name can look the real number up.
         </p>
         <ShadeCodePanel shades={shades} org={shopOrg} />
       </section>
@@ -107,10 +119,16 @@ export default async function PortalPage() {
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
           Store kiosk &amp; wallet
         </h2>
+        {/* Describes the model the kiosk panel actually implements. This said the
+            shop set its own price (min ₹50) and kept everything above a ₹50 base as
+            cash in a wallet to redeem by UPI — two rewards for one sale, neither of
+            which the panel below offers. There is no price field and no payout form:
+            the walk-in pays HueVista one flat price, and the shop earns points. */}
         <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
-          Publish a public link where walk-in customers order like at a kiosk: they pay your price
-          (min ₹50), upload one room photo and pick colours. Everything above the ₹50 base lands in
-          your wallet — redeem it to your UPI whenever you like.
+          Publish a public link where walk-in customers order like at a kiosk: they pay the flat
+          price, upload one room photo and pick colours. You set no price and handle no money —
+          every sale earns your shop points, and points buy extra projects and fresh windows on
+          expired ones.
         </p>
         <StoreKioskPanel org={shopOrg} />
       </section>
@@ -129,7 +147,7 @@ export default async function PortalPage() {
           logo upload, and the customer lands on HueVista's own pages. This describes
           what the shop actually gets today: their codes, and none of them shown to
           the customer. */}
-      <section style={{ marginTop: 56, borderTop: "1px solid var(--rule)", paddingTop: 48 }}>
+      <section id="what-they-see" style={{ marginTop: 56, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
         <Mono style={{ marginBottom: 18, display: "block" }}>What they see</Mono>
         <h2 className="display" style={{ fontSize: "clamp(32px, 4.5vw, 52px)", marginBottom: 20 }}>Simple. Yours.</h2>
         <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "44ch" }}>The customer enters your code and gets a single instruction: upload a photo. They never see shade codes; they pick by feel. You get the codes.</p>

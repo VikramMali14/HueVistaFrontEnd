@@ -65,7 +65,14 @@ export function AccountDetails({ user: initial }: { user: AuthUser }) {
 
   const saveName = async () => {
     const name = nameDraft.trim();
-    if (!name || name === user.name) {
+    // An empty name is a mistake, not a cancel. Closing the editor on Save with
+    // the field blank looked exactly like a successful save that then showed the
+    // old name back — the user could not tell whether it had worked.
+    if (!name) {
+      setNameError("Your name can't be empty. Clear the field and press Cancel to keep the old one.");
+      return;
+    }
+    if (name === user.name) {
       setEditingName(false);
       setNameError(null);
       return;
@@ -129,15 +136,22 @@ export function AccountDetails({ user: initial }: { user: AuthUser }) {
               <input
                 autoFocus
                 value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
+                onChange={(e) => {
+                  setNameDraft(e.target.value);
+                  setNameError(null); // typing is the fix; stop showing the old complaint
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void saveName();
                   if (e.key === "Escape") {
                     setEditingName(false);
+                    setNameDraft(user.name);
                     setNameError(null);
                   }
                 }}
+                name="name"
+                autoComplete="name"
                 aria-label="Your name"
+                aria-invalid={nameError ? "true" : undefined}
                 maxLength={100}
                 style={fieldStyle}
               />
@@ -313,37 +327,49 @@ function ChangePasswordSection({ provider }: { provider: AuthUser["provider"] })
           Password changed. Taking you to sign-in…
         </p>
       ) : (
+        /* Visible labels, not placeholders. A placeholder disappears the moment you
+           type into the field it names, so a half-filled form of three identical
+           rows of dots had nothing left saying which box was which — and with no
+           `name` attribute a password manager could not tell either. Every field
+           change also clears the error: it used to stay on screen after the fields
+           it complained about had been emptied. */
         <form onSubmit={(e) => void submit(e)} style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 340 }}>
-          <input
-            type="password"
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-            placeholder="Current password"
-            aria-label="Current password"
-            autoComplete="current-password"
-            required
-            style={fieldStyle}
-          />
-          <input
-            type="password"
-            value={next}
-            onChange={(e) => setNext(e.target.value)}
-            placeholder="New password"
-            aria-label="New password"
-            autoComplete="new-password"
-            required
-            style={fieldStyle}
-          />
-          <input
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            placeholder="Repeat the new password"
-            aria-label="Repeat the new password"
-            autoComplete="new-password"
-            required
-            style={fieldStyle}
-          />
+          <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <span style={label}>Current password</span>
+            <input
+              type="password"
+              value={current}
+              onChange={(e) => { setCurrent(e.target.value); setError(null); }}
+              name="current-password"
+              autoComplete="current-password"
+              required
+              style={fieldStyle}
+            />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <span style={label}>New password</span>
+            <input
+              type="password"
+              value={next}
+              onChange={(e) => { setNext(e.target.value); setError(null); }}
+              name="new-password"
+              autoComplete="new-password"
+              required
+              style={fieldStyle}
+            />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <span style={label}>Repeat the new password</span>
+            <input
+              type="password"
+              value={confirm}
+              onChange={(e) => { setConfirm(e.target.value); setError(null); }}
+              name="confirm-password"
+              autoComplete="new-password"
+              required
+              style={fieldStyle}
+            />
+          </label>
           {error && (
             <span className="field-error" role="alert" style={{ font: "400 13px/1.4 var(--sans, system-ui)" }}>
               {error}

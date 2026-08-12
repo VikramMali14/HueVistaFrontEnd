@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { formatDate } from "@/lib/dates";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -134,6 +135,15 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
               {formatPoints(pointsPerSale)} every time. Points buy extra projects and
               reopens, and last a year from the day you earn them.
             </p>
+            {/* Two windows exist and they are not the same window. A code you hand
+                over at the counter always runs 10 days, and "+10 days" resets it to
+                10; a kiosk link mints its own codes and you choose how long those
+                last. Read side by side with no explanation, 3/7/14 here against
+                "VALID 10 DAYS" there reads as one of the two being wrong. */}
+            <p style={{ font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "0 0 12px", maxWidth: "52ch" }}>
+              Codes this link mints last as long as you choose here. Codes you issue by hand
+              at the counter are separate, and always run 10 days.
+            </p>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                 <Mono>Codes valid</Mono>
@@ -206,11 +216,17 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
                 {formatPoints(wallet.pointsBalance)}
               </div>
             </div>
+            {/* Names its own source. "Earned all time: 0" sitting beside "Points to
+                spend: 200" reads as a contradiction, because a balance can also be
+                bought — and this counter only ever counts the kiosk half. */}
             <div>
-              <Mono>Earned all time</Mono>
+              <Mono>Earned at the kiosk</Mono>
               <div style={{ font: "500 28px/1.2 var(--serif)", color: "var(--fg)", marginTop: 6 }}>
                 {formatPoints(wallet.lifetimePointsEarned)}
               </div>
+              <span style={{ display: "block", font: "400 12px/1.4 var(--sans)", color: "var(--fg-mute)", marginTop: 4, maxWidth: "24ch" }}>
+                all time — points you bought aren&rsquo;t counted here
+              </span>
             </div>
             <div>
               <Mono>Per kiosk sale</Mono>
@@ -243,7 +259,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
                     </Mono>
                     {p.code && <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{p.code}</span>}
                     {p.createdAt && (
-                      <Mono>{new Date(p.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</Mono>
+                      <Mono>{formatDate(p.createdAt)}</Mono>
                     )}
                   </div>
                 ))}
