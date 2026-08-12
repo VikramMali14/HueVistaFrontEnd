@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { showcaseContentEnabled } from "@/lib/showcase";
 import { Marquee } from "@/components/layout/marquee";
 import { fetchSiteAssets } from "@/lib/site-assets-server";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -18,9 +16,6 @@ export const metadata: Metadata = {
 };
 
 export default async function JournalPage() {
-  // Invented bylines, no articles behind the entries — see lib/showcase.
-  // Backstop behind the middleware gate, not the primary one.
-  if (!showcaseContentEnabled()) notFound();
   const assets = await fetchSiteAssets();
   return (
     <>

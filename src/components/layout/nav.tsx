@@ -7,41 +7,25 @@ import { gsap } from "gsap";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { APK_URL, hasApk } from "@/components/shared/app-download";
-import { SHOWCASE_CONTENT } from "@/lib/showcase";
 import { BrandMark } from "./brand-mark";
 
-// Journal is a placeholder editorial page and 404s unless
-// NEXT_PUBLIC_SHOWCASE_CONTENT=1 (see lib/showcase) — don't link to a 404.
-//
-// Gallery has a second way in, and it is the real one: it lists the rooms an
-// admin has actually published, and it opens by itself the moment the shelf is
-// not empty (see middleware). So the link follows the shelf — `galleryLive` —
-// as well as the flag. Without that the page could be live, full of real
-// photographs, and reachable only by typing the URL.
-function publicLinks(galleryLive: boolean) {
-  return [
-    { href: "/method", label: "How it works" },
-    { href: "/catalogue", label: "Catalogue" },
-    ...(SHOWCASE_CONTENT || galleryLive ? [{ href: "/gallery", label: "Gallery" }] : []),
-    { href: "/pricing", label: "Pricing" },
-    ...(SHOWCASE_CONTENT ? [{ href: "/journal", label: "Journal" }] : []),
-    { href: "/unlock", label: "Unlock" },
-  ];
-}
+const PUBLIC_LINKS = [
+  { href: "/method", label: "How it works" },
+  { href: "/catalogue", label: "Catalogue" },
+  { href: "/gallery", label: "Gallery" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/journal", label: "Journal" },
+  { href: "/unlock", label: "Unlock" },
+];
 
 interface NavProps {
   showCta?: boolean;
   showSignIn?: boolean;
   authed?: boolean;
-  /**
-   * Whether any room is published to the gallery. Defaults to false, which is the
-   * safe direction: an unknown shelf offers no link rather than a 404.
-   */
-  galleryLive?: boolean;
 }
 
-export function Nav({ showCta = true, showSignIn = true, authed = false, galleryLive = false }: NavProps) {
-  const links = publicLinks(galleryLive);
+export function Nav({ showCta = true, showSignIn = true, authed = false }: NavProps) {
+  const links = PUBLIC_LINKS;
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [panelVisible, setPanelVisible] = useState(false);
@@ -74,7 +58,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false, gallery
     return () => ctx.revert();
     // The panel is measured to its content, so anything that adds or removes a
     // row in it has to rebuild the timeline — the Gallery link included.
-  }, [authed, galleryLive]);
+  }, [authed]);
 
   const setMenu = (next: boolean) => {
     const tl = tlRef.current;
@@ -151,7 +135,7 @@ export function Nav({ showCta = true, showSignIn = true, authed = false, gallery
       ]
     : [
         ...links,
-        ...(SHOWCASE_CONTENT ? [{ href: "/work", label: "Our work" }] : []),
+        { href: "/work", label: "Our work" },
         { href: "/join", label: "Create account" },
         { href: "/sign-in", label: "Sign in" },
       ];

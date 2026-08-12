@@ -87,19 +87,13 @@ export async function fetchPublishedProjects(): Promise<PublishedProject[]> {
 /**
  * Whether the library has anything on it.
  *
- * The chrome asks this before offering a link to /gallery at all. The page does
- * not exist while the shelf is empty — middleware answers it with a 404, because
- * the fallback behind it is the invented placeholder material (see lib/showcase)
- * — so a permanent link in the header, the footer or the app nav would be a
- * permanent dead end. The link appears when the rooms do.
+ * The signed-in app nav asks this before offering the Library tab, which only
+ * makes sense once a room is actually on the shelf.
  *
  * Built on {@link fetchPublishedProjects} rather than a request of its own, so it
  * shares that call's cache entry AND its {@link PUBLISHED_PROJECTS_TAG}: the admin
  * actions that publish, hide or delete a room already bust that tag, which means
- * the links move in the same beat as the page they point at. The middleware keeps
- * its own probe (it runs on the edge, before this cache exists) on a shorter TTL,
- * so the two can disagree for up to a minute right after the first room is
- * published — the link is live slightly before the page is.
+ * the tab moves in the same beat as the shelf it points at.
  */
 export async function libraryHasRooms(): Promise<boolean> {
   return (await fetchPublishedProjects()).length > 0;

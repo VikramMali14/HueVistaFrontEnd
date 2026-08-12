@@ -986,11 +986,6 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   .hv-cat-preview { grid-template-columns: repeat(4, 1fr) !important; }
 }
 
-/* Harmonies stack */
-@media (max-width: 480px) {
-  .hv-harmony-stack { height: 220px !important; }
-}
-
 /* Method chapter rows */
 @media (max-width: 1024px) {
   .hv-method-chapter { grid-template-columns: 60px 1fr !important; gap: 32px !important; padding: 96px 0 !important; }

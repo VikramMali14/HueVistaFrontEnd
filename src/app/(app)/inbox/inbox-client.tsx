@@ -8,7 +8,7 @@ import { api, HttpError } from "@/lib/api";
 import type { SupportConversation, SupportConversationSummary } from "@/lib/types";
 
 // Human labels for backend enums — raw IN_APP / NEEDS_HUMAN / USER read as a debug build.
-const CHANNEL_LABEL: Record<string, string> = { IN_APP: "In-app", WHATSAPP: "WhatsApp", VOICE: "Voice", EMAIL: "Email" };
+const CHANNEL_LABEL: Record<string, string> = { IN_APP: "In-app" };
 const STATUS_LABEL: Record<string, string> = { OPEN: "Open", NEEDS_HUMAN: "Needs a human", RESOLVED: "Resolved" };
 const SENDER_LABEL: Record<string, string> = { USER: "Customer", AI: "AI assistant", AGENT: "Team", SYSTEM: "System" };
 

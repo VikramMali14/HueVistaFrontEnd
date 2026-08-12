@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { showcaseContentEnabled } from "@/lib/showcase";
 import { SiteHeader } from "@/components/layout/site-header";
 import { WorkSpiral } from "@/components/work/work-spiral";
 
@@ -10,9 +8,6 @@ export const metadata: Metadata = {
 };
 
 export default function WorkPage() {
-  // Invented projects, no real imagery — see lib/showcase.
-  // Backstop behind the middleware gate, not the primary one.
-  if (!showcaseContentEnabled()) notFound();
   return (
     <>
       <SiteHeader />

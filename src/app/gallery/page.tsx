@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { showcaseContentEnabled } from "@/lib/showcase";
 import { Marquee } from "@/components/layout/marquee";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
@@ -102,12 +100,7 @@ export default async function GalleryPage() {
   // they ARE the gallery and the placeholder plates below never render.
   const [published, assets] = await Promise.all([fetchPublishedProjects(), fetchSiteAssets()]);
 
-  // Nothing published yet: back to the built-in plates, which are invented
-  // material — flat gradients captioned with codes our own catalogue 404s (see
-  // lib/showcase). The middleware 404s this path first in that case; this is the
-  // backstop if it is ever dropped from the matcher.
-  if (published.length === 0 && !showcaseContentEnabled()) notFound();
-
+  // Nothing published yet: fall back to the built-in demonstration plates.
   const live = published.length > 0;
   const plates = live ? published.map(plateOf) : PLATES;
   const count = plates.length;

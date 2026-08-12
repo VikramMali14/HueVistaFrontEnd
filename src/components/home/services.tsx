@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { TiltCard } from "@/components/ui/tilt-card";
-import { SHOWCASE_CONTENT } from "@/lib/showcase";
 import { FREE_PLAN_PROJECTS } from "@/lib/free-plan";
 
 /**
@@ -35,18 +34,13 @@ const services = (shades: number | null) => [
     tone: "sage",
     href: "/trial",
   },
-  // Only while the gallery is published — otherwise this card leads to a 404.
-  ...(SHOWCASE_CONTENT
-    ? [
-        {
-          kicker: "Gallery",
-          title: "Rooms — only the wall changed",
-          desc: "Twelve rooms recoloured with catalogue shades — only the wall changes, the code on every one.",
-          tone: "walnut",
-          href: "/gallery",
-        },
-      ]
-    : []),
+  {
+    kicker: "Gallery",
+    title: "Rooms — only the wall changed",
+    desc: "Rooms recoloured with catalogue shades — only the wall changes, the code on every one.",
+    tone: "walnut",
+    href: "/gallery",
+  },
 ];
 
 export function Services({ shades }: { shades?: number | null }) {

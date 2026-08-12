@@ -210,7 +210,7 @@ export const DEMO_SUPPORT_CONVERSATIONS: SupportConversation[] = [
   },
   {
     id: "conv_demo_02",
-    channel: "WHATSAPP",
+    channel: "IN_APP",
     status: "NEEDS_HUMAN",
     subject: "Exterior paint quote",
     createdAt: "2026-06-24T10:38:00+05:30",
@@ -224,7 +224,7 @@ export const DEMO_SUPPORT_CONVERSATIONS: SupportConversation[] = [
 ];
 
 export const DEMO_INBOX: SupportConversationSummary[] = [
-  { id: "conv_demo_02", channel: "WHATSAPP", status: "NEEDS_HUMAN", subject: "Exterior paint quote", requesterName: "Sunil Verma", requesterEmail: "sunil.verma@gmail.com", requesterRole: "CUSTOMER", lastMessage: "Connected to the HueVista team.", updatedAt: "2026-06-24T10:40:00+05:30" },
+  { id: "conv_demo_02", channel: "IN_APP", status: "NEEDS_HUMAN", subject: "Exterior paint quote", requesterName: "Sunil Verma", requesterEmail: "sunil.verma@gmail.com", requesterRole: "CUSTOMER", lastMessage: "Connected to the HueVista team.", updatedAt: "2026-06-24T10:40:00+05:30" },
   { id: "conv_demo_01", channel: "IN_APP", status: "OPEN", subject: "How do I recolour a room?", requesterName: "Anjali Nair", requesterEmail: "anjali@example.in", requesterRole: "CUSTOMER", lastMessage: "Want me to walk you through it?", updatedAt: "2026-06-24T11:10:01+05:30" },
 ];
 
