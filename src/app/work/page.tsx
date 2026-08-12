@@ -13,6 +13,11 @@ export default function WorkPage() {
       <SiteHeader />
       {/* Immersive full-viewport piece — no footer, no page gutters. */}
       <main id="main" className="hv-work-main">
+        {/* The spiral carries the page's meaning visually and has no headline of
+            its own, which left the document with no h1 at all — a screen reader
+            landed here with nothing naming the page. Visually hidden so the piece
+            is untouched. */}
+        <h1 className="sr-only">Our work</h1>
         <WorkSpiral />
       </main>
     </>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clientIpFromHeaders } from "@/lib/client-ip";
+import { WORKS } from "@/lib/work";
 
 // NOTE: lives in src/ (not the project root) so Next actually runs it for a
 // src/-based app. It gates protected routes AND refreshes the access token here,
@@ -28,6 +29,19 @@ const PROTECTED_PREFIXES = ["/studio", "/render", "/dashboard", "/portal", "/inb
 // account nobody wanted. Whoever genuinely needs a second account can sign out
 // first, which is the same answer /join and /sign-in already give.
 const GUEST_ONLY_PATHS = ["/sign-in", "/sign-in/forgot", "/join", "/trial"];
+// Valid /work/[slug] URLs, checked here rather than in the page.
+//
+// The page does call notFound() for an unknown slug, but it cannot set the
+// status: `await params` marks the request dynamic and the response starts
+// streaming, so by the time notFound() throws Next has already committed a 200.
+// An unknown slug therefore rendered the 404 UI under a 200, titled "Our work",
+// and a crawler happily indexed every typo and probe as a real page. Middleware
+// runs before any of that, so the status it sets is the one that ships.
+//
+// WORKS is a plain static array, so this costs a Set lookup and no I/O.
+// src/lib/__tests__/work-routes.test.ts holds the matcher and this check to the
+// same list.
+const WORK_SLUGS = new Set(WORKS.map((w) => w.slug));
 const ACCESS_COOKIE = "hv_access";
 const SESSION_COOKIE = "hv_refresh";
 const GUEST_COOKIE = "hv_guest";
@@ -56,6 +70,14 @@ function cookieOpts(maxAge: number) {
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+
+  // An unknown project answers as a real 404 — see WORK_SLUGS above.
+  if (pathname.startsWith("/work/")) {
+    const slug = pathname.slice("/work/".length).replace(/\/$/, "");
+    if (slug && !slug.includes("/") && !WORK_SLUGS.has(slug)) {
+      return NextResponse.rewrite(new URL("/_not-found", req.url), { status: 404 });
+    }
+  }
 
   // Public auth endpoints are REWRITTEN to the backend (next.config.ts), and
   // Next's rewrite proxy forwards X-Forwarded-For exactly as the client sent
@@ -226,5 +248,7 @@ export const config = {
     "/sign-in/forgot",
     "/join",
     "/trial",
+    // Unknown project slugs are 404'd here (WORK_SLUGS) — the page can't.
+    "/work/:path*",
   ],
 };
