@@ -13,6 +13,7 @@ import type { AuthUser, MyAccess } from "@/lib/types";
 const TABS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/studio", label: "Studio" },
+  { href: "/library", label: "Library" },
   { href: "/assigned-products", label: "My products" },
   { href: "/colour-finder", label: "Colour finder" },
   { href: "/network", label: "Network" },
@@ -41,9 +42,14 @@ interface AppNavProps {
    * strip a shop's tabs.
    */
   access?: MyAccess | null;
+  /**
+   * Whether any room is published to the free library. Defaults to false: an
+   * unknown shelf shows no tab rather than one leading to an empty page.
+   */
+  libraryLive?: boolean;
 }
 
-export function AppNav({ user, access = null }: AppNavProps) {
+export function AppNav({ user, access = null, libraryLive = false }: AppNavProps) {
   // The shop's shade-code pattern is cached at module scope and nothing was clearing it,
   // so it survived a sign-out: the next account in the same tab rendered its colours with
   // the previous shop's numbering (and its "hide paint names" choice). Done during render
@@ -80,6 +86,11 @@ export function AppNav({ user, access = null }: AppNavProps) {
     hideTimer.current = window.setTimeout(() => setRevealed(false), 160);
   };
   const visibleTabs = TABS.filter((t) => {
+    // The free-room library, open to every signed-in role — the backend asks only
+    // for a session to open a copy. Hidden while the shelf is empty, because the
+    // page would then have nothing on it and the admin console is where rooms are
+    // put there; it reappears by itself the moment something is published.
+    if (t.href === "/library" && !libraryLive) return false;
     // Hierarchy console — admins, distributors and retailers manage their downline here.
     if (t.href === "/network" && (!user || (user.role !== "ADMIN" && user.role !== "DISTRIBUTOR" && user.role !== "RETAILER"))) return false;
     // A shop's downline is painters, and the painter module is still in testing.
@@ -112,9 +123,9 @@ export function AppNav({ user, access = null }: AppNavProps) {
 
   const isPlanLocked = (href: string) => planWithholdsPath(access, href);
 
-  // ADMIN carries 7 tabs — the row overflows the floating bar well above the
-  // 900px drawer breakpoint, so wide tab sets get tighter spacing and an
-  // earlier drawer via the .nav-wide rules below.
+  // ADMIN carries 8 tabs once the library shelf is live — the row overflows the
+  // floating bar well above the 900px drawer breakpoint, so wide tab sets get
+  // tighter spacing and an earlier drawer via the .nav-wide rules below.
   const wideNav = visibleTabs.length > 5;
 
   // Auto-close the drawer (and the studio overlay) on route change.
@@ -437,7 +448,7 @@ export function AppNav({ user, access = null }: AppNavProps) {
           .app-header-studio .app-header-slide { transform: none; }
           .studio-nav-hotzone, .studio-minibar { display: none; }
         }
-        /* Wide tab sets (ADMIN): tighten the row so 7 tabs + the user block fit
+        /* Wide tab sets (ADMIN): tighten the row so 8 tabs + the user block fit
            on one line down to ~1200px… */
         @media (max-width: 1600px) {
           .app-nav-inner.nav-wide { gap: 16px; }

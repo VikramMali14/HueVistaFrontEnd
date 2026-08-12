@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUserResult } from "@/lib/auth";
+import { libraryHasRooms } from "@/lib/free-projects-server";
 import { FEATURE_LABELS, SHOP_PAINTER_MODULE_ENABLED } from "@/lib/features";
 import type { AppFeatureKey } from "@/lib/types";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
@@ -21,7 +22,11 @@ interface DashboardPageProps {
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const [{ denied, page, subscribed }, { user, unavailable }] = await Promise.all([searchParams, getCurrentUserResult()]);
+  const [{ denied, page, subscribed }, { user, unavailable }, libraryLive] = await Promise.all([
+    searchParams,
+    getCurrentUserResult(),
+    libraryHasRooms(),
+  ]);
   // The audience is India-only, so IST is the right clock for the greeting.
   const h = Number(new Intl.DateTimeFormat("en-IN", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Kolkata" }).format(new Date()));
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
@@ -137,6 +142,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <div style={{ marginTop: 16 }}>
             <LinkButton href="/network" variant="ghost" size="sm">
               {user?.role === "DISTRIBUTOR" ? "Manage your shops & reports" : "Manage your painters & reports"} <span className="arr">→</span>
+            </LinkButton>
+          </div>
+        )}
+        {/* Every role, because opening a free room costs nothing to serve and asks
+            only for a session. Shown only when a room is actually on the shelf —
+            the same rule the nav tab follows, so the dashboard never offers a page
+            that would open empty. */}
+        {libraryLive && (
+          <div style={{ marginTop: 16 }}>
+            <LinkButton href="/library" variant="ghost" size="sm">
+              Start from a ready-made room <span className="arr">→</span>
             </LinkButton>
           </div>
         )}

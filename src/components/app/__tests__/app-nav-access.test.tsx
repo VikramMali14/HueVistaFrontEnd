@@ -100,6 +100,42 @@ describe("AppNav page grant", () => {
 });
 
 /**
+ * The Library tab follows the SHELF, not the role.
+ *
+ * Opening a free room asks the backend only for a session — the copy reuses the
+ * stored photo and masks, so it costs nothing to serve — which is why every
+ * signed-in role gets the tab. What it does depend on is whether anything is
+ * published: the page has nothing to show while the shelf is empty, and the
+ * public /gallery it mirrors is 404'd outright in that state, so an always-on tab
+ * would be an always-on dead end.
+ */
+describe("AppNav library tab", () => {
+  it("is absent while nothing is on the shelf", () => {
+    render(<AppNav user={retailer} access={access()} />);
+    expect(tabs()).not.toContain("Library");
+  });
+
+  it("appears for a shop once a room is published", () => {
+    render(<AppNav user={retailer} access={access()} libraryLive />);
+    expect(tabs()).toContain("Library");
+  });
+
+  it("appears for an admin, who is also the one who published it", () => {
+    const admin: AuthUser = { ...retailer, role: "ADMIN" };
+    render(<AppNav user={admin} access={null} libraryLive />);
+    const shown = tabs();
+    expect(shown).toContain("Library");
+    expect(shown).toContain("Admin");
+  });
+
+  it("reaches a customer too — the room costs nothing to open", () => {
+    const customer: AuthUser = { ...retailer, role: "CUSTOMER" };
+    render(<AppNav user={customer} access={access({ role: "CUSTOMER" })} libraryLive />);
+    expect(tabs()).toContain("Library");
+  });
+});
+
+/**
  * A page the shop's OWN PLAN locks is not the same closure as one its distributor
  * withheld, and the nav now treats them differently.
  *

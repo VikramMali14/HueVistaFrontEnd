@@ -30,6 +30,10 @@ export const metadata: Metadata = {
 export default async function AdminFreeProjectsPage() {
   await requireRole(["ADMIN"]);
   const [templates, sources] = await Promise.all([getFreeProjects(), getFreeProjectSources()]);
+  // Both pages the shelf feeds only exist once something is published — /gallery
+  // is 404'd while it is empty, and the in-app Library has nothing to show — so
+  // the links appear with the rooms rather than standing as dead ends.
+  const anyPublished = (templates ?? []).some((t) => t.published);
 
   return (
     <div style={{ maxWidth: 1080 }}>
@@ -45,6 +49,17 @@ export default async function AdminFreeProjectsPage() {
         exteriors by style — that anyone can open and start painting straight away. No photo
         to upload, no walls to wait for.
       </Lead>
+
+      {anyPublished && (
+        <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
+          <Link href="/library" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+            The library, as an account sees it →
+          </Link>
+          <Link href="/gallery" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+            The public gallery →
+          </Link>
+        </p>
+      )}
 
       <div
         style={{
