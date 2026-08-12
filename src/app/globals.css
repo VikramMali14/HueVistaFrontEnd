@@ -19,7 +19,7 @@
 
 :root {
   /* Sticky-header height, single source of truth for scroll-padding so an
-     in-page jump never parks its target under the glass bar. .nav is 12px of
+     in-page jump never parks its target under the glass bar. .cnav is 12px of
      padding either side of a ~38px row. */
   --nav-h: 62px;
   /* The studio's slim persistent bar (Dashboard, Home, Menu). The workspace
@@ -289,111 +289,6 @@ button { font-family: inherit; }
 .marquee-track .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--bg); opacity: .5; }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-/* ====== NAV  ·  transparent glass, full-width, mega-menu dropdowns ======
-   The bar is a low-alpha wash of the page background + blur, so the page
-   shows through it in both themes instead of a solid black/white strip. */
-.nav {
-  position: sticky; top: 0; z-index: 80;
-  background: var(--nav-bg);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  border-bottom: var(--hairline) solid var(--rule);
-}
-.nav-inner {
-  max-width: var(--max); margin: 0 auto;
-  padding: 12px var(--gutter);
-  display: flex; align-items: center; gap: 24px;
-}
-.brand-logo { display: inline-flex; align-items: center; text-decoration: none; flex-shrink: 0; }
-
-.nav-links { display: flex; align-items: center; gap: 2px; margin: 0 auto; }
-.nav-link {
-  font: 500 14px/1 var(--sans);
-  color: rgba(var(--fg-rgb), .66);
-  padding: 9px 14px;
-  white-space: nowrap; flex-shrink: 0;
-  border-radius: var(--radius-pill);
-  transition: color .2s var(--ease), background .2s var(--ease);
-}
-.nav-link:hover, .nav-link.active { color: var(--fg); background: rgba(var(--fg-rgb), .08); }
-
-/* Dropdown trigger + caret */
-.nav-group { position: static; display: inline-flex; }
-.nav-trigger {
-  display: inline-flex; align-items: center; gap: 7px;
-  background: transparent; border: none; cursor: pointer;
-}
-.nav-caret { display: inline-flex; opacity: .65; transition: transform .25s var(--ease); }
-.nav-caret.is-open { transform: rotate(180deg); }
-
-/* Mega panel — absolutely positioned against the (sticky) nav, centred. */
-.nav-panel {
-  position: absolute; top: 100%; left: 0; right: 0;
-  padding-top: 10px;                       /* hover-safe bridge below the bar */
-  opacity: 0; visibility: hidden; transform: translateY(-6px);
-  transition: opacity .2s var(--ease), transform .2s var(--ease), visibility .2s;
-  pointer-events: none;
-}
-.nav-panel.is-open { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
-.nav-panel-inner {
-  max-width: 1080px; margin: 0 auto;
-  display: flex; gap: 48px; align-items: stretch;
-  background: var(--nav-bg-strong);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid var(--rule);
-  border-radius: 14px;
-  box-shadow: 0 28px 56px -20px rgba(0,0,0,.35);
-  padding: 28px 32px;
-}
-.nav-panel-cols { display: flex; gap: 48px; flex: 1; }
-.nav-col { display: flex; flex-direction: column; min-width: 184px; }
-.nav-col-title {
-  font: 600 12px/1 var(--sans); letter-spacing: .18em; text-transform: uppercase;
-  color: rgba(var(--fg-rgb), .42); margin-bottom: 14px;
-}
-.nav-leaf {
-  display: flex; flex-direction: column; gap: 3px;
-  padding: 9px 12px; margin: 0 -12px; border-radius: 8px;
-  transition: background .18s var(--ease);
-}
-.nav-leaf:hover { background: rgba(var(--fg-rgb), .07); }
-.nav-leaf-label { font: 600 15px/1.2 var(--sans); color: var(--fg); }
-.nav-leaf-desc { font: 400 12.5px/1.35 var(--sans); color: rgba(var(--fg-rgb), .5); }
-.nav-panel-cards { display: flex; flex-direction: column; gap: 12px; width: 272px; }
-.nav-card {
-  display: flex; flex-direction: column; gap: 5px;
-  padding: 16px 18px; border-radius: 10px;
-  background: rgba(var(--fg-rgb), .05);
-  border: 1px solid rgba(var(--fg-rgb), .10);
-  transition: background .18s var(--ease), border-color .18s var(--ease);
-}
-.nav-card:hover { background: rgba(var(--fg-rgb), .09); border-color: rgba(var(--fg-rgb), .22); }
-.nav-card-title { font: 600 15px/1.2 var(--sans); color: var(--fg); }
-.nav-card-desc { font: 400 12.5px/1.4 var(--sans); color: rgba(var(--fg-rgb), .55); }
-
-/* Right cluster: sign in / avatar · Get started */
-.nav-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
-.nav-signin { color: rgba(var(--fg-rgb), .78); }
-.nav-cta {
-  display: inline-flex; align-items: center; gap: 8px;
-  font: 600 12px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase;
-  color: var(--bg); background: var(--fg);
-  padding: 13px 22px; border-radius: 3px;
-  white-space: nowrap; flex-shrink: 0;
-  transition: opacity .2s var(--ease);
-}
-.nav-cta:hover { opacity: .88; }
-.nav-cta .arr { transition: transform .3s var(--ease); }
-.nav-cta:hover .arr { transform: translateX(3px); }
-.nav-avatar {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border-radius: 50%;
-  background: var(--sage); color: var(--ivory); flex-shrink: 0;
-  transition: filter .2s var(--ease);
-}
-.nav-avatar:hover { filter: brightness(1.1); }
-
 /* Theme toggle — quiet icon button, shared by the public and app navs. */
 .theme-toggle {
   display: inline-flex; align-items: center; justify-content: center;
@@ -408,63 +303,6 @@ button { font-family: inherit; }
   transition: color .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
 }
 .theme-toggle:hover { color: var(--fg); border-color: var(--fg-mute); background: rgba(var(--fg-rgb), .06); }
-
-/* ====== PUBLIC-NAV MOBILE MENU (hamburger + drawer) ====== */
-.nav-menu-toggle {
-  display: none;
-  width: 44px; height: 44px;
-  align-items: center; justify-content: center;
-  background: transparent;
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius);
-  color: var(--fg);
-  cursor: pointer;
-}
-.nav-menu-toggle:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-.nav-mobile { display: none; }
-
-@media (max-width: 768px) {
-  .nav-menu-toggle { display: inline-flex; }
-  .nav-links { display: none; }
-  .nav-actions .nav-signin { display: none; }          /* relocated into the drawer */
-  .nav-actions .nav-cta { padding: 11px 16px; font-size: 12px; letter-spacing: .1em; }
-  .nav-inner { gap: 12px; }
-
-  .nav-mobile {
-    display: flex; flex-direction: column;
-    position: fixed; top: 0; right: 0; bottom: 0;
-    width: min(86vw, 380px);
-    background: var(--nav-bg-strong);
-    -webkit-backdrop-filter: blur(24px) saturate(140%);
-    backdrop-filter: blur(24px) saturate(140%);
-    border-left: 1px solid var(--rule);
-    box-shadow: -24px 0 48px -24px rgba(0,0,0,.35);
-    padding: 88px 28px 32px;
-    gap: 2px;
-    transform: translateX(100%);
-    transition: transform .3s var(--ease);
-    z-index: 90;
-    overflow-y: auto;
-  }
-  .nav-mobile.is-open { transform: translateX(0); }
-  .nav-mobile-link {
-    font: 600 22px/1.1 var(--serif);
-    letter-spacing: -.02em;
-    color: var(--fg);
-    padding: 14px 2px;
-    border-bottom: 1px solid var(--rule);
-  }
-  .nav-mobile-link.active { color: var(--fg-mute); }
-  .nav-mobile-group { display: flex; flex-direction: column; }
-  .nav-mobile-group-title {
-    font: 600 12px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase;
-    color: var(--fg-mute); padding: 22px 2px 4px;
-  }
-  .nav-mobile-link.is-sub { font: 500 17px/1.2 var(--sans); padding: 11px 2px; border-bottom: 1px solid var(--rule); }
-  .nav-mobile-foot { margin-top: auto; padding-top: 24px; display: flex; flex-direction: column; gap: 16px; }
-  .nav-mobile-foot .nav-mobile-link { border-bottom: none; padding: 6px 2px; }
-  .nav-mobile-cta { display: inline-flex; justify-content: center; }
-}
 
 /* ====== LAYOUT ====== */
 main { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
@@ -663,7 +501,7 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
 
 /* ----- Min tap target on touch devices ----- */
 @media (hover: none) and (pointer: coarse) {
-  .btn, .btn-sm, .nav-link, .app-tab,
+  .btn, .btn-sm, .app-tab,
   button, a.btn-ghost { min-height: 44px; }
 }
 
@@ -737,7 +575,6 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   .display { font-size: clamp(32px, 10vw, 60px); }
   .lead { font-size: 17px; line-height: 1.5; }
   .body { font-size: 15px; }
-  .nav-inner { padding: 11px var(--gutter); gap: 16px; }
   .brand { font-size: 20px; }
   .btn { padding: 14px 24px; font-size: 14px; }
   .btn-lg { padding: 16px 28px; font-size: 15px; }
@@ -751,7 +588,6 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   .page-head { padding: 34px 0 26px; }
   .page-head .eyebrow-row { margin-bottom: 22px; }
   .page-head .page-lead { margin-top: 22px; }
-  .nav-inner { padding: 12px var(--gutter); }
   .marquee-track { gap: 32px; padding: 8px 0; }
   .footer-col a { font-size: 15px; }
   .field input, .field select, .field textarea { font-size: 16px; }
@@ -771,11 +607,11 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
 
 /* ----- iOS / Safari backdrop-filter and Firefox fallback ----- */
 @supports not ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
-  .nav, .app-nav-inner { background: var(--nav-bg-strong); }
+  .cnav, .app-nav-inner { background: var(--nav-bg-strong); }
 }
 
 /* ----- Prevent overflow on flex containers with long words ----- */
-.brand, .nav-link, .app-tab, .footer-col a { overflow-wrap: anywhere; }
+.brand, .app-tab, .footer-col a { overflow-wrap: anywhere; }
 
 /* ----- App-shell mobile menu button (drawer trigger) ----- */
 .mobile-menu-toggle {
