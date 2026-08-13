@@ -1359,6 +1359,29 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // --- AI image credits: the wallet. One credit is one AI image, spendable on any room.
+  // Unlike points, a CUSTOMER can hold these — and has to, because a project their shop
+  // gave them includes no AI image. Shops can hold them too, to keep images on hand
+  // rather than opening a payment sheet per project.
+  //
+  // There is no "spend" call. A credit only ever buys one thing and is spent by asking
+  // for it (requestRender above), so a client can never debit a wallet and then fail to
+  // follow through — which would charge for a picture nobody asked the model for.
+  getAiCredits: () =>
+    browserFetch<import("./types").AiCreditSummary>("api/billing/ai-credits"),
+  // Buying: only the COUNT travels. The amount is priced server-side from it at the
+  // current rate, so the browser can neither name its own price nor claim a launch
+  // discount that has ended.
+  createAiCreditOrder: (credits: number) =>
+    browserFetch<import("./types").AiCreditOrder>("api/billing/ai-credits/order", {
+      method: "POST",
+      body: JSON.stringify({ credits }),
+    }),
+  verifyAiCreditPurchase: (body: { orderId: string; paymentId: string; signature: string }) =>
+    browserFetch<import("./types").AiCreditSummary>("api/billing/ai-credits/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   /**
    * Tell the backend what happened to a Razorpay Checkout — that it opened, that the
    * buyer closed it without paying, or that the card was refused.

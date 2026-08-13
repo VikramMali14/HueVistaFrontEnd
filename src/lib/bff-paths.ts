@@ -43,6 +43,10 @@ export const BFF_ALLOWED_PREFIXES = [
   "api/billing/points",
   // Buying one extra project with money instead of points — order + verify.
   "api/billing/projects",
+  // The AI image wallet: balance, price and top-ups. The one billing prefix a CUSTOMER
+  // account uses — a project their shop gave them includes no AI image, and they can
+  // hold no points and buy no plan, so this is their only way to pay for one.
+  "api/billing/ai-credits",
   "api/billing/pdf-allowance",
   "api/billing/pdf-downloads",
   // Checkout telemetry: the browser reporting that a Razorpay window opened, was

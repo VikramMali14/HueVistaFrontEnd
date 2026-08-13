@@ -1225,3 +1225,57 @@ export interface PointsOrder {
   currency: string;
   razorpayKeyId: string;
 }
+
+/**
+ * The AI image wallet (backend AiCreditSummaryResponse).
+ *
+ * The second balance in the product, and the only one a CUSTOMER can hold. One credit is
+ * one photorealistic AI image. It exists because a project a shop gives a customer
+ * includes no image of its own — the shop bought the room, not the model call at the end
+ * of it — and a customer account can hold no points and buy no plan, so this is the only
+ * way for them to get the picture.
+ *
+ * Carries the list price beside the price charged so the launch offer can be shown
+ * honestly rather than with a number hard-coded here that goes stale the day it ends.
+ */
+export interface AiCreditSummary {
+  /** Spendable credits right now. */
+  balance: number;
+  /** False for an account that owns no projects (painter, distributor) and so has
+   *  nothing to spend credits on. Hide the wallet rather than offering a 403. */
+  eligible: boolean;
+  /** What one credit costs today, in paise, after any launch discount. */
+  pricePaise: number;
+  /** What one costs before the discount. Equal to pricePaise once the offer ends. */
+  listPricePaise: number;
+  /** The launch discount as a whole percentage. 0 when the offer is over. */
+  discountPercent: number;
+  minPurchase: number;
+  maxPurchase: number;
+  /** Credits one AI image costs. */
+  renderCost: number;
+  currency: string;
+  recentActivity: Array<{
+    id: string;
+    /** Signed: positive is bought or handed back, negative is spent. */
+    credits: number;
+    type: "PURCHASED" | "SPENT_ON_RENDER" | "RENDER_REFUNDED" | "GRANTED";
+    balanceAfter: number;
+    note?: string | null;
+    createdAt: string;
+  }>;
+}
+
+/** Razorpay order details for an AI image credit top-up. */
+export interface AiCreditOrder {
+  orderId: string;
+  /** Credits this order buys. */
+  credits: number;
+  /** What it costs, in paise — priced server-side from the count. */
+  amount: number;
+  /** What it would have cost at the undiscounted list price. */
+  listAmount: number;
+  discountPercent: number;
+  currency: string;
+  razorpayKeyId: string;
+}

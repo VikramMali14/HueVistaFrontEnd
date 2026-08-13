@@ -9,8 +9,9 @@ import { api, HttpError } from "@/lib/api";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import { resolveMediaUrl } from "@/lib/media";
 import { formatRupees } from "@/lib/money";
-import { buyExtraRender } from "@/lib/payments";
+import { buyAiCredits } from "@/lib/payments";
 import type {
+  AiCreditSummary,
   ProjectCombo,
   ProjectDetail,
   ProjectRender,
@@ -35,6 +36,13 @@ import type {
  * carry their colour chips — enough to recognise a scheme you chose an hour ago — and the
  * selected one is painted at full size into a single canvas, with the masks loaded once
  * and reused as the selection moves. One engine, one mask fetch, a bigger picture.
+ *
+ * **Who pays, and what the button says.** A room the account paid for itself includes one
+ * image. A room a SHOP gave a customer includes none — the shop bought the room, not the
+ * model call at the end of it — so the first image there is bought with an AI credit, as is
+ * every image past the included one on any room. The server decides all of that; this
+ * screen only has to name it honestly before the click, which is why the wallet is read
+ * alongside the project rather than after a 402 comes back.
  */
 
 const POLL_INTERVAL_MS = 2500;
@@ -106,6 +114,8 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   const [generating, setGenerating] = useState(false);
   const [active, setActive] = useState<ProjectRender | null>(null);
   const [buying, setBuying] = useState(false);
+  /** The AI wallet. Null while loading, and for an account that cannot hold credits. */
+  const [wallet, setWallet] = useState<AiCreditSummary | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<Canvas2DRecolor | null>(null);
@@ -118,15 +128,20 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     let cancelled = false;
     (async () => {
       try {
-        const [detail, comboList, renderList] = await Promise.all([
+        const [detail, comboList, renderList, credits] = await Promise.all([
           api.getProject(projectId),
           api.getProjectCombos(projectId),
           api.listRenders(projectId),
+          // Fetched here rather than after a refusal, so the button can say what this
+          // image will cost BEFORE it is pressed. A 403 (an account that cannot hold
+          // credits) is normal and leaves the wallet null.
+          api.getAiCredits().catch(() => null),
         ]);
         if (cancelled) return;
         setProject(detail);
         setCombos(comboList);
         setRenders(renderList);
+        setWallet(credits);
         setSelected(comboList[0]?.id ?? null);
         // A render still in flight from a previous visit is picked back up rather
         // than left to finish invisibly — the customer closed the tab, not the job.
@@ -225,9 +240,11 @@ export function RenderStudio({ projectId }: { projectId: string }) {
         setActive(latest);
         if (latest.status === "READY" || latest.status === "FAILED") {
           setRenders((prev) => [latest, ...prev.filter((r) => r.id !== latest.id)]);
-          // The allowance moved either way — spent on success, handed back on
-          // failure — so the project is re-read rather than guessed at.
+          // Something moved either way — spent on success, handed back on failure — and
+          // which of the two pockets it was is the server's business, not this screen's.
+          // So both are re-read rather than guessed at.
           void api.getProject(projectId).then(setProject).catch(() => {});
+          void api.getAiCredits().then(setWallet).catch(() => {});
           return;
         }
       }
@@ -259,19 +276,30 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     }
   }, [selected, generating, projectId, options, note, poll]);
 
-  const buyAnother = useCallback(async () => {
+  /**
+   * Top up the wallet, then clear the finished image so the options are back on screen.
+   *
+   * Buys ONE credit, because that is what somebody standing on this screen wants — the
+   * picture in front of them. Larger top-ups live on the plan page, where a shop stocking
+   * up belongs; putting a quantity picker in the way of one image would be a form between
+   * a customer and the thing they came for.
+   */
+  const topUp = useCallback(async () => {
     setBuying(true);
     setError(null);
     try {
-      await buyExtraRender(projectId);
-      setProject(await api.getProject(projectId));
-      setActive(null);
+      const fresh = await buyAiCredits(credits(wallet));
+      // null = Checkout was closed. Not an error, and nothing to report.
+      if (fresh) {
+        setWallet(fresh);
+        setActive(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start the payment.");
     } finally {
       setBuying(false);
     }
-  }, [projectId]);
+  }, [wallet]);
 
   // ── Rendering ────────────────────────────────────────────────────────────
 
@@ -299,7 +327,14 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     );
   }
 
+  // What this project still includes, and what the wallet can cover once it doesn't.
+  // A shop-granted room starts at zero included, so for those the wallet is the whole
+  // answer from the first image onwards.
   const rendersLeft = (project?.rendersAllowed ?? 0) - (project?.rendersUsed ?? 0);
+  const cost = credits(wallet);
+  const creditsLeft = wallet?.balance ?? 0;
+  /** Can the button actually make an image right now, on either pocket? */
+  const canGenerate = rendersLeft > 0 || creditsLeft >= cost;
   const busy = generating || active?.status === "QUEUED" || active?.status === "RUNNING";
   const ready = active?.status === "READY" ? active : null;
 
@@ -374,13 +409,13 @@ export function RenderStudio({ projectId }: { projectId: string }) {
             <a className="btn btn-brass" href={resolveMediaUrl(ready.imageUrl) ?? "#"} download>
               Download the image
             </a>
-            {rendersLeft > 0 ? (
+            {canGenerate ? (
               <Button variant="ghost" onClick={() => setActive(null)}>
-                Make another
+                Make another{creditsLeft >= cost && rendersLeft <= 0 ? ` · ${cost} credit` : ""}
               </Button>
             ) : (
-              <Button variant="ghost" disabled={buying} onClick={() => void buyAnother()}>
-                {buying ? "Opening checkout…" : anotherImageLabel(project)}
+              <Button variant="ghost" disabled={buying} onClick={() => void topUp()}>
+                {buying ? "Opening checkout…" : buyCreditLabel(wallet)}
               </Button>
             )}
             <Link className="btn btn-ghost" href="/dashboard">
@@ -414,22 +449,20 @@ export function RenderStudio({ projectId }: { projectId: string }) {
           </label>
 
           <div className="hv-render-go">
-            {rendersLeft > 0 ? (
+            {canGenerate ? (
               <Button variant="brass" disabled={busy || !selected} onClick={() => void generate()}>
-                {busy ? "Making your image…" : "Make my image"}
+                {busy
+                  ? "Making your image…"
+                  : rendersLeft > 0
+                    ? "Make my image"
+                    : `Make my image · ${cost} credit${cost === 1 ? "" : "s"}`}
               </Button>
             ) : (
-              <Button variant="brass" disabled={buying} onClick={() => void buyAnother()}>
-                {buying ? "Opening checkout…" : anotherImageLabel(project)}
+              <Button variant="brass" disabled={buying} onClick={() => void topUp()}>
+                {buying ? "Opening checkout…" : buyCreditLabel(wallet)}
               </Button>
             )}
-            <span className="hv-render-left">
-              {rendersLeft > 0
-                ? rendersLeft === 1
-                  ? "One image included with this project."
-                  : `${rendersLeft} images left on this project.`
-                : "You've used this project's image. Another one is a one-off payment."}
-            </span>
+            <span className="hv-render-left">{allowanceNote(rendersLeft, creditsLeft, cost)}</span>
           </div>
         </section>
       )}
@@ -575,20 +608,42 @@ function OptionRow<T extends string>({
   );
 }
 
-/**
- * What one more image costs. The server is the authority and refuses any other amount, so
- * this is only ever the label on a button — but a button that names a price the payment
- * then refuses is worse than one that names none, so it reads the project's own figure
- * rather than borrowing the reopen price the two happen to share today.
- */
-function renderTopUpPaise(project: ProjectDetail | null): number | null {
-  return project?.renderPricePaise ?? null;
+/** Credits one image costs. One, unless the server says otherwise. */
+function credits(wallet: AiCreditSummary | null): number {
+  return wallet?.renderCost ?? 1;
 }
 
-/** "Another image · ₹99", or just "Another image" until the price has loaded. */
-function anotherImageLabel(project: ProjectDetail | null): string {
-  const paise = renderTopUpPaise(project);
-  return paise == null ? "Another image" : `Another image · ${formatRupees(paise)}`;
+/**
+ * "Buy 1 credit · ₹99", or just "Buy an AI image credit" until the price has loaded.
+ *
+ * The server is the authority and refuses any other amount, so this is only ever a label —
+ * but a button that names a price the payment then refuses is worse than one that names
+ * none, which is why it reads the wallet's own figure rather than a constant.
+ */
+function buyCreditLabel(wallet: AiCreditSummary | null): string {
+  if (!wallet) return "Buy an AI image credit";
+  const n = credits(wallet);
+  return `Buy ${n} credit${n === 1 ? "" : "s"} · ${formatRupees(wallet.pricePaise * n)}`;
+}
+
+/**
+ * The line under the button, which has to say three quite different things.
+ *
+ * A room that still includes an image says so. A room with none left but a wallet that can
+ * cover it says what pressing the button will actually cost — the one case where a click
+ * spends money-equivalent without a payment sheet, so it must never be a surprise. A room
+ * with neither says what to do about it.
+ */
+function allowanceNote(rendersLeft: number, creditsLeft: number, cost: number): string {
+  if (rendersLeft > 0) {
+    return rendersLeft === 1
+      ? "One image included with this project."
+      : `${rendersLeft} images left on this project.`;
+  }
+  if (creditsLeft >= cost) {
+    return `This image uses ${cost} of your ${creditsLeft} AI credit${creditsLeft === 1 ? "" : "s"}.`;
+  }
+  return "This project doesn't include an AI image. Buy a credit to make one — it never expires and works on any room.";
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {

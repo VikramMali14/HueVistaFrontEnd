@@ -1,6 +1,7 @@
 import { api } from "./api";
 import type { CheckoutEventBody } from "./api";
 import type {
+  AiCreditSummary,
   ProjectPurchaseOptions,
   ProjectReopenResult,
   PurchasablePlan,
@@ -455,6 +456,12 @@ export async function reopenProjectWithMoney(
  * to buy something they already have. Which project gets the image comes off the order,
  * not from the browser.
  *
+ * <b>The render studio uses {@link buyAiCredits} instead.</b> The two rails buy the same
+ * picture at the same price, and the wallet is the better one to put in front of somebody:
+ * a credit works on any room and survives the project, where this one is spent the moment
+ * it is bought and only on the project named. This stays because the endpoint behind it is
+ * live and a per-project purchase is still a coherent thing to offer.
+ *
  * Resolves true when the image is credited, false if the buyer closes Checkout, and
  * throws on a real error.
  */
@@ -493,6 +500,61 @@ export async function buyExtraRender(
         }
       },
       modal: { ondismiss: () => { tracker.dismissed(); resolve(false); } },
+    });
+    openTracked(rzp, tracker);
+  });
+}
+
+/**
+ * Top up the AI image wallet.
+ *
+ * The other rail to {@link buyExtraRender}, and the only one open to a customer: a project
+ * a shop gave them includes no AI image, they cannot hold points and cannot buy a plan, so
+ * credits are how they get the picture at all. Both rails are priced the same, so topping
+ * up in advance never costs more than paying per project.
+ *
+ * Only the COUNT travels. The amount is priced server-side at the current rate, so the
+ * browser can neither name its own price nor claim a launch discount that has ended.
+ *
+ * Resolves the refreshed wallet once the credits land, `null` if the buyer closes
+ * Checkout, and throws on a real error.
+ */
+export async function buyAiCredits(
+  credits: number,
+  prefill?: { name?: string; email?: string },
+): Promise<AiCreditSummary | null> {
+  const order = await api.createAiCreditOrder(credits);
+  await loadCheckout();
+  if (!window.Razorpay) throw new Error("Payment library unavailable.");
+
+  const tracker = track(order.orderId);
+
+  return new Promise<AiCreditSummary | null>((resolve, reject) => {
+    const rzp = new window.Razorpay!({
+      key: order.razorpayKeyId,
+      amount: order.amount,
+      currency: order.currency,
+      order_id: order.orderId,
+      name: "HueVista",
+      description: `${order.credits} AI image credit${order.credits === 1 ? "" : "s"}`,
+      prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
+      theme: { color: "#7c5cff" },
+      handler: async (resp: CheckoutSuccess) => {
+        tracker.settle();
+        try {
+          resolve(
+            await api.verifyAiCreditPurchase({
+              orderId: resp.razorpay_order_id,
+              paymentId: resp.razorpay_payment_id,
+              signature: resp.razorpay_signature,
+            }),
+          );
+        } catch (e) {
+          tracker.verifyFailed(resp.razorpay_payment_id, String(e));
+          reject(verificationFailed(e));
+        }
+      },
+      modal: { ondismiss: () => { tracker.dismissed(); resolve(null); } },
     });
     openTracked(rzp, tracker);
   });
