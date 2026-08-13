@@ -46,8 +46,30 @@ import type {
  */
 
 const POLL_INTERVAL_MS = 2500;
-/** Nano Banana Pro takes well under this; the deadline exists so a stuck job ends. */
-const POLL_DEADLINE_MS = 180_000;
+/**
+ * How long this screen waits for an answer before telling the customer to come back.
+ *
+ * <p>A render normally lands well inside the first minute, and for a long time three
+ * minutes was a generous ceiling on that. It stopped being one when the server started
+ * retrying a busy model instead of failing the render: Replicate answers a model with no
+ * capacity by failing the prediction outright, and the server now asks again with a
+ * growing wait, then tries the next model, inside a budget of eight minutes.
+ *
+ * <p>So this has to outlast that budget rather than the happy path. At three minutes the
+ * screen gave up on renders that were still being retried and would have arrived — the
+ * customer was told to reload for an image that was already on its way, which reads as a
+ * failure and is the exact experience the retries were added to remove. Kept comfortably
+ * past the server's ceiling so the outcome, either way, is shown on the screen that asked
+ * for it. Change it with `replicate.predictions.total-budget-ms`, not on its own.
+ */
+const POLL_DEADLINE_MS = 570_000;
+/**
+ * When the waiting copy stops promising a minute.
+ *
+ * <p>Ninety seconds rather than sixty: a render that is merely a little slow should not
+ * be announced as a problem, and the first retry cannot have finished before this anyway.
+ */
+const SLOW_AFTER_MS = 90_000;
 
 const DEFAULT_OPTIONS: RenderOptions = {
   timeOfDay: "DAY",
@@ -116,11 +138,35 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   const [buying, setBuying] = useState(false);
   /** The AI wallet. Null while loading, and for an account that cannot hold credits. */
   const [wallet, setWallet] = useState<AiCreditSummary | null>(null);
+  /**
+   * Whether this wait has already outlasted the minute the copy promises.
+   *
+   * <p>Worth a state of its own because the promise is the thing that breaks first. Almost
+   * every render lands inside a minute, so "this takes about a minute" is honest almost
+   * always — but when the model is out of capacity the server now retries it rather than
+   * failing, and the wait stretches to several. Leaving the same sentence on screen for
+   * six of them turns a working render into an app that looks stuck.
+   */
+  const [slow, setSlow] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<Canvas2DRecolor | null>(null);
   /** Masks keyed by region id, loaded once and reused as the selection moves. */
   const maskCache = useRef(new Map<number, HTMLImageElement>());
+
+  // The same condition the overlay uses, computed up here because hooks cannot live
+  // below the early return that the loading state makes.
+  const waiting =
+    generating || active?.status === "QUEUED" || active?.status === "RUNNING";
+
+  useEffect(() => {
+    if (!waiting) {
+      setSlow(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlow(true), SLOW_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [waiting]);
 
   // ── Load the project, its combinations and anything already rendered ──────
 
@@ -335,7 +381,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   const creditsLeft = wallet?.balance ?? 0;
   /** Can the button actually make an image right now, on either pocket? */
   const canGenerate = rendersLeft > 0 || creditsLeft >= cost;
-  const busy = generating || active?.status === "QUEUED" || active?.status === "RUNNING";
+  const busy = waiting;
   const ready = active?.status === "READY" ? active : null;
 
   return (
@@ -387,10 +433,14 @@ export function RenderStudio({ projectId }: { projectId: string }) {
           {busy && (
             <div className="hv-render-working" role="status">
               <Spinner />
-              <p>Photographing your room…</p>
+              <p>{slow ? "Still photographing your room…" : "Photographing your room…"}</p>
               <p className="hv-render-working-sub">
-                This takes about a minute. You can leave this page — it will be here when
-                you come back.
+                {slow
+                  ? "The AI is busy right now, so this one is taking longer than usual — "
+                    + "we're still trying. You can leave this page; it will be here when "
+                    + "you come back."
+                  : "This takes about a minute. You can leave this page — it will be here "
+                    + "when you come back."}
               </p>
             </div>
           )}

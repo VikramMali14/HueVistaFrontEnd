@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ProjectCombo, ProjectDetail, ProjectRender } from "@/lib/types";
 
@@ -181,6 +181,29 @@ describe("RenderStudio", () => {
     render(<RenderStudio projectId="p1" />);
 
     expect(await screen.findByText(/Photographing your room/)).toBeInTheDocument();
+  });
+
+  it("stops promising a minute once the server is retrying a busy model", async () => {
+    // The server no longer fails a render the moment the model is out of capacity — it
+    // retries, and the wait stretches past the minute this screen advertises. Leaving the
+    // original sentence up for six of them makes a working render look like a stuck app.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      api.listRenders.mockResolvedValue([{ ...READY_RENDER, status: "RUNNING", imageUrl: null }]);
+      render(<RenderStudio projectId="p1" />);
+
+      expect(await screen.findByText(/This takes about a minute/)).toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(95_000);
+      });
+
+      expect(screen.getByText(/Still photographing your room/)).toBeInTheDocument();
+      expect(screen.getByText(/The AI is busy right now/)).toBeInTheDocument();
+      expect(screen.queryByText(/This takes about a minute/)).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("offers a credit top-up once the included image is spent and the wallet is empty", async () => {
