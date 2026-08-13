@@ -27,6 +27,7 @@ import {
 import {
   PollCancelledError,
   PollFailedError,
+  PollTimeoutError,
   pollUntilSegmented as pollSegmentationStatus,
 } from "@/lib/segmentation-polling";
 import { api, guestApi, HttpError } from "@/lib/api";
@@ -1060,10 +1061,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           // so unless the user is invited to report it, nobody ever learns.
           setFailedStage(stageOf(err));
           setError(err.message);
-        } else if (err instanceof Error) {
+        } else if (err instanceof PollTimeoutError) {
+          // The run never came back inside the deadline. The backend named no stage
+          // — it never got the chance to — but from where the user is sitting this is
+          // the same event as a failure: they waited, and there are no walls. It has
+          // to reach the report channel for that reason alone, and because a run that
+          // silently outlives an eight-minute deadline is worth a look even when it
+          // eventually lands server-side.
+          setFailedStage("UNKNOWN");
           setError(err.message);
         } else {
-          setError("Something went wrong.");
+          // Everything still here ended the run without producing anything: a
+          // transport failure mid-poll, a segmentation request the server refused.
+          // The gates above (sign-in, quota, access) returned before this point
+          // because none of them is a fault worth reporting — these are.
+          setFailedStage("UNKNOWN");
+          setError(err instanceof Error ? err.message : "Something went wrong.");
         }
       } finally {
         setSegmenting(false);
@@ -1241,6 +1254,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         setFailedStage(stageOf(err));
         setError(err.message);
       } else {
+        // A retry that times out or dies in transport is the same dead end as a
+        // retry the backend failed outright — and it is the SECOND time this room
+        // has come to nothing, so the report matters more here, not less.
+        setFailedStage("UNKNOWN");
         setError(err instanceof Error ? err.message : "Something went wrong.");
       }
     } finally {
@@ -2068,11 +2085,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // idea of what the user is DOING; `masksReady` is whether a run has produced its
   // result, and that is the question here.
   //
-  // A run that FAILED counts as finished too, and it is the case that needs this most:
-  // it produces no masks, so `masksReady` never flips, so the one user who watched the
-  // pipeline fail was the one user who could not tell us about it. `failedStage` is set
-  // by every path that can end in FAILED — first run, retry, guest run, and reopening a
-  // project that had already failed.
+  // A run that ENDED WITHOUT MASKS counts as finished too, and it is the case that needs
+  // this most: it produces no masks, so `masksReady` never flips, so the one user who
+  // watched the pipeline come to nothing was the one user who could not tell us about it.
+  //
+  // "Ended without masks" is deliberately wider than "the backend said FAILED". It also
+  // covers a run that timed out on this side and one that died in transport, and those
+  // were the remaining holes: the backend names a stage only when it reaches a verdict,
+  // so a run that simply never came back left `failedStage` null, left `masksReady`
+  // false, and hid the report button behind a banner that said "timed out, please try
+  // again" — no walls, no channel, on the exact screen the channel exists for.
+  //
+  // What does NOT set it: the sign-in, quota and access gates. Those are answers, not
+  // faults, and each has its own path out.
   const runFailed = failedStage !== null;
   const canReport =
     Boolean(projectId) && (masksReady || runFailed) && !uploading && !segmenting;

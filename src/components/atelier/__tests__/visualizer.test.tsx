@@ -960,14 +960,48 @@ describe("Visualizer — reporting a bad run", () => {
     ).toBeInTheDocument();
   });
 
-  it("stays hidden while a run is still in flight", async () => {
+  it("offers it on a run that TIMED OUT — no stage named, still nothing to look at", async () => {
+    // The backend names a stage only when it reaches a verdict. A run that never came
+    // back has no verdict, so `failedStage` stayed null, `masksReady` stayed false, and
+    // the button was hidden behind a banner reading "timed out, please try again" — no
+    // walls and no way to say so, on the exact screen the report exists for.
     vi.mocked(api.getProjectStatus).mockResolvedValue(projectDetail({ status: "SEGMENTING" }));
 
     const { container } = render(<Visualizer initialName="Test room" />);
     await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
 
-    // Gave up rather than finished — there is no result to judge.
     expect(await screen.findByRole("alert")).toBeInTheDocument();
+    // Both routes in: the quiet one in the panel, and "Report this" beside the banner.
+    expect(
+      await screen.findByRole("button", { name: /Not right\? Report a problem/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Report this$/ })).toBeInTheDocument();
+  });
+
+  it("offers it when the run dies in transport rather than reaching a verdict", async () => {
+    // A 500 from the status endpoint leaves the same dead end as a failure: a project
+    // exists, no masks were made, and the user is looking at an error.
+    vi.mocked(api.getProjectStatus).mockRejectedValue(new Error("Network request failed"));
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /Not right\? Report a problem/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("stays hidden while a run is genuinely still in flight", async () => {
+    // The real "in flight": the poll has not settled either way. Nothing has been
+    // produced to judge yet, and offering to report a run that may still succeed
+    // would collect noise instead of faults.
+    pollMock.mockImplementation((() => new Promise(() => {})) as typeof pollUntilSegmented);
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect((await screen.findAllByText(/Detecting walls/i)).length).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", { name: /Not right\? Report a problem/i }),
     ).not.toBeInTheDocument();
@@ -1049,17 +1083,38 @@ describe("Visualizer — reporting a bad run", () => {
     });
   });
 
-  it("does not offer the report when a run merely timed out", async () => {
-    // A timeout is not a verdict — the run may still be going. Retrying is the
-    // answer there, and inviting a complaint about it would fill the queue with
-    // reports nobody can act on.
+  it("ticks nothing in advance for a timeout, because nothing is known to be wrong", async () => {
+    // The report IS offered on a timeout now — see above; a user with no walls and no
+    // channel is the worse failure. But the reason it was once withheld still holds:
+    // a timeout is not a verdict, so there is no issue to pre-tick and Send. The user
+    // has to choose one, which keeps a queue of "it was slow" out of a queue about
+    // masks, and the admin sees the run's real status on the report either way.
     vi.mocked(api.getProjectStatus).mockResolvedValue(projectDetail({ status: "SEGMENTING" }));
 
     const { container } = render(<Visualizer initialName="Test room" />);
     await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
 
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Report this" })).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: /^Report this$/ }));
+    });
+
+    expect(screen.getByLabelText(/The walls weren't detected properly/i)).not.toBeChecked();
+    expect(screen.getByLabelText(/Something else/i)).not.toBeChecked();
+    // And Send stays shut until they say what went wrong.
+    expect(screen.getByRole("button", { name: "Send report" })).toBeDisabled();
+  });
+
+  it("keeps retry as the first answer to a timeout, with the report beside it", async () => {
+    // The earlier decision was right that retrying is usually what a timeout needs.
+    // Offering the report does not displace that — both are on screen, retry first.
+    vi.mocked(api.getProjectStatus).mockResolvedValue(projectDetail({ status: "SEGMENTING" }));
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    await screen.findByRole("alert");
+    expect(screen.getByRole("button", { name: /Try again/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Report this$/ })).toBeInTheDocument();
   });
 
   it("replaces the button with an acknowledgement so the same complaint isn't sent twice", async () => {
