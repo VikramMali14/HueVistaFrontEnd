@@ -4,6 +4,7 @@ import { billingApi } from "@/lib/api";
 import { getCurrentUser, requireAccessToken } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { SubscriptionPanel } from "@/components/app/subscription-panel";
+import { AiCreditWallet } from "@/components/app/ai-credit-wallet";
 import type { PlanOption, SubscriptionSummary } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -66,6 +67,10 @@ export default async function SubscriptionPage() {
             I have a code <span className="arr">→</span>
           </Link>
         </div>
+        {/* The one thing a customer CAN buy, and the reason this page is not a dead end
+            for them. A room their shop unlocked covers the colours and the colour board;
+            the AI image at the end of it is theirs to buy. */}
+        <AiCreditWallet />
       </div>
     );
   }
@@ -100,6 +105,11 @@ export default async function SubscriptionPage() {
         you&rsquo;ve used this cycle, and how to renew or upgrade.
       </Lead>
       <SubscriptionPanel initialSubscription={current} history={history} plans={plans} />
+      {/* The shop's own AI wallet, beside its points. Two balances that buy different
+          things: points buy rooms and reopens, credits buy the picture at the end. A shop
+          holds these so it can make an image for a walk-in's room on the spot rather than
+          opening a payment sheet per project. */}
+      <AiCreditWallet />
     </div>
   );
 }

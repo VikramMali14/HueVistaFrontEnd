@@ -13,6 +13,7 @@ vi.mock("@/lib/api", () => ({
     listRenders: vi.fn(),
     requestRender: vi.fn(),
     getRender: vi.fn(),
+    getAiCredits: vi.fn(),
   },
   HttpError: class extends Error {
     constructor(
@@ -24,7 +25,7 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-vi.mock("@/lib/payments", () => ({ buyExtraRender: vi.fn() }));
+vi.mock("@/lib/payments", () => ({ buyAiCredits: vi.fn() }));
 
 // The preview engine draws onto a canvas jsdom cannot give a context for. It is a
 // convenience on this screen — the picker and the generate flow are what matter — so an
@@ -43,10 +44,25 @@ vi.mock("@/lib/canvas2d-recolor", () => ({
 
 import { RenderStudio } from "../render-studio";
 import { api as realApi, HttpError } from "@/lib/api";
-import { buyExtraRender as realBuy } from "@/lib/payments";
+import { buyAiCredits as realBuy } from "@/lib/payments";
+import type { AiCreditSummary } from "@/lib/types";
 
 const api = vi.mocked(realApi);
-const buyExtraRender = vi.mocked(realBuy);
+const buyAiCredits = vi.mocked(realBuy);
+
+/** An empty AI wallet — the state a customer arrives in. */
+const WALLET: AiCreditSummary = {
+  balance: 0,
+  eligible: true,
+  pricePaise: 9900,
+  listPricePaise: 19800,
+  discountPercent: 50,
+  minPurchase: 1,
+  maxPurchase: 50,
+  renderCost: 1,
+  currency: "INR",
+  recentActivity: [],
+};
 
 const PROJECT: ProjectDetail = {
   id: "p1",
@@ -68,6 +84,15 @@ const PROJECT: ProjectDetail = {
   reopenPricePaise: 9900,
   renderPricePaise: 9900,
 };
+
+/**
+ * A project a SHOP gave a customer: no included image at all.
+ *
+ * This is the shape the change under test creates, and the reason the wallet exists. The
+ * shop spent a project credit so its customer could try colours and take a colour board
+ * away; nobody paid for the model call at the end of it.
+ */
+const SHOP_GRANTED: ProjectDetail = { ...PROJECT, rendersAllowed: 0, rendersUsed: 0 };
 
 /** Two boards of four — the eight combinations the closing flow is built on. */
 const COMBOS: ProjectCombo[] = Array.from({ length: 8 }, (_, i) => ({
@@ -99,6 +124,7 @@ beforeEach(() => {
   api.getProject.mockResolvedValue(PROJECT);
   api.getProjectCombos.mockResolvedValue(COMBOS);
   api.listRenders.mockResolvedValue([]);
+  api.getAiCredits.mockResolvedValue(WALLET);
 });
 
 describe("RenderStudio", () => {
@@ -157,16 +183,58 @@ describe("RenderStudio", () => {
     expect(await screen.findByText(/Photographing your room/)).toBeInTheDocument();
   });
 
-  it("offers the paid top-up once the included image is spent", async () => {
+  it("offers a credit top-up once the included image is spent and the wallet is empty", async () => {
     api.getProject.mockResolvedValue({ ...PROJECT, rendersUsed: 1 });
     render(<RenderStudio projectId="p1" />);
 
-    const button = await screen.findByRole("button", { name: /Another image · ₹99/ });
+    const button = await screen.findByRole("button", { name: /Buy 1 credit · ₹99/ });
     expect(button).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Make my image/ })).not.toBeInTheDocument();
 
     await userEvent.click(button);
-    await waitFor(() => expect(buyExtraRender).toHaveBeenCalledWith("p1"));
+    await waitFor(() => expect(buyAiCredits).toHaveBeenCalledWith(1));
+  });
+
+  // ── A room the shop gave away ───────────────────────────────────────────
+  //
+  // The whole point of the change: these carry no included image, so the very first
+  // picture is bought. Getting this wrong in either direction is expensive — offering a
+  // free one gives away a model call nobody paid for, and refusing to say what it costs
+  // sends the customer into a 402 they were never warned about.
+
+  it("asks a shop-granted room's owner to buy a credit before the FIRST image", async () => {
+    api.getProject.mockResolvedValue(SHOP_GRANTED);
+    render(<RenderStudio projectId="p1" />);
+
+    expect(await screen.findByRole("button", { name: /Buy 1 credit · ₹99/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Make my image/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/doesn't include an AI image/)).toBeInTheDocument();
+  });
+
+  it("says what the click will cost once the credit is in the wallet", async () => {
+    api.getProject.mockResolvedValue(SHOP_GRANTED);
+    api.getAiCredits.mockResolvedValue({ ...WALLET, balance: 2 });
+    api.requestRender.mockResolvedValue({ ...READY_RENDER, status: "QUEUED" });
+    api.getRender.mockResolvedValue(READY_RENDER);
+    render(<RenderStudio projectId="p1" />);
+
+    // Named before the press, not after: this is the one click that spends something
+    // without a payment sheet in front of it.
+    const button = await screen.findByRole("button", { name: /Make my image · 1 credit/ });
+    expect(screen.getByText(/uses 1 of your 2 AI credits/)).toBeInTheDocument();
+
+    await userEvent.click(button);
+    await waitFor(() => expect(api.requestRender).toHaveBeenCalled());
+  });
+
+  it("hides the wallet entirely for an account that cannot hold credits", async () => {
+    // A painter or distributor: the backend answers 403, the fetch fails, and the screen
+    // must still work off the project's own allowance rather than breaking.
+    api.getAiCredits.mockRejectedValue(new HttpError(403, "Not for this account."));
+    render(<RenderStudio projectId="p1" />);
+
+    expect(await screen.findByRole("button", { name: /Make my image/ })).toBeInTheDocument();
+    expect(screen.getByText(/One image included with this project/)).toBeInTheDocument();
   });
 
   it("shows the reason a failed render gives, and does not pretend it succeeded", async () => {
