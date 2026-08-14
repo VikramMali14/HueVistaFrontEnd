@@ -66,6 +66,18 @@ describe("/work/[slug] routing", () => {
     expect(guard![0]).toContain("if (valid && !valid.has(slug))");
   });
 
+  /**
+   * A room published seconds ago looks exactly like a typo to a cache that has
+   * not refreshed. Serving the stale answer there is how an admin publishes a
+   * room, sees its card on /work, clicks it and gets "not found" — so the slug
+   * being asked about has to reach the lookup, and a miss has to re-read.
+   */
+  it("re-reads on a slug it does not know, so a fresh room is not 404'd", () => {
+    expect(middlewareSource).toContain("workSlugs(slug)");
+    expect(middlewareSource).toContain("if (fresh && cachedWorkSlugs.has(wanted)) return cachedWorkSlugs;");
+    expect(middlewareSource).toContain("WORK_SLUG_MISS_REFRESH_MS");
+  });
+
   it("resolves every slug the fallback allow-list would admit", () => {
     for (const w of WORKS) expect(getWork(w.slug)).toBeDefined();
   });

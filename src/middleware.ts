@@ -69,11 +69,22 @@ const BUILT_IN_WORK_SLUGS = new Set(WORKS.map((w) => w.slug));
  * The published slugs, cached in module scope.
  *
  * Middleware runs on every matched request and the old check was a Set lookup
- * with no I/O; keeping that roughly true matters more here than freshness, since
- * the cost of being a minute stale is that a room published seconds ago 404s
- * until the window rolls. One fetch a minute per instance buys that back.
+ * with no I/O, so the cache carries two different windows for two different
+ * mistakes.
+ *
+ * A slug the cache already KNOWS is served straight from it for the full TTL —
+ * the common case, and it costs nothing. The risk there is only that a room
+ * hidden a moment ago keeps resolving for up to a minute, which is a page that
+ * renders when it shouldn't; harmless.
+ *
+ * A slug the cache does NOT know is the dangerous one, because a room published
+ * seconds ago looks exactly like a typo. 404ing it would mean an admin publishes
+ * a room, sees its card on /work, clicks it and gets "not found" — so a miss
+ * re-reads rather than trusting the cache. The floor is what stops that being a
+ * free API call for anyone walking made-up slugs.
  */
 const WORK_SLUG_TTL_MS = 60_000;
+const WORK_SLUG_MISS_REFRESH_MS = 5_000;
 let cachedWorkSlugs: Set<string> | null = null;
 let cachedWorkSlugsAt = 0;
 
@@ -85,13 +96,20 @@ let cachedWorkSlugsAt = 0;
  * smaller failure than telling crawlers the portfolio is gone — so the caller
  * lets the request through and leaves the page to answer.
  */
-async function workSlugs(): Promise<Set<string> | null> {
+async function workSlugs(wanted: string): Promise<Set<string> | null> {
   // No backend to ask, and the demo publishes nothing: the built-ins are the
   // portfolio, exactly as the page will find it.
   if (DEMO_MODE) return BUILT_IN_WORK_SLUGS;
 
   const now = Date.now();
-  if (cachedWorkSlugs && now - cachedWorkSlugsAt < WORK_SLUG_TTL_MS) return cachedWorkSlugs;
+  const age = now - cachedWorkSlugsAt;
+  if (cachedWorkSlugs) {
+    const fresh = age < WORK_SLUG_TTL_MS;
+    if (fresh && cachedWorkSlugs.has(wanted)) return cachedWorkSlugs;
+    // A miss, but re-reading on every one of them would let a crawler drive the
+    // API. Between refreshes the stale answer stands.
+    if (age < WORK_SLUG_MISS_REFRESH_MS) return cachedWorkSlugs;
+  }
 
   try {
     const res = await fetch(`${INTERNAL_ORIGIN}/api/free-projects?surface=WORK`, {
@@ -129,7 +147,7 @@ export async function middleware(req: NextRequest) {
   if (pathname.startsWith("/work/")) {
     const slug = pathname.slice("/work/".length).replace(/\/$/, "");
     if (slug && !slug.includes("/")) {
-      const valid = await workSlugs();
+      const valid = await workSlugs(slug);
       if (valid && !valid.has(slug)) {
         return NextResponse.rewrite(new URL("/_not-found", req.url), { status: 404 });
       }
