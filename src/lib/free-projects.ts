@@ -9,6 +9,7 @@ import type {
   PublishableProject,
   StartedFreeProject,
   TemplateDeletionResult,
+  UpdateFreeProjectBody,
 } from "./api";
 import { getAccessToken } from "./auth";
 
@@ -121,6 +122,40 @@ export async function refreshFreeProjectAction(
       return { error: err.message };
     }
     return { error: "Could not refresh the room. Please try again." };
+  }
+}
+
+/**
+ * Edit a room already on the shelf — where it shows, and the copy printed with it.
+ *
+ * Metadata only. The photograph and the masks belong to the source project and
+ * are replaced by {@link refreshFreeProjectAction}, so "moving a wall" stays on
+ * one path with one set of rules about the copies people already hold.
+ *
+ * The backend leaves out any field this omits, which is what lets the edit form
+ * send only what it displays. It also means an empty string is meaningful: it
+ * clears the field. The form relies on that to delete a credit line.
+ */
+export async function updateFreeProjectAction(
+  templateId: string,
+  input: UpdateFreeProjectBody,
+): Promise<{ template?: FreeProjectTemplate; error?: string }> {
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  if (input.title !== undefined && !input.title.trim()) return { error: "A room needs a title." };
+  try {
+    const template = await adminApi.updateFreeProject(token, templateId, input);
+    // Moving a room between the gallery and the portfolio changes BOTH pages, and
+    // one tag covers both — see PUBLISHED_PROJECTS_TAG.
+    updateTag(PUBLISHED_PROJECTS_TAG);
+    return { template };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 403) return { error: "Admin access is required." };
+      if (err.status === 404) return { error: "That room no longer exists." };
+      return { error: err.message };
+    }
+    return { error: "Could not save the changes. Please try again." };
   }
 }
 

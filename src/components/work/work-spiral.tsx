@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { WORKS } from "@/lib/work";
+import type { WorkCard } from "@/lib/work";
 
 // Scroll distance that advances the spiral by one project.
 const PX_PER_ITEM = 340;
@@ -49,7 +49,16 @@ function initialStyle(i: number, aspect: string): CSSProperties {
   };
 }
 
-export function WorkSpiral() {
+/**
+ * The projects, as a helix you scroll through.
+ *
+ * Takes its cards rather than reading them: /work renders the rooms an admin
+ * published when there are any, and the built-in demonstration projects when
+ * there are not. Which of the two it is holding is not this component's
+ * business — the only difference it can see is whether a card carries a
+ * photograph, and that is one optional field.
+ */
+export function WorkSpiral({ items }: { items: readonly WorkCard[] }) {
   const [view, setView] = useState<"spiral" | "list">("spiral");
   const cardRefs = useRef<Array<HTMLAnchorElement | null>>([]);
   const helixRef = useRef<HTMLDivElement>(null);
@@ -69,7 +78,7 @@ export function WorkSpiral() {
     const onResize = () => { vw = window.innerWidth; dirty = true; };
     window.addEventListener("resize", onResize);
     // Includes the finale card appended after the projects.
-    const max = WORKS.length;
+    const max = items.length;
     // CSS blur() forces expensive repaints — skip it on touch / small screens
     // where the spiral otherwise stutters.
     const fancy = window.matchMedia("(hover: hover) and (min-width: 769px)").matches;
@@ -85,7 +94,7 @@ export function WorkSpiral() {
       progress.current += (target - progress.current) * 0.09;
       const p = progress.current;
       const radius = Math.min(vw * 0.42, BASE_RADIUS);
-      for (let i = 0; i <= WORKS.length; i++) {
+      for (let i = 0; i <= items.length; i++) {
         const el = cardRefs.current[i];
         if (!el) continue;
         const s = pose(i, p, radius);
@@ -96,7 +105,7 @@ export function WorkSpiral() {
         el.style.pointerEvents = s.opacity < 0.3 ? "none" : "auto";
       }
       if (counterRef.current) {
-        counterRef.current.textContent = String(Math.min(WORKS.length - 1, Math.round(p)) + 1).padStart(2, "0");
+        counterRef.current.textContent = String(Math.min(items.length - 1, Math.round(p)) + 1).padStart(2, "0");
       }
       // First frame done → fade the helix in (hides the radius snap on small screens).
       if (helixRef.current && !helixRef.current.dataset.ready) helixRef.current.dataset.ready = "1";
@@ -107,7 +116,7 @@ export function WorkSpiral() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
     };
-  }, [view]);
+  }, [view, items.length]);
 
   const switchView = (v: "spiral" | "list") => {
     // Re-clicking the active toggle would reset scroll/progress WITHOUT the
@@ -134,7 +143,7 @@ export function WorkSpiral() {
         <>
           <div className="hv-work-stage" role="region" aria-label="Our projects, arranged in a 3D spiral. Scroll to browse.">
             <div className="hv-work-helix" ref={helixRef}>
-              {WORKS.map((w, i) => (
+              {items.map((w, i) => (
                 <Link
                   key={w.slug}
                   href={`/work/${w.slug}`}
@@ -145,19 +154,34 @@ export function WorkSpiral() {
                   onFocus={syncOnKeyboardFocus(i)}
                   aria-label={`${w.title} — ${w.category}, ${w.location}. View project.`}
                 >
-                  <span className="hv-work-card-tag">{w.code} · {w.shadeName}</span>
+                  {w.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element -- backend-signed URL, not a static asset
+                    <img
+                      className="hv-work-card-photo"
+                      src={w.imageUrl}
+                      alt=""
+                      // The card is a link that already names the room in its
+                      // aria-label; a second description here would read the room
+                      // out twice.
+                      aria-hidden
+                      loading={i < 4 ? "eager" : "lazy"}
+                    />
+                  )}
+                  <span className="hv-work-card-tag">{w.code}</span>
                   <span className="hv-work-card-title">{w.title}</span>
-                  <span className="hv-work-card-meta">{w.category} · {w.location} · {w.year}</span>
+                  <span className="hv-work-card-meta">
+                    {[w.category, w.location, w.year].filter(Boolean).join(" · ")}
+                  </span>
                 </Link>
               ))}
               {/* Finale card — the spiral ends on a next step, not a dead stop. */}
               <Link
                 href="/trial"
-                ref={(el) => { cardRefs.current[WORKS.length] = el; }}
+                ref={(el) => { cardRefs.current[items.length] = el; }}
                 className="hv-work-card ph ph-grain"
                 data-tone="brass"
-                style={initialStyle(WORKS.length, "16 / 10")}
-                onFocus={syncOnKeyboardFocus(WORKS.length)}
+                style={initialStyle(items.length, "16 / 10")}
+                onFocus={syncOnKeyboardFocus(items.length)}
                 aria-label="Your room next — start on the free plan."
               >
                 <span className="hv-work-card-tag">Your room next</span>
@@ -170,28 +194,30 @@ export function WorkSpiral() {
               <span className="hv-work-head-sub">Rooms recoloured with HueVista · only the wall changes</span>
             </div>
             <div className="hv-work-count" aria-hidden>
-              <span ref={counterRef}>01</span>&nbsp;/&nbsp;{String(WORKS.length).padStart(2, "0")}
+              <span ref={counterRef}>01</span>&nbsp;/&nbsp;{String(items.length).padStart(2, "0")}
             </div>
             <div className="hv-work-hint" aria-hidden>scroll</div>
           </div>
           {/* Tall spacer: the page's scrollbar drives the spiral (projects + finale card). */}
-          <div style={{ height: `calc(${WORKS.length * PX_PER_ITEM}px + 100vh)` }} aria-hidden />
+          <div style={{ height: `calc(${items.length * PX_PER_ITEM}px + 100vh)` }} aria-hidden />
         </>
       ) : (
         <div className="hv-work-list">
           <header className="hv-work-list-head">
             <span className="hv-work-head-title">Our work</span>
-            <span className="hv-work-head-sub">{WORKS.length} rooms · recoloured with HueVista · catalogue shades</span>
+            <span className="hv-work-head-sub">
+              {items.length} {items.length === 1 ? "room" : "rooms"} · recoloured with HueVista · catalogue shades
+            </span>
           </header>
           <ol className="hv-work-rows">
-            {WORKS.map((w, i) => (
+            {items.map((w, i) => (
               <li key={w.slug}>
                 <Link href={`/work/${w.slug}`} className="hv-work-row">
                   <span className="hv-work-row-num">{String(i + 1).padStart(2, "0")}</span>
                   <span className="hv-work-row-swatch" style={{ background: w.swatch }} aria-hidden />
                   <span className="hv-work-row-title">{w.title}</span>
                   <span className="hv-work-row-code">{w.code}</span>
-                  <span className="hv-work-row-loc">{w.location} · {w.year}</span>
+                  <span className="hv-work-row-loc">{[w.location, w.year].filter(Boolean).join(" · ")}</span>
                   <span className="hv-work-row-arr" aria-hidden>→</span>
                 </Link>
               </li>

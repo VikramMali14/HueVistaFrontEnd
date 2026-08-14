@@ -9,6 +9,7 @@ import {
   refreshFreeProjectAction,
   setFreeProjectPublishedAction,
   startFreeProjectAction,
+  updateFreeProjectAction,
 } from "@/lib/free-projects";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { FreeProjectLibrary } from "@/components/admin/free-project-library";
@@ -39,9 +40,11 @@ export default async function AdminFreeProjectsPage({
   // the picker is the authority on that, not the link.
   const { project: preselectProjectId, title: preselectTitle } = await searchParams;
   const [templates, sources] = await Promise.all([getFreeProjects(), getFreeProjectSources()]);
-  // Both pages the shelf feeds only exist once something is published — /gallery
-  // is 404'd while it is empty, and the in-app Library has nothing to show — so
-  // the links appear with the rooms rather than standing as dead ends.
+  // The in-app Library has nothing to show until a room is published, so its link
+  // would be a dead end; /work and /gallery both fall back to built-in rooms and
+  // are never empty. The three travel together because they are the same
+  // question — "where does this end up?" — and answering it with one link while
+  // the shelf is empty is worse than answering it with none.
   const anyPublished = (templates ?? []).some((t) => t.published);
 
   return (
@@ -63,6 +66,9 @@ export default async function AdminFreeProjectsPage({
         <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
           <Link href="/library" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
             The library, as an account sees it →
+          </Link>
+          <Link href="/work" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+            Our work →
           </Link>
           <Link href="/gallery" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
             The public gallery →
@@ -101,9 +107,18 @@ export default async function AdminFreeProjectsPage({
             {" "}and costs nothing: no plan credit, no points, no project allowance.
           </li>
           <li>
-            Published rooms are also what the <strong>public gallery</strong> shows. Hiding one
-            takes it off the site; showing it puts it back. With nothing published the gallery
-            page does not exist at all, rather than standing empty.
+            Publishing asks <strong>which page</strong> the room goes on: <strong>Our work</strong>,
+            the portfolio where a room carries a story; the <strong>Gallery</strong> grid; or both.
+            Rooms published before this existed are on the Gallery, where they have always been —
+            press <strong>Edit</strong> on any of them to move it. Hiding a room takes it off
+            whichever page it is on; showing it puts it back. While no room is published to a
+            page, that page falls back to its built-in demonstration rooms.
+          </li>
+          <li>
+            A room on <strong>Our work</strong> can carry a location, a year, a credit line, a
+            story and a few numbers. All optional, and all editable afterwards — publish the room
+            when it is ready and write about it when there is something to say. What is never
+            typed is the palette: those are the shades actually on the walls in the picture.
           </li>
           <li>
             Publishing takes a <strong>copy</strong> of the walls, so repainting the original
@@ -134,6 +149,7 @@ export default async function AdminFreeProjectsPage({
         startAction={startFreeProjectAction}
         setPublishedAction={setFreeProjectPublishedAction}
         refreshAction={refreshFreeProjectAction}
+        updateAction={updateFreeProjectAction}
         deleteAction={deleteFreeProjectsAction}
       />
     </div>
