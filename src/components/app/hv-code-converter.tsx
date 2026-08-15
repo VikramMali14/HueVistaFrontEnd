@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
+import { useShadeCodeScheme } from "@/hooks/use-shade-code-scheme";
+import { decodeShadeCodeAnyScheme } from "@/lib/shade-codes";
 import type { DecodedShade, ShadeBrandSummary, ShadeDecodeResult } from "@/lib/types";
 
 /** Long enough that a code being typed doesn't fire a request per keystroke. */
@@ -12,9 +14,13 @@ const DEBOUNCE_MS = 350;
 /**
  * The counter's code converter, at the top of a shop's dashboard.
  *
- * A customer arrives holding an HV code — off their phone, a forwarded link, or a
- * printed colour board. The code says nothing on purpose: no company, no shade name,
- * nothing to work out from staring at it. This is where it becomes a tin of paint.
+ * A customer arrives holding a code — off their phone, a forwarded link, or a printed
+ * colour board. It says nothing on purpose: no company, no shade name, nothing to work
+ * out from staring at it. This is where it becomes a tin of paint.
+ *
+ * It reads all three kinds a customer can be carrying: a HueVista code, this shop's own
+ * pattern (unwrapped client-side before asking the server), and a paint company's own
+ * number. The counter should not have to know which one it is holding.
  *
  * Two answers, and the second is the one that makes this worth having on the dashboard
  * rather than buried in the portal. The first is what the code is. The second is what
@@ -31,6 +37,9 @@ export function HvCodeConverter() {
   const [code, setCode] = useState("");
   const [brand, setBrand] = useState("");
   const [brands, setBrands] = useState<ShadeBrandSummary[]>([]);
+  // This shop's own numbering, if it runs one. Only used to unwrap a code its
+  // customers hold before asking the server what colour is behind it.
+  const scheme = useShadeCodeScheme();
   const [result, setResult] = useState<ShadeDecodeResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +77,23 @@ export function HvCodeConverter() {
     const t = setTimeout(() => {
       api
         .decodeShadeCode(q, brand || undefined)
+        // A shop that runs its own prefix/pair/suffix pattern hands its customers
+        // codes in that numbering, not HV codes — so the box the counter types into
+        // has to read both, or half this shop's own customers walk up with a code
+        // their shop's own tool calls unknown. The pattern is unwrapped here (client
+        // side, where it already lives) and the real code behind it is sent back
+        // through the same decoder, so the answer and the brand match are identical
+        // whichever kind of code came in. Retired patterns are tried too: a colour
+        // board from last season is still the shop's own card.
+        .then(async (r) => {
+          if (r.matchedBy || !scheme) return r;
+          const unwrapped = decodeShadeCodeAnyScheme(scheme, q);
+          if (!unwrapped) return r;
+          const viaPattern = await api.decodeShadeCode(unwrapped.code, brand || undefined);
+          // Echo back what the counter actually typed, not the code we unwrapped —
+          // the box shows their input and the two disagreeing reads as a bug.
+          return viaPattern.matchedBy ? { ...viaPattern, query: r.query } : r;
+        })
         .then((r) => {
           if (seq.current !== mine) return;
           setResult(r);
@@ -87,7 +113,7 @@ export function HvCodeConverter() {
         });
     }, DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [code, brand]);
+  }, [code, brand, scheme]);
 
   const found = result?.shade ?? null;
   const ambiguous = (result?.candidates?.length ?? 0) > 0;
@@ -164,7 +190,8 @@ export function HvCodeConverter() {
       </div>
 
       <p style={{ font: "400 12.5px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "10px 0 0", maxWidth: "62ch" }}>
-        Type a code off a customer&rsquo;s screen, a share link or a printed colour board.
+        Type a code off a customer&rsquo;s screen, a share link or a printed colour board —
+        a HueVista code, your own pattern, or a paint company&rsquo;s own number.
         Pick a company as well and you&rsquo;ll get the nearest shade in its range, with
         whether it&rsquo;s the same colour or the closest one.
       </p>
@@ -184,7 +211,8 @@ export function HvCodeConverter() {
       {nothing && (
         <p style={{ marginTop: 14, font: "400 14px/1.5 var(--sans)", color: "var(--fg-mute)", maxWidth: "58ch" }}>
           No shade carries “{result?.query}”. Check the code — HueVista codes look like
-          HV0348, and a paint company&rsquo;s own code works here too.
+          HV0348, your own pattern codes read here too, and so does a paint
+          company&rsquo;s own number.
         </p>
       )}
 

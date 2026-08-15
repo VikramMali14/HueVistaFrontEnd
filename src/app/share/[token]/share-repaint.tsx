@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
+import { codesAreUniversal, displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import type { RecolorEngine } from "@/lib/recolor-engine";
@@ -102,15 +102,17 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
   // stands in for the name: it means nothing at another counter, which is the
   // point of a share link.
   const showNames = scheme?.showNames !== false;
+  // Whether the codes below can be read anywhere, or only back at the issuing shop.
+  const universalCodes = codesAreUniversal(scheme);
   /**
-   * The code to print on this page — the shade's HV code, falling back to the shop's
-   * own pattern for a shade the catalogue has no HV code for.
+   * The code to print on this page: the issuing shop's own pattern where it runs one,
+   * otherwise the shade's HV code.
    *
-   * Never the manufacturer's own, whatever the viewer: a share link has no session
-   * behind it, so the person reading it could be anyone the customer forwarded it to.
-   * An HV code is the right thing to print there precisely because it travels — it
-   * says nothing about the paint company, and ANY HueVista shop can read it back,
-   * where the shop's own pattern could only ever be read at the shop that made it.
+   * Never the manufacturer's own, whatever the viewer. A share link has no session
+   * behind it, so the person reading it could be anyone the customer forwarded it to —
+   * which is exactly the audience the numbering exists to withhold the paint company
+   * from. Which of the two they get changes only where the code can be redeemed, and
+   * the note at the foot of the page says which it is.
    */
   // Memoised on the scheme alone: initialPaints depends on it, and an identity that
   // changed every render would rebuild the starting palette on every render with it.
@@ -505,15 +507,24 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
               </>
             )}
 
-            {/* The promise the HV code makes, said out loud. The old wording sent the
-                reader back to "your retailer" — which was true of a code only that one
-                shop could read, and is the thing that has changed: these codes are the
-                same everywhere, so the nearest HueVista shop can serve them. Worth
-                stating plainly on a page that is, by construction, being read by
-                someone the customer forwarded it to. */}
+            {/* Where these codes can actually be read, said out loud — on a page that
+                is, by construction, being looked at by someone the customer forwarded
+                it to. The two answers are not interchangeable: an HV code works at any
+                HueVista counter, a shop's own pattern works only at that shop, and
+                sending someone to the wrong one wastes a trip. */}
             <p style={{ marginTop: 18, font: "400 13px/1.6 var(--serif)", color: "var(--fg-mute)" }}>
-              These are HueVista colour codes. Take one to any HueVista paint shop and they
-              can look up the exact shade — or the closest match in a company they stock.
+              {universalCodes ? (
+                <>
+                  These are HueVista colour codes. Take one to any HueVista paint shop and
+                  they can look up the exact shade — or the closest match in a company they
+                  stock.
+                </>
+              ) : (
+                <>
+                  These are your paint shop&rsquo;s own colour codes — take your favourite
+                  look back to them and they can order the exact paint.
+                </>
+              )}
             </p>
           </>
         )}

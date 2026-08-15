@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  codesAreUniversal,
   decodeShadeCode,
+  displayCodeOf,
   encodeShadeCode,
   hasScheme,
   normalizeSchemePart,
@@ -126,5 +128,70 @@ describe("schemeTimeline", () => {
   it("is empty when there is no scheme at all", () => {
     expect(schemeTimeline(null)).toEqual([]);
     expect(schemeTimeline({ prefix: "", infix: "", suffix: "" })).toEqual([]);
+  });
+});
+
+/**
+ * Which of the three codes a viewer is shown, and in which order the rules apply.
+ *
+ * This is the rule every swatch in the product reads, so the ordering matters more
+ * than any single case: shop staff read the manufacturer's, a shop's own pattern
+ * outranks the platform default for the customers that shop issued codes to, and
+ * everyone else gets the HV code because it can be redeemed anywhere.
+ */
+describe("displayCodeOf", () => {
+  const shade = { code: "L124", hvCode: "HV0348" };
+
+  it("gives shop staff the manufacturer's own code", () => {
+    expect(displayCodeOf({ ...FULL, showRealCodes: true }, shade)).toBe("L124");
+  });
+
+  it("gives shop staff the real code even with no pattern set", () => {
+    expect(displayCodeOf({ prefix: "", infix: "", suffix: "", showRealCodes: true }, shade))
+      .toBe("L124");
+  });
+
+  it("prefers the shop's own pattern over the HV code for its customers", () => {
+    // The shop took the trouble to define a numbering; its customers see that,
+    // not the platform default.
+    expect(displayCodeOf(FULL, shade)).toBe("ABL1XY24CD");
+  });
+
+  it("falls back to the HV code when the shop runs no pattern", () => {
+    expect(displayCodeOf({ prefix: "", infix: "", suffix: "" }, shade)).toBe("HV0348");
+    expect(displayCodeOf(null, shade)).toBe("HV0348");
+  });
+
+  it("falls back to the real code when there is no pattern and no HV code", () => {
+    // An older backend, or a row inserted before the migration ran. Better a
+    // legible code than a blank swatch.
+    expect(displayCodeOf(null, { code: "L124" })).toBe("L124");
+    expect(displayCodeOf(null, { code: "L124", hvCode: null })).toBe("L124");
+  });
+
+  it("still applies the pattern when the shade has no HV code", () => {
+    expect(displayCodeOf(FULL, { code: "L124" })).toBe("ABL1XY24CD");
+  });
+});
+
+/**
+ * Whether the codes on screen can be redeemed anywhere. Drives one sentence on the
+ * share page and one line in the colour-board PDF footer — and getting it wrong
+ * sends a customer to a counter that cannot read what they are holding.
+ */
+describe("codesAreUniversal", () => {
+  it("is true for HV codes — no shop, or a shop with no pattern", () => {
+    expect(codesAreUniversal(null)).toBe(true);
+    expect(codesAreUniversal({ prefix: "", infix: "", suffix: "" })).toBe(true);
+  });
+
+  it("is false under a shop pattern, which only that shop can read", () => {
+    expect(codesAreUniversal(FULL)).toBe(false);
+  });
+
+  it("is false for shop staff, who are reading manufacturer codes", () => {
+    // Not a code that travels at all — it is the paint company's own number.
+    expect(codesAreUniversal({ prefix: "", infix: "", suffix: "", showRealCodes: true }))
+      .toBe(false);
   });
 });

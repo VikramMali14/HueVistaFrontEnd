@@ -1693,8 +1693,16 @@ function RegionStrip({
       >
         {list.map((r) => {
           const isActive = r.id === activeRegionId;
-          // Only hand-drawn walls can be removed — AI-detected ones have no ✕.
-          const canDelete = Boolean(r.custom && onDeleteWall);
+          // Every wall can be removed now, drawn or detected. Detection routinely
+          // finds surfaces nobody wants painted — an accent wall the customer is
+          // keeping, a ceiling, a strip of floor — and while those had no ✕ they
+          // stayed in the strip, the palette and the colour board for the life of
+          // the room.
+          const canDelete = Boolean(onDeleteWall);
+          // The two are not equally cheap to undo: a hand-drawn wall is redrawn in
+          // seconds, a detected one only comes back by re-running detection, which
+          // costs a credit. So the detected ✕ asks first, and says why.
+          const deleteNeedsConfirm = !r.custom;
           // Any region with a mask can be REFINED — this is how AI-detected walls
           // get fixed (an edge that overshoots, half a pillar the AI missed).
           const canEdit = Boolean(r.hasMask && onEditWall);
@@ -1736,9 +1744,26 @@ function RegionStrip({
                 <button
                   type="button"
                   className="hv-studio-region-chip-del"
-                  onClick={() => onDeleteWall?.(r.id)}
-                  aria-label={`Delete ${r.label}`}
-                  title={`Delete ${r.label} (you can re-draw it any time)`}
+                  onClick={() => {
+                    if (
+                      deleteNeedsConfirm
+                      && !window.confirm(
+                        `Remove "${r.label}" from this room?\n\n`
+                        + "This wall was found by wall detection, so it can't be brought "
+                        + "back without running detection again — which costs a credit. "
+                        + "A wall you draw yourself is free to redraw.",
+                      )
+                    ) {
+                      return;
+                    }
+                    onDeleteWall?.(r.id);
+                  }}
+                  aria-label={`Remove ${r.label}`}
+                  title={
+                    deleteNeedsConfirm
+                      ? `Remove ${r.label} — found by detection, so bringing it back means running detection again`
+                      : `Remove ${r.label} (you can re-draw it any time)`
+                  }
                 >
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
                     <path d="M6 6l12 12M6 18L18 6" />

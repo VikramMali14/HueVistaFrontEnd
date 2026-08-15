@@ -132,23 +132,49 @@ export function decodeShadeCode(scheme: ShadeCodeScheme, customerCode: string): 
  * scheme is only worth anything if every one of them agrees. A single screen that
  * prints the manufacturer's code undoes it everywhere.
  *
- * Shop staff and admins get the manufacturer's own code: they have to open the tin.
- * Everyone else gets the HV code — global, opaque, and readable by any HueVista shop
- * rather than only the one that issued the board, which is what lets a customer walk
- * into a different shop and still be served.
+ * Three answers, in this order:
  *
- * The shop's own prefix/pair/suffix pattern survives as the fallback for a shade with
- * no HV code behind it (an older backend, a row inserted before the migration). It is
- * no longer the primary presentation, but a shop that set one up should not suddenly
- * see raw manufacturer codes on its customers' screens because a lookup came back thin.
+ * 1. SHOP STAFF AND ADMINS get the manufacturer's own code. They have to open the
+ *    right tin, and the codes exist to be read by them rather than hidden from them.
+ *
+ * 2. ANYONE UNDER A SHOP THAT RUNS ITS OWN PATTERN gets that pattern. A shop which
+ *    took the trouble to set up a prefix, pair and suffix has decided how its
+ *    customers see a colour, and that decision outranks the platform default for the
+ *    customers it issued codes to — they are that shop's customers, holding that
+ *    shop's card, and the numbering on it should be the shop's own. This is resolved
+ *    per viewer on the server: their own shop for staff, the issuing shop for a
+ *    customer or guest, so a code handed over the counter carries that counter's
+ *    numbering wherever the customer looks at it.
+ *
+ * 3. EVERYONE ELSE gets the HV code — global, opaque, and readable at any HueVista
+ *    shop rather than only the one that issued the board. That is the right default
+ *    for a customer with no shop behind them, and for the customers of a shop that
+ *    never set a pattern up, because it means the nearest shop can serve them.
+ *
+ * The trade between 2 and 3 is deliberate and it is the shop's to make: a pattern
+ * keeps the numbering theirs, at the cost of only they can read it; an HV code can be
+ * read anywhere, at the cost of not being theirs.
  */
 export function displayCodeOf(
   scheme: ShadeCodeScheme | null | undefined,
   shade: { code: string; hvCode?: string | null },
 ): string {
   if (scheme?.showRealCodes) return shade.code;
-  if (shade.hvCode) return shade.hvCode;
-  return hasScheme(scheme) ? encodeShadeCode(scheme, shade.code) : shade.code;
+  if (hasScheme(scheme)) return encodeShadeCode(scheme, shade.code);
+  return shade.hvCode || shade.code;
+}
+
+/**
+ * Whether the codes this viewer is being shown can be read at ANY HueVista shop.
+ *
+ * True for HV codes, false for a shop's own pattern — which only the shop that
+ * invented it can decode. The distinction has to be said out loud wherever a code
+ * leaves the screen and goes somewhere we cannot follow it: a printed colour board, a
+ * forwarded share link. Telling a customer to take a shop-pattern code to any shop
+ * would send them to a counter that cannot help them.
+ */
+export function codesAreUniversal(scheme: ShadeCodeScheme | null | undefined): boolean {
+  return !scheme?.showRealCodes && !hasScheme(scheme);
 }
 
 /** What a decode attempt found: the real code, and which pattern read it. */

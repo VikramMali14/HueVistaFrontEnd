@@ -294,6 +294,7 @@ function pageChrome(
   dateLine: string,
   pageNo: number,
   pageCount: number,
+  universalCodes: boolean,
   counter?: string,
 ): string[] {
   const ops: string[] = [];
@@ -331,14 +332,19 @@ function pageChrome(
     textOp("F1", 7.5, (PAGE_W - textWidth(disclaimer, 7.5)) / 2, FOOT_RULE_Y + 7, disclaimer, MUTE),
   );
 
-  // Footer. The left slot says where the codes above can be read, which is the one
-  // thing this sheet cannot do for itself: an HV code names no paint company and no
-  // shade on purpose, so a board carrying them is only useful if the person holding
-  // it knows that any HueVista shop — not only the one that printed it — can turn
-  // them back into a tin. Printed on every page because pages get separated.
+  // Footer. The left slot says WHERE the codes above can be read, which is the one
+  // thing this sheet cannot do for itself: the codes name no paint company and no
+  // shade on purpose, so a printed board is only useful if the person holding it
+  // knows who can turn them back into a tin. Which answer is true depends on the
+  // issuing shop — a shop running its own pattern is the only place its codes mean
+  // anything, while an HV code works at any HueVista counter — and printing the
+  // wrong one sends a customer on a wasted trip. On every page, because pages get
+  // separated from each other.
   ops.push(hline(FOOT_RULE_Y, MARGIN, right, RULE_SOFT));
   ops.push(textOp("F1", 8, MARGIN, FOOT_BASE,
-    "Made with HueVista — any HueVista shop can look these codes up", MUTE));
+    universalCodes
+      ? "Made with HueVista — any HueVista shop can look these codes up"
+      : "Made with HueVista — your paint shop can look these codes up", MUTE));
   const pg = `Page ${pageNo} of ${pageCount}`;
   ops.push(textOp("F1", 8, right - textWidth(pg, 8), FOOT_BASE, pg, MUTE));
 
@@ -354,10 +360,12 @@ function pageContent(
   index: number,
   total: number,
   dateLine: string,
+  universalCodes: boolean,
 ): string {
   const right = PAGE_W - MARGIN;
   const stripHexes = entry.shades.length ? entry.shades.map((s) => s.hex) : ["#7c5cff"];
-  const ops = pageChrome(stripHexes, title, dateLine, index + 1, total, `Option ${index + 1} of ${total}`);
+  const ops = pageChrome(stripHexes, title, dateLine, index + 1, total, universalCodes,
+    `Option ${index + 1} of ${total}`);
 
   // Shade table, anchored to the bottom so every page shares one layout.
   const rows = Math.max(1, entry.shades.length);
@@ -408,7 +416,19 @@ function pageContent(
  * Entries with an unreadable JPEG are skipped; an empty list yields a one-line
  * notice page.
  */
-export function buildColourBoardPdf(entries: PdfImageEntry[], title = "HueVista"): Blob {
+export function buildColourBoardPdf(
+  entries: PdfImageEntry[],
+  title = "HueVista",
+  /**
+   * Whether the codes on this board can be read at ANY HueVista shop (an HV code) or
+   * only back at the shop that issued them (that shop's own pattern). Decides one line
+   * in the footer, and getting it wrong sends someone to a counter that cannot help.
+   *
+   * Defaults to true because that is the state of every shop that has not opted into a
+   * pattern of its own, which is most of them; the studio passes the real answer.
+   */
+  universalCodes = true,
+): Blob {
   const chunks: Uint8Array[] = [];
   let length = 0;
   const push = (part: Uint8Array | string) => {
@@ -442,7 +462,7 @@ export function buildColourBoardPdf(entries: PdfImageEntry[], title = "HueVista"
   const kids: number[] = [];
   if (usable.length === 0) {
     // Degenerate case: a branded page telling the user there was nothing to add.
-    const ops = pageChrome(["#7c5cff"], title, dateLine, 1, 1);
+    const ops = pageChrome(["#7c5cff"], title, dateLine, 1, 1, universalCodes);
     ops.push(textOp("F1", 12, MARGIN, PAGE_H - 160, "No coloured images were added.", MUTE));
     const content = ops.join("\n");
     const contentId = addObject([`<< /Length ${latin1(content).length} >>\nstream\n`, content, "\nendstream"]);
@@ -460,7 +480,7 @@ export function buildColourBoardPdf(entries: PdfImageEntry[], title = "HueVista"
         bytes,
         "\nendstream",
       ]);
-      const content = pageContent(entry, w, h, title, i, usable.length, dateLine);
+      const content = pageContent(entry, w, h, title, i, usable.length, dateLine, universalCodes);
       const contentBytes = latin1(content);
       const contentId = addObject([
         `<< /Length ${contentBytes.length} >>\nstream\n`,

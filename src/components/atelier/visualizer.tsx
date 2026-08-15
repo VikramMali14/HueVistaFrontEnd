@@ -44,7 +44,7 @@ import { IMAGE_ACCEPT, cropAndEncode, imageFileError, loadImageFromFile } from "
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
 import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
-import { displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
+import { codesAreUniversal, displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
 import type {
   FailureStage,
@@ -1654,15 +1654,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setMaskStudioOpen(true);
   }, []);
 
-  // Delete a hand-drawn wall. Guard rails: only regions the user created by
-  // hand (custom) can be removed — AI-detected walls have no delete control and
-  // are rejected here too. Removes it from the composite immediately (optimistic),
-  // moves the active selection off it, frees a custom-mask slot, and deletes the
-  // backend row when the region was persisted.
+  // Remove a wall from the room — hand-drawn or AI-detected.
+  //
+  // Detected walls used to be refused here as well as having no ✕, which left a room
+  // stuck with whatever detection produced: an accent wall the customer is keeping, a
+  // ceiling, a strip of floor read as wall. Those surfaces then sat in the wall strip,
+  // in the palette and on every page of the colour board, and the only way out was to
+  // delete the whole project and spend another credit on it.
+  //
+  // Removes it from the composite immediately (optimistic), moves the active selection
+  // off it, frees a custom-mask slot where it held one, and deletes the backend row
+  // when the region was persisted. The strip confirms before calling this for a
+  // detected wall, since that one cannot be redrawn for free.
   const handleDeleteWall = useCallback(
     (regionId: string) => {
       const target = regions.find((r) => r.id === regionId);
-      if (!target || !target.custom) return;
+      if (!target) return;
 
       setRegions((prev) => prev.filter((r) => r.id !== regionId));
       setActiveRegion((cur) =>
@@ -1903,7 +1910,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         })),
       }));
       const outcome = await runColourBoardDownload({
-        build: () => buildColourBoardPdf(pdfPages, projectName || "HueVista colour board"),
+        // The board is printed and carried out of the shop, so its footer has to name
+        // who can read the codes on it — any HueVista counter for an HV code, only the
+        // issuing shop for a shop's own pattern.
+        build: () =>
+          buildColourBoardPdf(
+            pdfPages,
+            projectName || "HueVista colour board",
+            codesAreUniversal(codeScheme),
+          ),
         charge: () =>
           id
             ? guest
@@ -1931,7 +1946,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     } finally {
       setPdfDownloading(false);
     }
-  }, [pdfPages, projectName, guest, pdfDownloading, projectId, openProjectId, router]);
+    // codeScheme is in here because the footer promises WHERE these codes can be
+    // read. The scheme arrives from an async fetch, so a callback closed over the
+    // initial null would print "any HueVista shop" on a board issued by a shop that
+    // runs its own numbering — sending the customer to a counter that cannot read it.
+  }, [pdfPages, projectName, guest, pdfDownloading, projectId, openProjectId, router, codeScheme]);
 
   /** Finish the job early, before both boards are spent. */
   const closeProject = useCallback(async () => {

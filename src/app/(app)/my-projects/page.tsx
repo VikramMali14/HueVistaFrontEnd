@@ -46,10 +46,13 @@ export default async function MyProjectsPage() {
         <AiCreditWallet />
       </div>
 
+      {/* Deliberately says "the counter" rather than "any HueVista shop": which is
+          true depends on the issuing shop's numbering, and this page has no scheme
+          loaded to tell them apart. The colour board itself carries the precise
+          answer in its footer, where it matters. */}
       <p style={{ marginTop: 32, font: "400 14px/1.6 var(--sans)", color: "var(--fg-mute)", maxWidth: "58ch" }}>
-        Every colour you see carries a HueVista code. Take one to any HueVista paint shop
-        and they can look up the exact shade, or the closest match in a company they
-        stock —{" "}
+        Every colour you see carries a code. Take it to the counter and they can look up
+        the exact shade, or the closest match in a company they stock —{" "}
         <Link href="/studio" style={{ color: "var(--accent)" }}>
           start a room
         </Link>{" "}
