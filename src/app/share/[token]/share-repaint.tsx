@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
+import { displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import type { RecolorEngine } from "@/lib/recolor-engine";
@@ -12,6 +12,8 @@ export interface RepaintRegion {
   maskUrl: string | null;
   /** The colour the retailer applied, if any (hex). */
   initialHex: string | null;
+  /** Its platform-wide code, so the colour the shop chose can be quoted at a counter. */
+  initialHvCode?: string | null;
 }
 
 export interface RepaintBrand {
@@ -40,6 +42,8 @@ interface ShareRepaintProps {
 
 interface CatalogShade {
   shadeCode?: string;
+  /** The platform-wide customer code — what this page prints in place of the real one. */
+  hvCode?: string | null;
   name?: string;
   hexCode?: string;
   shadeFamily?: string | null;
@@ -98,13 +102,29 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
   // stands in for the name: it means nothing at another counter, which is the
   // point of a share link.
   const showNames = scheme?.showNames !== false;
-  const patterned = hasScheme(scheme ?? undefined);
-  const shopCodeOf = (code?: string | null) =>
-    patterned && code ? encodeShadeCode(scheme!, code) : null;
-  /** How a colour reads here: its name while the shop shows names, its shop code
-   *  where the shop runs one, both when both apply, and nothing when neither. */
-  const labelFor = (name?: string | null, code?: string | null) =>
-    [showNames ? name : null, shopCodeOf(code)].filter(Boolean).join(" · ") || null;
+  /**
+   * The code to print on this page — the shade's HV code, falling back to the shop's
+   * own pattern for a shade the catalogue has no HV code for.
+   *
+   * Never the manufacturer's own, whatever the viewer: a share link has no session
+   * behind it, so the person reading it could be anyone the customer forwarded it to.
+   * An HV code is the right thing to print there precisely because it travels — it
+   * says nothing about the paint company, and ANY HueVista shop can read it back,
+   * where the shop's own pattern could only ever be read at the shop that made it.
+   */
+  // Memoised on the scheme alone: initialPaints depends on it, and an identity that
+  // changed every render would rebuild the starting palette on every render with it.
+  const shopCodeOf = useCallback(
+    (shade: { code?: string | null; hvCode?: string | null }) => {
+      if (!shade.code && !shade.hvCode) return null;
+      return displayCodeOf(scheme, { code: shade.code ?? "", hvCode: shade.hvCode }) || null;
+    },
+    [scheme],
+  );
+  /** How a colour reads here: its name while the shop shows names, its code where
+   *  there is one, both when both apply, and nothing when neither. */
+  const labelFor = (name?: string | null, code?: string | null, hvCode?: string | null) =>
+    [showNames ? name : null, shopCodeOf({ code, hvCode })].filter(Boolean).join(" · ") || null;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<RecolorEngine | null>(null);
   const baseRef = useRef<HTMLImageElement | null>(null);
@@ -125,10 +145,20 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
   const initialPaints = useMemo(() => {
     const map: Record<number, AppliedPaint | null> = {};
     for (const r of regions) {
-      map[r.id] = r.initialHex ? { hex: r.initialHex, shadeName: null, brandName: null, shopCode: null } : null;
+      map[r.id] = r.initialHex
+        ? {
+            hex: r.initialHex,
+            shadeName: null,
+            brandName: null,
+            // The shop's own choice, quotable at a counter. It used to come through as
+            // null, so the one colour the customer did not pick themselves was the one
+            // colour nobody could look up.
+            shopCode: shopCodeOf({ hvCode: r.initialHvCode }),
+          }
+        : null;
     }
     return map;
-  }, [regions]);
+  }, [regions, shopCodeOf]);
 
   const renderAll = useCallback((state: Record<number, AppliedPaint | null>) => {
     const engine = engineRef.current;
@@ -246,7 +276,7 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
         hex: shade.hexCode,
         shadeName: shade.name ?? null,
         brandName,
-        shopCode: shopCodeOf(shade.shadeCode),
+        shopCode: shopCodeOf({ code: shade.shadeCode, hvCode: shade.hvCode }),
       },
     };
     setPaints(next);
@@ -267,7 +297,7 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
   const visibleShades = (activeShades ?? []).filter((s) => {
     if (!q) return true;
     if (showNames && (s.name ?? "").toLowerCase().includes(q)) return true;
-    if ((shopCodeOf(s.shadeCode) ?? "").toLowerCase().includes(q)) return true;
+    if ((shopCodeOf({ code: s.shadeCode, hvCode: s.hvCode }) ?? "").toLowerCase().includes(q)) return true;
     return (s.shadeFamily ?? "").toLowerCase().includes(q);
   });
   const changed = paintableIds.some((id) => paints[id] !== initialPaints[id]);
@@ -453,8 +483,8 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
                         key={`${s.shadeCode ?? s.name ?? "shade"}-${i}`}
                         type="button"
                         onClick={() => applyShade(s)}
-                        title={labelFor(s.name, s.shadeCode) ?? undefined}
-                        aria-label={labelFor(s.name, s.shadeCode) ?? "Colour"}
+                        title={labelFor(s.name, s.shadeCode, s.hvCode) ?? undefined}
+                        aria-label={labelFor(s.name, s.shadeCode, s.hvCode) ?? "Colour"}
                         style={{
                           aspectRatio: "1 / 1",
                           background: s.hexCode,
@@ -475,10 +505,15 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrig
               </>
             )}
 
+            {/* The promise the HV code makes, said out loud. The old wording sent the
+                reader back to "your retailer" — which was true of a code only that one
+                shop could read, and is the thing that has changed: these codes are the
+                same everywhere, so the nearest HueVista shop can serve them. Worth
+                stating plainly on a page that is, by construction, being read by
+                someone the customer forwarded it to. */}
             <p style={{ marginTop: 18, font: "400 13px/1.6 var(--serif)", color: "var(--fg-mute)" }}>
-              {patterned
-                ? "These are your retailer's own colour codes — take your favourite look to them to order the exact paint."
-                : "Shade codes are kept with your retailer — visit them with your favourite look to order the exact colours."}
+              These are HueVista colour codes. Take one to any HueVista paint shop and they
+              can look up the exact shade — or the closest match in a company they stock.
             </p>
           </>
         )}

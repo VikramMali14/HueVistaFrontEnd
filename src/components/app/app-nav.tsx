@@ -14,6 +14,7 @@ const TABS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/studio", label: "Studio" },
   { href: "/library", label: "Library" },
+  { href: "/my-projects", label: "Projects & credits" },
   { href: "/assigned-products", label: "My products" },
   { href: "/colour-finder", label: "Colour finder" },
   { href: "/network", label: "Network" },
@@ -47,9 +48,19 @@ interface AppNavProps {
    * unknown shelf shows no tab rather than one leading to an empty page.
    */
   libraryLive?: boolean;
+  /**
+   * Whether a paint shop stands behind this account — i.e. it holds an entitlement
+   * from a redeemed access code.
+   *
+   * Only meaningful for CUSTOMER accounts, and it splits them in two: one kind was
+   * onboarded by a shop and has products assigned to them, the other signed up alone
+   * and has none. Defaults to false, so an account we could not resolve is shown one
+   * tab fewer rather than one that 404s.
+   */
+  hasShop?: boolean;
 }
 
-export function AppNav({ user, access = null, libraryLive = false }: AppNavProps) {
+export function AppNav({ user, access = null, libraryLive = false, hasShop = false }: AppNavProps) {
   // The shop's shade-code pattern is cached at module scope and nothing was clearing it,
   // so it survived a sign-out: the next account in the same tab rendered its colours with
   // the previous shop's numbering (and its "hide paint names" choice). Done during render
@@ -97,8 +108,19 @@ export function AppNav({ user, access = null, libraryLive = false }: AppNavProps
     if (t.href === "/network" && user?.role === "RETAILER" && !SHOP_PAINTER_MODULE_ENABLED) return false;
     if (t.href === "/portal" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     if (t.href === "/products" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
-    // A customer's assigned-products page — only customers have an access code behind it.
-    if (t.href === "/assigned-products" && (!user || user.role !== "CUSTOMER")) return false;
+    // The customer's own projects + AI credits. Customers only: everyone else buys
+    // through /plan, which sells the things a customer account may not hold.
+    if (t.href === "/my-projects" && (!user || user.role !== "CUSTOMER")) return false;
+    // A customer's assigned-products page. Two conditions, not one. Customers only,
+    // because the products behind it hang off a redeemed access code — but ALSO only
+    // customers who actually have one. An account that signed up on its own (a Google
+    // login, an email address) has no shop behind it and no code, so the page can only
+    // ever answer 404 "No access code is linked to this account": a tab leading
+    // nowhere, offering products that were never assigned by a shop that does not
+    // exist. `hasShop` is resolved server-side from the entitlement, which is the same
+    // dividing line the backend uses to decide whether an account is a shop's customer
+    // or its own.
+    if (t.href === "/assigned-products" && (!user || user.role !== "CUSTOMER" || !hasShop)) return false;
     // Subscriber-only retailer tools — a customer or distributor clicking them
     // would only be bounced (neither holds a shop subscription).
     if (t.href === "/colour-finder" && user && (user.role === "CUSTOMER" || user.role === "DISTRIBUTOR")) return false;

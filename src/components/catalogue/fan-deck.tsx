@@ -107,7 +107,7 @@ export function FanDeck({ shade, catalogue, onClose, onHoldToWall, hideCodes = f
                 <span style={{ font: `${isFocus ? 600 : 500} 14px/1.2 var(--sans)`, color: ink }}>{nameOf(s)}</span>
                 {!hideCodes && (
                   <span style={{ font: "400 12px/1 var(--code)", letterSpacing: ".14em", color: inkSoft, whiteSpace: "nowrap" }}>
-                    {codeOf(s.code)}
+                    {codeOf(s)}
                   </span>
                 )}
               </button>

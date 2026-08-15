@@ -331,9 +331,14 @@ function pageChrome(
     textOp("F1", 7.5, (PAGE_W - textWidth(disclaimer, 7.5)) / 2, FOOT_RULE_Y + 7, disclaimer, MUTE),
   );
 
-  // Footer.
+  // Footer. The left slot says where the codes above can be read, which is the one
+  // thing this sheet cannot do for itself: an HV code names no paint company and no
+  // shade on purpose, so a board carrying them is only useful if the person holding
+  // it knows that any HueVista shop — not only the one that printed it — can turn
+  // them back into a tin. Printed on every page because pages get separated.
   ops.push(hline(FOOT_RULE_Y, MARGIN, right, RULE_SOFT));
-  ops.push(textOp("F1", 8, MARGIN, FOOT_BASE, "Made with HueVista", MUTE));
+  ops.push(textOp("F1", 8, MARGIN, FOOT_BASE,
+    "Made with HueVista — any HueVista shop can look these codes up", MUTE));
   const pg = `Page ${pageNo} of ${pageCount}`;
   ops.push(textOp("F1", 8, right - textWidth(pg, 8), FOOT_BASE, pg, MUTE));
 

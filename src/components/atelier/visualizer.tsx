@@ -44,7 +44,7 @@ import { IMAGE_ACCEPT, cropAndEncode, imageFileError, loadImageFromFile } from "
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
 import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
-import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
+import { displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
 import type {
   FailureStage,
@@ -604,7 +604,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     api.getMyShadeCodeScheme()
       .then((scheme) => {
         if (cancelled) return;
-        if (hasScheme(scheme)) setCodeScheme(scheme);
+        // The WHOLE response, not just a set pattern. It carries showRealCodes, which
+        // decides whether this viewer reads manufacturer codes or HV codes — a question
+        // that has an answer even for a shop that never set a pattern up.
+        setCodeScheme(scheme ?? null);
         // showNames is a shop-wide switch, independent of whether a pattern is set:
         // a shop can hide paint names without running its own codes.
         setHideNames(scheme?.showNames === false);
@@ -663,18 +666,29 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [purchaseOptions?.validDays, mountedAt],
   );
 
-  // With a scheme, encoded codes replace the manufacturer's everywhere they appear.
-  const encodeCode = useMemo(
-    () => (codeScheme ? (code: string) => encodeShadeCode(codeScheme, code) : undefined),
-    [codeScheme],
-  );
+  // What appears in place of the manufacturer's code for anyone not entitled to it:
+  // the shade's own HV code, which is global and readable by any HueVista shop, and the
+  // shop's pattern only as a fallback for a shade the catalogue has no HV code for.
+  //
+  // Undefined for shop staff, who read the real thing — that is what makes it possible
+  // for the counter to work from the same screen the customer is looking at.
+  //
+  // A code→HV map over the catalogue rather than a lookup per swatch: this runs for
+  // every region, every PDF page and every entry in a 9.5k-shade grid.
+  const encodeCode = useMemo(() => {
+    if (codeScheme?.showRealCodes) return undefined;
+    const hvByCode = new Map<string, string>();
+    for (const s of shades ?? []) if (s.hvCode) hvByCode.set(s.code.toUpperCase(), s.hvCode);
+    return (code: string) =>
+      displayCodeOf(codeScheme, { code, hvCode: hvByCode.get(code.toUpperCase()) ?? null });
+  }, [codeScheme, shades]);
 
-  // Raw codes are withheld from guests always, and from everyone once the shop has a
-  // pattern — `encodeCode` then supplies what is shown in their place.
-  // Withheld from guests always, from everyone once the shop has a pattern — and from
-  // everyone while we still don't know, because the only safe way to be wrong here is to
-  // show nothing. `encodeCode` supplies what appears in their place.
-  const hideRawCodes = guest || !schemeLoaded || Boolean(codeScheme);
+  // Raw codes are withheld from guests always, from every non-shop viewer, and from
+  // everyone while we still don't know which they are — the only safe way to be wrong
+  // here is to show nothing, because a flash of the real code is exactly what the whole
+  // scheme exists to prevent and a customer only has to see it once.
+  // `encodeCode` supplies what appears in their place.
+  const hideRawCodes = guest || !schemeLoaded || !codeScheme?.showRealCodes;
 
   useEffect(() => {
     if (saveStatus !== "saved") {

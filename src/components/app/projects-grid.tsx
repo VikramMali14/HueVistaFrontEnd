@@ -49,6 +49,14 @@ interface ProjectsGridProps {
   /** null while the dashboard's single projects fetch is in flight. */
   projects: ProjectSummary[] | null;
   error: string | null;
+  /**
+   * Replaces the "start one with a photo" line when the grid is empty.
+   *
+   * That default is a shop's next step, not everyone's: a customer with no projects
+   * left cannot start one at all, and pointing them at the studio walks them into a
+   * gate. Callers who know the account supply the sentence that is true for it.
+   */
+  emptyHint?: React.ReactNode;
 }
 
 /**
@@ -72,7 +80,7 @@ function projectHref(p: ProjectSummary): string {
  * photo has been AI-cleaned show a raw-vs-cleaned before/after slider; the
  * title opens the project in the studio.
  */
-export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
+export function ProjectsGrid({ projects, error, emptyHint }: ProjectsGridProps) {
   const [visible, setVisible] = useState(INITIAL_VISIBLE);
 
   const sorted = projects
@@ -140,10 +148,15 @@ export function ProjectsGrid({ projects, error }: ProjectsGridProps) {
             <p style={{ margin: 0, font: "400 17px/1.45 var(--sans)", color: "var(--fg)" }}>
               No projects yet.
             </p>
-            <p style={{ margin: 0, font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "34ch" }}>
-              Start one with a photo of a room — the walls are found for you, then any
-              colour goes straight on them.
-            </p>
+            {/* A customer's next step is not the same as a shop's. A shop just starts
+                one; a customer needs a project to spend first, and telling them to
+                upload a photo sends them to a wall that asks for a code. */}
+            {emptyHint ?? (
+              <p style={{ margin: 0, font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "34ch" }}>
+                Start one with a photo of a room — the walls are found for you, then any
+                colour goes straight on them.
+              </p>
+            )}
           </div>
         )}
 

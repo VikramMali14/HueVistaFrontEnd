@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
 import { useShadeCodeScheme } from "@/hooks/use-shade-code-scheme";
-import { decodeShadeCode, encodeShadeCode, hasScheme } from "@/lib/shade-codes";
+import { decodeShadeCode, displayCodeOf, hasScheme } from "@/lib/shade-codes";
 import type { ComboScope, OrgResponse, PaintShade, RetailerCombo } from "@/lib/types";
 
 /** The three combo slots, in the studio's palette role order. */
@@ -36,7 +36,7 @@ export function ShopCombos({ shades, org: orgProp }: { shades: ReadonlyArray<Pai
   // that builds them shows the same ones rather than the manufacturer's.
   const scheme = useShadeCodeScheme();
   const showNames = scheme?.showNames !== false;
-  const codeOf = (code: string) => (hasScheme(scheme) ? encodeShadeCode(scheme, code) : code);
+  const codeOf = (shade: { code: string; hvCode?: string | null }) => displayCodeOf(scheme, shade);
 
   useEffect(() => {
     (async () => {
@@ -209,8 +209,8 @@ export function ShopCombos({ shades, org: orgProp }: { shades: ReadonlyArray<Pai
                         {combo.shades.map((s, i) => (
                           <div key={`${combo.id}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <span aria-hidden style={{ width: 24, height: 24, background: s.hex, border: "1px solid var(--rule-strong)", borderRadius: 4, flexShrink: 0 }} />
-                            <span style={{ font: "400 14px/1.2 var(--sans)", color: "var(--fg)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{showNames ? s.name : codeOf(s.code)}</span>
-                            <Mono>{codeOf(s.code)}</Mono>
+                            <span style={{ font: "400 14px/1.2 var(--sans)", color: "var(--fg)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{showNames ? s.name : codeOf(s)}</span>
+                            <Mono>{codeOf(s)}</Mono>
                           </div>
                         ))}
                       </div>
@@ -245,7 +245,7 @@ function SlotPicker({
   const q = query.trim().toLowerCase();
   const scheme = useShadeCodeScheme();
   const showNames = scheme?.showNames !== false;
-  const codeOf = (code: string) => (hasScheme(scheme) ? encodeShadeCode(scheme, code) : code);
+  const codeOf = (shade: { code: string; hvCode?: string | null }) => displayCodeOf(scheme, shade);
 
   const matches = useMemo(() => {
     if (!q) return [];
@@ -277,8 +277,8 @@ function SlotPicker({
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span aria-hidden style={{ width: 30, height: 30, background: value.hex, border: "1px solid var(--rule-strong)", borderRadius: 4, flexShrink: 0 }} />
           <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: "block", font: "400 14px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{showNames ? value.name : codeOf(value.code)}</span>
-            <Mono>{codeOf(value.code)}</Mono>
+            <span style={{ display: "block", font: "400 14px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{showNames ? value.name : codeOf(value)}</span>
+            <Mono>{codeOf(value)}</Mono>
           </span>
           <button
             type="button"
@@ -318,8 +318,8 @@ function SlotPicker({
                     style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", borderRadius: 6 }}
                   >
                     <span aria-hidden style={{ width: 20, height: 20, background: s.hex, border: "1px solid var(--rule-strong)", borderRadius: 4, flexShrink: 0 }} />
-                    <span style={{ flex: 1, minWidth: 0, font: "400 13.5px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{showNames ? s.name : codeOf(s.code)}</span>
-                    <Mono>{codeOf(s.code)}</Mono>
+                    <span style={{ flex: 1, minWidth: 0, font: "400 13.5px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{showNames ? s.name : codeOf(s)}</span>
+                    <Mono>{codeOf(s)}</Mono>
                   </button>
                 ))
               )}

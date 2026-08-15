@@ -107,6 +107,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     label: r.label,
     maskUrl: absUrl(r.maskUrl),
     initialHex: r.appliedHexCode ?? null,
+    initialHvCode: r.appliedHvCode ?? null,
   }));
   const brands = await fetchShareBrands(project);
 

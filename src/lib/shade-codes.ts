@@ -29,6 +29,20 @@ export interface ShadeCodeScheme {
    */
   showNames?: boolean;
   /**
+   * Whether this viewer may see the manufacturer's own shade codes.
+   *
+   * True for shop staff and administrators. False for everyone else — customers,
+   * guests, painters, share-link viewers — and for them {@link displayCodeOf} returns
+   * the platform-wide HV code instead, which names no company and no shade and can
+   * only be read back by a HueVista shop.
+   *
+   * Absent means FALSE, deliberately. An older backend, a failed fetch and a viewer
+   * we could not resolve all land here, and the safe answer to "should this person see
+   * the real code" is no: withholding costs a shop one lookup, while leaking hands away
+   * the only thing the scheme protects.
+   */
+  showRealCodes?: boolean;
+  /**
    * Patterns the shop has stopped using, newest first. Present only on the shop's own
    * fetch of its settings — the studio never needs them, because nothing is ever ENCODED
    * with a retired pattern.
@@ -108,6 +122,33 @@ export function decodeShadeCode(scheme: ShadeCodeScheme, customerCode: string): 
     value = value.slice(0, at) + value.slice(at + infix.length);
   }
   return value || null;
+}
+
+/**
+ * The code to PRINT for a shade, for whoever is looking at it.
+ *
+ * The one rule, in one place, because a colour appears on a dozen surfaces — the
+ * studio, the catalogue, the finder, a saved board, a forwarded share link — and the
+ * scheme is only worth anything if every one of them agrees. A single screen that
+ * prints the manufacturer's code undoes it everywhere.
+ *
+ * Shop staff and admins get the manufacturer's own code: they have to open the tin.
+ * Everyone else gets the HV code — global, opaque, and readable by any HueVista shop
+ * rather than only the one that issued the board, which is what lets a customer walk
+ * into a different shop and still be served.
+ *
+ * The shop's own prefix/pair/suffix pattern survives as the fallback for a shade with
+ * no HV code behind it (an older backend, a row inserted before the migration). It is
+ * no longer the primary presentation, but a shop that set one up should not suddenly
+ * see raw manufacturer codes on its customers' screens because a lookup came back thin.
+ */
+export function displayCodeOf(
+  scheme: ShadeCodeScheme | null | undefined,
+  shade: { code: string; hvCode?: string | null },
+): string {
+  if (scheme?.showRealCodes) return shade.code;
+  if (shade.hvCode) return shade.hvCode;
+  return hasScheme(scheme) ? encodeShadeCode(scheme, shade.code) : shade.code;
 }
 
 /** What a decode attempt found: the real code, and which pattern read it. */

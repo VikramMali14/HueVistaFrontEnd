@@ -255,8 +255,59 @@ export interface ShadeBrandSummary {
   shadeCount: number;
 }
 
+/** One shade as the decoder returns it (backend ShadeResponse, the fields the counter reads). */
+export interface DecodedShade {
+  brandName?: string | null;
+  brandSlug?: string | null;
+  shadeCode?: string | null;
+  hvCode?: string | null;
+  name?: string | null;
+  hexCode?: string | null;
+  shadeFamily?: string | null;
+}
+
+/**
+ * What the counter gets back for a customer's code (backend ShadeDecodeResponse).
+ *
+ * `shade` is what the code IS. `brandMatch` is what this shop can actually sell —
+ * the nearest colour in a company they stock, which is the question that follows
+ * every lookup where the customer designed their room against something else.
+ */
+export interface ShadeDecodeResult {
+  query: string;
+  /** How it resolved. Absent when nothing matched at all. */
+  matchedBy?: "HV_CODE" | "SHADE_CODE" | null;
+  shade?: DecodedShade | null;
+  /**
+   * Set instead of `shade` when a bare manufacturer code is carried by more than one
+   * company. Manufacturer codes are only unique within a company, so this is a
+   * question for the counter rather than something the server may guess at.
+   */
+  candidates?: DecodedShade[] | null;
+  brandMatch?: {
+    brandName: string;
+    brandSlug: string;
+    shade: DecodedShade;
+    /** True only when this company carries the very colour, not an approximation. */
+    exact: boolean;
+    /** CIE76 ΔE from the decoded colour. 0 when exact. */
+    deltaE: number;
+    /** That distance in words, for a counter that does not think in ΔE. */
+    closeness: string;
+  } | null;
+}
+
 export interface PaintShade {
   code: string;
+  /**
+   * The platform-wide customer-facing code — "HV0348" — that any HueVista shop can
+   * decode and nobody else can. This is what a customer, a guest or a share-link
+   * viewer is shown in place of {@link code}; shop staff see the manufacturer's own.
+   *
+   * Null for a shade the backend sent without one (an older deployment), in which
+   * case callers fall back to the real code.
+   */
+  hvCode?: string | null;
   name: string;
   hex: string;
   /** The brand's own family name from the shades table, e.g. "Off Whites". */
@@ -298,6 +349,14 @@ export interface RegionDetail {
   maskData?: string | null;
   maskUrl?: string | null;
   appliedShadeCode?: string | null;
+  /**
+   * The platform-wide code for the applied shade — "HV0348".
+   *
+   * Present where {@link appliedShadeCode} is deliberately absent (the shared-link
+   * view), because it gives nothing away: it names no paint company and no colour,
+   * and only a HueVista shop can read it back into a tin.
+   */
+  appliedHvCode?: string | null;
   appliedHexCode?: string | null;
   displayOrder?: number | null;
   /** True for walls the user drew by hand (vs. AI-detected). Only these may be

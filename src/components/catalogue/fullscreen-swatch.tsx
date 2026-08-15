@@ -66,7 +66,7 @@ export function FullscreenSwatch({ shades, onClose, hideCodes = false }: Fullscr
             <span style={{ font: "600 16px/1.2 var(--sans)" }}>{nameOf(s)}</span>
             {!hideCodes && (
               <span style={{ font: "400 12px/1 var(--code)", letterSpacing: ".18em", textTransform: "uppercase", opacity: 0.8 }}>
-                {codeOf(s.code)}
+                {codeOf(s)}
               </span>
             )}
           </div>

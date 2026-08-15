@@ -152,7 +152,7 @@ export function CompareOverlay({
                 <Mono>
                   {hideCodes ? s.brand : (
                     <>
-                      <span className="shade-code">{codeOf(s.code)}</span>{showNames ? ` · ${s.brand}` : ""}
+                      <span className="shade-code">{codeOf(s)}</span>{showNames ? ` · ${s.brand}` : ""}
                     </>
                   )}
                 </Mono>

@@ -4,7 +4,7 @@ import { Mono } from "@/components/ui/eyebrow";
 import { useCopied } from "@/hooks/use-copied";
 import { useShadeCodeScheme } from "@/hooks/use-shade-code-scheme";
 import { closenessRating } from "@/lib/color-science";
-import { encodeShadeCode, hasScheme } from "@/lib/shade-codes";
+import { displayCodeOf } from "@/lib/shade-codes";
 import type { ShadeMatch } from "@/hooks/use-shade-match";
 
 /**
@@ -34,7 +34,7 @@ export function MatchList({
   const { copied, copy } = useCopied();
   const scheme = useShadeCodeScheme();
   const showNames = scheme?.showNames !== false;
-  const codeOf = (code: string) => (hasScheme(scheme) ? encodeShadeCode(scheme, code) : code);
+  const codeOf = (shade: { code: string; hvCode?: string | null }) => displayCodeOf(scheme, shade);
 
   if (matches.length === 0) return null;
 
@@ -49,7 +49,7 @@ export function MatchList({
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {matches.map(({ shade, deltaE }, i) => {
           const rating = closenessRating(deltaE);
-          const code = codeOf(shade.code);
+          const code = codeOf(shade);
           const label = showNames ? shade.name : code;
           const action = onPick
             ? () => onPick(shade)
