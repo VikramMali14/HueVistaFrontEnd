@@ -14,6 +14,15 @@ vi.mock("@/lib/api", () => ({
     requestRender: vi.fn(),
     getRender: vi.fn(),
     getAiCredits: vi.fn(),
+    // Read on mount so a reprinted colour board carries the shop's own codes. Defaults
+    // to "no pattern, names shown" — the plain manufacturer codes these tests assert on.
+    getMyShadeCodeScheme: vi.fn(async () => ({
+      prefix: "",
+      infix: "",
+      suffix: "",
+      showNames: true,
+      showRealCodes: true,
+    })),
   },
   HttpError: class extends Error {
     constructor(

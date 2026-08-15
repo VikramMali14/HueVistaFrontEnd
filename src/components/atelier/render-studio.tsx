@@ -7,9 +7,18 @@ import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
+import { downloadBlob } from "@/lib/download-blob";
 import { resolveMediaUrl } from "@/lib/media";
 import { formatRupees } from "@/lib/money";
 import { buyAiCredits } from "@/lib/payments";
+import {
+  buildColourBoardPdf,
+  canvasToJpegDataUrl,
+  imageUrlToJpegDataUrl,
+  type PdfImageEntry,
+  type PdfShade,
+} from "@/lib/pdf-export";
+import { codesAreUniversal, displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
 import type {
   AiCreditSummary,
   ProjectCombo,
@@ -124,6 +133,14 @@ function comboName(combo: ProjectCombo, index: number): string {
   return combo.title?.trim() || `Combination ${index + 1}`;
 }
 
+/** "Modern · Day · Natural light" — how the image was photographed, for its PDF page. */
+function describeRender(render: ProjectRender): string {
+  const look = STYLE.find((s) => s.value === render.style)?.label ?? render.style;
+  const when = TIME_OF_DAY.find((t) => t.value === render.timeOfDay)?.label ?? render.timeOfDay;
+  const light = LIGHTING.find((l) => l.value === render.lighting)?.label ?? render.lighting;
+  return `${look} · ${when} · ${light} light`;
+}
+
 export function RenderStudio({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [combos, setCombos] = useState<ProjectCombo[]>([]);
@@ -138,6 +155,18 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   const [buying, setBuying] = useState(false);
   /** The AI wallet. Null while loading, and for an account that cannot hold credits. */
   const [wallet, setWallet] = useState<AiCreditSummary | null>(null);
+  /**
+   * The shop's customer-facing code pattern, needed only to reprint the colour board.
+   *
+   * A board carries codes that have to be readable back at a counter, and which counter
+   * depends on the scheme — so a sheet built here has to follow exactly the same rules
+   * the studio's did. Null means the fetch has not landed (or the account has no shop),
+   * and the safe reading of null is "hide the manufacturer's codes", the same way the
+   * studio treats it.
+   */
+  const [codeScheme, setCodeScheme] = useState<ShadeCodeScheme | null>(null);
+  /** True while the colour board is being rebuilt for download. */
+  const [boardBusy, setBoardBusy] = useState(false);
   /**
    * Whether this wait has already outlasted the minute the copy promises.
    *
@@ -174,7 +203,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     let cancelled = false;
     (async () => {
       try {
-        const [detail, comboList, renderList, credits] = await Promise.all([
+        const [detail, comboList, renderList, credits, scheme] = await Promise.all([
           api.getProject(projectId),
           api.getProjectCombos(projectId),
           api.listRenders(projectId),
@@ -182,12 +211,16 @@ export function RenderStudio({ projectId }: { projectId: string }) {
           // image will cost BEFORE it is pressed. A 403 (an account that cannot hold
           // credits) is normal and leaves the wallet null.
           api.getAiCredits().catch(() => null),
+          // Only used when the board is reprinted. Failing is normal — a customer
+          // account has no shop of its own — and null is the cautious answer anyway.
+          api.getMyShadeCodeScheme().catch(() => null),
         ]);
         if (cancelled) return;
         setProject(detail);
         setCombos(comboList);
         setRenders(renderList);
         setWallet(credits);
+        setCodeScheme(scheme);
         setSelected(comboList[0]?.id ?? null);
         // A render still in flight from a previous visit is picked back up rather
         // than left to finish invisibly — the customer closed the tab, not the job.
@@ -323,6 +356,119 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   }, [selected, generating, projectId, options, note, poll]);
 
   /**
+   * How a combination's shades are printed, under this shop's own rules.
+   *
+   * The same three decisions the studio makes when it builds a board — hide the paint
+   * name, swap the manufacturer's code for the customer-facing one, print the colour —
+   * repeated here because the sheet built on this page has to be indistinguishable from
+   * the one built there. A board that suddenly printed "Asian Paints Ivory Mist 7112"
+   * because it was reprinted from a different screen would undo the shop's whole scheme
+   * in the one artefact the customer keeps.
+   */
+  const printableShades = useCallback(
+    (combo: ProjectCombo | null | undefined): PdfShade[] => {
+      const hideNames = codeScheme?.showNames === false;
+      const hideRawCodes = !codeScheme?.showRealCodes;
+      return (combo?.shades ?? []).map((s) => ({
+        label: s.regionLabel ?? "Wall",
+        name: hideNames ? "" : (s.shadeName ?? "Custom colour"),
+        code: s.shadeCode
+          ? hideRawCodes
+            ? displayCodeOf(codeScheme, { code: s.shadeCode, hvCode: s.hvCode ?? null })
+            : s.shadeCode
+          : undefined,
+        hex: s.hex,
+      }));
+    },
+    [codeScheme],
+  );
+
+  /**
+   * Reprint the colour board with the finished AI image on the end of it.
+   *
+   * The project handed over ONE board, and it was downloaded in the studio before this
+   * image existed — so without this the customer's sheet and their picture are two
+   * things that never meet, and the picture is the half that ends up lost in a downloads
+   * folder. Reprinting is free and charges nothing: the board was already paid for and
+   * already recorded, and this rebuilds the very same combinations from the server's own
+   * record of them. Nothing here calls `recordColourBoard`, which is the only thing that
+   * spends a download.
+   *
+   * The pictures are re-rendered rather than remembered. The studio's snapshots were
+   * canvas pixels that died with that page, but every combination is stored as shades
+   * against regions, and this screen already paints one of them for the preview — so the
+   * same engine walks all of them through an off-screen canvas. Off-screen because the
+   * visible one is showing the customer's image, and flickering the whole board through
+   * it would look like a fault.
+   */
+  const downloadBoardWithImage = useCallback(async () => {
+    const image = active?.status === "READY" ? active : null;
+    if (!image || boardBusy) return;
+    setBoardBusy(true);
+    setError(null);
+    try {
+      const photo = resolveMediaUrl(project?.cleanedImageUrl || project?.imageUrl);
+      const entries: PdfImageEntry[] = [];
+      if (photo) {
+        const surface = document.createElement("canvas");
+        const engine = new Canvas2DRecolor(surface);
+        try {
+          engine.setImage(await loadImage(photo));
+          for (const combo of combos) {
+            const paints = [];
+            for (const shade of combo.shades) {
+              const region = shade.regionId != null ? regionsById.get(shade.regionId) : undefined;
+              const maskUrl = resolveMediaUrl(region?.maskUrl);
+              if (!region || !maskUrl) continue;
+              let mask = maskCache.current.get(region.id);
+              if (!mask) {
+                try {
+                  mask = await loadImage(maskUrl);
+                  maskCache.current.set(region.id, mask);
+                } catch {
+                  continue;
+                }
+              }
+              paints.push({ mask, target: hexToRgb01(shade.hex), preserve: 0.85, anchor: true });
+            }
+            // A combination whose regions have all been deleted cannot be repainted.
+            // Skipping it beats printing the bare photograph as if it were an option.
+            if (paints.length === 0) continue;
+            engine.renderRegions(paints);
+            const jpeg = canvasToJpegDataUrl(surface, 1500, 0.85);
+            if (jpeg) entries.push({ jpegDataUrl: jpeg, shades: printableShades(combo) });
+          }
+        } finally {
+          engine.dispose();
+        }
+      }
+
+      const aiJpeg = await imageUrlToJpegDataUrl(resolveMediaUrl(image.imageUrl) ?? "");
+      const renderedCombo = combos.find((c) => c.id === image.comboId) ?? null;
+      const blob = buildColourBoardPdf(
+        entries,
+        project?.name || "HueVista colour board",
+        codesAreUniversal(codeScheme),
+        aiJpeg
+          ? {
+              jpegDataUrl: aiJpeg,
+              shades: printableShades(renderedCombo),
+              caption: describeRender(image),
+            }
+          : null,
+      );
+      downloadBlob(blob, `huevista-colours-${Date.now()}.pdf`);
+    } catch {
+      setError(
+        "Could not rebuild the colour board on this device. Your image is still yours to "
+        + "download on its own.",
+      );
+    } finally {
+      setBoardBusy(false);
+    }
+  }, [active, boardBusy, project, combos, regionsById, codeScheme, printableShades]);
+
+  /**
    * Top up the wallet, then clear the finished image so the options are back on screen.
    *
    * Buys ONE credit, because that is what somebody standing on this screen wants — the
@@ -387,13 +533,18 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   return (
     <div className="hv-render">
       <header className="hv-render-head">
-        <Eyebrow>Project closed · your AI image</Eyebrow>
+        {/* No longer "Project closed" — an AI image is paid for with a credit and can be
+            made whenever, so announcing a state the customer may not be in was wrong. */}
+        <Eyebrow>Your AI image</Eyebrow>
         <h1 className="display">
           Pick the one you want to <i>see for real.</i>
         </h1>
         <Lead>
-          These are the {combos.length} combinations from your colour boards. Choose one and
-          we&apos;ll photograph your room in it — the same shades, in real light.
+          {combos.length === 1
+            ? "This is the combination from your colour board."
+            : `These are the ${combos.length} combinations from your colour board.`}{" "}
+          Choose one and we&apos;ll photograph your room in it — the same shades, in real
+          light.
         </Lead>
       </header>
 
@@ -455,10 +606,20 @@ export function RenderStudio({ projectId }: { projectId: string }) {
       {ready ? (
         <section className="hv-render-done">
           <p className="hv-render-done-text">Your image is ready.</p>
+          {/* The board and the picture belong on one sheet — see downloadBoardWithImage.
+              Offered beside the plain image download rather than instead of it, because
+              somebody who only wants the picture should not have to take a PDF. */}
+          <p className="hv-render-done-sub">
+            Your colour board can be reprinted with this image on the last page. It costs
+            nothing — the board was already paid for.
+          </p>
           <div className="hv-render-done-actions">
             <a className="btn btn-brass" href={resolveMediaUrl(ready.imageUrl) ?? "#"} download>
               Download the image
             </a>
+            <Button variant="ghost" disabled={boardBusy} onClick={() => void downloadBoardWithImage()}>
+              {boardBusy ? "Building your PDF…" : "Colour board PDF · with this image"}
+            </Button>
             {canGenerate ? (
               <Button variant="ghost" onClick={() => setActive(null)}>
                 Make another{creditsLeft >= cost && rendersLeft <= 0 ? ` · ${cost} credit` : ""}
@@ -599,6 +760,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
         .hv-render-left { font: 400 13px/1.4 var(--sans); color: var(--fg-soft); }
         .hv-render-done { margin-top: 28px; display: grid; gap: 12px; justify-items: start; }
         .hv-render-done-text { font: 500 16px/1.3 var(--sans); color: var(--fg); }
+        .hv-render-done-sub { font: 400 13px/1.5 var(--sans); color: var(--fg-soft); margin: 0; max-width: 52ch; }
         .hv-render-done-actions { display: flex; flex-wrap: wrap; gap: 12px; }
         .hv-render-error { margin-top: 16px; font: 400 14px/1.4 var(--sans); color: var(--danger, #b3261e); }
         .hv-render-loading, .hv-render-empty {

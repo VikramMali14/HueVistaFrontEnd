@@ -515,6 +515,10 @@ export interface ProjectComboShade {
   regionLabel?: string | null;
   shadeCode?: string | null;
   shadeName?: string | null;
+  /** The platform-wide HV code for `shadeCode`, resolved server-side. Present so a board
+   *  rebuilt away from the studio — the closing sheet that carries the AI image — prints
+   *  the same customer-facing code the original did, without fetching the catalogue. */
+  hvCode?: string | null;
   /** The colour itself. The one field a combo cannot be re-rendered without. */
   hex: string;
 }
