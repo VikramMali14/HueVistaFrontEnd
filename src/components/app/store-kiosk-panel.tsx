@@ -8,6 +8,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
 import { formatPoints, formatRupees } from "@/lib/money";
 import { site } from "@/lib/config";
+import { buildKioskPoster, kioskPosterFileName } from "@/lib/kiosk-poster";
+import { downloadBlob } from "@/lib/download-blob";
 import type { OrgResponse, StoreLink, WalletSummary } from "@/lib/types";
 
 /**
@@ -20,6 +22,16 @@ import type { OrgResponse, StoreLink, WalletSummary } from "@/lib/types";
  * no price field and no payout form here; points are spent in the billing panel, on
  * extra projects and reopens.
  */
+/**
+ * Where this link points. One place, so the URL shown, the URL copied and the URL
+ * baked into the printed QR cannot drift apart — a poster pointing somewhere the
+ * Copy button doesn't is only discovered once it is on the wall.
+ */
+function storeUrl(link: StoreLink): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : site.origin;
+  return `${origin}/store/${link.slug}`;
+}
+
 export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) {
   const [loading, setLoading] = useState(true);
   const [org, setOrg] = useState<OrgResponse | null>(null);
@@ -31,6 +43,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
   const [savingLink, setSavingLink] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [buildingPoster, setBuildingPoster] = useState<string | null>(null);
 
   const load = useCallback(async (orgId: string) => {
     const [linkList, walletSummary] = await Promise.all([
@@ -112,12 +125,30 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
   }, []);
 
   const copyUrl = useCallback((link: StoreLink) => {
-    const url = `${window.location.origin}/store/${link.slug}`;
-    navigator.clipboard?.writeText(url).then(() => {
+    navigator.clipboard?.writeText(storeUrl(link)).then(() => {
       setCopied(link.id);
       setTimeout(() => setCopied((c) => (c === link.id ? null : c)), 1200);
     }).catch(() => {});
   }, []);
+
+  /**
+   * The counter poster: wordmark, shop name, QR to this link. Built here in the
+   * browser rather than fetched, because everything on it is already on this page
+   * — and a shop that prints it should not have to be online to do so twice.
+   */
+  const downloadPoster = useCallback(async (link: StoreLink) => {
+    const shopName = link.organizationName || org?.name || "";
+    setBuildingPoster(link.id);
+    setError(null);
+    try {
+      const poster = await buildKioskPoster({ shopName, url: storeUrl(link) });
+      downloadBlob(poster, kioskPosterFileName(shopName));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not build the QR poster.");
+    } finally {
+      setBuildingPoster(null);
+    }
+  }, [org]);
 
   if (loading) {
     return (
@@ -173,10 +204,18 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
               <div key={link.id} style={{ border: "1px solid var(--rule)", padding: "18px 22px", display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
                   <span style={{ fontFamily: "var(--mono)", fontSize: 15, color: "var(--accent)", overflowWrap: "anywhere" }}>
-                    {typeof window !== "undefined" ? window.location.origin : ""}/store/{link.slug}
+                    {storeUrl(link)}
                   </span>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyUrl(link)}>
                     {copied === link.id ? "Copied" : "Copy URL"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => void downloadPoster(link)}
+                    disabled={buildingPoster === link.id}
+                  >
+                    {buildingPoster === link.id ? "Preparing…" : "Download QR"}
                   </button>
                   <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: link.active ? "var(--accent)" : "var(--fg-mute-deep)", border: "1px solid " + (link.active ? "var(--accent)" : "var(--rule)"), borderRadius: 999, padding: "5px 10px" }}>
                     {link.active ? "Live" : "Paused"}
@@ -226,9 +265,11 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
               </div>
             ))}
             <p style={{ font: "400 13px/1.5 var(--sans)", color: "var(--fg-mute)", margin: 0 }}>
-              Open this URL on a tablet at your counter, print it as a QR, or send it on WhatsApp — customers
-              pay there and their pickup code appears in your &ldquo;Active codes&rdquo; list above. Pausing
-              keeps the printed URL working for when you come back; deleting stops it for good.
+              Open this URL on a tablet at your counter, print the QR poster for your wall, or send the
+              link on WhatsApp — customers pay there and their pickup code appears in your
+              &ldquo;Active codes&rdquo; list above. &ldquo;Download QR&rdquo; gives you a ready-to-print
+              sheet with your shop&rsquo;s name on it. Pausing keeps the printed poster working for when
+              you come back; deleting stops it for good.
             </p>
           </div>
         )}
