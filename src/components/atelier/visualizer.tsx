@@ -34,9 +34,9 @@ import { api, guestApi, HttpError } from "@/lib/api";
 import {
   buildColourBoardPdf,
   canvasToJpegDataUrl,
-  downloadBlob,
   type PdfImageEntry,
 } from "@/lib/pdf-export";
+import { downloadBlob } from "@/lib/download-blob";
 import { runColourBoardDownload } from "@/lib/colour-board-download";
 import { ShareDialog } from "./share-dialog";
 import { ReportDialog } from "./report-dialog";
