@@ -563,6 +563,14 @@ export const adminApi = {
       `/api/admin/free-projects/${encodeURIComponent(templateId)}/refresh`,
       { method: "POST", accessToken },
     ),
+  // Edit a room's details without touching a pixel: which page it shows on, its
+  // title and shelf, and the story the portfolio prints beside it. Fields left
+  // out are left alone, so send only what the form displays.
+  updateFreeProject: (accessToken: string, templateId: string, body: UpdateFreeProjectBody) =>
+    serverFetch<FreeProjectTemplate>(
+      `/api/admin/free-projects/${encodeURIComponent(templateId)}`,
+      { method: "PATCH", accessToken, body: JSON.stringify(body) },
+    ),
   setFreeProjectPublished: (accessToken: string, templateId: string, published: boolean) =>
     serverFetch<FreeProjectTemplate>(
       `/api/admin/free-projects/${encodeURIComponent(templateId)}/published?published=${published}`,
@@ -611,6 +619,16 @@ export const galleryApi = {
 /** Interiors are shelved by room; exteriors by style. */
 export type TemplateSpace = "INTERIOR" | "EXTERIOR";
 
+/**
+ * Which public page a published room appears on.
+ *
+ * The library feeds two: /gallery, a grid to browse and paint from, and /work,
+ * the portfolio where each room carries a story. Orthogonal to `published`,
+ * which says whether the room is on the site at all — hiding one takes it off
+ * both pages whatever this says.
+ */
+export type TemplatePlacement = "GALLERY" | "WORK" | "BOTH";
+
 /** One wall of a template — a mask PNG made once, at publish time. */
 export interface FreeProjectTemplateRegion {
   id: number;
@@ -636,9 +654,21 @@ export interface FreeProjectTemplate {
   imageWidth?: number | null;
   imageHeight?: number | null;
   published: boolean;
+  /** Which public page it shows on. Absent on responses from an older backend. */
+  placement?: TemplatePlacement | null;
   displayOrder: number;
   /** Only ever counts up — includes copies people have since deleted. */
   timesUsed: number;
+  /* Editorial copy for /work, raw as the admin typed it — the story is still one
+     string with blank lines in it, the stats still "Label: Value" per line. That
+     is what the edit form puts back in its textareas; only the PUBLIC shape
+     (PublishedProject) splits them, where they are rendered rather than edited. */
+  location?: string | null;
+  projectYear?: string | null;
+  credit?: string | null;
+  blurb?: string | null;
+  story?: string | null;
+  stats?: string | null;
   regionCount: number;
   /**
    * Copies alive right now still pointing at this template's stored files — so,
@@ -680,7 +710,30 @@ export interface PublishableProject {
   updatedAt?: string | null;
 }
 
-export interface PublishFreeProjectBody {
+/**
+ * The editorial copy the /work portfolio prints beside a room.
+ *
+ * All optional, all ignored by the gallery grid — which reads everything it
+ * shows off the room itself. A portfolio room with none of this set is a normal
+ * state: the page falls back to the room's own shades, room type and publish
+ * month, and omits the sections it has nothing for.
+ */
+export interface WorkStoryFields {
+  /** "Pune", "Bengaluru". */
+  location?: string;
+  /** Free text, not a number: "2026" and "Winter 2025" both read fine. */
+  projectYear?: string;
+  /** The attribution line under the story. */
+  credit?: string;
+  /** One sentence; the card summary and the page's lead. */
+  blurb?: string;
+  /** Paragraphs separated by blank lines. */
+  story?: string;
+  /** One `Label: Value` per line. */
+  stats?: string;
+}
+
+export interface PublishFreeProjectBody extends WorkStoryFields {
   projectId: string;
   title: string;
   space: TemplateSpace;
@@ -690,6 +743,25 @@ export interface PublishFreeProjectBody {
   description?: string;
   displayOrder?: number;
   published?: boolean;
+  /** Defaults to WORK on the backend — the destination the admin form opens on. */
+  placement?: TemplatePlacement;
+}
+
+/**
+ * Edit a room already on the shelf. Metadata only — the photograph and masks
+ * come from the source project and are replaced by `refreshFreeProject`.
+ *
+ * A field left out is left alone; a field sent as "" is cleared. That is what
+ * makes a partial edit safe, so send only what the form actually shows.
+ */
+export interface UpdateFreeProjectBody extends WorkStoryFields {
+  title?: string;
+  space?: TemplateSpace;
+  roomKey?: string;
+  roomLabel?: string;
+  description?: string;
+  displayOrder?: number;
+  placement?: TemplatePlacement;
 }
 
 /** What "start a copy" hands back — enough to jump straight to the studio. */

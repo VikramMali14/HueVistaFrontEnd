@@ -8,7 +8,7 @@ import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Placeholder } from "@/components/ui/placeholder";
 import { RevealMount } from "@/components/ui/reveal-mount";
 import { GalleryGrid, type Plate, type PlateCategory } from "@/components/gallery/gallery-grid";
-import { fetchPublishedProjects, type PublishedProject } from "@/lib/free-projects-server";
+import { fetchGalleryProjects, type PublishedProject } from "@/lib/free-projects-server";
 import { fetchSiteAssets } from "@/lib/site-assets-server";
 import { WORKS } from "@/lib/work";
 
@@ -95,10 +95,12 @@ function plateOf(p: PublishedProject, i: number): Plate {
 }
 
 export default async function GalleryPage() {
-  // The shelf an admin publishes from /admin/free-projects. These are real
-  // photographs of real rooms with real shade codes on them, so when there are any
-  // they ARE the gallery and the placeholder plates below never render.
-  const [published, assets] = await Promise.all([fetchPublishedProjects(), fetchSiteAssets()]);
+  // The shelf an admin publishes from /admin/free-projects, narrowed to the rooms
+  // filed under THIS page — the library also feeds /work, and a room belongs to
+  // whichever of the two the admin chose (or both). These are real photographs of
+  // real rooms with real shade codes on them, so when there are any they ARE the
+  // gallery and the placeholder plates below never render.
+  const [published, assets] = await Promise.all([fetchGalleryProjects(), fetchSiteAssets()]);
 
   // Nothing published yet: fall back to the built-in demonstration plates.
   const live = published.length > 0;

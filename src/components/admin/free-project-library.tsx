@@ -12,7 +12,9 @@ import type {
   PublishableProject,
   StartedFreeProject,
   TemplateDeletionResult,
+  TemplatePlacement,
   TemplateSpace,
+  UpdateFreeProjectBody,
 } from "@/lib/api";
 
 interface FreeProjectLibraryProps {
@@ -30,6 +32,10 @@ interface FreeProjectLibraryProps {
   startAction: (templateId: string) => Promise<{ started?: StartedFreeProject; error?: string }>;
   setPublishedAction: (templateId: string, published: boolean) => Promise<{ template?: FreeProjectTemplate; error?: string }>;
   refreshAction: (templateId: string) => Promise<{ template?: FreeProjectTemplate; error?: string }>;
+  updateAction: (
+    templateId: string,
+    input: UpdateFreeProjectBody,
+  ) => Promise<{ template?: FreeProjectTemplate; error?: string }>;
   deleteAction: (
     templateIds: string[],
     purgeFiles: boolean,
@@ -37,6 +43,85 @@ interface FreeProjectLibraryProps {
 }
 
 const SPACES: readonly TemplateSpace[] = ["INTERIOR", "EXTERIOR"];
+
+/**
+ * Where a published room shows.
+ *
+ * "Our work" leads because it is the destination this form defaults to and the
+ * one an admin reaches for: the portfolio is the page that used to be twelve
+ * invented rooms nobody could edit.
+ */
+const PLACEMENTS: ReadonlyArray<{ value: TemplatePlacement; label: string; hint: string }> = [
+  { value: "WORK", label: "Our work", hint: "The portfolio at /work — a room and its story." },
+  { value: "GALLERY", label: "Gallery", hint: "The grid at /gallery — browse and paint." },
+  { value: "BOTH", label: "Both pages", hint: "Shows on the portfolio and in the grid." },
+];
+
+const PLACEMENT_LABEL: Record<TemplatePlacement, string> = {
+  WORK: "Our work",
+  GALLERY: "Gallery",
+  BOTH: "Both",
+};
+
+/** A room published before placements existed has none; it is on the gallery. */
+function placementOf(t: FreeProjectTemplate): TemplatePlacement {
+  return t.placement ?? "GALLERY";
+}
+
+/**
+ * The editorial copy the "Our work" page prints beside a room.
+ *
+ * Held as one object so the publish form and the edit panel can share both the
+ * fields and the submitting — they are the same six questions asked at two
+ * different moments.
+ */
+interface StoryDraft {
+  location: string;
+  projectYear: string;
+  credit: string;
+  blurb: string;
+  story: string;
+  stats: string;
+}
+
+const EMPTY_STORY: StoryDraft = {
+  location: "",
+  projectYear: "",
+  credit: "",
+  blurb: "",
+  story: "",
+  stats: "",
+};
+
+function storyOf(t: FreeProjectTemplate): StoryDraft {
+  return {
+    location: t.location ?? "",
+    projectYear: t.projectYear ?? "",
+    credit: t.credit ?? "",
+    blurb: t.blurb ?? "",
+    story: t.story ?? "",
+    stats: t.stats ?? "",
+  };
+}
+
+/**
+ * Trim for the wire.
+ *
+ * Every field is sent, including the empty ones — on the edit path an empty
+ * string is how a field gets cleared, and the form is showing the admin exactly
+ * what it is sending. On the publish path an empty string and an absent field
+ * mean the same thing to the backend, so one shape serves both.
+ */
+function trimmedStory(draft: StoryDraft): StoryDraft {
+  return {
+    location: draft.location.trim(),
+    projectYear: draft.projectYear.trim(),
+    credit: draft.credit.trim(),
+    blurb: draft.blurb.trim(),
+    story: draft.story.trim(),
+    stats: draft.stats.trim(),
+  };
+}
 
 const CARD: React.CSSProperties = {
   border: "1px solid var(--rule)",
@@ -57,6 +142,13 @@ const FIELD: React.CSSProperties = {
   font: "300 15px/1.4 var(--serif)",
 };
 
+const TEXTAREA: React.CSSProperties = {
+  ...FIELD,
+  minHeight: 96,
+  resize: "vertical",
+  fontFamily: "var(--serif)",
+};
+
 const LABEL: React.CSSProperties = {
   display: "block",
   font: "400 12px/1.6 var(--mono)",
@@ -65,6 +157,169 @@ const LABEL: React.CSSProperties = {
   color: "var(--fg-mute)",
   marginBottom: 6,
 };
+
+const HINT: React.CSSProperties = {
+  margin: "6px 0 0",
+  font: "300 13px/1.6 var(--serif)",
+  color: "var(--fg-mute)",
+};
+
+/** The three destinations, as pills. Used by the publish form and the edit panel. */
+function PlacementPicker({
+  value,
+  onChange,
+  disabled,
+  idPrefix,
+}: {
+  value: TemplatePlacement;
+  onChange: (next: TemplatePlacement) => void;
+  disabled?: boolean;
+  idPrefix: string;
+}) {
+  const chosen = PLACEMENTS.find((p) => p.value === value);
+  return (
+    <div>
+      <span style={LABEL} id={`${idPrefix}-placement-label`}>
+        Show on
+      </span>
+      <div role="group" aria-labelledby={`${idPrefix}-placement-label`} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {PLACEMENTS.map((p) => {
+          const active = p.value === value;
+          return (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => onChange(p.value)}
+              disabled={disabled}
+              aria-pressed={active}
+              title={p.hint}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 999,
+                cursor: disabled ? "default" : "pointer",
+                border: `1px solid ${active ? "var(--accent-soft)" : "var(--rule-strong)"}`,
+                background: active ? "var(--accent-soft)" : "transparent",
+                color: active ? "var(--surface)" : "var(--fg-soft)",
+                font: "500 12px/1 var(--mono)",
+                letterSpacing: ".1em",
+                textTransform: "uppercase",
+              }}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
+      {chosen && <p style={HINT}>{chosen.hint}</p>}
+    </div>
+  );
+}
+
+/**
+ * The six editorial questions the portfolio page asks.
+ *
+ * Every one optional, and the panel says so — a room can go up the moment it is
+ * published and have its story written next week, or never. What it cannot do is
+ * pretend: the palette on that page is read off the walls in the picture, never
+ * from anything typed here.
+ */
+function StoryFields({
+  draft,
+  onChange,
+  disabled,
+  idPrefix,
+}: {
+  draft: StoryDraft;
+  onChange: (next: StoryDraft) => void;
+  disabled?: boolean;
+  idPrefix: string;
+}) {
+  const set = (key: keyof StoryDraft) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    onChange({ ...draft, [key]: e.target.value });
+
+  return (
+    <div style={{ display: "grid", gap: 18 }}>
+      <div className="r-cols-xs-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 18 }}>
+        <div>
+          <label htmlFor={`${idPrefix}-location`} style={LABEL}>Location</label>
+          <input
+            id={`${idPrefix}-location`}
+            value={draft.location}
+            onChange={set("location")}
+            disabled={disabled}
+            placeholder="Pune"
+            maxLength={120}
+            style={FIELD}
+          />
+        </div>
+        <div>
+          <label htmlFor={`${idPrefix}-year`} style={LABEL}>Year</label>
+          <input
+            id={`${idPrefix}-year`}
+            value={draft.projectYear}
+            onChange={set("projectYear")}
+            disabled={disabled}
+            placeholder="2026"
+            maxLength={16}
+            style={FIELD}
+          />
+        </div>
+        <div>
+          <label htmlFor={`${idPrefix}-credit`} style={LABEL}>Credit</label>
+          <input
+            id={`${idPrefix}-credit`}
+            value={draft.credit}
+            onChange={set("credit")}
+            disabled={disabled}
+            placeholder="Previewed at the counter · Pune"
+            maxLength={200}
+            style={FIELD}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor={`${idPrefix}-blurb`} style={LABEL}>One-line summary</label>
+        <input
+          id={`${idPrefix}-blurb`}
+          value={draft.blurb}
+          onChange={set("blurb")}
+          disabled={disabled}
+          placeholder="A west-facing living room that asked for warmth."
+          maxLength={400}
+          style={FIELD}
+        />
+        <p style={HINT}>Sits under the title on the room&rsquo;s own page.</p>
+      </div>
+
+      <div>
+        <label htmlFor={`${idPrefix}-story`} style={LABEL}>The story</label>
+        <textarea
+          id={`${idPrefix}-story`}
+          value={draft.story}
+          onChange={set("story")}
+          disabled={disabled}
+          placeholder={"They arrived with a phone photo of a room that went orange every evening.\n\nThe rust held its depth where the brighter terracottas burned out."}
+          style={TEXTAREA}
+        />
+        <p style={HINT}>Leave a blank line between paragraphs.</p>
+      </div>
+
+      <div>
+        <label htmlFor={`${idPrefix}-stats`} style={LABEL}>The numbers</label>
+        <textarea
+          id={`${idPrefix}-stats`}
+          value={draft.stats}
+          onChange={set("stats")}
+          disabled={disabled}
+          placeholder={"Surfaces: 4 walls · trim\nPhoto to preview: 18 s\nDecided: same visit"}
+          style={{ ...TEXTAREA, minHeight: 78 }}
+        />
+        <p style={HINT}>One per line, written <code>Label: Value</code>. Three fit the row.</p>
+      </div>
+    </div>
+  );
+}
 
 /**
  * The free-project library.
@@ -84,6 +339,7 @@ export function FreeProjectLibrary({
   startAction,
   setPublishedAction,
   refreshAction,
+  updateAction,
   deleteAction,
 }: FreeProjectLibraryProps) {
   const router = useRouter();
@@ -93,6 +349,8 @@ export function FreeProjectLibrary({
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /** The room whose edit panel is open. Only ever one — it is a big form. */
+  const [editingId, setEditingId] = useState<string | null>(null);
   // Ticked rooms. Survives switching between interiors and exteriors, so a
   // selection can span both — the toolbar always says how many are held.
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -125,6 +383,11 @@ export function FreeProjectLibrary({
 
   const total = templates.length;
   const live = templates.filter((t) => t.published).length;
+  // Counted over VISIBLE rooms only: a hidden one is on neither page whatever
+  // its placement says, and a header claiming "4 on Our work" while the page
+  // shows two would be worse than saying nothing.
+  const onWork = templates.filter((t) => t.published && placementOf(t) !== "GALLERY").length;
+  const onGallery = templates.filter((t) => t.published && placementOf(t) !== "WORK").length;
 
   function run<T>(id: string | null, fn: () => Promise<T>, after: (result: T) => void) {
     setBusyId(id);
@@ -184,6 +447,27 @@ export function FreeProjectLibrary({
     });
   }
 
+  function handleSaveEdit(template: FreeProjectTemplate, input: UpdateFreeProjectBody) {
+    run(template.id, () => updateAction(template.id, input), (res) => {
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      if (res.template) {
+        const saved = res.template;
+        setTemplates((prev) => prev.map((t) => (t.id === template.id ? saved : t)));
+        setEditingId(null);
+        // The destination is the part worth confirming out loud — it is the one
+        // change that moves the room to a different page of the site, and the
+        // shelf below looks identical either way.
+        setNotice(
+          `"${saved.title}" saved. It shows on ${PLACEMENT_LABEL[placementOf(saved)].toLowerCase()}`
+          + `${saved.published ? "" : " once you make it visible"}.`,
+        );
+      }
+    });
+  }
+
   function toggleSelect(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -238,8 +522,9 @@ export function FreeProjectLibrary({
   function handlePublished(template: FreeProjectTemplate) {
     setTemplates((prev) => [...prev, template]);
     setSpace(template.space);
+    const where = PLACEMENT_LABEL[placementOf(template)].toLowerCase();
     setNotice(
-      `"${template.title}" is on the shelf under ${template.roomLabel}, with ` +
+      `"${template.title}" is on the shelf under ${template.roomLabel}, showing on ${where}, with ` +
         `${template.regionCount} wall${template.regionCount === 1 ? "" : "s"} ready to paint.`,
     );
   }
@@ -282,7 +567,7 @@ export function FreeProjectLibrary({
             On the <i>shelf.</i>
           </h2>
           <Mono style={{ color: "var(--fg-mute)" }}>
-            {total} room{total === 1 ? "" : "s"} · {live} visible
+            {total} room{total === 1 ? "" : "s"} · {live} visible · {onWork} on Our work · {onGallery} in the Gallery
           </Mono>
         </div>
 
@@ -409,10 +694,13 @@ export function FreeProjectLibrary({
                     busy={pending && busyId === t.id}
                     disabled={pending}
                     selected={selected.has(t.id)}
+                    editing={editingId === t.id}
                     onToggleSelect={() => toggleSelect(t.id)}
                     onStart={() => handleStart(t)}
                     onTogglePublished={() => handleTogglePublished(t)}
                     onRefresh={() => handleRefresh(t)}
+                    onEdit={() => setEditingId(editingId === t.id ? null : t.id)}
+                    onSaveEdit={(input) => handleSaveEdit(t, input)}
                     onDelete={() => askToRemove([t])}
                   />
                 ))}
@@ -430,23 +718,30 @@ function TemplateCard({
   busy,
   disabled,
   selected,
+  editing,
   onToggleSelect,
   onStart,
   onTogglePublished,
   onRefresh,
+  onEdit,
+  onSaveEdit,
   onDelete,
 }: {
   template: FreeProjectTemplate;
   busy: boolean;
   disabled: boolean;
   selected: boolean;
+  editing: boolean;
   onToggleSelect: () => void;
   onStart: () => void;
   onTogglePublished: () => void;
   onRefresh: () => void;
+  onEdit: () => void;
+  onSaveEdit: (input: UpdateFreeProjectBody) => void;
   onDelete: () => void;
 }) {
   const src = resolveMediaUrl(template.imageUrl);
+  const placement = placementOf(template);
   return (
     <article style={{ ...CARD, outline: selected ? "2px solid var(--accent-soft)" : undefined }}>
       <div style={{ position: "relative", aspectRatio: "4 / 3", background: "var(--surface)" }}>
@@ -513,6 +808,21 @@ function TemplateCard({
             {template.regionCount} wall{template.regionCount === 1 ? "" : "s"} · opened {template.timesUsed}×
             {template.copiesInUse > 0 && ` · ${template.copiesInUse} copy/copies live`}
           </Mono>
+          {/* Which page this room is on. Worth stating on every card: the shelf
+              groups by room type, so two rooms sitting side by side here can be
+              on entirely different pages of the site. */}
+          <Mono
+            style={{
+              display: "inline-block",
+              marginTop: 8,
+              padding: "3px 10px",
+              borderRadius: 999,
+              border: "1px solid var(--rule-strong)",
+              color: template.published ? "var(--accent-soft)" : "var(--fg-mute)",
+            }}
+          >
+            {template.published ? PLACEMENT_LABEL[placement] : `${PLACEMENT_LABEL[placement]} · hidden`}
+          </Mono>
         </div>
 
         {template.description && (
@@ -524,6 +834,16 @@ function TemplateCard({
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: "auto", paddingTop: 6 }}>
           <Button size="sm" onClick={onStart} disabled={disabled || !template.published}>
             {busy ? "Opening…" : "Open a copy"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onEdit}
+            disabled={disabled}
+            aria-expanded={editing}
+            title="Change which page this room shows on, and the story printed beside it."
+          >
+            {editing ? "Close" : "Edit"}
           </Button>
           <Button size="sm" variant="ghost" onClick={onTogglePublished} disabled={disabled}>
             {template.published ? "Hide" : "Show"}
@@ -549,8 +869,125 @@ function TemplateCard({
             Remove
           </Button>
         </div>
+
+        {editing && (
+          <EditPanel
+            template={template}
+            busy={busy}
+            disabled={disabled}
+            onSave={onSaveEdit}
+            onCancel={onEdit}
+          />
+        )}
       </div>
     </article>
+  );
+}
+
+/**
+ * Editing a room already on the shelf.
+ *
+ * The point of this panel is the destination: until it existed, where a room
+ * showed was decided once, at publish time, and moving it meant deleting the
+ * room — losing its slug, every link to it, and its usage count — and publishing
+ * again. Everything else here is copy that can be written long after the room
+ * went up, which is the normal way of it: publish the room when it is ready,
+ * write about it when there is something to say.
+ *
+ * The photograph and the walls are deliberately absent. Those come from the
+ * source project and are replaced by "Update walls", which has its own rules
+ * about the copies people are already holding.
+ */
+function EditPanel({
+  template,
+  busy,
+  disabled,
+  onSave,
+  onCancel,
+}: {
+  template: FreeProjectTemplate;
+  busy: boolean;
+  disabled: boolean;
+  onSave: (input: UpdateFreeProjectBody) => void;
+  onCancel: () => void;
+}) {
+  const [title, setTitle] = useState(template.title);
+  const [placement, setPlacement] = useState<TemplatePlacement>(placementOf(template));
+  const [draft, setDraft] = useState<StoryDraft>(() => storyOf(template));
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    // Every managed field goes, empty ones included: the backend reads "" as
+    // "clear this", which is how a credit line gets deleted. Nothing the form
+    // does not show is sent, so nothing it cannot see can be lost.
+    onSave({ title: title.trim(), placement, ...trimmedStory(draft) });
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      // Named, because the publish form above asks the same questions — without
+      // this, "Location" on the page is ambiguous to a screen reader moving by
+      // form field, and there is no way to tell which room is being edited.
+      aria-label={`Edit ${template.title}`}
+      style={{
+        marginTop: 16,
+        paddingTop: 16,
+        borderTop: "1px solid var(--rule)",
+        display: "grid",
+        gap: 18,
+      }}
+    >
+      <div>
+        <label htmlFor={`edit-title-${template.id}`} style={LABEL}>Title</label>
+        <input
+          id={`edit-title-${template.id}`}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          disabled={disabled}
+          maxLength={160}
+          style={FIELD}
+        />
+      </div>
+
+      <PlacementPicker
+        value={placement}
+        onChange={setPlacement}
+        disabled={disabled}
+        idPrefix={`edit-${template.id}`}
+      />
+
+      {placement !== "GALLERY" && (
+        <div>
+          <p
+            style={{
+              margin: "0 0 14px",
+              font: "400 12px/1.6 var(--mono)",
+              letterSpacing: ".14em",
+              textTransform: "uppercase",
+              color: "var(--fg-mute)",
+            }}
+          >
+            The Our work page
+          </p>
+          <StoryFields
+            draft={draft}
+            onChange={setDraft}
+            disabled={disabled}
+            idPrefix={`edit-${template.id}`}
+          />
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <Button type="submit" size="sm" disabled={disabled}>
+          {busy ? "Saving…" : "Save"}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel} disabled={disabled}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -707,6 +1144,11 @@ function PublishPanel({
   const [space, setSpace] = useState<TemplateSpace>("INTERIOR");
   const [roomKey, setRoomKey] = useState(firstShelfFor("INTERIOR").key);
   const [description, setDescription] = useState("");
+  // "Our work" by default. It is the page this form exists to fill — the
+  // portfolio was twelve invented rooms in a source file until it could be
+  // published to — and it matches the backend's own default.
+  const [placement, setPlacement] = useState<TemplatePlacement>("WORK");
+  const [story, setStory] = useState<StoryDraft>(EMPTY_STORY);
   const [pending, startTransition] = useTransition();
 
   const roomOptions = ROOM_SHELVES.filter((s) => s.space === space);
@@ -735,6 +1177,11 @@ function PublishPanel({
         roomKey,
         roomLabel: roomLabelFor(roomKey),
         description: description.trim() || undefined,
+        placement,
+        // Sent whatever the destination: a room can be moved onto the portfolio
+        // later, and losing what was typed here because the pills were on
+        // "Gallery" at the moment of pressing publish would be a nasty surprise.
+        ...trimmedStory(story),
       });
       if (res.error) {
         onError(res.error);
@@ -745,6 +1192,7 @@ function PublishPanel({
         setProjectId("");
         setTitle("");
         setDescription("");
+        setStory(EMPTY_STORY);
       }
     });
   }
@@ -759,11 +1207,12 @@ function PublishPanel({
         background: "var(--surface-soft)",
       }}
     >
-      <h2 style={{ font: "400 22px/1.3 var(--serif)", margin: "0 0 6px" }}>Put a room on the shelf</h2>
+      <h2 style={{ font: "400 22px/1.3 var(--serif)", margin: "0 0 6px" }}>Put a room on the site</h2>
       <p style={{ margin: "0 0 20px", font: "300 15px/1.7 var(--serif)", color: "var(--fg-soft)", maxWidth: "62ch" }}>
-        Pick one of your own projects that already has its walls marked. Its photo and
-        every mask are copied into the library once, here — after that the room opens
-        for anyone straight from those files, and wall detection never runs on it again.
+        Pick one of your own projects that already has its walls marked, and say which page
+        it belongs on. Its photo and every mask are copied into the library once, here —
+        after that the room opens for anyone straight from those files, and wall detection
+        never runs on it again.
       </p>
 
       {/* Came in from the studio and the room could not be taken. Saying so beats
@@ -881,9 +1330,32 @@ function PublishPanel({
             />
           </div>
 
+          <PlacementPicker value={placement} onChange={setPlacement} idPrefix="fp" />
+
+          {/* Only asked for when the room is going somewhere that prints it. The
+              gallery card reads everything it shows off the room itself, so six
+              text fields on a gallery-only publish would be six questions with
+              no answer to give. */}
+          {placement !== "GALLERY" && (
+            <details style={{ border: "1px solid var(--rule)", borderRadius: 6, padding: "14px 16px" }}>
+              <summary style={{ cursor: "pointer", font: "500 12px/1.6 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-soft)" }}>
+                The Our work page <span style={{ textTransform: "none", letterSpacing: 0, color: "var(--fg-mute)" }}>— all optional</span>
+              </summary>
+              <p style={{ ...HINT, margin: "12px 0 18px", maxWidth: "62ch" }}>
+                Publish the room now and write this later if you would rather — the page
+                falls back to what it can read off the room itself: the photograph, the
+                shades actually on its walls, and the month it went up. The palette is
+                always read from the walls, never typed here.
+              </p>
+              <StoryFields draft={story} onChange={setStory} idPrefix="fp" />
+            </details>
+          )}
+
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <Button type="submit" disabled={pending}>
-              {pending ? "Copying files…" : "Publish to the library"}
+              {pending
+                ? "Copying files…"
+                : `Publish to ${placement === "BOTH" ? "both pages" : PLACEMENT_LABEL[placement]}`}
             </Button>
             {chosen && (
               <Mono style={{ color: "var(--fg-mute)" }}>

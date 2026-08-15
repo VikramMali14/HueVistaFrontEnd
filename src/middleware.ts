@@ -29,19 +29,6 @@ const PROTECTED_PREFIXES = ["/studio", "/render", "/dashboard", "/portal", "/inb
 // account nobody wanted. Whoever genuinely needs a second account can sign out
 // first, which is the same answer /join and /sign-in already give.
 const GUEST_ONLY_PATHS = ["/sign-in", "/sign-in/forgot", "/join", "/trial"];
-// Valid /work/[slug] URLs, checked here rather than in the page.
-//
-// The page does call notFound() for an unknown slug, but it cannot set the
-// status: `await params` marks the request dynamic and the response starts
-// streaming, so by the time notFound() throws Next has already committed a 200.
-// An unknown slug therefore rendered the 404 UI under a 200, titled "Our work",
-// and a crawler happily indexed every typo and probe as a real page. Middleware
-// runs before any of that, so the status it sets is the one that ships.
-//
-// WORKS is a plain static array, so this costs a Set lookup and no I/O.
-// src/lib/__tests__/work-routes.test.ts holds the matcher and this check to the
-// same list.
-const WORK_SLUGS = new Set(WORKS.map((w) => w.slug));
 const ACCESS_COOKIE = "hv_access";
 const SESSION_COOKIE = "hv_refresh";
 const GUEST_COOKIE = "hv_guest";
@@ -58,6 +45,91 @@ const INTERNAL_ORIGIN = (
 // this is only a belt-and-braces guard).
 const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "1";
 
+// Valid /work/[slug] URLs, checked here rather than in the page.
+//
+// The page does call notFound() for an unknown slug, but it cannot set the
+// status: `await params` marks the request dynamic and the response starts
+// streaming, so by the time notFound() throws Next has already committed a 200.
+// An unknown slug therefore rendered the 404 UI under a 200, titled "Our work",
+// and a crawler happily indexed every typo and probe as a real page. Middleware
+// runs before any of that, so the status it sets is the one that ships.
+//
+// The list used to be static, and that was the whole story: /work rendered a
+// hand-written array and nothing an admin did could change it. It is now the
+// rooms an admin publishes to "Our work", falling back to the built-ins while
+// none are — so this guard has to follow the SAME rule the page follows, or it
+// starts 404ing real rooms (published slug, static list) or waving through dead
+// ones (built-in slug, after the first room is published).
+//
+// src/lib/__tests__/work-routes.test.ts holds the matcher and this check to the
+// same rule.
+const BUILT_IN_WORK_SLUGS = new Set(WORKS.map((w) => w.slug));
+
+/**
+ * The published slugs, cached in module scope.
+ *
+ * Middleware runs on every matched request and the old check was a Set lookup
+ * with no I/O, so the cache carries two different windows for two different
+ * mistakes.
+ *
+ * A slug the cache already KNOWS is served straight from it for the full TTL —
+ * the common case, and it costs nothing. The risk there is only that a room
+ * hidden a moment ago keeps resolving for up to a minute, which is a page that
+ * renders when it shouldn't; harmless.
+ *
+ * A slug the cache does NOT know is the dangerous one, because a room published
+ * seconds ago looks exactly like a typo. 404ing it would mean an admin publishes
+ * a room, sees its card on /work, clicks it and gets "not found" — so a miss
+ * re-reads rather than trusting the cache. The floor is what stops that being a
+ * free API call for anyone walking made-up slugs.
+ */
+const WORK_SLUG_TTL_MS = 60_000;
+const WORK_SLUG_MISS_REFRESH_MS = 5_000;
+let cachedWorkSlugs: Set<string> | null = null;
+let cachedWorkSlugsAt = 0;
+
+/**
+ * What /work/[slug] will actually render, or null when it cannot be determined.
+ *
+ * Null is the important return. A backend blip must not turn every real room
+ * into a 404 — losing the correct status on a page that still renders is a far
+ * smaller failure than telling crawlers the portfolio is gone — so the caller
+ * lets the request through and leaves the page to answer.
+ */
+async function workSlugs(wanted: string): Promise<Set<string> | null> {
+  // No backend to ask, and the demo publishes nothing: the built-ins are the
+  // portfolio, exactly as the page will find it.
+  if (DEMO_MODE) return BUILT_IN_WORK_SLUGS;
+
+  const now = Date.now();
+  const age = now - cachedWorkSlugsAt;
+  if (cachedWorkSlugs) {
+    const fresh = age < WORK_SLUG_TTL_MS;
+    if (fresh && cachedWorkSlugs.has(wanted)) return cachedWorkSlugs;
+    // A miss, but re-reading on every one of them would let a crawler drive the
+    // API. Between refreshes the stale answer stands.
+    if (age < WORK_SLUG_MISS_REFRESH_MS) return cachedWorkSlugs;
+  }
+
+  try {
+    const res = await fetch(`${INTERNAL_ORIGIN}/api/free-projects?surface=WORK`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!res.ok) return cachedWorkSlugs;
+    const rows = (await res.json()) as Array<{ slug?: string }>;
+    if (!Array.isArray(rows)) return cachedWorkSlugs;
+    const published = rows.map((r) => r?.slug).filter((s): s is string => Boolean(s));
+    // Mirrors the page: published rooms replace the built-ins rather than
+    // joining them, so a built-in slug stops resolving once real work is up.
+    cachedWorkSlugs = published.length > 0 ? new Set(published) : BUILT_IN_WORK_SLUGS;
+    cachedWorkSlugsAt = now;
+    return cachedWorkSlugs;
+  } catch {
+    return cachedWorkSlugs;
+  }
+}
+
 function cookieOpts(maxAge: number) {
   return {
     httpOnly: true,
@@ -71,11 +143,14 @@ function cookieOpts(maxAge: number) {
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  // An unknown project answers as a real 404 — see WORK_SLUGS above.
+  // An unknown project answers as a real 404 — see workSlugs() above.
   if (pathname.startsWith("/work/")) {
     const slug = pathname.slice("/work/".length).replace(/\/$/, "");
-    if (slug && !slug.includes("/") && !WORK_SLUGS.has(slug)) {
-      return NextResponse.rewrite(new URL("/_not-found", req.url), { status: 404 });
+    if (slug && !slug.includes("/")) {
+      const valid = await workSlugs(slug);
+      if (valid && !valid.has(slug)) {
+        return NextResponse.rewrite(new URL("/_not-found", req.url), { status: 404 });
+      }
     }
   }
 

@@ -27,6 +27,78 @@ export interface WorkProject {
   stats: ReadonlyArray<readonly [string, string]>;
 }
 
+/**
+ * A card in the /work spiral and list.
+ *
+ * Two very different things end up here: the built-in demonstration projects
+ * below, which are tonal gradients with invented stories, and rooms an admin
+ * published from the studio, which are real photographs with real shade codes.
+ * The spiral should not have to know which it is holding — so both are mapped to
+ * this before they reach it, and the single difference that matters to the
+ * rendering (is there a photograph?) is one optional field.
+ */
+export interface WorkCard {
+  slug: string;
+  title: string;
+  category: string;
+  location: string;
+  year: string;
+  /** The line above the title — a shade code, or what is on the walls. */
+  code: string;
+  swatch: string;
+  /** The tonal placeholder. Only seen when there is no photograph, or it fails. */
+  tone: WorkTone;
+  aspect: string;
+  /** A real photograph. Absent on the built-ins, which have none. */
+  imageUrl?: string;
+  alt?: string;
+}
+
+/** A card plus everything its own page prints. */
+export interface WorkDetail extends WorkCard {
+  blurb: string;
+  credit: string;
+  story: readonly string[];
+  palette: ReadonlyArray<{ hex: string; name: string; surface: string }>;
+  stats: ReadonlyArray<readonly [string, string]>;
+  /**
+   * The wall before the recolour. Present only on the built-ins, which prove the
+   * point with a drag-to-compare between two gradients. A published room has one
+   * photograph — the finished room — so its page shows that instead of inventing
+   * a "before" it never had.
+   */
+  beforeTone?: WorkTone;
+  /** The shade's name, for the built-ins' compare caption. */
+  shadeName?: string;
+}
+
+export function cardOfWork(w: WorkProject): WorkCard {
+  return {
+    slug: w.slug,
+    title: w.title,
+    category: w.category,
+    location: w.location,
+    year: w.year,
+    code: `${w.code} · ${w.shadeName}`,
+    swatch: w.swatch,
+    tone: w.tone,
+    aspect: w.aspect,
+  };
+}
+
+export function detailOfWork(w: WorkProject): WorkDetail {
+  return {
+    ...cardOfWork(w),
+    blurb: w.blurb,
+    credit: w.credit,
+    story: w.story,
+    palette: w.palette,
+    stats: w.stats,
+    beforeTone: w.beforeTone,
+    shadeName: w.shadeName,
+  };
+}
+
 /** The same tonal gradients as the `.ph` placeholder system — used as the
  *  "after" pane of the before/after slider on detail pages. */
 export const TONE_BG: Record<WorkTone, string> = {
@@ -338,9 +410,8 @@ export function getWork(slug: string): WorkProject | undefined {
   return WORKS.find((w) => w.slug === slug);
 }
 
-export function getWorkNeighbours(slug: string): { prev: WorkProject; next: WorkProject } {
-  const i = Math.max(0, WORKS.findIndex((w) => w.slug === slug));
-  const n = WORKS.length;
-  // Modulo keeps both indexes in range, so the assertions are safe.
-  return { prev: WORKS[(i - 1 + n) % n]!, next: WORKS[(i + 1) % n]! };
-}
+/* getWorkNeighbours() used to live here and has been removed. The portfolio can
+   now be either these built-ins or the rooms an admin published, so "the project
+   before this one" is a question about whichever list is on the page — a helper
+   that could only ever answer it from WORKS would be right half the time and
+   silently wrong the rest. /work/[slug] walks the list it rendered. */

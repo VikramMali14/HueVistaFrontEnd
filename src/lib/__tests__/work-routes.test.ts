@@ -31,7 +31,7 @@ describe("/work/[slug] routing", () => {
     expect(matcherEntries()).toContain("/work/:path*");
   });
 
-  it("builds the allow-list from WORKS itself, not a second hand-kept copy", () => {
+  it("builds the fallback allow-list from WORKS itself, not a second hand-kept copy", () => {
     expect(middlewareSource).toContain("new Set(WORKS.map((w) => w.slug))");
   });
 
@@ -41,7 +41,44 @@ describe("/work/[slug] routing", () => {
     expect(guard![0]).toContain("status: 404");
   });
 
-  it("resolves every slug the allow-list would admit", () => {
+  /**
+   * The portfolio is admin-published now, so the guard cannot be a static list.
+   * Two ways for it to be wrong, and both are silent: 404ing a room an admin
+   * just published, or waving through a built-in slug that stopped resolving the
+   * moment real work went up. The fix for both is that the middleware asks the
+   * same question the page asks.
+   */
+  it("asks the backend which rooms are on the portfolio", () => {
+    expect(middlewareSource).toContain("/api/free-projects?surface=WORK");
+  });
+
+  it("falls back to the built-ins only when nothing is published, like the page does", () => {
+    expect(middlewareSource).toContain("published.length > 0 ? new Set(published) : BUILT_IN_WORK_SLUGS");
+  });
+
+  /**
+   * A backend blip must not delete the portfolio from the internet. Letting the
+   * request through costs the correct status on a page that still renders; the
+   * alternative tells every crawler that every project is gone.
+   */
+  it("lets the request through when it cannot tell, rather than 404ing", () => {
+    const guard = /pathname\.startsWith\("\/work\/"\)[\s\S]*?\n  \}/.exec(middlewareSource);
+    expect(guard![0]).toContain("if (valid && !valid.has(slug))");
+  });
+
+  /**
+   * A room published seconds ago looks exactly like a typo to a cache that has
+   * not refreshed. Serving the stale answer there is how an admin publishes a
+   * room, sees its card on /work, clicks it and gets "not found" — so the slug
+   * being asked about has to reach the lookup, and a miss has to re-read.
+   */
+  it("re-reads on a slug it does not know, so a fresh room is not 404'd", () => {
+    expect(middlewareSource).toContain("workSlugs(slug)");
+    expect(middlewareSource).toContain("if (fresh && cachedWorkSlugs.has(wanted)) return cachedWorkSlugs;");
+    expect(middlewareSource).toContain("WORK_SLUG_MISS_REFRESH_MS");
+  });
+
+  it("resolves every slug the fallback allow-list would admit", () => {
     for (const w of WORKS) expect(getWork(w.slug)).toBeDefined();
   });
 
