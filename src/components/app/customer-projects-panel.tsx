@@ -1,0 +1,346 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Mono } from "@/components/ui/eyebrow";
+import { Spinner } from "@/components/ui/spinner";
+import { api, HttpError } from "@/lib/api";
+import { buyOneProject } from "@/lib/payments";
+import type { CustomerEntitlement, ProjectPurchaseOptions } from "@/lib/types";
+
+/** Paise → a rupee figure for a sentence ("₹99", "₹9", "₹49.50"). */
+function rupees(paise: number): string {
+  return paise % 100 === 0 ? `₹${paise / 100}` : `₹${(paise / 100).toFixed(2)}`;
+}
+
+const cardStyle: React.CSSProperties = {
+  border: "1px solid var(--rule)",
+  borderRadius: "var(--radius)",
+  padding: "20px 20px 18px",
+  background: "var(--surface-soft)",
+};
+
+/**
+ * What a customer holds, and how they get more.
+ *
+ * There are two kinds of customer here and they need opposite answers, which is why
+ * this panel branches rather than showing one set of buttons:
+ *
+ *   A shop ONBOARDED them with an access code. Their projects came out of that shop's
+ *   monthly quota — the shop already paid — and the shop can add another in one click
+ *   from its counter. Selling them a project directly would take money for something
+ *   their shop is already responsible for, so they get a message to send instead of a
+ *   payment sheet. The backend enforces the same split; a buy button here could only
+ *   ever come back refused.
+ *
+ *   They SIGNED UP THEMSELVES (a Google login, an email address). Nobody is behind
+ *   them, so buying is the only route they have, and the "ask your shop" line would
+ *   point at a party they have never dealt with.
+ *
+ * The AI wallet sits below this and is the same for both: a project covers the room
+ * and the colour board, never the photorealistic image at the end of it.
+ */
+export function CustomerProjectsPanel() {
+  // undefined = loading, null = no shop behind this account, "error" = fetch failed
+  const [ent, setEnt] = useState<CustomerEntitlement | null | "error" | undefined>(undefined);
+  const [options, setOptions] = useState<ProjectPurchaseOptions | null>(null);
+  const [asked, setAsked] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  const [now] = useState(() => Date.now());
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getMyEntitlement()
+      .then((e) => !cancelled && setEnt(e ?? null))
+      .catch(() => !cancelled && setEnt("error"));
+    api
+      .getProjectPurchaseOptions()
+      .then((o) => !cancelled && setOptions(o))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (ent === undefined) {
+    return (
+      <p style={{ display: "inline-flex", alignItems: "center", gap: 8, font: "400 14px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+        <Spinner size={12} color="currentColor" /> Loading your projects…
+      </p>
+    );
+  }
+
+  if (ent === "error") {
+    return (
+      <p role="alert" style={{ font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "58ch" }}>
+        We couldn&rsquo;t load your projects just now — you&rsquo;re still signed in. Refresh
+        the page to try again.
+      </p>
+    );
+  }
+
+  // ── No shop behind this account: buying is the only route, so it is the whole panel.
+  if (ent === null) {
+    const credits = options?.availableCredits ?? 0;
+    return (
+      <div style={cardStyle}>
+        <Mono style={{ display: "block", marginBottom: 12 }}>Your projects</Mono>
+        <p style={{ font: "300 30px/1.1 var(--serif)", color: "var(--fg)", margin: "0 0 10px" }}>
+          {credits} <span style={{ fontSize: 17, color: "var(--fg-soft)" }}>ready to use</span>
+        </p>
+        <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch", margin: "0 0 16px" }}>
+          {credits > 0 ? (
+            <>
+              Each one opens a room you can photograph, repaint and save. Start whenever
+              you like — a project stays open for {options?.validDays ?? 30} days once you
+              begin it.
+            </>
+          ) : (
+            <>
+              You pay per room rather than by the month. Buy a project and it stays open
+              for {options?.validDays ?? 30} days. If a paint shop gave you an access
+              code, unlock with that instead and the room is on them.
+            </>
+          )}
+        </p>
+        <BuyProjects options={options} onBought={setOptions} />
+        <p style={{ marginTop: 14, font: "400 13.5px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
+          Got a code from a paint shop?{" "}
+          <Link href="/unlock" style={{ color: "var(--accent)" }}>
+            Unlock with it →
+          </Link>{" "}
+          · The{" "}
+          <Link href="/library" style={{ color: "var(--accent)" }}>
+            ready-made rooms
+          </Link>{" "}
+          are free and cost no project at all.
+        </p>
+      </div>
+    );
+  }
+
+  // ── A shop onboarded this account.
+  const daysLeft = ent.accessExpiresAt
+    ? Math.max(0, Math.ceil((new Date(ent.accessExpiresAt).getTime() - now) / 86_400_000))
+    : null;
+  const noneLeft = ent.projectsRemaining <= 0;
+  const shopName = "your paint shop";
+
+  return (
+    <div style={cardStyle}>
+      <Mono style={{ display: "block", marginBottom: 12 }}>Your projects</Mono>
+      <p style={{ font: "300 30px/1.1 var(--serif)", color: "var(--fg)", margin: "0 0 10px" }}>
+        {ent.projectsRemaining}{" "}
+        <span style={{ fontSize: 17, color: "var(--fg-soft)" }}>
+          left of {ent.projectAllowance}
+        </span>
+      </p>
+      {/* The deduction, not just the remainder: "1 of 3 used" says the shop assigned
+          three and one is gone, which a bare "2 left" doesn't. */}
+      <p style={{ font: "400 14px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "0 0 16px" }}>
+        {ent.projectsCreated} of {ent.projectAllowance} used
+        {ent.expired
+          ? " · your access window has closed"
+          : daysLeft !== null
+            ? ` · ${daysLeft} day${daysLeft === 1 ? "" : "s"} of access left`
+            : ""}
+      </p>
+
+      {ent.expired ? (
+        <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch" }}>
+          Ask {shopName} for a fresh code and your saved work comes right back —{" "}
+          <Link href="/unlock" style={{ color: "var(--accent)" }}>
+            unlock with it here
+          </Link>
+          .
+        </p>
+      ) : noneLeft ? (
+        <>
+          <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch", margin: "0 0 14px" }}>
+            You&rsquo;ve used every project on your code. Your shop assigned these out of
+            their own monthly allowance and can add another from their counter in one
+            click — so asking them is the quickest way, and it costs you nothing.
+          </p>
+          <AskShopButton state={asked} setState={setAsked} />
+        </>
+      ) : (
+        <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch" }}>
+          Each one opens a room you can photograph, repaint and save.{" "}
+          <Link href="/studio" style={{ color: "var(--accent)" }}>
+            Start one →
+          </Link>
+        </p>
+      )}
+      <p style={{ marginTop: 14, font: "400 13.5px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
+        The{" "}
+        <Link href="/library" style={{ color: "var(--accent)" }}>
+          ready-made rooms
+        </Link>{" "}
+        are free and use none of your projects.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * "Ask my shop for another project" — the thing a shop-onboarded customer gets
+ * instead of a buy button. Sends one email to the shop owner, who grants the project
+ * from their portal.
+ */
+function AskShopButton({
+  state,
+  setState,
+}: {
+  state: "idle" | "sending" | "sent" | "failed";
+  setState: (s: "idle" | "sending" | "sent" | "failed") => void;
+}) {
+  if (state === "sent") {
+    return (
+      <p role="status" style={{ font: "500 14.5px/1.5 var(--sans)", color: "var(--accent)" }}>
+        Asked — your shop has been emailed. They can add a project from their counter.
+      </p>
+    );
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <button
+        type="button"
+        disabled={state === "sending"}
+        onClick={async () => {
+          setState("sending");
+          try {
+            await api.requestMoreProjects();
+            setState("sent");
+          } catch {
+            setState("failed");
+          }
+        }}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "10px 16px",
+          border: "1px solid var(--accent)",
+          background: "transparent",
+          color: "var(--accent)",
+          font: "400 12px/1 var(--mono)",
+          letterSpacing: ".18em",
+          textTransform: "uppercase",
+          cursor: state === "sending" ? "progress" : "pointer",
+        }}
+      >
+        {state === "sending" ? (
+          <><Spinner size={12} color="currentColor" /> Asking…</>
+        ) : (
+          <>Ask my shop for another <span className="arr">→</span></>
+        )}
+      </button>
+      {state === "failed" && (
+        <span role="alert" style={{ font: "400 13.5px/1.4 var(--sans)", color: "var(--danger, #c0392b)" }}>
+          Couldn&rsquo;t send that just now. Please try again.
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * Buy projects with a card. Only ever rendered for an account with no shop behind it —
+ * see the note on {@link CustomerProjectsPanel}.
+ *
+ * The browser never names a price: the label reads the server's own quote, and the
+ * order is priced server-side again when it is created.
+ */
+function BuyProjects({
+  options,
+  onBought,
+}: {
+  options: ProjectPurchaseOptions | null;
+  onBought: (fresh: ProjectPurchaseOptions) => void;
+}) {
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const buy = async (credits: number) => {
+    setBusy(credits);
+    setError(null);
+    try {
+      const fresh = await buyOneProject(undefined, credits);
+      // null = Checkout was closed without paying. Not an error, and saying nothing
+      // is the right response to someone who chose not to buy.
+      if (fresh) onBought(fresh);
+    } catch (e) {
+      setError(e instanceof HttpError ? e.message : "Could not start the payment. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // The bundle sits BESIDE the single price, never instead of it: "3 for ₹398" says
+  // nothing on its own, and someone who wants one room should not have to work out
+  // that they are being upsold.
+  const bundle =
+    options?.bundleCredits && options.bundlePricePaise
+      ? { credits: options.bundleCredits, paise: options.bundlePricePaise }
+      : null;
+
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <button
+        type="button"
+        onClick={() => void buy(1)}
+        disabled={busy !== null}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "10px 16px",
+          border: "1px solid var(--accent)",
+          background: "transparent",
+          color: "var(--accent)",
+          font: "400 12px/1 var(--mono)",
+          letterSpacing: ".18em",
+          textTransform: "uppercase",
+          cursor: busy !== null ? "progress" : "pointer",
+        }}
+      >
+        {busy === 1 ? (
+          <><Spinner size={12} color="currentColor" /> Opening…</>
+        ) : (
+          <>Buy a project{options ? ` · ${rupees(options.projectPricePaise)}` : ""} →</>
+        )}
+      </button>
+      {bundle && (
+        <button
+          type="button"
+          onClick={() => void buy(bundle.credits)}
+          disabled={busy !== null}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 16px",
+            border: "1px solid var(--rule)",
+            background: "transparent",
+            color: "var(--fg-soft)",
+            font: "400 12px/1 var(--mono)",
+            letterSpacing: ".18em",
+            textTransform: "uppercase",
+            cursor: busy !== null ? "progress" : "pointer",
+          }}
+        >
+          {busy === bundle.credits ? (
+            <><Spinner size={12} color="currentColor" /> Opening…</>
+          ) : (
+            <>or {bundle.credits} for {rupees(bundle.paise)} →</>
+          )}
+        </button>
+      )}
+      {error && (
+        <span role="alert" style={{ font: "400 13px/1.4 var(--sans)", color: "var(--danger, #c0392b)" }}>
+          {error}
+        </span>
+      )}
+    </span>
+  );
+}

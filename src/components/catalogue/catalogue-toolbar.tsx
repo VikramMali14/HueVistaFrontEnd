@@ -363,17 +363,17 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
               <div key={s.code} className="hv-shade-card">
                 <button
                   type="button"
-                  onClick={() => copyCode(codeOf(s.code))}
-                  aria-label={`${nameOf(s)}, ${codeOf(s.code)}. Copy shade code.`}
+                  onClick={() => copyCode(codeOf(s))}
+                  aria-label={`${nameOf(s)}, ${codeOf(s)}. Copy shade code.`}
                   style={{ display: "block", width: "100%", padding: 0, background: "transparent", border: "none", textAlign: "left", cursor: "pointer" }}
                 >
                   <div className="hv-shade-swatch" style={{ aspectRatio: "1 / 1.1", position: "relative", background: s.hex, overflow: "hidden", boxShadow: "0 1px 0 rgba(255,255,255,.06) inset, 0 20px 40px -20px rgba(0,0,0,.6)" }}>
-                    <span style={{ position: "absolute", top: 14, right: 14, font: "400 14px/1 var(--serif)", color: ink }}>{patterned ? codeOf(s.code) : s.code.split("-")[1]}</span>
+                    <span style={{ position: "absolute", top: 14, right: 14, font: "400 14px/1 var(--serif)", color: ink }}>{patterned ? codeOf(s) : s.code.split("-")[1]}</span>
                     <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: inkSoft }}>{s.brand}</span>
                   </div>
                   <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
                     <span className="hv-shade-card-title" title={nameOf(s)} style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{nameOf(s)}</span>
-                    <Mono className="shade-code">{copied === codeOf(s.code) ? `${codeOf(s.code)} · copied` : codeOf(s.code)}</Mono>
+                    <Mono className="shade-code">{copied === codeOf(s) ? `${codeOf(s)} · copied` : codeOf(s)}</Mono>
                   </div>
                 </button>
                 {/* Tool row: compare · strip (the strip's footer holds

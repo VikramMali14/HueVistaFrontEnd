@@ -49,13 +49,21 @@ function AccessGate({ kind }: { kind: "missing" | "expired" }) {
       </h1>
       <Lead style={{ maxWidth: "46ch", margin: "0 auto 28px" }}>
         {kind === "missing"
-          ? "The studio unlocks with an access code from your paint shop. Ask at the counter — unlocking it gives you a project and a validity window."
+          ? "Uploading your own photo needs a project — unlock one with a code from your paint shop, or buy one yourself. The ready-made rooms in the library are free either way."
           : "Your access window has closed. Ask your paint shop for a fresh code to keep working — your saved work comes right back."}
       </Lead>
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
         <Link className="btn btn-brass" href="/unlock">
           Unlock with a code <span className="arr">→</span>
         </Link>
+        {/* The way forward that costs nothing, offered next to the one that doesn't.
+            A customer who lands here has already tried to start something; sending
+            them back to the dashboard alone was a dead end with no suggestion in it. */}
+        {kind === "missing" && (
+          <Link className="btn btn-ghost" href="/library">
+            Open a ready-made room <span className="arr">→</span>
+          </Link>
+        )}
         <Link className="btn btn-ghost" href="/dashboard">
           Back to dashboard
         </Link>
@@ -78,11 +86,22 @@ export default async function AtelierPage({
   // included, so the two guards don't overlap.
   await requireFeature("STUDIO");
   const user = await getCurrentUser();
+  const { project, name } = await searchParams;
   const gate = await customerGate(user, token);
-  if (gate) {
+  // A customer OPENING A PROJECT THEY ALREADY OWN is never turned away for want of a
+  // code. The library is the case this exists for: a ready-made room costs nothing to
+  // open (the backend asks only for a session — no entitlement claimed, no credit
+  // reserved), and it lands the customer in the studio with ?project=. Gating that on
+  // an access code meant a customer could start a free room and then be told to fetch
+  // a code from a shop they may not have, one click later, with the room already made.
+  //
+  // Only the "no code at all" gate is lifted. An EXPIRED window still stops here,
+  // because that is a customer whose access genuinely ran out rather than one who
+  // never had any — and the backend locks their reads either way, so letting them
+  // through would only replace a clear explanation with a wall of failed requests.
+  if (gate === "expired" || (gate === "missing" && !project)) {
     return <AccessGate kind={gate} />;
   }
-  const { project, name } = await searchParams;
   // A ?project= that isn't even shaped like an id never reaches the backend — it
   // would 400 and leave the studio to work out what to say. Answering here also
   // covers the case the client cannot: nothing is mounted, so nothing renders an

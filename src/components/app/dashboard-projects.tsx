@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { api, HttpError } from "@/lib/api";
 import { LinkButton } from "@/components/ui/button";
 import { DashboardStats } from "@/components/app/dashboard-stats";
@@ -26,7 +27,7 @@ const FILTER_LABELS: Record<Filter, string> = {
  * Single fetch for the dashboard's project data — feeds both the KPI cards and
  * the projects grid so the two sections never load (or disagree) separately.
  */
-export function DashboardProjects() {
+export function DashboardProjects({ isCustomer = false }: { isCustomer?: boolean }) {
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("ALL");
@@ -132,7 +133,25 @@ export function DashboardProjects() {
         </p>
       )}
 
-      <ProjectsGrid projects={visible} error={error} />
+      <ProjectsGrid
+        projects={visible}
+        error={error}
+        emptyHint={
+          isCustomer ? (
+            <p style={{ margin: 0, font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "34ch" }}>
+              A room needs a project to open it.{" "}
+              <Link href="/my-projects" style={{ color: "var(--accent)" }}>
+                Buy one or check what you have
+              </Link>
+              , unlock with a shop&rsquo;s code, or open a{" "}
+              <Link href="/library" style={{ color: "var(--accent)" }}>
+                ready-made room
+              </Link>{" "}
+              for free.
+            </p>
+          ) : undefined
+        }
+      />
     </>
   );
 }

@@ -29,6 +29,20 @@ export interface ShadeCodeScheme {
    */
   showNames?: boolean;
   /**
+   * Whether this viewer may see the manufacturer's own shade codes.
+   *
+   * True for shop staff and administrators. False for everyone else — customers,
+   * guests, painters, share-link viewers — and for them {@link displayCodeOf} returns
+   * the platform-wide HV code instead, which names no company and no shade and can
+   * only be read back by a HueVista shop.
+   *
+   * Absent means FALSE, deliberately. An older backend, a failed fetch and a viewer
+   * we could not resolve all land here, and the safe answer to "should this person see
+   * the real code" is no: withholding costs a shop one lookup, while leaking hands away
+   * the only thing the scheme protects.
+   */
+  showRealCodes?: boolean;
+  /**
    * Patterns the shop has stopped using, newest first. Present only on the shop's own
    * fetch of its settings — the studio never needs them, because nothing is ever ENCODED
    * with a retired pattern.
@@ -108,6 +122,59 @@ export function decodeShadeCode(scheme: ShadeCodeScheme, customerCode: string): 
     value = value.slice(0, at) + value.slice(at + infix.length);
   }
   return value || null;
+}
+
+/**
+ * The code to PRINT for a shade, for whoever is looking at it.
+ *
+ * The one rule, in one place, because a colour appears on a dozen surfaces — the
+ * studio, the catalogue, the finder, a saved board, a forwarded share link — and the
+ * scheme is only worth anything if every one of them agrees. A single screen that
+ * prints the manufacturer's code undoes it everywhere.
+ *
+ * Three answers, in this order:
+ *
+ * 1. SHOP STAFF AND ADMINS get the manufacturer's own code. They have to open the
+ *    right tin, and the codes exist to be read by them rather than hidden from them.
+ *
+ * 2. ANYONE UNDER A SHOP THAT RUNS ITS OWN PATTERN gets that pattern. A shop which
+ *    took the trouble to set up a prefix, pair and suffix has decided how its
+ *    customers see a colour, and that decision outranks the platform default for the
+ *    customers it issued codes to — they are that shop's customers, holding that
+ *    shop's card, and the numbering on it should be the shop's own. This is resolved
+ *    per viewer on the server: their own shop for staff, the issuing shop for a
+ *    customer or guest, so a code handed over the counter carries that counter's
+ *    numbering wherever the customer looks at it.
+ *
+ * 3. EVERYONE ELSE gets the HV code — global, opaque, and readable at any HueVista
+ *    shop rather than only the one that issued the board. That is the right default
+ *    for a customer with no shop behind them, and for the customers of a shop that
+ *    never set a pattern up, because it means the nearest shop can serve them.
+ *
+ * The trade between 2 and 3 is deliberate and it is the shop's to make: a pattern
+ * keeps the numbering theirs, at the cost of only they can read it; an HV code can be
+ * read anywhere, at the cost of not being theirs.
+ */
+export function displayCodeOf(
+  scheme: ShadeCodeScheme | null | undefined,
+  shade: { code: string; hvCode?: string | null },
+): string {
+  if (scheme?.showRealCodes) return shade.code;
+  if (hasScheme(scheme)) return encodeShadeCode(scheme, shade.code);
+  return shade.hvCode || shade.code;
+}
+
+/**
+ * Whether the codes this viewer is being shown can be read at ANY HueVista shop.
+ *
+ * True for HV codes, false for a shop's own pattern — which only the shop that
+ * invented it can decode. The distinction has to be said out loud wherever a code
+ * leaves the screen and goes somewhere we cannot follow it: a printed colour board, a
+ * forwarded share link. Telling a customer to take a shop-pattern code to any shop
+ * would send them to a counter that cannot help them.
+ */
+export function codesAreUniversal(scheme: ShadeCodeScheme | null | undefined): boolean {
+  return !scheme?.showRealCodes && !hasScheme(scheme);
 }
 
 /** What a decode attempt found: the real code, and which pattern read it. */

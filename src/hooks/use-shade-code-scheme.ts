@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
+import { displayCodeOf, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
 
 /**
  * The shop's way of presenting a colour, for any client component that shows one.
@@ -77,15 +77,25 @@ export function useShadeCodeScheme(): ShadeCodeScheme | null {
   return scheme;
 }
 
+/** What a swatch needs to know about the shade it is printing. */
+export type LabelledShade = { code: string; hvCode?: string | null };
+
 export interface ShadeLabels {
-  /** True when the shop has a pattern — its codes replace the manufacturer's. */
+  /** True when the code shown is not the manufacturer's own — an HV code, or a pattern. */
   patterned: boolean;
   /** False when this shop hides paint names wherever a colour is shown. */
   showNames: boolean;
-  /** The code to print for a real shade code. */
-  codeOf: (code: string) => string;
+  /**
+   * The code to print for a shade.
+   *
+   * Takes the whole shade, not just its code string, because the answer now depends on
+   * the shade's own HV code and not only on the shop's pattern. A bare string is still
+   * accepted for the callers that genuinely have nothing else — a region carrying only
+   * an applied shade code — and falls back to the pattern for them.
+   */
+  codeOf: (shade: LabelledShade | string) => string;
   /** The name to print for a shade — its code when names are hidden. */
-  nameOf: (shade: { name: string; code: string }) => string;
+  nameOf: (shade: { name: string; code: string; hvCode?: string | null }) => string;
 }
 
 /**
@@ -99,14 +109,17 @@ export interface ShadeLabels {
 export function useShadeLabels(): ShadeLabels {
   const scheme = useShadeCodeScheme();
   return useMemo(() => {
-    const patterned = hasScheme(scheme);
     const showNames = scheme?.showNames !== false;
-    const codeOf = (code: string) => (patterned ? encodeShadeCode(scheme, code) : code);
+    const codeOf = (shade: LabelledShade | string) =>
+      displayCodeOf(scheme, typeof shade === "string" ? { code: shade } : shade);
     return {
-      patterned,
+      // "Not the manufacturer's numbering" is what every caller actually asks this
+      // for — it decides whether a code is safe to print raw. A viewer who is shown
+      // HV codes is patterned whether or not their shop ever set a pattern up.
+      patterned: !scheme?.showRealCodes || hasScheme(scheme),
       showNames,
       codeOf,
-      nameOf: (shade) => (showNames ? shade.name : codeOf(shade.code)),
+      nameOf: (shade) => (showNames ? shade.name : codeOf(shade)),
     };
   }, [scheme]);
 }

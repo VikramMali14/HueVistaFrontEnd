@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { adminApi, authApi, billingApi, guestServerApi, networkApi, HttpError } from "./api";
+import { adminApi, authApi, billingApi, entitlementApi, guestServerApi, networkApi, HttpError } from "./api";
 import type { SiteAsset } from "./site-assets";
 import { SITE_ASSETS_TAG } from "./site-assets-server";
 import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult, DistributorOption, PaymentAttemptRow, PaymentAuditFilters, PaymentAuditSummary, ShadeUploadResult, ShopLeadRow, UploadBrand } from "./api";
@@ -1223,6 +1223,32 @@ export async function getMyAccess(): Promise<MyAccess | null> {
     return await networkApi.myAccess(token);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Whether a paint shop stands behind this account — an entitlement from a redeemed
+ * access code.
+ *
+ * The dividing line between the two kinds of customer, and the backend draws it the
+ * same way (CustomerEntitlementService#hasEntitlement). One kind was onboarded by a
+ * shop: their projects came out of that shop's quota, the shop assigned them products,
+ * and the shop can give them more. The other signed up alone — with Google, or an
+ * email address — and has none of that: no shop to ask, no products assigned, and
+ * buying is the only way they get a project.
+ *
+ * False for every non-customer, who have no entitlement by construction, and false on
+ * any failure. Failing closed is right here because the only thing this decides is
+ * whether to show a tab that would otherwise 404: the cost of being wrong is one
+ * missing tab, against a page that can only tell the visitor it has nothing for them.
+ */
+export async function customerHasShop(): Promise<boolean> {
+  const token = await getAccessToken();
+  if (!token) return false;
+  try {
+    return (await entitlementApi.my(token)) !== null;
+  } catch {
+    return false;
   }
 }
 

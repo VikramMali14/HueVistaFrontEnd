@@ -1484,6 +1484,18 @@ export const api = {
   // Companies that actually have shades in the catalogue (name + slug + count).
   listShadeBrands: () =>
     browserFetch<import("./types").ShadeBrandSummary[]>("api/shades/brands"),
+  /**
+   * Read a customer's code back into a real colour. Shops and admins only — the
+   * backend refuses everyone else, which is what makes an HV code safe to print.
+   *
+   * `brand` is optional and asks the second question the counter always has next:
+   * of the companies I actually stock, what is the nearest thing to this colour?
+   */
+  decodeShadeCode: (code: string, brand?: string) =>
+    browserFetch<import("./types").ShadeDecodeResult>(
+      `api/shades/decode?code=${encodeURIComponent(code)}`
+      + (brand ? `&brand=${encodeURIComponent(brand)}` : ""),
+    ),
   // The shop's OWN companies — what its distributor assigned it, not the whole
   // catalogue. Anywhere a shop is choosing what to hand a customer must use this:
   // offering a company it cannot sell from is a promise it cannot keep.

@@ -13,6 +13,8 @@ import type { ColorFamily, PaintShade } from "./types";
 /** Subset of the backend ShadeResponse the catalogue uses. */
 export interface BackendShade {
   shadeCode?: string;
+  /** The platform-wide customer-facing code, e.g. "HV0348". */
+  hvCode?: string | null;
   name?: string;
   hexCode?: string;
   shadeFamily?: string | null;
@@ -101,6 +103,10 @@ export function mapToPaintShade(b: BackendShade): PaintShade {
   const hex = normalizeHex(b.hexCode);
   return {
     code: b.shadeCode ?? "—",
+    // Absent only for a backend that predates HV codes, or a shade inserted before
+    // the migration ran. Callers fall back to the real code rather than showing a
+    // blank swatch — a colour with no number on it is worse than a legible one.
+    hvCode: b.hvCode ?? null,
     name: b.name ?? "Unnamed",
     hex,
     family: normalizeFamily(b.shadeFamily, hex),

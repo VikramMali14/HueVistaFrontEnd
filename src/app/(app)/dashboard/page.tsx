@@ -10,6 +10,7 @@ import { AccountVerification } from "@/components/app/account-verification";
 import { CustomerAccessBanner } from "@/components/app/customer-access-banner";
 import { DashboardProjects } from "@/components/app/dashboard-projects";
 import { DashboardCodeChecker } from "@/components/app/dashboard-code-checker";
+import { HvCodeConverter } from "@/components/app/hv-code-converter";
 import { PlanBanner } from "@/components/app/plan-banner";
 
 export const metadata: Metadata = {
@@ -150,7 +151,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             customers. Retailers/admins run shops; distributors and painters
             manage their own downline/jobs — none of them redeem shop codes. */}
         {!unavailable && user?.role === "CUSTOMER" && (
-          <div style={{ marginTop: 16 }}>
+          <div style={{ marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <LinkButton href="/my-projects" variant="ghost" size="sm">Your projects &amp; credits <span className="arr">→</span></LinkButton>
             <LinkButton href="/unlock" variant="ghost" size="sm">Have a shop access code? Unlock your projects <span className="arr">→</span></LinkButton>
           </div>
         )}
@@ -177,13 +179,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         )}
       </header>
-      {/* Retailers who use a custom shade-code scheme get the debugger up top —
-          read a customer code or find one without opening the portal. */}
+      {/* The counter's first tool, at the top of the page, for every shop rather than
+          only those that set up a pattern: a customer walks in holding an HV code and
+          this is the only thing that turns it into a tin of paint. */}
+      {!unavailable && (user?.role === "RETAILER" || user?.role === "ADMIN") && <HvCodeConverter />}
+      {/* And below it, the older pattern debugger — still shown only to shops that
+          run their own numbering, because it answers a different question (what does
+          MY prefix/suffix pattern make of this) that most shops never ask. */}
       {!unavailable && (user?.role === "RETAILER" || user?.role === "ADMIN") && <DashboardCodeChecker />}
       <PlanBanner />
       {user?.role === "CUSTOMER" && <CustomerAccessBanner />}
       <AccountVerification user={user} />
-      <DashboardProjects />
+      {/* A customer with nothing left is told what it costs to carry on, not to
+          upload a photo the studio will refuse. */}
+      <DashboardProjects isCustomer={user?.role === "CUSTOMER"} />
     </>
   );
 }

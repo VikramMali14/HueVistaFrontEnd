@@ -44,7 +44,7 @@ import { IMAGE_ACCEPT, cropAndEncode, imageFileError, loadImageFromFile } from "
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
 import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
-import { encodeShadeCode, hasScheme, type ShadeCodeScheme } from "@/lib/shade-codes";
+import { codesAreUniversal, displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
 import type {
   FailureStage,
@@ -604,7 +604,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     api.getMyShadeCodeScheme()
       .then((scheme) => {
         if (cancelled) return;
-        if (hasScheme(scheme)) setCodeScheme(scheme);
+        // The WHOLE response, not just a set pattern. It carries showRealCodes, which
+        // decides whether this viewer reads manufacturer codes or HV codes — a question
+        // that has an answer even for a shop that never set a pattern up.
+        setCodeScheme(scheme ?? null);
         // showNames is a shop-wide switch, independent of whether a pattern is set:
         // a shop can hide paint names without running its own codes.
         setHideNames(scheme?.showNames === false);
@@ -663,18 +666,29 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [purchaseOptions?.validDays, mountedAt],
   );
 
-  // With a scheme, encoded codes replace the manufacturer's everywhere they appear.
-  const encodeCode = useMemo(
-    () => (codeScheme ? (code: string) => encodeShadeCode(codeScheme, code) : undefined),
-    [codeScheme],
-  );
+  // What appears in place of the manufacturer's code for anyone not entitled to it:
+  // the shade's own HV code, which is global and readable by any HueVista shop, and the
+  // shop's pattern only as a fallback for a shade the catalogue has no HV code for.
+  //
+  // Undefined for shop staff, who read the real thing — that is what makes it possible
+  // for the counter to work from the same screen the customer is looking at.
+  //
+  // A code→HV map over the catalogue rather than a lookup per swatch: this runs for
+  // every region, every PDF page and every entry in a 9.5k-shade grid.
+  const encodeCode = useMemo(() => {
+    if (codeScheme?.showRealCodes) return undefined;
+    const hvByCode = new Map<string, string>();
+    for (const s of shades ?? []) if (s.hvCode) hvByCode.set(s.code.toUpperCase(), s.hvCode);
+    return (code: string) =>
+      displayCodeOf(codeScheme, { code, hvCode: hvByCode.get(code.toUpperCase()) ?? null });
+  }, [codeScheme, shades]);
 
-  // Raw codes are withheld from guests always, and from everyone once the shop has a
-  // pattern — `encodeCode` then supplies what is shown in their place.
-  // Withheld from guests always, from everyone once the shop has a pattern — and from
-  // everyone while we still don't know, because the only safe way to be wrong here is to
-  // show nothing. `encodeCode` supplies what appears in their place.
-  const hideRawCodes = guest || !schemeLoaded || Boolean(codeScheme);
+  // Raw codes are withheld from guests always, from every non-shop viewer, and from
+  // everyone while we still don't know which they are — the only safe way to be wrong
+  // here is to show nothing, because a flash of the real code is exactly what the whole
+  // scheme exists to prevent and a customer only has to see it once.
+  // `encodeCode` supplies what appears in their place.
+  const hideRawCodes = guest || !schemeLoaded || !codeScheme?.showRealCodes;
 
   useEffect(() => {
     if (saveStatus !== "saved") {
@@ -1640,15 +1654,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setMaskStudioOpen(true);
   }, []);
 
-  // Delete a hand-drawn wall. Guard rails: only regions the user created by
-  // hand (custom) can be removed — AI-detected walls have no delete control and
-  // are rejected here too. Removes it from the composite immediately (optimistic),
-  // moves the active selection off it, frees a custom-mask slot, and deletes the
-  // backend row when the region was persisted.
+  // Remove a wall from the room — hand-drawn or AI-detected.
+  //
+  // Detected walls used to be refused here as well as having no ✕, which left a room
+  // stuck with whatever detection produced: an accent wall the customer is keeping, a
+  // ceiling, a strip of floor read as wall. Those surfaces then sat in the wall strip,
+  // in the palette and on every page of the colour board, and the only way out was to
+  // delete the whole project and spend another credit on it.
+  //
+  // Removes it from the composite immediately (optimistic), moves the active selection
+  // off it, frees a custom-mask slot where it held one, and deletes the backend row
+  // when the region was persisted. The strip confirms before calling this for a
+  // detected wall, since that one cannot be redrawn for free.
   const handleDeleteWall = useCallback(
     (regionId: string) => {
       const target = regions.find((r) => r.id === regionId);
-      if (!target || !target.custom) return;
+      if (!target) return;
 
       setRegions((prev) => prev.filter((r) => r.id !== regionId));
       setActiveRegion((cur) =>
@@ -1889,7 +1910,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         })),
       }));
       const outcome = await runColourBoardDownload({
-        build: () => buildColourBoardPdf(pdfPages, projectName || "HueVista colour board"),
+        // The board is printed and carried out of the shop, so its footer has to name
+        // who can read the codes on it — any HueVista counter for an HV code, only the
+        // issuing shop for a shop's own pattern.
+        build: () =>
+          buildColourBoardPdf(
+            pdfPages,
+            projectName || "HueVista colour board",
+            codesAreUniversal(codeScheme),
+          ),
         charge: () =>
           id
             ? guest
@@ -1917,7 +1946,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     } finally {
       setPdfDownloading(false);
     }
-  }, [pdfPages, projectName, guest, pdfDownloading, projectId, openProjectId, router]);
+    // codeScheme is in here because the footer promises WHERE these codes can be
+    // read. The scheme arrives from an async fetch, so a callback closed over the
+    // initial null would print "any HueVista shop" on a board issued by a shop that
+    // runs its own numbering — sending the customer to a counter that cannot read it.
+  }, [pdfPages, projectName, guest, pdfDownloading, projectId, openProjectId, router, codeScheme]);
 
   /** Finish the job early, before both boards are spent. */
   const closeProject = useCallback(async () => {
