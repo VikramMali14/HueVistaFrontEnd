@@ -139,6 +139,11 @@ vi.mock("@/lib/api", () => {
         unlimited: false,
       })),
       reportMask: vi.fn(async () => ({ id: "rep-1", issues: [], status: "NEW" })),
+      // The board's closing page is the project's latest AI image, so the studio looks
+      // for one on mount. None here — these tests are about getting a room open, and a
+      // project that has been rendered is a later chapter than any of them.
+      listRenders: vi.fn(async () => []),
+      getProjectCombos: vi.fn(async () => []),
     },
     guestApi: {
       uploadImage: vi.fn(),

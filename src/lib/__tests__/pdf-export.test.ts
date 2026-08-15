@@ -86,6 +86,52 @@ describe("buildColourBoardPdf", () => {
     expect(text).toContain("/Count 1");
   });
 
+  describe("the AI image page", () => {
+    const aiImage = () => ({
+      jpegDataUrl: fakeJpegDataUrl(1024, 768),
+      shades: [{ label: "Main wall", name: "Off White", code: "7112", hex: "#f4efe6" }],
+      caption: "Modern · Day · Natural light",
+    });
+
+    it("closes the board, numbered apart from the options", async () => {
+      const text = await pdfText(
+        buildColourBoardPdf([entry(), entry()], "My room", true, aiImage()),
+      );
+      // Two options plus the image: three pages, three image XObjects.
+      expect(text).toContain("/Count 3");
+      expect((text.match(/\/Subtype \/Image/g) ?? []).length).toBe(3);
+      expect(text).toContain("/Width 1024");
+      // Page numbers count every sheet…
+      expect(text).toContain("Page 3 of 3");
+      // …but the OPTION counter counts only the things the customer chose between.
+      expect(text).toContain("Option 2 of 2");
+      expect(text).not.toContain("Option 3 of 3");
+      expect(text).toContain("Your AI image");
+      expect(text).toContain("COLOURS IN THIS IMAGE");
+      expect(text).toContain("Modern");
+    });
+
+    it("is left off, without failing the board, when its image cannot be decoded", async () => {
+      const text = await pdfText(
+        buildColourBoardPdf([entry()], "My room", true, {
+          jpegDataUrl: "data:image/jpeg;base64,@@not-base64@@",
+          shades: [],
+        }),
+      );
+      expect(text).toContain("/Count 1");
+      expect(text).toContain("Page 1 of 1");
+      expect(text).not.toContain("Your AI image");
+    });
+
+    it("still prints when every option snapshot was lost", async () => {
+      // The reprint path can fail to repaint a combination whose regions are gone. The
+      // image the customer paid for must survive that.
+      const text = await pdfText(buildColourBoardPdf([], "My room", true, aiImage()));
+      expect(text).toContain("/Count 2");
+      expect(text).toContain("Your AI image");
+    });
+  });
+
   it("writes byte-accurate xref offsets (what makes the PDF actually open)", async () => {
     const text = await pdfText(buildColourBoardPdf([entry(), entry()]));
 

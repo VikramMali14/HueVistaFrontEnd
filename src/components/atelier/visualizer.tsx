@@ -34,12 +34,16 @@ import { api, guestApi, HttpError } from "@/lib/api";
 import {
   buildColourBoardPdf,
   canvasToJpegDataUrl,
+  imageUrlToJpegDataUrl,
   type PdfImageEntry,
+  type PdfShade,
 } from "@/lib/pdf-export";
 import { downloadBlob } from "@/lib/download-blob";
+import { comboAlreadyOnBoard } from "@/lib/combo-fingerprint";
 import { runColourBoardDownload } from "@/lib/colour-board-download";
 import { ShareDialog } from "./share-dialog";
 import { ReportDialog } from "./report-dialog";
+import { BoardDownloadConfirm } from "./board-download-confirm";
 import { IMAGE_ACCEPT, cropAndEncode, imageFileError, loadImageFromFile } from "@/lib/image-upload";
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
@@ -526,6 +530,24 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [pdfAllowance, setPdfAllowance] = useState<PdfAllowance | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [closing, setClosing] = useState(false);
+  /**
+   * Whether the "this is your colour board" confirmation is open.
+   *
+   * The download is the point of no return now that a project hands over ONE board and
+   * then closes: press it and the catalogue locks, whether or not the customer realised
+   * that was the last press. The tray already said so in a line of prose under the
+   * button, which is exactly the sort of thing nobody reads at a counter — so the count
+   * is put in front of the click instead, where it has to be acknowledged.
+   */
+  const [pdfConfirmOpen, setPdfConfirmOpen] = useState(false);
+  /**
+   * The project's latest finished AI image, as a JPEG data URL, for the last page of
+   * the board. Empty string = looked and there was none (or it could not be read),
+   * which is the ordinary case: the board is normally downloaded before the picture is
+   * ordered. It only ever has a value on a board being re-issued after a render.
+   */
+  const [aiImageJpeg, setAiImageJpeg] = useState<string>("");
+  const [aiImageShades, setAiImageShades] = useState<PdfShade[]>([]);
   // Plan-driven page cap, falling back to the historical constant when the
   // allowance hasn't loaded (or an older backend doesn't serve it yet).
   const maxPdfPages = pdfAllowance ? Math.max(1, pdfAllowance.imagesPerPdf) : MAX_PDF_PAGES;
@@ -1833,6 +1855,24 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setPdfNotice("Apply a colour first, then add it to the PDF.");
       return;
     }
+    // The same scheme twice is the one mistake this tray makes easy. "Add to PDF" sits
+    // on every palette card as well as under the canvas, so a customer comparing two
+    // options and coming back to the first one adds it again without noticing — and
+    // spends one of five pictures on a page identical to an earlier one. Worse, the
+    // board is what the render page then asks them to choose between, so a duplicate
+    // becomes two combinations that cannot be told apart. Caught here rather than at
+    // download, when there is still something to do about it.
+    const twin = comboAlreadyOnBoard(
+      pdfPages.map((p) => p.shades),
+      painted.map((r) => ({ regionId: r.backendId, label: r.label, hex: r.hex })),
+    );
+    if (twin >= 0) {
+      setPdfNotice(
+        `These colours are already on the PDF as option ${twin + 1}. `
+        + "Change a shade to add a different option.",
+      );
+      return;
+    }
     const jpeg = canvasToJpegDataUrl(engine.canvas, 1500, 0.85);
     if (!jpeg) {
       setPdfNotice("Could not capture this image — please try again.");
@@ -1861,7 +1901,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }));
     setPdfPages((prev) => [...prev, { jpegDataUrl: jpeg, shades }]);
     setPdfNotice(null);
-  }, [imageUrl, regions, pdfPages.length, maxPdfPages, hideRawCodes, hideNames, encodeCode]);
+  }, [imageUrl, regions, pdfPages, maxPdfPages, hideRawCodes, hideNames, encodeCode]);
 
   /**
    * "Add to PDF" on a palette card: the palette is applied by the shade grid, and the
@@ -1894,6 +1934,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const downloadPdf = useCallback(async () => {
     if (pdfPages.length === 0 || pdfDownloading) return;
     const id = projectId ?? openProjectId;
+    setPdfConfirmOpen(false);
     setPdfDownloading(true);
     setPdfNotice(null);
     try {
@@ -1918,6 +1959,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             pdfPages,
             projectName || "HueVista colour board",
             codesAreUniversal(codeScheme),
+            aiImageJpeg ? { jpegDataUrl: aiImageJpeg, shades: aiImageShades } : null,
           ),
         charge: () =>
           id
@@ -1950,9 +1992,65 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     // read. The scheme arrives from an async fetch, so a callback closed over the
     // initial null would print "any HueVista shop" on a board issued by a shop that
     // runs its own numbering — sending the customer to a counter that cannot read it.
-  }, [pdfPages, projectName, guest, pdfDownloading, projectId, openProjectId, router, codeScheme]);
+  }, [pdfPages, projectName, guest, pdfDownloading, projectId, openProjectId, router, codeScheme,
+      aiImageJpeg, aiImageShades]);
 
-  /** Finish the job early, before both boards are spent. */
+  /**
+   * The project's latest finished AI image, fetched so it can close the board.
+   *
+   * Only for an account holder on a project that already produced one — a guest room
+   * has no renders and an unclosed project usually has none either, so this is a
+   * request that would come back empty on most studio opens. Failure is silent by
+   * design: the board is the deliverable, and losing its last page is a far smaller
+   * problem than a studio that will not open because a render lookup 404'd.
+   */
+  useEffect(() => {
+    const id = projectId ?? openProjectId;
+    if (!id || guest) return;
+    let cancelled = false;
+    void api
+      .listRenders(id)
+      .then(async (list) => {
+        const latest = list.find((r) => r.status === "READY" && r.imageUrl);
+        if (!latest || cancelled) return;
+        const url = resolveMediaUrl(latest.imageUrl);
+        if (!url) return;
+        const jpeg = await imageUrlToJpegDataUrl(url);
+        if (cancelled || !jpeg) return;
+        // The shades printed under it are the combination it was made from, so the
+        // page names colours rather than showing an unlabelled picture. Falls back to
+        // whatever is painted right now when the render's own combo can't be resolved.
+        const combo = latest.comboId
+          ? await api.getProjectCombos(id).then(
+              (combos) => combos.find((c) => c.id === latest.comboId) ?? null,
+              () => null,
+            )
+          : null;
+        if (cancelled) return;
+        setAiImageJpeg(jpeg);
+        setAiImageShades(
+          (combo?.shades ?? []).map((s) => ({
+            label: s.regionLabel ?? "Wall",
+            name: hideNames ? "" : (s.shadeName ?? "Custom colour"),
+            code: hideRawCodes
+              ? s.shadeCode && encodeCode
+                ? encodeCode(s.shadeCode)
+                : undefined
+              : (s.shadeCode ?? undefined),
+            hex: s.hex,
+          })),
+        );
+      })
+      .catch(() => {
+        /* no renders, an older backend, or an unreadable image — the board goes without */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, openProjectId, guest, hideNames, hideRawCodes, encodeCode]);
+
+  /** Finish the job without taking a colour board — the one path to a closed project
+   *  that does not go through a download. */
   const closeProject = useCallback(async () => {
     const id = projectId ?? openProjectId;
     if (!id || guest || closing) return;
@@ -2697,7 +2795,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       <button
                         type="button"
                         className="hv-pdf-download"
-                        onClick={() => void downloadPdf()}
+                        onClick={() => setPdfConfirmOpen(true)}
                         disabled={pdfDownloading || (pdfAllowance !== null && !pdfAllowance.unlimited && pdfAllowance.remaining <= 0)}
                         title={
                           pdfAllowance !== null && !pdfAllowance.unlimited && pdfAllowance.remaining <= 0
@@ -2728,11 +2826,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 </div>
                 {!guest && boardsAllowed > 0 && !closed && (
                   <p className="hv-pdf-boards-left">
-                    {boardsUsed === 0
-                      ? `${boardsAllowed} colour boards on this project.`
-                      : boardsAllowed - boardsUsed === 1
-                        ? "One colour board left — the next one finishes this project."
-                        : `${boardsAllowed - boardsUsed} colour boards left on this project.`}
+                    {boardsAllowed - boardsUsed === 1
+                      ? `One colour board on this project — up to ${maxPdfPages} colour`
+                        + `${maxPdfPages === 1 ? "" : "s"}, and your AI image on the end of it.`
+                      : `${boardsAllowed - boardsUsed} colour boards left on this project.`}
                   </p>
                 )}
                 {pdfPages.length > 0 && (
@@ -2761,6 +2858,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 )}
                 {pdfNotice && <p className="hv-pdf-notice">{pdfNotice}</p>}
               </div>
+            )}
+            {pdfConfirmOpen && (
+              <BoardDownloadConfirm
+                pages={pdfPages.length}
+                boardsLeft={boardsAllowed > 0 ? Math.max(0, boardsAllowed - boardsUsed) : null}
+                closesProject={!guest && boardsAllowed > 0 && boardsUsed + 1 >= boardsAllowed}
+                withAiImage={Boolean(aiImageJpeg)}
+                monthlyLeft={
+                  pdfAllowance && !pdfAllowance.unlimited ? pdfAllowance.remaining : null
+                }
+                onCancel={() => setPdfConfirmOpen(false)}
+                onConfirm={() => void downloadPdf()}
+              />
             )}
             {pendingFile && !uploading && !segmenting && (
               <div

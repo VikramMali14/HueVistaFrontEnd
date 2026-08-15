@@ -1,8 +1,12 @@
 /**
  * Tiny, dependency-free PDF builder for the "Add to PDF" colour board.
  *
- * The studio lets the user snapshot the recoloured canvas (up to 8 options) and
- * download them as a single multi-page PDF. Each page is a branded A4 sheet:
+ * The studio lets the user snapshot the recoloured canvas (up to the plan's
+ * per-board cap) and download them as a single multi-page PDF. A project hands
+ * over ONE board and is then finished, so this file is the whole deliverable —
+ * which is why the project's latest AI image goes on the end of it (see
+ * `aiImage`) rather than living only on a screen the customer has to come back
+ * to. Each page is a branded A4 sheet:
  * a palette strip of the option's colours across the top edge, a header with
  * the project title / option counter / date, the painted photo hairline-framed
  * in the middle, and a table of the shades used — paint chip, region, shade
@@ -46,6 +50,26 @@ export interface PdfImageEntry {
   /** data:image/jpeg;base64,… snapshot of the recoloured canvas. */
   jpegDataUrl: string;
   shades: PdfShade[];
+}
+
+/**
+ * The project's latest AI image, printed as the board's closing page.
+ *
+ * It is a separate type rather than one more {@link PdfImageEntry} because it is not
+ * an option to choose between — the choosing already happened, and this is the one
+ * combination the customer had photographed for real. It is numbered apart from the
+ * options for the same reason ("AI image", not "Option 6 of 5"), and it is never
+ * counted against the per-board picture cap: the cap exists to bound how many canvas
+ * snapshots a phone has to hold in memory at once, and this is a single already-encoded
+ * image the browser downloaded rather than rendered.
+ */
+export interface PdfAiImage {
+  /** data:image/jpeg;base64,… of the finished render. */
+  jpegDataUrl: string;
+  /** The combination it was made from, so the sheet still names the shades. */
+  shades: PdfShade[];
+  /** How it was photographed — e.g. "Modern · Day · Natural light". */
+  caption?: string;
 }
 
 /** A4 portrait, in PostScript points (1/72"). */
@@ -96,6 +120,56 @@ export function canvasToJpegDataUrl(
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(source, 0, 0, w, h);
   return out.toDataURL("image/jpeg", quality);
+}
+
+/**
+ * Load an already-stored image (the AI render) and re-encode it as a bounded JPEG
+ * data URL, so it can be embedded in a board the same way a canvas snapshot is.
+ *
+ * Resolves to "" rather than rejecting on every failure path there is — the image
+ * 404s, the fetch is blocked, or the canvas comes back tainted because the host
+ * served no CORS header and `toDataURL` throws. The board is the customer's
+ * deliverable and a missing closing page is a smaller board; a thrown error here
+ * would cost them the whole thing.
+ */
+export function imageUrlToJpegDataUrl(
+  url: string,
+  maxEdge = 1500,
+  quality = 0.85,
+): Promise<string> {
+  return new Promise((resolve) => {
+    if (!url) {
+      resolve("");
+      return;
+    }
+    const img = new Image();
+    // Same handling the studio canvas uses: a same-origin /bff path is untainted
+    // anyway, and a presigned S3 URL needs the attribute to stay exportable.
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * scale));
+        const h = Math.max(1, Math.round(img.naturalHeight * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve("");
+          return;
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      } catch {
+        resolve("");
+      }
+    };
+    img.onerror = () => resolve("");
+    img.src = url;
+  });
 }
 
 /** Decode a base64 data URL's payload into raw bytes. */
@@ -351,26 +425,41 @@ function pageChrome(
   return ops;
 }
 
-/** Build the content-stream drawing ops for one option's page. */
+/**
+ * Build the content-stream drawing ops for one picture page.
+ *
+ * Shared by the option pages and the closing AI-image page: the layout is identical
+ * and only the wording differs, which is the point — a customer flicking through the
+ * sheet should read one document, not an appendix bolted on.
+ */
 function pageContent(
   entry: PdfImageEntry,
   imgW: number,
   imgH: number,
   title: string,
-  index: number,
-  total: number,
   dateLine: string,
   universalCodes: boolean,
+  pageNo: number,
+  pageCount: number,
+  /** Right-hand slot beside the title, e.g. "Option 2 of 5" or "Your AI image". */
+  counter: string,
+  /** Heading over the shade table, e.g. "COLOURS IN THIS OPTION". */
+  sectionLabel: string,
+  /** Optional right-aligned note beside that heading — how the image was made. */
+  sectionNote?: string,
 ): string {
   const right = PAGE_W - MARGIN;
   const stripHexes = entry.shades.length ? entry.shades.map((s) => s.hex) : ["#7c5cff"];
-  const ops = pageChrome(stripHexes, title, dateLine, index + 1, total, universalCodes,
-    `Option ${index + 1} of ${total}`);
+  const ops = pageChrome(stripHexes, title, dateLine, pageNo, pageCount, universalCodes, counter);
 
   // Shade table, anchored to the bottom so every page shares one layout.
   const rows = Math.max(1, entry.shades.length);
   const tableTop = TABLE_BOTTOM + rows * ROW_H;
-  ops.push(textOp("F2", 8, MARGIN, tableTop + 14, "COLOURS IN THIS OPTION", MUTE, 1.5));
+  ops.push(textOp("F2", 8, MARGIN, tableTop + 14, sectionLabel, MUTE, 1.5));
+  if (sectionNote) {
+    const fitted = fitText(sectionNote, 8, (right - MARGIN) / 2);
+    ops.push(textOp("F1", 8, right - textWidth(fitted, 8), tableTop + 14, fitted, MUTE));
+  }
   ops.push(hline(tableTop + 6, MARGIN, right, RULE_STRONG, 1));
 
   entry.shades.forEach((shade, j) => {
@@ -428,6 +517,13 @@ export function buildColourBoardPdf(
    * pattern of its own, which is most of them; the studio passes the real answer.
    */
   universalCodes = true,
+  /**
+   * The project's latest AI image, appended as the closing page. Omitted when the
+   * project has not had one made yet — which is the ordinary case at the counter, since
+   * the board is usually downloaded before the picture is ordered. An unreadable one is
+   * dropped like any other page rather than failing the board.
+   */
+  aiImage?: PdfAiImage | null,
 ): Blob {
   const chunks: Uint8Array[] = [];
   let length = 0;
@@ -459,10 +555,51 @@ export function buildColourBoardPdf(
     .map((e) => ({ entry: e, bytes: safeBytes(e.jpegDataUrl) }))
     .filter((e): e is { entry: PdfImageEntry; bytes: Uint8Array } => e.bytes !== null);
 
+  // The AI image only earns its page if its bytes actually decoded. A board that lost
+  // its closing page is a smaller board; a board that threw on the way to being built
+  // is no board at all, and this is the last thing the customer gets.
+  const aiBytes = aiImage ? safeBytes(aiImage.jpegDataUrl) : null;
+  const closing = aiImage && aiBytes ? { entry: aiImage, bytes: aiBytes } : null;
+  // Numbered across the whole document, closing page included, so "Page 6 of 6" is
+  // true. The OPTION counter deliberately is not — see the counter argument below.
+  const pageCount = Math.max(1, usable.length) + (closing ? 1 : 0);
+
   const kids: number[] = [];
+
+  /** One picture page: the image XObject, its content stream, and the page itself. */
+  const addPicturePage = (
+    entry: PdfImageEntry,
+    bytes: Uint8Array,
+    pageNo: number,
+    counter: string,
+    sectionLabel: string,
+    sectionNote?: string,
+  ) => {
+    const { w, h } = jpegSize(bytes);
+    const imageId = addObject([
+      `<< /Type /XObject /Subtype /Image /Width ${w || 1} /Height ${h || 1} ` +
+        `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`,
+      bytes,
+      "\nendstream",
+    ]);
+    const content = pageContent(entry, w, h, title, dateLine, universalCodes,
+      pageNo, pageCount, counter, sectionLabel, sectionNote);
+    const contentBytes = latin1(content);
+    const contentId = addObject([
+      `<< /Length ${contentBytes.length} >>\nstream\n`,
+      content,
+      "\nendstream",
+    ]);
+    kids.push(addObject([
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(PAGE_W)} ${num(PAGE_H)}] ` +
+        `/Resources << ${fontRes} /XObject << /Im0 ${imageId} 0 R >> >> ` +
+        `/Contents ${contentId} 0 R >>`,
+    ]));
+  };
+
   if (usable.length === 0) {
     // Degenerate case: a branded page telling the user there was nothing to add.
-    const ops = pageChrome(["#7c5cff"], title, dateLine, 1, 1, universalCodes);
+    const ops = pageChrome(["#7c5cff"], title, dateLine, 1, pageCount, universalCodes);
     ops.push(textOp("F1", 12, MARGIN, PAGE_H - 160, "No coloured images were added.", MUTE));
     const content = ops.join("\n");
     const contentId = addObject([`<< /Length ${latin1(content).length} >>\nstream\n`, content, "\nendstream"]);
@@ -472,28 +609,18 @@ export function buildColourBoardPdf(
     ]);
     kids.push(pageId);
   } else {
+    // The option counter counts OPTIONS, not pages — "Option 5 of 5" stays true on a
+    // board whose sixth page is the AI image, because the customer was never asked to
+    // choose between six things.
     usable.forEach(({ entry, bytes }, i) => {
-      const { w, h } = jpegSize(bytes);
-      const imageId = addObject([
-        `<< /Type /XObject /Subtype /Image /Width ${w || 1} /Height ${h || 1} ` +
-          `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`,
-        bytes,
-        "\nendstream",
-      ]);
-      const content = pageContent(entry, w, h, title, i, usable.length, dateLine, universalCodes);
-      const contentBytes = latin1(content);
-      const contentId = addObject([
-        `<< /Length ${contentBytes.length} >>\nstream\n`,
-        content,
-        "\nendstream",
-      ]);
-      const pageId = addObject([
-        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(PAGE_W)} ${num(PAGE_H)}] ` +
-          `/Resources << ${fontRes} /XObject << /Im0 ${imageId} 0 R >> >> ` +
-          `/Contents ${contentId} 0 R >>`,
-      ]);
-      kids.push(pageId);
+      addPicturePage(entry, bytes, i + 1, `Option ${i + 1} of ${usable.length}`,
+        "COLOURS IN THIS OPTION");
     });
+  }
+
+  if (closing) {
+    addPicturePage(closing.entry, closing.bytes, pageCount, "Your AI image",
+      "COLOURS IN THIS IMAGE", closing.entry.caption);
   }
 
   // Now that kids are known, fill in the Pages object body.

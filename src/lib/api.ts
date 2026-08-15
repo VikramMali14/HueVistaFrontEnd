@@ -1264,7 +1264,7 @@ export const api = {
       `api/projects/${encodeURIComponent(projectId)}/colour-boards`,
       { method: "POST", body: JSON.stringify({ pages }) },
     ),
-  // Finish the job early, before both boards are spent. Idempotent.
+  // Finish the job without taking a colour board. Idempotent.
   closeProject: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/close`, {
       method: "POST",
