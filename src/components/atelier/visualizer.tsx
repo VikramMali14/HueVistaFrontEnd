@@ -3461,10 +3461,35 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                               : `Buy a project · ₹${(projectPaise / 100).toLocaleString("en-IN")}`}
                         </Button>
                       )}
-                      <a className="btn" href="/unlock">
-                        Unlock with a shop code <span className="arr">→</span>
-                      </a>
-                      <Mono>{projectValidityNote}</Mono>
+                      {/* Where this prompt leads — not the same question for the two
+                          people who reach it.
+
+                          An ACCOUNT holder can buy a project above, or walk into a
+                          paint shop and come back with a code, so /unlock is a real
+                          second route for them.
+
+                          A GUEST has neither. They are already inside a session a code
+                          opened, so /unlock can only ever re-resume the session they
+                          are sitting in; and the two buy buttons above never render for
+                          them, because purchaseOptions is fetched `if (!guest)` and
+                          stays null. That left a guest who had used up their code with
+                          exactly one action on screen and nothing behind it. The way
+                          out of a full code is an account — signing up claims the rooms
+                          they have already made (linkGuestProjectsToUser) rather than
+                          leaving them behind with the guest cookie. */}
+                      {guest ? (
+                        <a className="btn btn-brass" href="/join">
+                          Create a free account to keep this room <span className="arr">→</span>
+                        </a>
+                      ) : (
+                        <a className="btn" href="/unlock">
+                          Unlock with a shop code <span className="arr">→</span>
+                        </a>
+                      )}
+                      {/* Quoted from the purchase options, which a guest never loads —
+                          so for them this was a validity promise about a project they
+                          have no way to buy. */}
+                      {!guest && <Mono>{projectValidityNote}</Mono>}
                     </div>
                   )}
                 </div>

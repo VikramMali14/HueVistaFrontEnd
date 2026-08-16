@@ -69,6 +69,31 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           That page is reserved for {audience(need)}. We brought you back to your dashboard.
         </div>
       )}
+      {denied === "noshop" && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: 24,
+            padding: "12px 16px",
+            border: "1px solid var(--rule-strong)",
+            background: "var(--surface-soft)",
+            color: "var(--fg)",
+            font: "300 16px/1.4 var(--serif)",
+            borderRadius: "var(--radius)",
+          }}
+        >
+          {/* The customer half of the denials above. "My products" belongs to a
+              customer a shop onboarded, and a code is the only thing that creates
+              that link — so this names the code rather than a person to ring or a
+              button to press, because redeeming one is the entire fix. */}
+          Your products are the ones a paint shop unlocks for you, and no shop is
+          behind this account yet.{" "}
+          <Link href="/unlock" style={{ color: "var(--accent-soft)" }}>
+            Unlock with a shop code
+          </Link>{" "}
+          and they&apos;ll appear here.
+        </div>
+      )}
       {denied === "feature" && (
         <div
           role="alert"
