@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Spinner } from "@/components/ui/spinner";
 import { addCodeToAccountAction, unlockAccountAction } from "@/lib/auth";
+import { site } from "@/lib/config";
 import { ACCESS_CODE_LENGTH, normalizeAccessCode, validateAccessCode } from "@/lib/validation";
 import type { UserRole } from "@/lib/types";
 
@@ -113,7 +114,7 @@ export function UnlockForm({ signedInAs = null }: { signedInAs?: SignedInAs | nu
             Access codes are for walk-in customers, and redeeming one here would take{" "}
             {signedInAs.name} off this browser and put the customer in their place. Hand
             the phone or tablet to the customer and sign out first, or open{" "}
-            <strong>huevista.com/unlock</strong> in a private window and let them enter
+            <strong>{site.unlockLabel}</strong> in a private window and let them enter
             it there.
           </Lead>
         </header>
