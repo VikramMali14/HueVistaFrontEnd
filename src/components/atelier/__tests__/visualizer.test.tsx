@@ -19,7 +19,7 @@ import {
   type PollOptions,
   type SegmentationStatusLike,
 } from "@/lib/segmentation-polling";
-import { api, HttpError } from "@/lib/api";
+import { api, guestApi, HttpError } from "@/lib/api";
 import { Visualizer } from "../visualizer";
 
 // ---------------------------------------------------------------------------
@@ -1329,5 +1329,72 @@ describe("Visualizer — keeping the room visible", () => {
     await screen.findByRole("button", { name: "Open the colour board" });
     expect(screen.queryByRole("group", { name: /Brighten/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Radiant" })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The GUEST at the end of their code.
+ *
+ * A guest is an anonymous session a shop's access code opened — no account, no
+ * wallet. When they use up the projects on that code the backend answers 402 with
+ * NO machine-readable code (ProjectService#createGuestProject throws
+ * QuotaExceededException), which lands on the studio's generic `limitReached`
+ * branch — the same branch a signed-in account reaches.
+ *
+ * That shared branch is the trap. Everything it offers an account is unavailable
+ * to a guest: the two buy buttons are driven by purchaseOptions, which is fetched
+ * `if (!guest)` and so stays null, and the "unlock with a shop code" link leads to
+ * /unlock, which for someone already inside a code's session only ever re-resumes
+ * the session they are sitting in. A guest therefore reached the end of their code
+ * and was shown exactly one action, with nothing behind it.
+ *
+ * The real exit is an account: signing up claims the rooms already made under the
+ * code (linkGuestProjectsToUser) instead of leaving them with the guest cookie.
+ */
+describe("Visualizer — a guest who has used up their code", () => {
+  /** What the backend actually sends: 402, and deliberately no `code`. */
+  const guestQuotaSpent = () =>
+    new HttpError(
+      402,
+      "Your access includes one project. Ask the shop to add another, or sign up to keep going.",
+    );
+
+  async function guestAtTheirLimit() {
+    vi.mocked(guestApi.uploadImage).mockResolvedValue(UPLOADED);
+    vi.mocked(guestApi.createProject).mockRejectedValueOnce(guestQuotaSpent());
+
+    const { container } = render(<Visualizer initialName="Test room" guest />);
+    await screen.findByText("Add a photo of the room");
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+    return container;
+  }
+
+  it("offers an account that keeps the room, not a code they are already inside", async () => {
+    await guestAtTheirLimit();
+
+    expect(
+      await screen.findByRole("link", { name: /Create a free account to keep this room/i }),
+    ).toHaveAttribute("href", "/join");
+    // The dead end this replaces. /unlock cannot help someone whose session a code
+    // already opened, and it was the ONLY action on screen for them.
+    expect(
+      screen.queryByRole("link", { name: /Unlock with a shop code/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("still passes on what the shop can do, in the backend's own words", async () => {
+    await guestAtTheirLimit();
+
+    expect(await screen.findByText(/Ask the shop to add another/i)).toBeInTheDocument();
+  });
+
+  it("quotes no purchase validity, having nothing to sell a guest", async () => {
+    await guestAtTheirLimit();
+
+    await screen.findByRole("link", { name: /Create a free account/i });
+    // purchaseOptions is never fetched for a guest, so this note could only ever
+    // have quoted the hardcoded default — a promise about a project they cannot buy.
+    expect(screen.queryByText(/Valid \d+ days from purchase/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Buy a project/i })).not.toBeInTheDocument();
   });
 });

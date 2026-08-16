@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { customerHasShop, requireRole } from "@/lib/auth";
-import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { AssignedProductsView } from "@/components/app/assigned-products";
 
 export const metadata: Metadata = {
@@ -18,34 +17,20 @@ export default async function AssignedProductsPage() {
   // under an otherwise correct-looking empty state.
   await requireRole(["CUSTOMER"]);
 
-  // And customers a shop actually onboarded. An account that signed up on its own —
-  // a Google login, an email address — has no access code and therefore no assigned
-  // products, so this page could only ever tell them the same 404 in a slightly
-  // prettier way. The nav hides the tab for them; this covers the URL, and says
-  // something true instead of something broken.
+  // And customers a shop actually onboarded. A shop is the ONLY way products get
+  // assigned — a customer is linked to one by redeeming its code, and nothing else
+  // creates that link — so an account that signed up on its own (Google, e-mail) has
+  // no shop, no code and therefore no products, for as long as it redeems nothing.
+  //
+  // This page does not exist for them. It used to answer with a page of its own
+  // explaining the emptiness, which made "My products" look like a real part of a
+  // shopless customer's account that simply had nothing in it yet — the page was
+  // reachable, titled, and bookmarkable for an account it can never have anything to
+  // say to. Bouncing to the dashboard is the same answer requireRole and
+  // requireFeature already give for a page you may not open, and the banner there
+  // says why and how to change it (redeem a code), which a bare 404 could not.
   if (!(await customerHasShop())) {
-    return (
-      <div style={{ maxWidth: 640 }}>
-        <Eyebrow>Your products</Eyebrow>
-        <h1 className="display" style={{ fontSize: "clamp(34px, 5vw, 56px)", margin: "12px 0 14px" }}>
-          Nothing <i>assigned.</i>
-        </h1>
-        <Lead style={{ maxWidth: "52ch" }}>
-          This page shows the paint companies and products a shop has picked out for you,
-          and it fills up when you unlock with a shop&rsquo;s access code. You signed up on
-          your own, so there is no shop behind this account yet — the whole catalogue is
-          open to you in the studio in the meantime.
-        </Lead>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 28 }}>
-          <Link className="btn btn-brass" href="/studio">
-            Start a room <span className="arr">→</span>
-          </Link>
-          <Link className="btn btn-ghost" href="/unlock">
-            I have a shop code <span className="arr">→</span>
-          </Link>
-        </div>
-      </div>
-    );
+    redirect("/dashboard?denied=noshop");
   }
 
   return <AssignedProductsView />;
