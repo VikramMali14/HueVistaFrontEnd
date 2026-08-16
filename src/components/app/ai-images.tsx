@@ -163,14 +163,20 @@ export function AiImages() {
 
       <section className="hv-imgs-body">
         {/* The shelf. One button per picture, because choosing one is the whole
-            interaction and a grid of links would take the reader off the page. */}
-        <div className="hv-imgs-grid" role="radiogroup" aria-label="Your AI images">
+            interaction and a grid of links would take the reader off the page.
+
+            Toggle buttons in a group, NOT role="radiogroup"/role="radio". That pattern
+            is a promise of arrow-key navigation over a single tab stop, and none was
+            implemented here: a screen-reader user was told "radio button, 3 of 9",
+            pressed the arrow keys the announcement invites, and nothing moved. Pressed
+            buttons make the same state audible while describing what the keyboard
+            actually does — Tab between them, Space or Enter to choose. */}
+        <div className="hv-imgs-grid" role="group" aria-label="Your AI images">
           {renders.map((r) => (
             <button
               key={r.id}
               type="button"
-              role="radio"
-              aria-checked={r.id === selectedId}
+              aria-pressed={r.id === selectedId}
               className={`hv-imgs-card${r.id === selectedId ? " is-on" : ""}`}
               onClick={() => setSelectedId(r.id)}
             >

@@ -110,3 +110,50 @@ describe("DashboardProjects — separating a shop's work from its customers'", (
     expect(await screen.findByText(/View only/)).toBeInTheDocument();
   });
 });
+
+/**
+ * A customer's dashboard is not a smaller version of a shop's.
+ *
+ * The two defects here are the same mistake in different places: showing somebody a
+ * thing the next click, or the next sentence, contradicts.
+ */
+describe("DashboardProjects — the customer's view", () => {
+  beforeEach(() => {
+    vi.mocked(api.listProjects).mockReset();
+  });
+
+  /**
+   * A room the shop's code paid for goes view-only when that code's window closes — it
+   * still opens, and the colours the customer chose are still on it. The card has to
+   * stay a way in, and say which of the two states it is in.
+   */
+  it("keeps a lapsed shop room open and badges it view-only", async () => {
+    vi.mocked(api.listProjects).mockResolvedValue([
+      { ...OWN, name: "Room my shop gave me", readOnly: true,
+        accessExpiresAt: "2026-07-01T00:00:00Z" },
+    ]);
+    render(<DashboardProjects isCustomer />);
+
+    expect(await screen.findByRole("link", { name: "Room my shop gave me" }))
+      .toHaveAttribute("href", "/studio?project=p-own");
+    expect(screen.getByText(/View only/)).toBeInTheDocument();
+  });
+
+  /**
+   * The KPI grid is counter analytics in a shop's vocabulary ("in your suite", "regions
+   * across all projects"). A walk-in has no business to describe, and the access banner
+   * above already tells them what they hold in the sentence that matters.
+   */
+  it("keeps the shop's KPI cards off a customer's dashboard", async () => {
+    vi.mocked(api.listProjects).mockResolvedValue([OWN]);
+    const { rerender } = render(<DashboardProjects isCustomer />);
+
+    expect(await screen.findByText("My showroom wall")).toBeInTheDocument();
+    expect(screen.queryByText("Projects saved")).not.toBeInTheDocument();
+    expect(screen.queryByText("Walls & surfaces")).not.toBeInTheDocument();
+
+    // …and still shows them to a shop, which is who they were written for.
+    rerender(<DashboardProjects />);
+    expect(await screen.findByText("Projects saved")).toBeInTheDocument();
+  });
+});

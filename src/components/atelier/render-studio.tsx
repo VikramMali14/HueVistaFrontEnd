@@ -584,13 +584,16 @@ export function RenderStudio({ projectId }: { projectId: string }) {
       </header>
 
       <section className="hv-render-body">
-        <div className="hv-render-combos" role="radiogroup" aria-label="Your colour combinations">
+        {/* Pressed buttons in a group, not a radiogroup. The ARIA radio pattern promises
+            arrow-key movement across a single tab stop and none is implemented here, so
+            a screen-reader user was invited to press keys that do nothing — on the one
+            choice in this flow that spends money. */}
+        <div className="hv-render-combos" role="group" aria-label="Your colour combinations">
           {combos.map((combo, i) => (
             <button
               key={combo.id}
               type="button"
-              role="radio"
-              aria-checked={combo.id === selected}
+              aria-pressed={combo.id === selected}
               className={`hv-render-combo${combo.id === selected ? " is-selected" : ""}`}
               onClick={() => setSelected(combo.id)}
               disabled={busy}
@@ -831,15 +834,16 @@ function OptionRow<T extends string>({
   disabled?: boolean;
 }) {
   return (
-    <div className="hv-render-row" role="radiogroup" aria-label={label}>
+    // role="group" + aria-pressed rather than the radio pattern — see the combo picker
+    // above: nothing here implements the arrow-key navigation a radiogroup announces.
+    <div className="hv-render-row" role="group" aria-label={label}>
       <span className="hv-render-row-label">{label}</span>
       <span className="hv-render-row-choices">
         {choices.map((c) => (
           <button
             key={c.value}
             type="button"
-            role="radio"
-            aria-checked={c.value === value}
+            aria-pressed={c.value === value}
             title={c.hint}
             disabled={disabled}
             className={`hv-render-choice${c.value === value ? " is-on" : ""}`}

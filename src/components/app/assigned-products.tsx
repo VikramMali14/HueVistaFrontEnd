@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Eyebrow, Lead, Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
 import { ALL, FilterBar, facetOptionsFrom, matchesQuery } from "@/components/ui/filter-bar";
-import { api } from "@/lib/api";
+import { api, HttpError } from "@/lib/api";
 import type { AssignedProducts, ShopProduct } from "@/lib/types";
 
 /**
@@ -14,14 +14,22 @@ import type { AssignedProducts, ShopProduct } from "@/lib/types";
  * only — the studio and API enforce the real access rules.
  */
 export function AssignedProductsView() {
-  const [data, setData] = useState<AssignedProducts | null | "error" | undefined>(undefined);
+  // undefined = loading; "none" = the shop singled nothing out; "error" = the fetch failed.
+  // The last two used to be one state, and they call for opposite advice — see below.
+  const [data, setData] = useState<AssignedProducts | "none" | "error" | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
     api
       .getAssignedProducts()
-      .then((d) => !cancelled && setData(d ?? null))
-      .catch(() => !cancelled && setData("error"));
+      .then((d) => !cancelled && setData(d ?? "none"))
+      .catch((err) => {
+        if (cancelled) return;
+        // 404 is the ordinary answer for a customer with no access code behind their
+        // entitlement — a shop granted them projects directly, or they claimed guest
+        // work. Nothing is wrong and nothing is missing; the whole catalogue is theirs.
+        setData(err instanceof HttpError && err.status === 404 ? "none" : "error");
+      });
     return () => {
       cancelled = true;
     };
@@ -33,7 +41,7 @@ export function AssignedProductsView() {
   // Hooks run before the early returns below, so derive from a possibly-unloaded
   // `data` rather than reading it after the guards.
   const allProducts = useMemo(
-    () => (data && data !== "error" ? data.products ?? [] : []),
+    () => (data && data !== "error" && data !== "none" ? data.products ?? [] : []),
     [data],
   );
   const companyOptions = useMemo(
@@ -57,17 +65,39 @@ export function AssignedProductsView() {
     );
   }
 
-  if (data === "error" || data === null) {
+  // The backend could not be reached. Telling a customer who demonstrably HAS a shop —
+  // this page is only reachable with an entitlement — to go and fetch a code is advice
+  // for a problem they do not have, and it hides the one thing that would fix this: a
+  // reload. The two states were one, and it always gave the wrong half.
+  if (data === "error") {
     return (
       <div>
         <Eyebrow>Your products</Eyebrow>
         <Lead style={{ marginTop: 16, maxWidth: "48ch" }}>
-          We couldn&apos;t find products for your account yet. Use a code from your shop to unlock
-          your colours.
+          We couldn&apos;t load your products just now — you&apos;re still signed in. Refresh
+          the page to try again.
         </Lead>
-        <p style={{ marginTop: 20 }}>
-          <Link href="/unlock" style={{ color: "var(--accent)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
-            Unlock with a code →
+      </div>
+    );
+  }
+
+  if (data === "none") {
+    return (
+      <div>
+        <Eyebrow>Your products</Eyebrow>
+        <h1 className="display" style={{ fontSize: "clamp(32px, 4vw, 52px)", marginTop: 10 }}>
+          Nothing <i>singled out.</i>
+        </h1>
+        <Lead style={{ marginTop: 16, maxWidth: "50ch" }}>
+          Your shop hasn&apos;t picked particular companies or products for you, which means
+          nothing is held back — every colour in the catalogue is yours to try in the studio.
+        </Lead>
+        <p style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <Link className="btn btn-brass" href="/studio">
+            Start a room <span className="arr">→</span>
+          </Link>
+          <Link className="btn btn-ghost" href="/unlock">
+            Add a shop code
           </Link>
         </p>
       </div>
