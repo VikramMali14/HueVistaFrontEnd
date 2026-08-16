@@ -41,8 +41,11 @@ ENV NEXT_PUBLIC_SITE_ORIGIN=${NEXT_PUBLIC_SITE_ORIGIN}
 # falls back to the default region and quietly refuses a bucket in any other one.
 ARG S3_REGION
 ENV S3_REGION=${S3_REGION}
-# Optional, runtime only: pins /api/media to this one bucket instead of accepting any
-# bucket in the region. Set it to the same value as the backend's S3_BUCKET_NAME.
+# Required to ARM /api/media, the fallback that serves images same-origin when the S3
+# bucket has no CORS rule of its own. It is the only host that route will ever fetch
+# from, which is why it is configuration rather than something the caller supplies —
+# unset, the route stays off rather than accepting a bucket named in the request. Set
+# it to the same value as the backend's S3_BUCKET_NAME.
 ARG S3_BUCKET_NAME
 ENV S3_BUCKET_NAME=${S3_BUCKET_NAME}
 COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./

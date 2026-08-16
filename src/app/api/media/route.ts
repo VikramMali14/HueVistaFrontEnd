@@ -15,16 +15,35 @@
  * bucket rule at startup (see `S3BucketCorsInitializer`); when that succeeds the
  * direct load works and this route is never called.
  *
- * See `@/lib/media-proxy` for why fetching a caller-supplied URL is safe here.
+ * The caller does not get to choose what this server connects to. `@/lib/media-proxy`
+ * pins the origin to one bucket named by configuration and rebuilds the rest of the
+ * URL out of validated parts, so the string handed to `fetch` below is assembled
+ * here rather than forwarded from the request. It needs `S3_BUCKET_NAME` set to arm;
+ * without it the route stays off rather than widening what it will fetch.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { MEDIA_PROXY_TIMEOUT_MS, resolveProxyTarget } from "@/lib/media-proxy";
+import { MEDIA_ORIGIN, MEDIA_PROXY_TIMEOUT_MS, resolveProxyTarget } from "@/lib/media-proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** Warn once, not once per image, when the fallback is wanted but not configured. */
+let warnedUnconfigured = false;
+
 export async function GET(req: NextRequest) {
+  if (!MEDIA_ORIGIN) {
+    if (!warnedUnconfigured) {
+      warnedUnconfigured = true;
+      console.warn(
+        "/api/media was called but S3_BUCKET_NAME is not set, so the image CORS fallback " +
+          "is off. Either set it (to the backend's bucket) or make sure the bucket's own " +
+          "CORS rule allows this site — see docs in the API's IMAGE_UPLOAD_FLOW.md §12.",
+      );
+    }
+    return NextResponse.json({ message: "Media proxy is not configured" }, { status: 503 });
+  }
+
   const target = resolveProxyTarget(req.nextUrl.searchParams.get("url"));
   if (!target) {
     return NextResponse.json({ message: "Unsupported media URL" }, { status: 400 });

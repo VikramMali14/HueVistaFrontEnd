@@ -1,5 +1,5 @@
 /**
- * Which remote media URLs `/api/media` will fetch on the browser's behalf.
+ * What `/api/media` is allowed to fetch.
  *
  * The proxy exists because a canvas needs PIXELS, not just a picture. Every image
  * the studio and the share page draw is loaded with `crossOrigin="anonymous"`, so
@@ -10,96 +10,111 @@
  * bytes through this origin sidesteps the question entirely: same-origin images
  * need no CORS header and taint no canvas.
  *
- * That makes this a server-side fetcher driven by a query parameter, which is an
- * SSRF hole unless the target is pinned. So it is pinned twice:
+ * A server that fetches a URL supplied by whoever called it is the shape of every
+ * SSRF hole ever written, so the caller supplies as little of that URL as possible:
  *
- *   1. The HOST must be S3 in the region we store in — the same rule the CSP's
- *      `img-src` uses in `next.config.ts`, kept deliberately in step with it.
- *   2. The URL must be PRESIGNED. An unsigned URL is one anybody could have
- *      written; a signed one was minted by the backend and expires within the
- *      hour, which is what stops this being a general-purpose relay for every
- *      public object in the region.
+ *   - The ORIGIN is ours, built here from `S3_BUCKET_NAME` and `S3_REGION` and
+ *     never from the request. There is exactly one host this route will ever
+ *     connect to, and no input can move it. An origin that does not match is
+ *     refused rather than followed.
+ *   - The PATH must look like a storage key and nothing else: no host, no port, no
+ *     `..`, and only the characters an S3 key of ours actually uses.
+ *   - The QUERY is rebuilt from scratch out of the SigV4 parameters, each checked
+ *     against its own shape. Nothing else survives.
+ *   - The signature must be PRESENT. An unsigned URL is one anybody could have
+ *     written; a signed one was minted by the backend and expires within the hour,
+ *     which is what stops this being a relay for the whole bucket.
  *
- * Nothing here grants access that the caller did not already hold: a presigned URL
- * is itself the capability, and the browser could fetch it directly if only the
- * bucket said so.
+ * Nothing here grants access the caller did not already hold: a presigned URL is
+ * itself the capability, and the browser could fetch it directly if only the bucket
+ * said so.
  */
-
-/** Matches `next.config.ts` — the region the backend's `app.s3.region` names. */
-const S3_REGION = (process.env.S3_REGION || "ap-south-1").trim();
 
 /**
- * Optional second pin: the one bucket we store in.
+ * The one origin this proxy fetches from, or null when it has not been configured.
  *
- * The region rule alone would also accept a presigned URL for somebody else's
- * bucket in the same region — bucket names are global, so anyone can make one.
- * The damage is bounded (the response must be an image, and is served `nosniff`),
- * but it would still be our bandwidth carrying their bytes. Setting
- * `S3_BUCKET_NAME` to the same value the backend uses closes that off; leaving it
- * unset keeps the region-wide behaviour the CSP already allows.
+ * Null disables the route. It is deliberately not a "fall back to any bucket in the
+ * region" — that would put the hostname back under the caller's influence, which is
+ * the whole thing this module exists to prevent. A deployment that wants the
+ * fallback sets `S3_BUCKET_NAME` to the same value the backend uses; one that does
+ * not gets its images straight from S3 once the bucket's CORS rule is in place,
+ * which is the better outcome anyway.
  */
-const S3_BUCKET = (process.env.S3_BUCKET_NAME || "").trim();
+export const MEDIA_ORIGIN: string | null = buildMediaOrigin();
+
+function buildMediaOrigin(): string | null {
+  const bucket = (process.env.S3_BUCKET_NAME || "").trim().toLowerCase();
+  const region = (process.env.S3_REGION || "ap-south-1").trim().toLowerCase();
+  // Both are checked against their own naming rules before being interpolated, so
+  // a malformed environment cannot smuggle a path or a second host into the origin.
+  if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket)) return null;
+  if (!/^[a-z0-9][a-z0-9-]{1,31}$/.test(region)) return null;
+  return `https://${bucket}.s3.${region}.amazonaws.com`;
+}
 
 /** How long we wait on S3 before giving up on one image. */
 export const MEDIA_PROXY_TIMEOUT_MS = 20_000;
 
-function escapeForRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 /**
- * The S3 hostnames we will fetch from.
+ * The characters an object key of ours uses, and only those: UUIDs, the
+ * `free-projects/<slug>/` library prefix, and a file extension.
  *
- * Both addressing styles are accepted because the SDK has used both over the
- * years: virtual-hosted (`<bucket>.s3.<region>.amazonaws.com`, what the presigner
- * emits today) and path-style (`s3.<region>.amazonaws.com/<bucket>/…`). Bucket
- * names may themselves contain dots, hence the permissive leading label.
- *
- * The region is pinned rather than wildcarded: `s3.<anything>.amazonaws.com` would
- * also match other AWS services that live under that domain, and there is no
- * reason for this app to read a bucket it does not store in.
+ * Percent-escapes are refused rather than decoded. No key this application writes
+ * needs one, so allowing them would only widen what has to be reasoned about — and
+ * `%00` sailing through an escape allowance is exactly the kind of thing that then
+ * has to be reasoned about.
  */
-function s3HostPattern(region: string): RegExp {
-  const r = escapeForRegExp(region);
-  // `s3-<region>` is the pre-2019 form; still valid, still served.
-  return new RegExp(`^(?:[a-z0-9][a-z0-9.-]*\\.)?s3[.-]${r}\\.amazonaws\\.com$`, "i");
-}
+const SAFE_KEY_PATH = /^\/[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/;
 
-/**
- * The bucket an S3 URL addresses, under either addressing style.
- *
- * Returns "" when it cannot be told — a path-style URL with no path, say — which
- * the bucket pin then treats as a mismatch rather than a pass.
- */
-function bucketOf(url: URL, region: string): string {
-  const host = url.hostname.toLowerCase();
-  const suffixMatch = host.match(new RegExp(`^(.*)\\.s3[.-]${escapeForRegExp(region)}\\.amazonaws\\.com$`, "i"));
-  if (suffixMatch) return suffixMatch[1] ?? "";
-  return url.pathname.replace(/^\/+/, "").split("/")[0] ?? "";
-}
-
-/** True when `url` is an S3 URL in our region that carries a SigV4 signature. */
-export function isProxyableMediaUrl(url: URL): boolean {
-  if (url.protocol !== "https:") return false;
-  if (!s3HostPattern(S3_REGION).test(url.hostname)) return false;
-  if (S3_BUCKET && bucketOf(url, S3_REGION) !== S3_BUCKET.toLowerCase()) return false;
-  // Presigned only — see the note above on why an unsigned URL is refused.
-  return url.searchParams.has("X-Amz-Signature");
-}
+/** The SigV4 query parameters a presigned GET carries, and the shape of each. */
+const SIGNING_PARAMS: Record<string, RegExp> = {
+  "X-Amz-Algorithm": /^[A-Za-z0-9-]{1,32}$/,
+  "X-Amz-Credential": /^[A-Za-z0-9/_-]{1,128}$/,
+  "X-Amz-Date": /^[0-9]{8}T[0-9]{6}Z$/,
+  "X-Amz-Expires": /^[0-9]{1,7}$/,
+  "X-Amz-SignedHeaders": /^[a-z0-9;-]{1,128}$/,
+  "X-Amz-Signature": /^[a-f0-9]{64}$/,
+  // Present only when the backend runs on temporary credentials (an IAM role).
+  "X-Amz-Security-Token": /^[A-Za-z0-9+/=_-]{1,4096}$/,
+};
 
 /**
  * The URL `/api/media` should fetch, or null when the request must be refused.
  *
- * Returns null rather than throwing so the route can answer 400 without having to
- * tell an unknown caller which of the rules they broke.
+ * The returned string is assembled here from {@link MEDIA_ORIGIN} plus parts that
+ * have each been validated — the caller's own URL string is never forwarded.
+ *
+ * Returns null rather than throwing so the route can answer 400 without telling an
+ * unknown caller which of the rules they broke.
  */
-export function resolveProxyTarget(raw: string | null): URL | null {
-  if (!raw) return null;
-  let url: URL;
+export function resolveProxyTarget(raw: string | null): string | null {
+  if (!MEDIA_ORIGIN || !raw) return null;
+
+  let parsed: URL;
   try {
-    url = new URL(raw);
+    parsed = new URL(raw);
   } catch {
     return null;
   }
-  return isProxyableMediaUrl(url) ? url : null;
+
+  // One host, fixed above. Anything else — another bucket, another service, a
+  // link-local address, a look-alike domain — stops here.
+  if (parsed.origin.toLowerCase() !== MEDIA_ORIGIN) return null;
+
+  // `URL` has already normalised any dot segments, and they could not have escaped
+  // the origin in any case — this only keeps a literal `..` out of a key we build.
+  const path = parsed.pathname;
+  if (!SAFE_KEY_PATH.test(path) || path.includes("..")) return null;
+
+  // Rebuilt, not copied: only known parameters, each matching its own shape, and
+  // re-encoded by URLSearchParams rather than passed through as written.
+  const query = new URLSearchParams();
+  for (const [name, value] of parsed.searchParams) {
+    const shape = SIGNING_PARAMS[name];
+    if (!shape || !shape.test(value)) return null;
+    query.set(name, value);
+  }
+  if (!query.has("X-Amz-Signature")) return null;
+
+  return `${MEDIA_ORIGIN}${path}?${query.toString()}`;
 }
