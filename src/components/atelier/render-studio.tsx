@@ -12,13 +12,22 @@ import { resolveMediaUrl } from "@/lib/media";
 import { formatRupees } from "@/lib/money";
 import { buyAiCredits } from "@/lib/payments";
 import {
+  buildAiImagePdf,
   buildColourBoardPdf,
   canvasToJpegDataUrl,
   imageUrlToJpegDataUrl,
   type PdfImageEntry,
-  type PdfShade,
 } from "@/lib/pdf-export";
-import { codesAreUniversal, displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
+import { printableShades as toPrintableShades } from "@/lib/printable-shades";
+import {
+  BORDER_LABELS,
+  describeRender,
+  FURNISHING_LABELS,
+  LIGHTING_LABELS,
+  STYLE_LABELS,
+  TIME_OF_DAY_LABELS,
+} from "@/lib/render-labels";
+import { codesAreUniversal, type ShadeCodeScheme } from "@/lib/shade-codes";
 import type {
   AiCreditSummary,
   ProjectCombo,
@@ -90,55 +99,51 @@ const DEFAULT_OPTIONS: RenderOptions = {
 
 type Choice<T extends string> = { value: T; label: string; hint: string };
 
+// The labels come from `render-labels`, which is also what the /ai-images shelf prints
+// with. Only the hints live here: they are prose about CHOOSING, which is a thing this
+// screen does and the shelf does not. Keeping the names in one place is what stops the
+// same picture being captioned "Modern" on one document and something else on another.
 const TIME_OF_DAY: Choice<RenderOptions["timeOfDay"]>[] = [
-  { value: "DAY", label: "Day", hint: "Natural daylight, as the photo was taken" },
-  { value: "NIGHT", label: "Night", hint: "After dark, lit by the lights that are there" },
+  { value: "DAY", label: TIME_OF_DAY_LABELS.DAY, hint: "Natural daylight, as the photo was taken" },
+  { value: "NIGHT", label: TIME_OF_DAY_LABELS.NIGHT, hint: "After dark, lit by the lights that are there" },
 ];
 
 const BORDERS: Choice<RenderOptions["borderMode"]>[] = [
   {
     value: "KEEP_ORIGINAL",
-    label: "Keep my borders",
+    label: BORDER_LABELS.KEEP_ORIGINAL,
     hint: "Paint stays exactly inside the walls and trim as they are marked",
   },
   {
     value: "AI_SUGGESTED",
-    label: "Suggest borders",
+    label: BORDER_LABELS.AI_SUGGESTED,
     hint: "Let the AI propose the trim and banding, in these same colours",
   },
 ];
 
 const LIGHTING: Choice<RenderOptions["lighting"]>[] = [
-  { value: "NATURAL", label: "Natural", hint: "The light that is already in the room" },
-  { value: "WARM", label: "Warm", hint: "Golden, softer — an evening feel" },
-  { value: "COOL", label: "Cool", hint: "Crisp daylight, clean shadows" },
-  { value: "DRAMATIC", label: "Dramatic", hint: "Strong light and deep shadow" },
+  { value: "NATURAL", label: LIGHTING_LABELS.NATURAL, hint: "The light that is already in the room" },
+  { value: "WARM", label: LIGHTING_LABELS.WARM, hint: "Golden, softer — an evening feel" },
+  { value: "COOL", label: LIGHTING_LABELS.COOL, hint: "Crisp daylight, clean shadows" },
+  { value: "DRAMATIC", label: LIGHTING_LABELS.DRAMATIC, hint: "Strong light and deep shadow" },
 ];
 
 const FURNISHING: Choice<RenderOptions["furnishing"]>[] = [
-  { value: "KEEP", label: "As it is", hint: "Nothing moves — only the paint changes" },
-  { value: "STAGED", label: "Styled", hint: "Dressed to suit the colours" },
-  { value: "EMPTY", label: "Empty", hint: "Cleared, so the walls are fully visible" },
+  { value: "KEEP", label: FURNISHING_LABELS.KEEP, hint: "Nothing moves — only the paint changes" },
+  { value: "STAGED", label: FURNISHING_LABELS.STAGED, hint: "Dressed to suit the colours" },
+  { value: "EMPTY", label: FURNISHING_LABELS.EMPTY, hint: "Cleared, so the walls are fully visible" },
 ];
 
 const STYLE: Choice<RenderOptions["style"]>[] = [
-  { value: "MODERN", label: "Modern", hint: "Contemporary and clean" },
-  { value: "MINIMAL", label: "Minimal", hint: "Quiet and restrained" },
-  { value: "TRADITIONAL", label: "Traditional", hint: "Classic and settled" },
-  { value: "HERITAGE", label: "Heritage", hint: "An older building, well kept" },
-  { value: "LUXE", label: "Luxe", hint: "Richer materials, deeper finishes" },
+  { value: "MODERN", label: STYLE_LABELS.MODERN, hint: "Contemporary and clean" },
+  { value: "MINIMAL", label: STYLE_LABELS.MINIMAL, hint: "Quiet and restrained" },
+  { value: "TRADITIONAL", label: STYLE_LABELS.TRADITIONAL, hint: "Classic and settled" },
+  { value: "HERITAGE", label: STYLE_LABELS.HERITAGE, hint: "An older building, well kept" },
+  { value: "LUXE", label: STYLE_LABELS.LUXE, hint: "Richer materials, deeper finishes" },
 ];
 
 function comboName(combo: ProjectCombo, index: number): string {
   return combo.title?.trim() || `Combination ${index + 1}`;
-}
-
-/** "Modern · Day · Natural light" — how the image was photographed, for its PDF page. */
-function describeRender(render: ProjectRender): string {
-  const look = STYLE.find((s) => s.value === render.style)?.label ?? render.style;
-  const when = TIME_OF_DAY.find((t) => t.value === render.timeOfDay)?.label ?? render.timeOfDay;
-  const light = LIGHTING.find((l) => l.value === render.lighting)?.label ?? render.lighting;
-  return `${look} · ${when} · ${light} light`;
 }
 
 export function RenderStudio({ projectId }: { projectId: string }) {
@@ -358,28 +363,14 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   /**
    * How a combination's shades are printed, under this shop's own rules.
    *
-   * The same three decisions the studio makes when it builds a board — hide the paint
-   * name, swap the manufacturer's code for the customer-facing one, print the colour —
-   * repeated here because the sheet built on this page has to be indistinguishable from
-   * the one built there. A board that suddenly printed "Asian Paints Ivory Mist 7112"
-   * because it was reprinted from a different screen would undo the shop's whole scheme
-   * in the one artefact the customer keeps.
+   * The rules themselves live in `printable-shades`, shared with the studio's own board
+   * and with the /ai-images shelf — a sheet built on any of the three has to be
+   * indistinguishable from the others, and a board that suddenly printed "Asian Paints
+   * Ivory Mist 7112" because it was reprinted from a different screen would undo the
+   * shop's whole numbering in the one artefact the customer keeps.
    */
   const printableShades = useCallback(
-    (combo: ProjectCombo | null | undefined): PdfShade[] => {
-      const hideNames = codeScheme?.showNames === false;
-      const hideRawCodes = !codeScheme?.showRealCodes;
-      return (combo?.shades ?? []).map((s) => ({
-        label: s.regionLabel ?? "Wall",
-        name: hideNames ? "" : (s.shadeName ?? "Custom colour"),
-        code: s.shadeCode
-          ? hideRawCodes
-            ? displayCodeOf(codeScheme, { code: s.shadeCode, hvCode: s.hvCode ?? null })
-            : s.shadeCode
-          : undefined,
-        hex: s.hex,
-      }));
-    },
+    (combo: ProjectCombo | null | undefined) => toPrintableShades(codeScheme, combo?.shades),
     [codeScheme],
   );
 
@@ -467,6 +458,50 @@ export function RenderStudio({ projectId }: { projectId: string }) {
       setBoardBusy(false);
     }
   }, [active, boardBusy, project, combos, regionsById, codeScheme, printableShades]);
+
+  /**
+   * The image on a sheet of its own — picture, shades, codes, and nothing else.
+   *
+   * Offered beside the full board rather than instead of it, because the two answer
+   * different moments. The board is for finishing a job at the counter: everything on one
+   * document. This is for afterwards — sending the picture to a painter or a spouse, where
+   * five pages of options that were already chosen between are noise. Handing over the raw
+   * JPEG instead is the third option and it is the worst one: it loses the shade table,
+   * and nobody can buy paint from a photograph of a room.
+   *
+   * <p>Cheap next to the board reprint: no combination is repainted, so there is no
+   * off-screen canvas and no mask fetch — only the finished image is re-encoded.
+   */
+  const downloadImagePdf = useCallback(async () => {
+    const image = active?.status === "READY" ? active : null;
+    if (!image || boardBusy) return;
+    setBoardBusy(true);
+    setError(null);
+    try {
+      const jpeg = await imageUrlToJpegDataUrl(resolveMediaUrl(image.imageUrl) ?? "");
+      if (!jpeg) {
+        setError(
+          "Could not read your image on this device, so the PDF would have been empty. "
+          + "The image itself still downloads.",
+        );
+        return;
+      }
+      const blob = buildAiImagePdf(
+        {
+          jpegDataUrl: jpeg,
+          shades: printableShades(combos.find((c) => c.id === image.comboId) ?? null),
+          caption: describeRender(image),
+        },
+        project?.name || "HueVista AI image",
+        codesAreUniversal(codeScheme),
+      );
+      downloadBlob(blob, `huevista-ai-image-${Date.now()}.pdf`);
+    } catch {
+      setError("Could not build the PDF on this device. Your image still downloads on its own.");
+    } finally {
+      setBoardBusy(false);
+    }
+  }, [active, boardBusy, combos, project, codeScheme, printableShades]);
 
   /**
    * Top up the wallet, then clear the finished image so the options are back on screen.
@@ -610,13 +645,17 @@ export function RenderStudio({ projectId }: { projectId: string }) {
               Offered beside the plain image download rather than instead of it, because
               somebody who only wants the picture should not have to take a PDF. */}
           <p className="hv-render-done-sub">
-            Your colour board can be reprinted with this image on the last page. It costs
+            Take it on its own, on a one-page PDF with the shades printed underneath, or on
+            your whole colour board with this image as the last page. All three cost
             nothing — the board was already paid for.
           </p>
           <div className="hv-render-done-actions">
             <a className="btn btn-brass" href={resolveMediaUrl(ready.imageUrl) ?? "#"} download>
               Download the image
             </a>
+            <Button variant="ghost" disabled={boardBusy} onClick={() => void downloadImagePdf()}>
+              {boardBusy ? "Building your PDF…" : "This image as a PDF"}
+            </Button>
             <Button variant="ghost" disabled={boardBusy} onClick={() => void downloadBoardWithImage()}>
               {boardBusy ? "Building your PDF…" : "Colour board PDF · with this image"}
             </Button>
@@ -629,6 +668,12 @@ export function RenderStudio({ projectId }: { projectId: string }) {
                 {buying ? "Opening checkout…" : buyCreditLabel(wallet)}
               </Button>
             )}
+            {/* Where this picture will be tomorrow. Said here rather than left to be
+                discovered, because the moment somebody has just made one is the moment
+                they wonder whether they have to keep it themselves. */}
+            <Link className="btn btn-ghost" href="/ai-images">
+              All my AI images
+            </Link>
             <Link className="btn btn-ghost" href="/dashboard">
               Back to my rooms
             </Link>

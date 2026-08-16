@@ -13,7 +13,7 @@ import { WORKS } from "@/lib/work";
 // from either one stops refreshing its access cookie and starts bouncing people
 // to /sign-in; src/lib/__tests__/protected-routes.test.ts checks both against
 // the pages that actually exist under (app).
-const PROTECTED_PREFIXES = ["/studio", "/render", "/dashboard", "/portal", "/inbox", "/products", "/assigned-products", "/colour-finder", "/account", "/admin", "/plan", "/network", "/library", "/my-projects"];
+const PROTECTED_PREFIXES = ["/studio", "/render", "/dashboard", "/portal", "/inbox", "/products", "/assigned-products", "/colour-finder", "/account", "/admin", "/plan", "/network", "/library", "/my-projects", "/ai-images"];
 // Pages that only make sense for a signed-OUT visitor. A signed-in user landing
 // here is bounced home — they can't register or sign in again without signing
 // out first. The Google OAuth callback at /sign-in/google is deliberately NOT
@@ -317,6 +317,8 @@ export const config = {
     "/library/:path*",
     // The customer's own projects + AI credits page.
     "/my-projects/:path*",
+    // Every AI image the account has made, gathered from all of its rooms.
+    "/ai-images/:path*",
     "/bff/:path*",
     // Rewritten-to-backend auth endpoints — X-Forwarded-For normalisation only.
     "/api/auth/:path*",

@@ -74,6 +74,11 @@ export function canUsePath(access: MyAccess | null, path: string): boolean {
  */
 export const FEATURE_BY_PATH: Record<string, AppFeatureKey | undefined> = {
   "/studio": "STUDIO",
+  // The account's AI images. Behind the studio's own grant rather than a grant of its
+  // own: the images are made BY a studio project, so a shop without the studio has none
+  // — and the page and `GET /api/me/renders` both check STUDIO, so listing it here is
+  // what keeps the tab from outliving the page it leads to.
+  "/ai-images": "STUDIO",
   "/colour-finder": "COLOR_FINDER",
   "/catalogue": "CATALOGUE",
   "/products": "PRODUCTS",

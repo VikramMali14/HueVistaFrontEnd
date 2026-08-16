@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildColourBoardPdf, type PdfImageEntry } from "../pdf-export";
+import { buildAiImagePdf, buildColourBoardPdf, type PdfImageEntry } from "../pdf-export";
 
 /**
  * Build a minimal but structurally-valid baseline JPEG (SOI, an SOF0 frame
@@ -125,10 +125,62 @@ describe("buildColourBoardPdf", () => {
 
     it("still prints when every option snapshot was lost", async () => {
       // The reprint path can fail to repaint a combination whose regions are gone. The
-      // image the customer paid for must survive that.
+      // image the customer paid for must survive that — and survive it ALONE: an
+      // apology page facing a perfectly good picture is not a document anybody wants,
+      // so the "nothing was added" notice is only for a document with nothing in it.
       const text = await pdfText(buildColourBoardPdf([], "My room", true, aiImage()));
-      expect(text).toContain("/Count 2");
+      expect(text).toContain("/Count 1");
+      expect(text).toContain("Page 1 of 1");
       expect(text).toContain("Your AI image");
+      expect(text).not.toContain("No coloured images were added.");
+    });
+  });
+
+  describe("buildAiImagePdf", () => {
+    const aiImage = () => ({
+      jpegDataUrl: fakeJpegDataUrl(1024, 768),
+      shades: [{ label: "Main wall", name: "Off White", code: "7112", hex: "#f4efe6" }],
+      caption: "Modern · Day · Natural light",
+    });
+
+    it("is one page: the picture, its shades and the counter footer", async () => {
+      const text = await pdfText(buildAiImagePdf(aiImage(), "My room"));
+
+      expect(text).toContain("/Count 1");
+      expect((text.match(/\/Subtype \/Image/g) ?? []).length).toBe(1);
+      expect(text).toContain("/Width 1024");
+      expect(text).toContain("Page 1 of 1");
+      // The shade table is what makes this a colour document rather than a screenshot.
+      expect(text).toContain("Shade No. 7112");
+      expect(text).toContain("COLOURS IN THIS IMAGE");
+      expect(text).toContain("My room");
+    });
+
+    it("says what it is, rather than claiming to be a colour board", async () => {
+      const text = await pdfText(buildAiImagePdf(aiImage(), "My room"));
+      // The middot is WinAnsi 0xB7, written as a raw byte rather than escaped, so it
+      // reads back through the latin-1 view as itself.
+      expect(text).toContain("HUEVISTA · AI IMAGE");
+      expect(text).not.toContain("HUEVISTA · COLOUR BOARD");
+    });
+
+    it("names the right counter for a shop running its own code pattern", async () => {
+      const universal = await pdfText(buildAiImagePdf(aiImage(), "My room", true));
+      expect(universal).toContain("any HueVista shop can look these codes up");
+
+      const ownPattern = await pdfText(buildAiImagePdf(aiImage(), "My room", false));
+      expect(ownPattern).toContain("your paint shop can look these codes up");
+    });
+
+    it("still produces an openable file when the image cannot be decoded", async () => {
+      // Nothing here may throw: this runs behind a download button, and an exception
+      // would lose the customer their picture rather than one page of it.
+      const text = await pdfText(
+        buildAiImagePdf({ jpegDataUrl: "data:image/jpeg;base64,@@bad@@", shades: [] }, "My room"),
+      );
+      expect(text.startsWith("%PDF-1.4")).toBe(true);
+      expect(text.trimEnd().endsWith("%%EOF")).toBe(true);
+      expect(text).toContain("/Count 1");
     });
   });
 

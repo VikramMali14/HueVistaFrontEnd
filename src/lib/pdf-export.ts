@@ -370,6 +370,9 @@ function pageChrome(
   pageCount: number,
   universalCodes: boolean,
   counter?: string,
+  /** The small tracked-out line above the title. "COLOUR BOARD" on a board; a
+   *  one-page sheet of a single AI image says what it actually is instead. */
+  eyebrow: string = "HUEVISTA · COLOUR BOARD",
 ): string[] {
   const ops: string[] = [];
   const right = PAGE_W - MARGIN;
@@ -385,7 +388,7 @@ function pageChrome(
 
   // Eyebrow + date line.
   const eyebrowY = PAGE_H - 58;
-  ops.push(textOp("F2", 8, MARGIN, eyebrowY, "HUEVISTA · COLOUR BOARD", ACCENT, 1.5));
+  ops.push(textOp("F2", 8, MARGIN, eyebrowY, eyebrow, ACCENT, 1.5));
   ops.push(textOp("F1", 8.5, right - textWidth(dateLine, 8.5), eyebrowY, dateLine, MUTE));
 
   // Project title, with the option counter on the right.
@@ -447,10 +450,12 @@ function pageContent(
   sectionLabel: string,
   /** Optional right-aligned note beside that heading — how the image was made. */
   sectionNote?: string,
+  eyebrow?: string,
 ): string {
   const right = PAGE_W - MARGIN;
   const stripHexes = entry.shades.length ? entry.shades.map((s) => s.hex) : ["#7c5cff"];
-  const ops = pageChrome(stripHexes, title, dateLine, pageNo, pageCount, universalCodes, counter);
+  const ops = pageChrome(stripHexes, title, dateLine, pageNo, pageCount, universalCodes,
+    counter, eyebrow);
 
   // Shade table, anchored to the bottom so every page shares one layout.
   const rows = Math.max(1, entry.shades.length);
@@ -524,6 +529,14 @@ export function buildColourBoardPdf(
    * dropped like any other page rather than failing the board.
    */
   aiImage?: PdfAiImage | null,
+  /**
+   * The eyebrow printed on every page. Defaults to the board's own.
+   *
+   * Only {@link buildAiImagePdf} passes anything else: a one-page sheet carrying a single
+   * picture is not a colour board, and a header claiming it is would be the one line on
+   * the page that is untrue.
+   */
+  eyebrow?: string,
 ): Blob {
   const chunks: Uint8Array[] = [];
   let length = 0;
@@ -562,7 +575,13 @@ export function buildColourBoardPdf(
   const closing = aiImage && aiBytes ? { entry: aiImage, bytes: aiBytes } : null;
   // Numbered across the whole document, closing page included, so "Page 6 of 6" is
   // true. The OPTION counter deliberately is not — see the counter argument below.
-  const pageCount = Math.max(1, usable.length) + (closing ? 1 : 0);
+  //
+  // The `|| 1` rather than a Math.max around the options is what lets the AI image stand
+  // on its own. A board with no options is a document with nothing in it and earns the
+  // apology page below; a board that is ONLY the closing image is the single-image sheet,
+  // and padding it to two pages would print that apology opposite a perfectly good
+  // picture. So the floor of one applies to the empty case alone.
+  const pageCount = (usable.length + (closing ? 1 : 0)) || 1;
 
   const kids: number[] = [];
 
@@ -583,7 +602,7 @@ export function buildColourBoardPdf(
       "\nendstream",
     ]);
     const content = pageContent(entry, w, h, title, dateLine, universalCodes,
-      pageNo, pageCount, counter, sectionLabel, sectionNote);
+      pageNo, pageCount, counter, sectionLabel, sectionNote, eyebrow);
     const contentBytes = latin1(content);
     const contentId = addObject([
       `<< /Length ${contentBytes.length} >>\nstream\n`,
@@ -597,9 +616,10 @@ export function buildColourBoardPdf(
     ]));
   };
 
-  if (usable.length === 0) {
+  if (usable.length === 0 && !closing) {
     // Degenerate case: a branded page telling the user there was nothing to add.
-    const ops = pageChrome(["#7c5cff"], title, dateLine, 1, pageCount, universalCodes);
+    const ops = pageChrome(["#7c5cff"], title, dateLine, 1, pageCount, universalCodes,
+      undefined, eyebrow);
     ops.push(textOp("F1", 12, MARGIN, PAGE_H - 160, "No coloured images were added.", MUTE));
     const content = ops.join("\n");
     const contentId = addObject([`<< /Length ${latin1(content).length} >>\nstream\n`, content, "\nendstream"]);
@@ -650,6 +670,36 @@ export function buildColourBoardPdf(
   push(`trailer\n<< /Size ${count} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
 
   return new Blob(chunks as BlobPart[], { type: "application/pdf" });
+}
+
+/**
+ * One AI image on a sheet of its own — picture, the shades it was made in, and the
+ * footer saying where those codes can be read.
+ *
+ * This is the small deliverable the product was missing. The board carries the AI image
+ * as its closing page, which is right when somebody is finishing a job at a counter and
+ * wants everything on one document — but it is the wrong shape for the far more common
+ * moment afterwards: the customer has the picture, wants to send it to a painter or a
+ * spouse, and does not want five pages of options they already chose between. Handing
+ * them the raw JPEG instead loses the thing that makes it useful, which is the shade
+ * table: a photograph of a room is not something anybody can buy paint from.
+ *
+ * <p>Deliberately the same generator, and therefore the same page — same palette strip,
+ * same frame, same disclaimer, same "your paint shop can look these codes up" footer.
+ * A one-page sheet that looked like a different product would undermine the board it was
+ * cut from, and the layout is already built to be read on its own (the shade table is
+ * anchored to the page bottom, not carried over from the page before).
+ *
+ * @param universalCodes whether these codes work at any HueVista counter or only back at
+ *   the shop that issued them — decides one footer line, and getting it wrong sends
+ *   somebody on a wasted trip.
+ */
+export function buildAiImagePdf(
+  image: PdfAiImage,
+  title = "HueVista",
+  universalCodes = true,
+): Blob {
+  return buildColourBoardPdf([], title, universalCodes, image, "HUEVISTA · AI IMAGE");
 }
 
 function safeBytes(dataUrl: string): Uint8Array | null {

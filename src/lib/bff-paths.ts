@@ -32,6 +32,9 @@ export const BFF_ALLOWED_PREFIXES = [
   "api/me/retailer-combos",
   // The shop's shade-code scheme — the studio encodes displayed codes with it.
   "api/me/shade-code-scheme",
+  // Every finished AI image this account owns, across all of its rooms — the shelf
+  // at /ai-images. Read-only, and scoped server-side to the caller's own projects.
+  "api/me/renders",
   "api/billing/subscriptions",
   "api/billing/plans",
   // Pay-per-use billing the signed-in retailer drives from the plan page, plus the
