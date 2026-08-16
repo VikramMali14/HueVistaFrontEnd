@@ -205,6 +205,17 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
     return { id: `usr_${Date.now()}`, name, email, role: "RETAILER" } as T;
   }
 
+  // --- A signed-in customer adding a code to the account they already hold ---
+  if (p === "/api/access-codes/redeem" && method === "POST") {
+    const { code = "" } = parseBody<{ code?: string }>(init);
+    const want = code.trim().toUpperCase();
+    const match = getStore().accessCodes.find((c) => c.code.toUpperCase() === want);
+    if (!match) throw new HttpError(404, "That code wasn't found.");
+    if (match.used) throw new HttpError(409, "That access code has already been used.");
+    if (match.expired) throw new HttpError(409, "That access code has expired.");
+    return { ...match, used: true, usedAt: new Date().toISOString() } as T;
+  }
+
   // --- Anonymous guest redemption of a shop access code ---
   if (p === "/api/access-codes/redeem-guest" && method === "POST") {
     const { code = "" } = parseBody<{ code?: string }>(init);

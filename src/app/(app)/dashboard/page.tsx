@@ -153,7 +153,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {!unavailable && user?.role === "CUSTOMER" && (
           <div style={{ marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap" }}>
             <LinkButton href="/my-projects" variant="ghost" size="sm">Your projects &amp; credits <span className="arr">→</span></LinkButton>
-            <LinkButton href="/unlock" variant="ghost" size="sm">Have a shop access code? Unlock your projects <span className="arr">→</span></LinkButton>
+            {/* "Add", not "unlock": the code joins this account now rather than
+                replacing it, and the old wording described a page that signed them
+                out of the very projects it offered to unlock. */}
+            <LinkButton href="/unlock" variant="ghost" size="sm">Have a shop access code? Add it here <span className="arr">→</span></LinkButton>
           </div>
         )}
         {/* Distributors and retailers get a direct line to their network console —

@@ -94,3 +94,32 @@ describe("middleware guest-only pages", () => {
     expect(matcherEntries()).not.toContain("/sign-in/google");
   });
 });
+
+function sessionAwarePaths(): string[] {
+  const block = /const SESSION_AWARE_PATHS = \[([\s\S]*?)\];/.exec(middlewareSource);
+  expect(block, "SESSION_AWARE_PATHS not found in middleware.ts").not.toBeNull();
+  return [...block![1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+}
+
+/**
+ * /unlock is public but branches on WHO is signed in: it redeems onto a customer's
+ * existing account, refuses to swap a shop's session, or auto-provisions an account
+ * for a walk-in. Reading that off a lapsed access cookie reports a signed-in customer
+ * as a stranger and mints them a second account — so it has to be matched (for the
+ * refresh) without ever being treated as protected (which would bounce the walk-in
+ * the page is mainly for).
+ */
+describe("middleware session-aware public pages", () => {
+  it("matches /unlock so its access cookie is refreshed", () => {
+    expect(sessionAwarePaths()).toContain("/unlock");
+    expect(matcherEntries()).toContain("/unlock");
+  });
+
+  it("never treats a session-aware page as protected or guest-only", () => {
+    const aware = sessionAwarePaths();
+    for (const path of aware) {
+      expect(protectedPrefixes(), `${path} must stay public`).not.toContain(path);
+      expect(guestOnlyPaths(), `${path} must stay open to signed-in users`).not.toContain(path);
+    }
+  });
+});

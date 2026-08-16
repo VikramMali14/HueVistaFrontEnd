@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser, requireAccessToken, requireFeature } from "@/lib/auth";
-import { entitlementApi } from "@/lib/api";
+import { billingApi, entitlementApi } from "@/lib/api";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Visualizer } from "@/components/atelier/visualizer";
 import { getCatalogueOrSample } from "@/lib/catalogue";
@@ -19,21 +19,46 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 type CustomerGate = "missing" | "expired" | null;
 
 /**
- * A CUSTOMER's studio access comes from a retailer-issued code. Check it up
- * front so they see a clear "unlock with your code" screen instead of being invited
- * to upload a photo and rejected afterwards. Fail-open on any fetch problem —
- * the backend enforces the same rules authoritatively on every write.
+ * Why a CUSTOMER cannot start a room right now — checked up front so they see a clear
+ * screen instead of being invited to upload a photo and rejected afterwards.
+ *
+ * There are TWO ways a customer holds a project and this has to ask about both, because
+ * they are mutually exclusive by design (see CustomerEntitlementService#hasEntitlement):
+ *
+ *  - A shop onboarded them: an entitlement row carries the allowance and the window.
+ *  - They signed up alone: no entitlement will ever exist, and what they hold is
+ *    project credits they bought.
+ *
+ * Only the first was asked about, so the second kind was turned away at the door for
+ * want of a code they were never given — with the dashboard beside it saying "projects
+ * paid for and ready, start one whenever you like", and the backend perfectly willing
+ * to spend the credit. Somebody had paid and the studio would not open.
+ *
+ * Fail-open on any fetch problem — the backend enforces the same rules authoritatively
+ * on every write.
  */
 async function customerGate(user: Awaited<ReturnType<typeof getCurrentUser>>, accessToken: string): Promise<CustomerGate> {
   if (user?.role !== "CUSTOMER") return null;
+  let ent: Awaited<ReturnType<typeof entitlementApi.my>>;
   try {
-    const ent = await entitlementApi.my(accessToken);
-    if (!ent) return "missing";
-    if (ent.expired) return "expired";
+    ent = await entitlementApi.my(accessToken);
   } catch {
-    /* backend hiccup — let them through; the API still gates every action */
+    return null; // backend hiccup — let them through; the API still gates every action
   }
-  return null;
+  // Shop access is live. Whether any of its allowance is LEFT is a different question,
+  // answered inside the studio by a panel that offers the ways forward in place.
+  if (ent && !ent.expired) return null;
+
+  // Either no shop at all, or a shop window that has closed. Both come down to the same
+  // question, and it is not "have you got a code": a project this account bought with
+  // its own money opens the studio either way, and the backend will spend it.
+  try {
+    const options = await billingApi.projectPurchaseOptions(accessToken);
+    if (options.availableCredits > 0) return null;
+  } catch {
+    return null;
+  }
+  return ent ? "expired" : "missing";
 }
 
 function AccessGate({ kind }: { kind: "missing" | "expired" }) {
@@ -56,9 +81,15 @@ function AccessGate({ kind }: { kind: "missing" | "expired" }) {
         <Link className="btn btn-brass" href="/unlock">
           Unlock with a code <span className="arr">→</span>
         </Link>
-        {/* The way forward that costs nothing, offered next to the one that doesn't.
-            A customer who lands here has already tried to start something; sending
-            them back to the dashboard alone was a dead end with no suggestion in it. */}
+        {/* The other two ways forward, offered next to the code. A customer who lands
+            here has already tried to start something; sending them back to the
+            dashboard alone was a dead end with no suggestion in it — and the prose
+            above has been offering "buy one yourself" with no button behind it. */}
+        {kind === "missing" && (
+          <Link className="btn btn-ghost" href="/my-projects">
+            Buy a project <span className="arr">→</span>
+          </Link>
+        )}
         {kind === "missing" && (
           <Link className="btn btn-ghost" href="/library">
             Open a ready-made room <span className="arr">→</span>
@@ -88,18 +119,15 @@ export default async function AtelierPage({
   const user = await getCurrentUser();
   const { project, name } = await searchParams;
   const gate = await customerGate(user, token);
-  // A customer OPENING A PROJECT THEY ALREADY OWN is never turned away for want of a
-  // code. The library is the case this exists for: a ready-made room costs nothing to
-  // open (the backend asks only for a session — no entitlement claimed, no credit
-  // reserved), and it lands the customer in the studio with ?project=. Gating that on
-  // an access code meant a customer could start a free room and then be told to fetch
-  // a code from a shop they may not have, one click later, with the room already made.
-  //
-  // Only the "no code at all" gate is lifted. An EXPIRED window still stops here,
-  // because that is a customer whose access genuinely ran out rather than one who
-  // never had any — and the backend locks their reads either way, so letting them
-  // through would only replace a clear explanation with a wall of failed requests.
-  if (gate === "expired" || (gate === "missing" && !project)) {
+  // A customer OPENING A PROJECT THEY ALREADY OWN is never turned away here, whichever
+  // gate applies. Two cases need it and neither has anything to do with a code: a
+  // ready-made library room costs nothing to open (the backend asks only for a session),
+  // and a room the account BOUGHT is governed by its own validity window rather than by
+  // any shop's. The backend decides per project — a room a shop's code paid for is
+  // refused once that code's window closes, and one the customer paid for is not — so
+  // this page only answers the question it can answer on its own: may they start
+  // something NEW.
+  if (gate && !project) {
     return <AccessGate kind={gate} />;
   }
   // A ?project= that isn't even shaped like an id never reaches the backend — it
