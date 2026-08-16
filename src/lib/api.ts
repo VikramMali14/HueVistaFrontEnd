@@ -217,6 +217,37 @@ export const billingApi = {
     }),
   plans: (accessToken: string) =>
     serverFetch<import("./types").PlanOption[]>("/api/billing/plans", { accessToken }),
+  /**
+   * What one project costs this account, and how many it has already paid for.
+   *
+   * Server-side twin of `api.getProjectPurchaseOptions()`. The studio's customer gate
+   * needs `availableCredits` before it renders: an account with no shop behind it holds
+   * no entitlement, so credits are the ONLY thing that says whether it may start a room.
+   */
+  projectPurchaseOptions: (accessToken: string) =>
+    serverFetch<import("./types").ProjectPurchaseOptions>(
+      "/api/billing/points/project-options",
+      { accessToken },
+    ),
+};
+
+/**
+ * Redeeming a shop code ONTO the account already signed in.
+ *
+ * The public `guestServerApi.redeemAccount` is the walk-in's route: it mints a fresh
+ * passwordless account keyed to the code. Running that for someone who is already
+ * signed in swaps them into a different account and leaves every project they had
+ * behind — which is exactly what "unlock YOUR projects" must not do. This endpoint
+ * adds the code's allowance to the account in hand, and the backend refuses it for
+ * anyone who is not a customer.
+ */
+export const accessCodeServerApi = {
+  redeem: (accessToken: string, code: string) =>
+    serverFetch<AccessCode>("/api/access-codes/redeem", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({ code }),
+    }),
 };
 
 /**

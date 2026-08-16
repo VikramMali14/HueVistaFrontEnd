@@ -29,6 +29,17 @@ const PROTECTED_PREFIXES = ["/studio", "/render", "/dashboard", "/portal", "/inb
 // account nobody wanted. Whoever genuinely needs a second account can sign out
 // first, which is the same answer /join and /sign-in already give.
 const GUEST_ONLY_PATHS = ["/sign-in", "/sign-in/forgot", "/join", "/trial"];
+// Public pages whose behaviour DEPENDS on who is signed in, so they need the access
+// cookie refreshed the way a protected page does — but must never bounce a visitor
+// who isn't signed in at all.
+//
+// /unlock is the case this exists for. It decides between three quite different
+// things: redeem onto the account in hand (a signed-in customer), refuse to swap a
+// shop's session for a customer's, or auto-provision an account (a walk-in with no
+// session). Reading that from a lapsed access cookie would report every signed-in
+// customer as a stranger fifteen minutes into their session and mint them a second
+// account — the exact failure the page branches to avoid.
+const SESSION_AWARE_PATHS = ["/unlock"];
 const ACCESS_COOKIE = "hv_access";
 const SESSION_COOKIE = "hv_refresh";
 const GUEST_COOKIE = "hv_guest";
@@ -173,6 +184,7 @@ export async function middleware(req: NextRequest) {
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
   const isGuestOnly = GUEST_ONLY_PATHS.includes(pathname);
+  const isSessionAware = SESSION_AWARE_PATHS.includes(pathname);
 
   const access = req.cookies.get(ACCESS_COOKIE)?.value;
   const refresh = req.cookies.get(SESSION_COOKIE)?.value;
@@ -188,7 +200,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!isBff && !isProtected) return NextResponse.next();
+  if (!isBff && !isProtected && !isSessionAware) return NextResponse.next();
 
   // Anonymous guest creators (redeemed a shop code, no user session) authenticate
   // with the hv_guest token, which the BFF route validates itself — don't demand a
@@ -212,6 +224,15 @@ export async function middleware(req: NextRequest) {
   if (access) return NextResponse.next();
 
   const denied = () => {
+    // A session-aware PUBLIC page is never denied — being signed out is one of the
+    // states it renders. Drop the dead cookies so the page reads "signed out" rather
+    // than half a session, and let it through.
+    if (isSessionAware) {
+      const r = NextResponse.next();
+      r.cookies.delete(ACCESS_COOKIE);
+      r.cookies.delete(SESSION_COOKIE);
+      return r;
+    }
     if (isBff) {
       // The caller is fetch(), not the user — fail fast with 401, don't redirect.
       const r = NextResponse.json({ message: "Not authenticated" }, { status: 401 });
@@ -228,8 +249,8 @@ export async function middleware(req: NextRequest) {
     return r;
   };
 
-  // No session at all → bounce.
-  if (!refresh) return denied();
+  // No session at all → bounce (or, on a session-aware public page, render signed out).
+  if (!refresh) return isSessionAware ? NextResponse.next() : denied();
 
   // Demo mode: no backend to refresh against — a refresh cookie alone is enough.
   if (DEMO_MODE) return NextResponse.next();
@@ -241,6 +262,10 @@ export async function middleware(req: NextRequest) {
   // backend-free) home page, and the still-present cookies mean the very next
   // visit to a protected page silently refreshes and restores the session.
   const unavailable = () => {
+    // Same reasoning as `denied` — but the cookies STAY, because this is the backend
+    // having trouble rather than a dead session. The page renders as signed out for
+    // this one request and the next visit picks the session back up.
+    if (isSessionAware) return NextResponse.next();
     if (isBff) {
       return NextResponse.json(
         { message: "The server is starting up — please try again in a moment." },
@@ -325,6 +350,8 @@ export const config = {
     "/sign-in/forgot",
     "/join",
     "/trial",
+    // Public, but branches on who is signed in — refreshed here, never denied.
+    "/unlock",
     // Unknown project slugs are 404'd here (WORK_SLUGS) — the page can't.
     "/work/:path*",
   ],

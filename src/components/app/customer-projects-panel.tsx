@@ -91,9 +91,14 @@ export function CustomerProjectsPanel() {
         <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch", margin: "0 0 16px" }}>
           {credits > 0 ? (
             <>
-              Each one opens a room you can photograph, repaint and save. Start whenever
-              you like — a project stays open for {options?.validDays ?? 30} days once you
-              begin it.
+              Each one opens a room you can photograph, repaint and save — a project stays
+              open for {options?.validDays ?? 30} days once you begin it.{" "}
+              {/* The link matters: this is the one panel that tells a customer with no
+                  shop that they hold something, and it used to name every route out of
+                  the page except the one that spends it. */}
+              <Link href="/studio" style={{ color: "var(--accent)" }}>
+                Start a room →
+              </Link>
             </>
           ) : (
             <>

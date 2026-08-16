@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { adminApi, authApi, billingApi, entitlementApi, guestServerApi, networkApi, HttpError } from "./api";
+import { accessCodeServerApi, adminApi, authApi, billingApi, entitlementApi, guestServerApi, networkApi, HttpError } from "./api";
 import type { SiteAsset } from "./site-assets";
 import { SITE_ASSETS_TAG } from "./site-assets-server";
 import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult, DistributorOption, PaymentAttemptRow, PaymentAuditFilters, PaymentAuditSummary, ShadeUploadResult, ShopLeadRow, UploadBrand } from "./api";
@@ -184,20 +184,23 @@ export async function loginWithOtpAction(formData: FormData) {
 }
 
 /**
- * Public, anonymous guest redemption of a shop access code. Stores the guest
- * token in an httpOnly cookie (valid until the code expires) and returns the shop
- * context for the "continue as guest / sign in to save" choice screen.
+ * Open an anonymous guest session for a code, storing the guest token in an httpOnly
+ * cookie that dies with the code.
+ *
+ * Returns the backend's own refusal on failure rather than a flat null: the reasons a
+ * guest code is turned away are things the customer needs to hear precisely — the room
+ * has already been sent to the counter, the shop cancelled the code, the window closed —
+ * and collapsing them into one house sentence sends someone back to a counter with the
+ * wrong question.
+ *
+ * Not exported: it is the tail of the unlock flow, not an entry point of its own.
  */
-export async function unlockGuestAction(
+async function startGuestSession(
   code: string,
+  clientIp: string | undefined,
 ): Promise<{ shopName: string; code: string; validDays: number } | { error: string }> {
-  "use server";
-  const value = code.trim();
-  if (!value) return { error: "Enter the code from your shop." };
-  const hdrs = await headers();
-  const clientIp = clientIpFromHeaders(hdrs);
   try {
-    const res = await guestServerApi.redeem(value, clientIp);
+    const res = await guestServerApi.redeem(code, clientIp);
     const jar = await cookies();
     const ttlSeconds = Math.max(60, Math.floor((new Date(res.expiresAt).getTime() - Date.now()) / 1000));
     jar.set(config.guestCookie, res.guestToken, { ...cookieDefaults, maxAge: ttlSeconds });
@@ -208,12 +211,8 @@ export async function unlockGuestAction(
     }
     return { shopName: res.shopName, code: res.code, validDays: res.validDays };
   } catch (err) {
-    if (err instanceof HttpError) {
-      if (err.status === 404) return { error: "That code wasn't found. Check it and try again." };
-      if (err.status === 409) return { error: "That code has already been used." };
-      return { error: err.message };
-    }
-    return { error: "Could not unlock with that code. Please try again." };
+    if (err instanceof HttpError && err.message) return { error: err.message };
+    return { error: "That code has already been used or expired." };
   }
 }
 
@@ -227,10 +226,13 @@ export async function unlockGuestAction(
  * mistypes a customer's code therefore keeps their own session — the old order
  * (clear, then redeem) signed them out on every bad code, which mattered because
  * the portal sends retailers to this very page.
+ *
+ * For a visitor who is already SIGNED IN this is the wrong action entirely — see
+ * {@link addCodeToAccountAction}, which the unlock page uses instead.
  */
 export async function unlockAccountAction(
   code: string,
-): Promise<{ name: string; shopName: string } | { error: string }> {
+): Promise<{ name: string; shopName: string } | { guest: true; shopName: string; validDays: number } | { error: string }> {
   "use server";
   const value = code.trim();
   if (!value) return { error: "Enter the code from your shop." };
@@ -256,10 +258,68 @@ export async function unlockAccountAction(
   } catch (err) {
     if (err instanceof HttpError) {
       if (err.status === 404) return { error: "That code wasn't found. Check it and try again." };
-      if (err.status === 409 || err.status === 410) return { error: "That code has already been used or expired." };
+      if (err.status === 409 || err.status === 410) {
+        // "Already used" is not the whole story. A code consumed by a GUEST — every
+        // kiosk purchase, and any counter code redeemed without an account — has no
+        // account to sign into, so the account route can only ever refuse it. The
+        // backend deliberately lets a guest back in with the same code while it is
+        // valid, which is precisely the promise the kiosk prints on its receipt
+        // ("lose the tab or switch phones? enter this code again"). Without this
+        // fallback that promise was false: a customer who had already paid was told
+        // their own code was used up, with nothing else on the page to try.
+        const guest = await startGuestSession(value, clientIp);
+        if ("error" in guest) return guest;
+        // Only now, once the code has actually been accepted, does anyone get signed
+        // out — same rule as the account path above, and for the same reason: a
+        // retailer who mistypes a customer's code must keep their own session.
+        await clearSession();
+        return { guest: true, shopName: guest.shopName, validDays: guest.validDays };
+      }
       return { error: err.message };
     }
     return { error: "Could not unlock with that code. Please try again." };
+  }
+}
+
+/**
+ * Redeem a shop code onto the account that is ALREADY signed in.
+ *
+ * The difference from {@link unlockAccountAction} is the whole point of it. That one
+ * mints a new passwordless account keyed to the code; running it for a signed-in
+ * customer signed them out and dropped them into a different account, leaving every
+ * project, every colour board and every AI credit they held behind in an account they
+ * may have no password for. Every "unlock your projects" invitation in the app —
+ * dashboard, access banner, studio gate, products page — pointed at that.
+ *
+ * The backend adds the code's allowance to the existing entitlement rather than
+ * replacing it, so a second shop's code tops the customer up instead of resetting
+ * them, and it refuses outright for a shop/distributor/admin account (whose role the
+ * redemption would otherwise destroy).
+ */
+export async function addCodeToAccountAction(
+  code: string,
+): Promise<{ shopName: string; projects: number } | { error: string }> {
+  "use server";
+  const value = code.trim();
+  if (!value) return { error: "Enter the code from your shop." };
+  const token = await getAccessToken();
+  if (!token) {
+    return { error: "Your session has expired. Reload this page and try again." };
+  }
+  try {
+    const res = await accessCodeServerApi.redeem(token, value);
+    return { shopName: res.organizationName ?? "", projects: res.projectQuota ?? 1 };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 404) return { error: "That code wasn't found. Check it and try again." };
+      if (err.status === 409 || err.status === 410) {
+        // The backend's own wording distinguishes used / cancelled / expired, and a
+        // customer at a counter needs to know which of the three they are holding.
+        return { error: err.message || "That code has already been used or expired." };
+      }
+      return { error: err.message };
+    }
+    return { error: "Could not add that code to your account. Please try again." };
   }
 }
 
