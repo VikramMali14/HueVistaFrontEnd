@@ -19,9 +19,7 @@ import { PROJECT_VALID_DAYS, validityNote } from "@/lib/project-validity";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import {
-  BRIGHTEN_LEVELS,
   SOFT_EDGE_FEATHER_PX,
-  type BrightenLevel,
   type RecolorEngine,
 } from "@/lib/recolor-engine";
 import {
@@ -113,9 +111,11 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const SHRINK_MAX_DIM = 4000;
 const MAX_CUSTOM_MASKS = 3;
 
-// Render options fixed at their best-looking values — they used to be
-// user-facing toggles in the floating bar, but the popup overwhelmed people
-// at the counter, so only Brighten stays interactive:
+// Render options fixed at their best-looking values. They used to be user-facing
+// toggles in a floating bar, and the bar is gone: the popup overwhelmed people at
+// the counter, and the last survivor — Brighten — was the one that could actively
+// mislead, since a wall judged under a gamma lift is not the wall that gets
+// painted. What is left is the photograph's own light, treated well:
 //  - shadows ON (85%): the paint follows the photo's own light;
 //  - soft edges OFF: crisp borders, no feathering;
 //  - edge nudge +1px: masks tend to sit slightly inside the real surface,
@@ -344,6 +344,21 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   );
   const [activeRegion, setActiveRegion] = useState<string>(regions[0]!.id);
   const [compare, setCompare] = useState(false);
+  /**
+   * The painted room, blown up to fill the screen — a JPEG snapshot of the canvas
+   * taken at the moment the button is pressed, or null when the viewer is closed.
+   *
+   * A snapshot rather than the live canvas, and that is the whole design. The canvas
+   * is one element with one WebGL context: moving it into an overlay would tear it
+   * out of the studio layout and hand it back resized, which costs a full re-render
+   * of every mask and loses the scroll position of the page underneath. A JPEG is
+   * inert, so the studio behind it is untouched and closing the viewer is free.
+   *
+   * Captured at 2600px — larger than the board's own pages, because this one is being
+   * LOOKED at rather than printed, and a customer leaning in at the counter is exactly
+   * who asked for it.
+   */
+  const [maximized, setMaximized] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string | null>(initialName ?? null);
   const [projectRoom, setProjectRoom] = useState<string | null>(null);
@@ -370,18 +385,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
    * so the studio has to be able to tell them apart.
    */
   const [closed, setClosed] = useState(false);
-  /**
-   * This room came off the free library shelf.
-   *
-   * It changes what may be OFFERED, not merely how things are worded. A library room has
-   * no board cap, never closes and never lapses — the server refuses to close one at all
-   * — so the "Close project" button, the boards-left countdown and the validity banner
-   * are all describing rules that do not apply here. Leaving the button on screen would
-   * be worse than untidy: its whole purpose is to make a project view-only, which is
-   * exactly the thing a free room can no longer be, so every press would be a no-op the
-   * customer had no way to understand.
-   */
-  const [fromLibrary, setFromLibrary] = useState(false);
   const [unlockedShadeCodes, setUnlockedShadeCodes] = useState<string[]>([]);
   const [boardsUsed, setBoardsUsed] = useState(0);
   const [boardsAllowed, setBoardsAllowed] = useState(0);
@@ -491,10 +494,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [details, setDetails] = useState<ProjectDetails | null>(
     initialName ? { name: initialName } : null,
   );
-  // "Brighten" — whole-image light lift for photos shot in dim light, so
-  // colours can be judged as on a sunnier day. Three fixed levels (Original /
-  // Soft glow / Radiant, see BRIGHTEN_LEVELS); Original (untouched) default.
-  const [brighten, setBrighten] = useState<BrightenLevel["id"]>("original");
   // "Report a problem" — the channel for an AI run that came out visibly wrong.
   // Nothing server-side can spot that: a run with the walls in the wrong places
   // still returns SEGMENTED, so the person looking at their room is the only
@@ -552,6 +551,17 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
    * is put in front of the click instead, where it has to be acknowledged.
    */
   const [pdfConfirmOpen, setPdfConfirmOpen] = useState(false);
+  /**
+   * Whether the colour-board tray is open, or sitting on the canvas as its icon.
+   *
+   * Closed by default. The tray is pinned bottom-centre over the photograph and is at
+   * its tallest exactly when it matters least — a row of buttons, a line of prose and
+   * a strip of thumbnails, all covering the bottom third of the room the customer is
+   * trying to judge. Collapsed it is one button with a count on it, which is the only
+   * thing about the board that has to be visible at all times: how many options are in
+   * it. Everything else is one click away.
+   */
+  const [pdfTrayOpen, setPdfTrayOpen] = useState(false);
   /**
    * The project's latest finished AI image, as a JPEG data URL, for the last page of
    * the board. Empty string = looked and there was none (or it could not be read),
@@ -785,10 +795,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     rc.setEdgeOffset?.(EDGE_NUDGE_PX);
     rc.setMaskFeather?.(SOFT_EDGE_ON ? SOFT_EDGE_FEATHER_PX : 0);
 
-    // Brighten lifts the whole scene (photo AND paint). Hold-to-compare shows
-    // the TRUE original — unbrightened — so the before/after is honest.
-    const brightenGamma = BRIGHTEN_LEVELS.find((l) => l.id === brighten)?.gamma ?? 1;
-    rc.setBrightness?.(compare ? 1 : brightenGamma);
+    // The scene renders at the photograph's own exposure. There used to be a
+    // Brighten control in the float bar that lifted the whole image, and it made
+    // the studio lie in the one way that costs money: a wall judged under a
+    // gamma lift is not the wall that gets painted, and the colour the customer
+    // chose looked wrong on the roller. Reset explicitly rather than left
+    // unset — the engine is reused across renders and keeps its last gamma.
+    rc.setBrightness?.(1);
 
     (async () => {
       if (compare) {
@@ -846,7 +859,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => {
       cancelled = true;
     };
-  }, [regions, imageUrl, compare, brighten, canvasCleaned, loadMask]);
+  }, [regions, imageUrl, compare, canvasCleaned, loadMask]);
 
   useEffect(() => {
     return () => {
@@ -926,11 +939,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setViewOnlyReason(detail.readOnlyReason ?? null);
       setReopenPoints(detail.reopenPricePoints ?? 0);
       setReopenPaiseForProject(detail.reopenPricePaise ?? 0);
-      setFromLibrary(Boolean(detail.fromLibrary));
-      // A library room reads as open whatever timestamp is on the row — the server
-      // already answers that way, and matching it here keeps the studio from briefly
-      // showing "finished" on a room that is not.
-      setClosed(Boolean(detail.closedAt) && !detail.fromLibrary);
+      setClosed(Boolean(detail.closedAt));
       setBoardsUsed(detail.boardsUsed ?? 0);
       setBoardsAllowed(detail.boardsAllowed ?? 0);
       // MANUAL-mode projects arrive SEGMENTED with zero auto regions — the
@@ -1788,6 +1797,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [regions, hideNames, hideRawCodes, encodeCode],
   );
 
+  /** Blow the painted room up to fill the screen. See {@link maximized}. */
+  const maximize = useCallback(() => {
+    const engine = recolorRef.current;
+    if (!engine || !imageUrl) return;
+    const jpeg = canvasToJpegDataUrl(engine.canvas, 2600, 0.92);
+    if (jpeg) setMaximized(jpeg);
+  }, [imageUrl]);
+
+  // Escape closes it, the same key that closes every other overlay in the studio. Bound
+  // only while it is open so the studio's own key handling is untouched the rest of the
+  // time.
+  useEffect(() => {
+    if (!maximized) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMaximized(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [maximized]);
+
   /** Snapshot the painted room for the sheet's "Download image". */
   const captureRoomImage = useCallback(() => {
     const engine = recolorRef.current;
@@ -1937,6 +1966,28 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     });
     return () => cancelAnimationFrame(id);
   }, [pdfCaptureArmed, regions, addToPdf]);
+
+  /**
+   * Open the collapsed tray whenever it has something new to say.
+   *
+   * Both triggers are things the customer did not necessarily do from inside the tray.
+   * "Add to PDF" also sits on every palette card, so a page can land while the tray is
+   * an icon — and a board you cannot see growing is a board nobody trusts. A notice is
+   * the stronger case: every refusal this tray makes ("apply a colour first", "already
+   * on the board as option 2", "downloads used up") is written into that one line, and
+   * a message rendered inside a collapsed panel is a silent failure.
+   *
+   * On a RISE in the count and not on a non-zero count, which is the difference between
+   * a tray that announces itself and a tray that cannot be put away: the latter springs
+   * back open on every render for as long as the board has anything in it, so the
+   * minimise button appears broken.
+   */
+  const pdfPageCountRef = useRef(0);
+  useEffect(() => {
+    const grew = pdfPages.length > pdfPageCountRef.current;
+    pdfPageCountRef.current = pdfPages.length;
+    if (grew || pdfNotice) setPdfTrayOpen(true);
+  }, [pdfNotice, pdfPages.length]);
 
   const removePdfPage = useCallback((index: number) => {
     setPdfPages((prev) => prev.filter((_, i) => i !== index));
@@ -2670,42 +2721,23 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               }}
             />
             {imageUrl && !pendingFile && !uploading && !segmenting && (
-              /* Floating preview option (glass, top-left): just the Brighten
-                 level — every other render option is fixed at its best default
-                 (shadows on, +1px edge nudge). */
-              <div className="hv-studio-floatbar" role="group" aria-label="Preview options">
-                <div className="hv-studio-tool hv-studio-tool-col">
-                  <span className="hv-studio-tool-label">
-                    <span className="hv-studio-tool-icon"><SunIcon /></span>
-                    Brighten
-                  </span>
-                  {/* Pressed buttons in a group, not a radiogroup: the ARIA radio pattern
-                      announces "radio button, 2 of 3" and promises arrow-key movement
-                      across one tab stop, which nothing here implements. These are
-                      ordinary Tab-and-press buttons, so they say so. */}
-                  <div className="hv-seg" role="group" aria-label="Brighten the photo">
-                    {BRIGHTEN_LEVELS.map((l) => (
-                      <button
-                        key={l.id}
-                        type="button"
-                        aria-pressed={brighten === l.id}
-                        data-on={brighten === l.id}
-                        className="hv-seg-btn"
-                        title={
-                          l.id === "original"
-                            ? "Original — the photo as taken"
-                            : l.id === "soft"
-                              ? "Soft glow — a gentle lift, like opening the curtains"
-                              : "Bright — a stronger lift for dark photos"
-                        }
-                        onClick={() => setBrighten(l.id)}
-                      >
-                        {l.id === "original" ? "Original" : l.id === "soft" ? "Soft" : "Radiant"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              /* MAXIMISE — the room, full screen, with nothing on top of it.
+                 Top-left, in the corner the old preview float bar used to hold.
+                 The studio is a working screen: a canvas boxed in by a palette, a
+                 tray and a legend, on a laptop that is usually also showing a
+                 browser chrome. The one moment that is not about working is the
+                 moment a colour goes on and somebody wants to LOOK at it, which is
+                 what this is for. */
+              <button
+                type="button"
+                className="hv-studio-maximize"
+                onClick={maximize}
+                title="See this room full screen"
+                aria-label="See this room full screen"
+              >
+                <MaximizeIcon />
+                <span>Maximise</span>
+              </button>
             )}
             {imageUrl && !pendingFile && (
               <>
@@ -2802,8 +2834,40 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 )}
               </div>
             )}
-            {imageUrl && !pendingFile && !uploading && !segmenting && (
+            {/* The colour board, collapsed to its icon until it is wanted. The count
+                rides on the icon because it is the one fact that has to survive the
+                collapse — a customer must never wonder whether the option they added
+                went in. */}
+            {imageUrl && !pendingFile && !uploading && !segmenting && !pdfTrayOpen && (
+              <button
+                type="button"
+                className="hv-pdf-fab"
+                onClick={() => setPdfTrayOpen(true)}
+                aria-expanded={false}
+                aria-label={
+                  pdfPages.length > 0
+                    ? `Open the colour board — ${pdfPages.length} colour option${pdfPages.length === 1 ? "" : "s"} added`
+                    : "Open the colour board"
+                }
+                title="Colour board PDF"
+              >
+                <PdfIcon />
+                {pdfPages.length > 0 && (
+                  <span className="hv-pdf-fab-count" aria-hidden>{pdfPages.length}</span>
+                )}
+              </button>
+            )}
+            {imageUrl && !pendingFile && !uploading && !segmenting && pdfTrayOpen && (
               <div className="hv-pdf-tray" role="group" aria-label="Colour board PDF">
+                <button
+                  type="button"
+                  className="hv-pdf-tray-min"
+                  onClick={() => setPdfTrayOpen(false)}
+                  aria-label="Minimise the colour board"
+                  title="Minimise"
+                >
+                  <MinimizeIcon />
+                </button>
                 <div className="hv-pdf-tray-main">
                   <button
                     type="button"
@@ -2845,11 +2909,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       handed over: closing with nothing to show for it would lock the
                       catalogue on a job that produced nothing to choose from.
 
-                      Never on a library room. Closing one is refused by the server, so
-                      the button would be a control that does nothing — and what it
-                      claims to do (finish the job, lock the catalogue) is the one thing
-                      a free room is guaranteed never to have happen to it. */}
-                  {!guest && !closed && !fromLibrary && boardsUsed > 0 && (
+                      Offered on a library room too. It runs the same job as every other
+                      project — board, close, AI image bought with a credit — and the
+                      only thing the shelf gave away was the photograph. */}
+                  {!guest && !closed && boardsUsed > 0 && (
                     <button
                       type="button"
                       className="hv-pdf-close-project"
@@ -2861,22 +2924,23 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     </button>
                   )}
                 </div>
-                {/* A library room has no cap to count down, so it gets the fact that
-                    matters to it instead: it stays open. Said plainly because the
-                    customer has no way to know that this room plays by different rules
-                    from the one they uploaded last week. */}
-                {!guest && fromLibrary && (
+                {/* The countdown. A library room counts down with everything else — it
+                    is the same job on the same terms — so there is no separate line for
+                    one any more.
+
+                    The exhausted case is spelled out rather than left to arithmetic. A
+                    room that has already handed over more boards than it is allowed (a
+                    library copy from before these rules lined up, say) would otherwise
+                    read "-2 colour boards left", and the way forward from there is not
+                    obvious: it is the Close button beside this line. */}
+                {!guest && boardsAllowed > 0 && !closed && (
                   <p className="hv-pdf-boards-left">
-                    This room came from the library, so it stays open — take as many colour
-                    boards as your plan allows, and come back to it whenever you like.
-                  </p>
-                )}
-                {!guest && !fromLibrary && boardsAllowed > 0 && !closed && (
-                  <p className="hv-pdf-boards-left">
-                    {boardsAllowed - boardsUsed === 1
-                      ? `One colour board on this project — up to ${maxPdfPages} colour`
-                        + `${maxPdfPages === 1 ? "" : "s"}, and your AI image on the end of it.`
-                      : `${boardsAllowed - boardsUsed} colour boards left on this project.`}
+                    {boardsAllowed - boardsUsed <= 0
+                      ? "This project has handed over its colour boards. Close it to make your AI image."
+                      : boardsAllowed - boardsUsed === 1
+                        ? `One colour board on this project — up to ${maxPdfPages} colour`
+                          + `${maxPdfPages === 1 ? "" : "s"}, and your AI image on the end of it.`
+                        : `${boardsAllowed - boardsUsed} colour boards left on this project.`}
                   </p>
                 )}
                 {pdfPages.length > 0 && (
@@ -3505,6 +3569,34 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           onClose={() => setShareOpen(false)}
         />
       )}
+
+      {/* The maximised room. A picture and a way out, and nothing else on it — every
+          control that belongs here is one the studio underneath still has when this
+          closes, and putting a palette on top of a full-screen photograph would only
+          rebuild the studio at a worse size. Anywhere on the backdrop closes it, which
+          is what a customer who opened it by tapping expects; the button is for anyone
+          who reached it by keyboard. */}
+      {maximized && (
+        <div
+          className="hv-studio-max"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${projectName || "Your room"} — full screen`}
+          onClick={() => setMaximized(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={maximized} alt={`${projectName || "Your room"}, painted`} />
+          <button
+            type="button"
+            className="hv-studio-max-close"
+            onClick={() => setMaximized(null)}
+            aria-label="Close the full-screen view"
+            title="Close (Esc)"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -3515,16 +3607,6 @@ function FlagIcon() {
     <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M4 22V4" />
       <path d="M4 4h11l-1.5 4L15 12H4z" />
-    </svg>
-  );
-}
-
-function SunIcon() {
-  // Sun — the whole-image Brighten control.
-  return (
-    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
     </svg>
   );
 }
@@ -3543,6 +3625,43 @@ function PlusIcon() {
   return (
     <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function MaximizeIcon() {
+  // Four corners pushing outward — "make this bigger".
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" />
+    </svg>
+  );
+}
+
+function MinimizeIcon() {
+  // A single rule — "put this away", the opposite of the four corners above.
+  return (
+    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <path d="M6 12h12" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+function PdfIcon() {
+  // A sheet with a fold — the colour board, as the thing the customer carries out.
+  return (
+    <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6M9 17h4" />
     </svg>
   );
 }

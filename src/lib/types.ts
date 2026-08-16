@@ -448,10 +448,12 @@ export interface ProjectDetail {
 
   /** Copied off the free library shelf.
    *
-   *  It changes what the studio may offer, not just how it looks: a library room has no
-   *  board cap, never closes and can never lapse, so the "Close project" button, the
-   *  boards-left countdown and the validity banner are all describing rules that do not
-   *  apply to it — and the server now refuses the close outright. */
+   *  What the shelf gives away is the way IN — the photograph was already stored and the
+   *  walls already detected, so opening one costs no plan credit and needs no
+   *  subscription. Everything after that is the ordinary job on the ordinary terms: the
+   *  board cap applies, the last board closes it, and the AI image is bought with an AI
+   *  credit (a library room includes none). So this changes nothing the studio offers —
+   *  it is here for the dashboard, which labels where a room came from. */
   fromLibrary?: boolean;
 
   /** When the job finished — by the customer closing it, or by its last colour board.
@@ -462,8 +464,9 @@ export interface ProjectDetail {
    *  with these so "one board left" can be said before the last one closes it. */
   boardsUsed?: number;
   boardsAllowed?: number;
-  /** AI renders this project may make, and how many it has. One comes included and is
-   *  unlocked by closing; the rest are bought one at a time. */
+  /** AI renders this project may make, and how many it has. A project the account paid
+   *  for includes one; a room a shop granted, and a room off the library shelf, include
+   *  none — every image on those is bought with an AI credit. */
   rendersAllowed?: number;
   rendersUsed?: number;
   /** What one more costs, in paise. Quoted by the server rather than inferred from the
@@ -497,8 +500,9 @@ export interface ProjectSummary {
   accessCodeId?: string | null;
   /** Look-but-don't-touch (subscription lapsed, or this room's validity ran out). */
   readOnly?: boolean;
-  /** Copied off the free library shelf — it never lapses and never closes, so neither
-   *  the expiry line nor the "done" badge belongs on its card. */
+  /** Copied off the free library shelf. It carries no paid validity of its own, so the
+   *  expiry line has nothing to show for one — but it closes like any other room, so the
+   *  "done" badge means the same thing here as everywhere else. */
   fromLibrary?: boolean;
   /** When this room's paid validity ends; absent when it has no window of its own. */
   accessExpiresAt?: string | null;

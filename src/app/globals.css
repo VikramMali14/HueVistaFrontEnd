@@ -2762,6 +2762,77 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: #fff;
 }
 
+/* ----- Maximise (glass, top-left) + the full-screen view it opens -----
+   Same glass as "Hold to compare" on the opposite corner, so the two read as one
+   pair of ways to look at the room rather than two unrelated controls. */
+.hv-studio-maximize {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: rgba(10,9,15,.66);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 11px;
+  color: rgba(247,247,245,.88);
+  font: 500 12px/1 var(--sans);
+  cursor: pointer;
+  box-shadow: 0 16px 40px -22px rgba(0,0,0,.6);
+  transition: background .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease);
+}
+.hv-studio-maximize:hover { border-color: rgba(255,255,255,.24); color: #fff; }
+/* Fixed, not absolute: "full screen" means the browser window, not the canvas box
+   this button happens to live in. */
+.hv-studio-max {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(6,5,9,.94);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  cursor: zoom-out;
+}
+.hv-studio-max img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 40px 120px -40px rgba(0,0,0,.9);
+}
+.hv-studio-max-close {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.22);
+  color: #fff;
+  cursor: pointer;
+  transition: background .15s var(--ease);
+}
+.hv-studio-max-close:hover { background: rgba(255,255,255,.22); }
+@media (max-width: 640px) {
+  /* The label goes; the icon is unambiguous and the corner is tight on a phone. */
+  .hv-studio-maximize { padding: 9px 11px; }
+  .hv-studio-maximize span { display: none; }
+  .hv-studio-max { padding: 12px; }
+}
+
 /* ----- On-canvas shade legend (glass, bottom-left): name + code of every
    painted surface, readable straight off the preview / a screenshot. ----- */
 .hv-studio-legend {
@@ -2860,7 +2931,50 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-color: var(--rule-strong);
 }
 
-/* ----- "Add to PDF" colour board (glass tray, overlaid bottom-centre) ----- */
+/* ----- "Add to PDF" colour board (glass tray, overlaid bottom-centre) -----
+   Collapsed by default to the .hv-pdf-fab below: the tray is at its tallest
+   exactly when the customer most wants to see the room behind it. */
+.hv-pdf-fab {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  background: rgba(10,9,15,.72);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 50%;
+  color: rgba(247,247,245,.94);
+  cursor: pointer;
+  box-shadow: 0 16px 40px -22px rgba(0,0,0,.6);
+  transition: background .15s var(--ease), border-color .15s var(--ease);
+}
+.hv-pdf-fab:hover { background: rgba(10,9,15,.86); border-color: rgba(255,255,255,.30); }
+/* The count rides on the icon — the one fact about the board that has to survive
+   being collapsed, so nobody wonders whether the option they added went in. */
+.hv-pdf-fab-count {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  border: 1px solid rgba(10,9,15,.55);
+  color: #fff;
+  font: 600 11px/1 var(--sans);
+}
 .hv-pdf-tray {
   position: absolute;
   left: 50%;
@@ -2885,6 +2999,26 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   align-items: center;
   gap: 10px;
 }
+/* Put it away again. Pinned to the tray's own top-right corner rather than sat in
+   the button row, so it never competes for the eye with Download or Close project —
+   the two presses in here that cost something. */
+.hv-pdf-tray-min {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(10,9,15,.92);
+  border: 1px solid rgba(255,255,255,.24);
+  color: rgba(247,247,245,.9);
+  cursor: pointer;
+}
+.hv-pdf-tray-min:hover { border-color: rgba(255,255,255,.44); color: #fff; }
 .hv-pdf-add,
 .hv-pdf-download {
   display: inline-flex;
