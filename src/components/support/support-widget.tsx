@@ -15,23 +15,22 @@ import type { SupportConversation, SupportMessage } from "@/lib/types";
 const POLL_MS = 4000;
 
 /**
- * Routes whose own primary action lives in the bottom-right corner.
+ * Routes this bubble stays off.
  *
- * The studio's Apply button and the strip of recent colours under it sit exactly
- * where this bubble is pinned, so the bubble covered the main action of the app's
- * main screen on every project. The canvas side of the studio is clear along the
- * bottom — its float bar is top-left — so the bubble goes there instead.
+ * The studio is a workspace, not a page: every corner of it is already spoken for
+ * by the canvas, the float bar, the shade tray and the Apply button, and a pinned
+ * bubble sits on top of whichever one it is nearest. Moving it to the other corner
+ * only changed which control it covered. Support is a click away on every other
+ * screen in the app, and the studio has its own "report this" route for the one
+ * thing that goes wrong in here — see report-dialog.
  */
-const LEFT_CORNER_ROUTES = ["/studio", "/guest-studio"];
+const HIDDEN_ROUTES = ["/studio", "/guest-studio"];
 
 export function SupportWidget() {
   const pathname = usePathname() ?? "";
-  const leftCorner = LEFT_CORNER_ROUTES.some(
+  const hidden = HIDDEN_ROUTES.some(
     (r) => pathname === r || pathname.startsWith(`${r}/`),
   );
-  const corner = leftCorner
-    ? { left: 20, right: "auto" as const }
-    : { left: "auto" as const, right: 20 };
   const [open, setOpen] = useState(false);
   const [convo, setConvo] = useState<SupportConversation | null>(null);
   const [input, setInput] = useState("");
@@ -125,6 +124,11 @@ export function SupportWidget() {
 
   const needsHuman = convo?.status === "NEEDS_HUMAN";
 
+  // After the hooks, never before them: an early return above the effects above
+  // would change the hook order between the studio and every other route, which
+  // React refuses to render at all.
+  if (hidden) return null;
+
   return (
     <>
       <button
@@ -136,7 +140,7 @@ export function SupportWidget() {
         style={{
           position: "fixed",
           bottom: 20,
-          ...corner,
+          right: 20,
           zIndex: 90,
           width: 56,
           height: 56,
@@ -163,7 +167,7 @@ export function SupportWidget() {
           style={{
             position: "fixed",
             bottom: 88,
-            ...corner,
+            right: 20,
             zIndex: 90,
             width: "min(380px, calc(100vw - 40px))",
             height: "min(560px, calc(100vh - 130px))",

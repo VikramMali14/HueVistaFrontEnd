@@ -1270,3 +1270,64 @@ describe("Visualizer — company scope", () => {
     expect(screen.queryByRole("button", { name: /Company/ })).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// The canvas is the point of this screen
+// ---------------------------------------------------------------------------
+//
+// Everything the studio overlays on the photograph is in the way of the one thing
+// the customer came to look at. These pin the two decisions that follow from that:
+// the colour board sits on the canvas as an icon until it is asked for, and there
+// is a way to see the room with nothing on top of it at all.
+
+describe("Visualizer — keeping the room visible", () => {
+  const SEGMENTED = {
+    status: "SEGMENTED" as const,
+    cleanedImageUrl: "https://media.example.com/rooms/img-1-clean.jpg",
+    regions: SEGMENTED_REGIONS,
+  };
+
+  it("keeps the colour board collapsed to its icon until it is opened", async () => {
+    vi.mocked(api.getProjectStatus).mockResolvedValue(projectDetail(SEGMENTED));
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    const icon = await screen.findByRole("button", { name: "Open the colour board" });
+    expect(screen.queryByRole("button", { name: "Add to PDF" })).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(icon);
+    });
+
+    expect(screen.getByRole("button", { name: "Add to PDF" })).toBeInTheDocument();
+
+    // And it goes away again — a tray that cannot be put back is not minimised.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Minimise the colour board" }));
+    });
+    expect(screen.queryByRole("button", { name: "Add to PDF" })).not.toBeInTheDocument();
+  });
+
+  it("offers the room full screen once there is a room to look at", async () => {
+    vi.mocked(api.getProjectStatus).mockResolvedValue(projectDetail(SEGMENTED));
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    expect(
+      await screen.findByRole("button", { name: "See this room full screen" }),
+    ).toBeInTheDocument();
+  });
+
+  it("no longer offers Brighten — the photo's own light is what gets painted", async () => {
+    vi.mocked(api.getProjectStatus).mockResolvedValue(projectDetail(SEGMENTED));
+
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    await screen.findByRole("button", { name: "Open the colour board" });
+    expect(screen.queryByRole("group", { name: /Brighten/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Radiant" })).not.toBeInTheDocument();
+  });
+});

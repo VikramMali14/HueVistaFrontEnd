@@ -6,6 +6,12 @@ import type { SupportConversation } from "@/lib/types";
 import { SupportWidget } from "../support-widget";
 import { api } from "@/lib/api";
 
+/** The route the widget is looking at. Reassigned per test. */
+let pathname = "/dashboard";
+vi.mock("next/navigation", () => ({
+  usePathname: () => pathname,
+}));
+
 vi.mock("@/lib/api", () => {
   class HttpError extends Error {
     status: number;
@@ -135,5 +141,35 @@ describe("SupportWidget", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("network down");
     expect(screen.getByLabelText("Message")).toHaveValue("Please help");
+  });
+});
+
+/**
+ * The studio is a workspace with every corner already spoken for — the canvas, the
+ * float controls, the shade tray, the Apply button — so a pinned bubble sits on top
+ * of whichever one it is nearest. It used to be moved to the other corner, which only
+ * changed which control it covered.
+ */
+describe("SupportWidget — where it does not belong", () => {
+  afterEach(() => {
+    pathname = "/dashboard";
+  });
+
+  it("stays off the studio entirely", () => {
+    pathname = "/studio";
+    const { container } = render(<SupportWidget />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("stays off the guest studio too — the same screen, on a shop's code", () => {
+    pathname = "/guest-studio";
+    const { container } = render(<SupportWidget />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("is still there on every other screen, which is where people ask for help", () => {
+    pathname = "/dashboard";
+    render(<SupportWidget />);
+    expect(screen.getByRole("button", { name: "Open support chat" })).toBeInTheDocument();
   });
 });
