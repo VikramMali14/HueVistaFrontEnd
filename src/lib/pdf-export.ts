@@ -20,6 +20,8 @@
  * browser (uses atob), which is where the canvas snapshots live.
  */
 
+import { loadCrossOriginImage } from "./load-image";
+
 /** One shade shown under a snapshot: a colour preview plus its name/code. */
 export interface PdfShade {
   /** Region this colour was applied to, e.g. "Main wall" / "Accent wall" / "Border". */
@@ -131,45 +133,40 @@ export function canvasToJpegDataUrl(
  * served no CORS header and `toDataURL` throws. The board is the customer's
  * deliverable and a missing closing page is a smaller board; a thrown error here
  * would cost them the whole thing.
+ *
+ * The load goes through `loadCrossOriginImage` for the same reason the studio's
+ * does: an S3 presigned URL is blocked outright when the bucket carries no CORS
+ * rule, and this used to be one of the ways that showed up — a colour board whose
+ * closing AI render was simply missing, with nothing anywhere saying why.
  */
-export function imageUrlToJpegDataUrl(
+export async function imageUrlToJpegDataUrl(
   url: string,
   maxEdge = 1500,
   quality = 0.85,
 ): Promise<string> {
-  return new Promise((resolve) => {
-    if (!url) {
-      resolve("");
-      return;
-    }
-    const img = new Image();
-    // Same handling the studio canvas uses: a same-origin /bff path is untainted
-    // anyway, and a presigned S3 URL needs the attribute to stay exportable.
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      try {
-        const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
-        const w = Math.max(1, Math.round(img.naturalWidth * scale));
-        const h = Math.max(1, Math.round(img.naturalHeight * scale));
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          resolve("");
-          return;
-        }
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      } catch {
-        resolve("");
-      }
-    };
-    img.onerror = () => resolve("");
-    img.src = url;
-  });
+  if (!url) return "";
+  let img: HTMLImageElement;
+  try {
+    img = await loadCrossOriginImage(url);
+  } catch {
+    return "";
+  }
+  try {
+    const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL("image/jpeg", quality);
+  } catch {
+    return "";
+  }
 }
 
 /** Decode a base64 data URL's payload into raw bytes. */

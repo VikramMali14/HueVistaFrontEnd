@@ -35,3 +35,22 @@ export function resolveMediaUrl(url: string | null | undefined): string | null {
   if (url.startsWith("/api/")) return `/bff${url}`;
   return url;
 }
+
+/** Where the same-origin media passthrough lives. */
+export const MEDIA_PROXY_PATH = "/api/media";
+
+/**
+ * The same-origin address for a remote image.
+ *
+ * A presigned S3 URL is fetchable by anyone holding it but carries no
+ * `Access-Control-Allow-Origin`, so a `crossOrigin="anonymous"` load — the kind
+ * every canvas needs — is blocked unless the bucket has a CORS rule. Routing it
+ * through our own origin removes the requirement. Used as a fallback by
+ * `loadCrossOriginImage`, never as the first choice: a direct S3 load costs this
+ * server nothing, which is the reason the backend presigns in the first place.
+ *
+ * The route re-validates the target; this only builds the address.
+ */
+export function mediaProxyUrl(url: string): string {
+  return `${MEDIA_PROXY_PATH}?url=${encodeURIComponent(url)}`;
+}

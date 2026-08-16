@@ -9,6 +9,7 @@ import { api, HttpError } from "@/lib/api";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import { downloadBlob } from "@/lib/download-blob";
 import { resolveMediaUrl } from "@/lib/media";
+import { loadCrossOriginImage as loadImage } from "@/lib/load-image";
 import { formatRupees } from "@/lib/money";
 import { buyAiCredits } from "@/lib/payments";
 import {
@@ -905,16 +906,6 @@ function allowanceNote(rendersLeft: number, creditsLeft: number, cost: number): 
     return `This image uses ${cost} of your ${creditsLeft} AI credit${creditsLeft === 1 ? "" : "s"}.`;
   }
   return "This project doesn't include an AI image. Buy a credit to make one — it never expires and works on any room.";
-}
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Could not load ${url}`));
-    img.src = url;
-  });
 }
 
 function hexToRgb01(hex: string): [number, number, number] {

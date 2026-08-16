@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveMediaUrl } from "@/lib/media";
+import { loadCrossOriginImage as loadImage } from "@/lib/load-image";
 import type { AdminProjectRow, ProjectDetail, RegionCategory } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -65,16 +66,6 @@ const STORED_TINT: Record<RegionCategory, string> = {
 };
 const DIFF_ADDED = "#00f0ff";   // pipeline painted where the model didn't
 const DIFF_REMOVED = "#ff9f0a"; // model painted, pipeline dropped it
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Failed to load " + url));
-    img.src = url;
-  });
-}
 
 /** Draw an image onto a fresh W×H grid and return its pixels. */
 function rasterize(img: HTMLImageElement, w: number, h: number, smooth: boolean): ImageData {
