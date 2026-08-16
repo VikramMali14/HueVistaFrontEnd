@@ -1,0 +1,71 @@
+/**
+ * Same-origin passthrough for S3-hosted media.
+ *
+ * `resolveMediaUrl` hands the browser a presigned S3 URL and the browser fetches it
+ * directly — zero bytes through this server, which is the whole point of presigning.
+ * That works for an ordinary `<img>`. It does NOT work for the images the studio and
+ * the share page draw onto a canvas: those set `crossOrigin="anonymous"` so the canvas
+ * stays readable, which makes the load a CORS request, and S3 answers it without an
+ * `Access-Control-Allow-Origin` header unless the bucket has a CORS rule configured.
+ * The browser then blocks the response and the room renders as a blank frame.
+ *
+ * So this route is the fallback: `loadCrossOriginImage` retries through it when a
+ * direct cross-origin load fails, and the bytes arrive same-origin, where no CORS
+ * header is required and no canvas is tainted. The backend also tries to install the
+ * bucket rule at startup (see `S3BucketCorsInitializer`); when that succeeds the
+ * direct load works and this route is never called.
+ *
+ * See `@/lib/media-proxy` for why fetching a caller-supplied URL is safe here.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { MEDIA_PROXY_TIMEOUT_MS, resolveProxyTarget } from "@/lib/media-proxy";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: NextRequest) {
+  const target = resolveProxyTarget(req.nextUrl.searchParams.get("url"));
+  if (!target) {
+    return NextResponse.json({ message: "Unsupported media URL" }, { status: 400 });
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(target, {
+      // A redirect could land anywhere; the allow-list only vouches for the URL we
+      // were given, so follow none of them.
+      redirect: "manual",
+      cache: "no-store",
+      signal: AbortSignal.timeout(MEDIA_PROXY_TIMEOUT_MS),
+    });
+  } catch {
+    return NextResponse.json({ message: "Could not reach the image store" }, { status: 502 });
+  }
+
+  if (!upstream.ok) {
+    // S3's own body is XML naming the bucket and key — don't forward it. The status
+    // is the useful part: 403 means the signature expired, 404 means it's gone.
+    return NextResponse.json({ message: "Image unavailable" }, { status: upstream.status });
+  }
+
+  const contentType = upstream.headers.get("content-type") ?? "";
+  if (!contentType.startsWith("image/")) {
+    return NextResponse.json({ message: "Not an image" }, { status: 415 });
+  }
+
+  const headers = new Headers({
+    "Content-Type": contentType,
+    "X-Content-Type-Options": "nosniff",
+    // `private` because the URL carries a signature: a shared cache must not hold
+    // this for the next visitor. Short-lived so a repainted region redraws cheaply
+    // without outliving the signature that fetched it.
+    "Cache-Control": "private, max-age=300",
+  });
+  for (const h of ["content-length", "etag", "last-modified"]) {
+    const v = upstream.headers.get(h);
+    if (v) headers.set(h, v);
+  }
+
+  return new NextResponse(upstream.body, { status: 200, headers });
+}

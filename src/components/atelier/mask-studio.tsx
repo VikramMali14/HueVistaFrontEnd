@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
 import { growSelectionToSimilar } from "@/lib/mask-grow";
+import { loadCrossOriginImage as loadImage } from "@/lib/load-image";
 import type { RegionKind } from "@/lib/types";
 
 // Selection blue is the one deliberate non-token colour: it must read against
@@ -1851,16 +1852,6 @@ function labelForKind(kind: RegionKind): string {
     default:
       return "Wall";
   }
-}
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("image load failed"));
-    img.src = url;
-  });
 }
 
 /**

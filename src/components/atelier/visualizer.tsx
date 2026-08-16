@@ -50,6 +50,7 @@ import { nearestShade } from "@/lib/color";
 import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
 import { codesAreUniversal, displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
+import { loadCrossOriginImage as loadImage } from "@/lib/load-image";
 import type {
   FailureStage,
   MaskReportIssue,
@@ -258,16 +259,6 @@ function mapBackendRegion(
     // stays untainted; S3 presigned URLs pass through unchanged.
     maskUrl: resolveMediaUrl(region.maskUrl),
   };
-}
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Failed to load image: " + url));
-    img.src = url;
-  });
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";

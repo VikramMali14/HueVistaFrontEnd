@@ -5,6 +5,7 @@ import { codesAreUniversal, displayCodeOf, type ShadeCodeScheme } from "@/lib/sh
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import type { RecolorEngine } from "@/lib/recolor-engine";
+import { loadCrossOriginImage as loadImage } from "@/lib/load-image";
 
 export interface RepaintRegion {
   id: number;
@@ -62,16 +63,6 @@ interface AppliedPaint {
 // Mirrors the studio's always-on shadow preservation so the repaint looks
 // exactly like what the retailer's own studio would render.
 const SHADOW_STRENGTH = 0.85;
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Failed to load image: " + url));
-    img.src = url;
-  });
-}
 
 const chipStyle = (active: boolean): React.CSSProperties => ({
   padding: "8px 14px",
