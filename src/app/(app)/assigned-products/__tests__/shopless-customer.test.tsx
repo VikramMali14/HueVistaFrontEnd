@@ -19,7 +19,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
  */
 
 const requireRole = vi.fn(async () => ({ id: "u1", role: "CUSTOMER" }));
-const customerHasShop = vi.fn(async () => true);
+const customerShopStatus = vi.fn(async (): Promise<"linked" | "none" | "unknown"> => "linked");
 const redirect = vi.fn((path: string) => {
   // Next's redirect() throws to unwind the render; mirroring that keeps the page's
   // control flow under test honest — a redirect must STOP the page, not merely be
@@ -27,7 +27,7 @@ const redirect = vi.fn((path: string) => {
   throw new Error(`NEXT_REDIRECT:${path}`);
 });
 
-vi.mock("@/lib/auth", () => ({ requireRole, customerHasShop }));
+vi.mock("@/lib/auth", () => ({ requireRole, customerShopStatus }));
 vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/components/app/assigned-products", () => ({
   AssignedProductsView: () => null,
@@ -37,7 +37,7 @@ const { default: AssignedProductsPage } = await import("../page");
 
 beforeEach(() => {
   vi.clearAllMocks();
-  customerHasShop.mockResolvedValue(true);
+  customerShopStatus.mockResolvedValue("linked");
 });
 
 describe("/assigned-products", () => {
@@ -47,14 +47,27 @@ describe("/assigned-products", () => {
   });
 
   it("sends a customer with no shop to the dashboard instead of rendering", async () => {
-    customerHasShop.mockResolvedValue(false);
+    customerShopStatus.mockResolvedValue("none");
 
     await expect(AssignedProductsPage()).rejects.toThrow("NEXT_REDIRECT:/dashboard?denied=noshop");
     expect(redirect).toHaveBeenCalledWith("/dashboard?denied=noshop");
   });
 
   it("renders for a customer a shop actually onboarded", async () => {
-    customerHasShop.mockResolvedValue(true);
+    customerShopStatus.mockResolvedValue("linked");
+
+    await expect(AssignedProductsPage()).resolves.toBeTruthy();
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The failure this guard must not turn into a verdict. Bouncing here would tell a
+   * customer who redeemed a code last week that no shop stands behind their account,
+   * and would do it every time the entitlement read hiccups — a confident lie told to
+   * the exact people the page exists for.
+   */
+  it("keeps the page open when the entitlement could not be read at all", async () => {
+    customerShopStatus.mockResolvedValue("unknown");
 
     await expect(AssignedProductsPage()).resolves.toBeTruthy();
     expect(redirect).not.toHaveBeenCalled();

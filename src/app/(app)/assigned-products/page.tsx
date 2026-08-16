@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { customerHasShop, requireRole } from "@/lib/auth";
+import { customerShopStatus, requireRole } from "@/lib/auth";
 import { AssignedProductsView } from "@/components/app/assigned-products";
 
 export const metadata: Metadata = {
@@ -29,7 +29,13 @@ export default async function AssignedProductsPage() {
   // say to. Bouncing to the dashboard is the same answer requireRole and
   // requireFeature already give for a page you may not open, and the banner there
   // says why and how to change it (redeem a code), which a bare 404 could not.
-  if (!(await customerHasShop())) {
+  //
+  // Only a DEFINITE "no" closes it. The entitlement read can also simply fail, and
+  // turning that into a bounce would tell a customer who redeemed a code last week
+  // that no shop stands behind their account — a confident lie, told to the exact
+  // people this page is for, every time the backend hiccups. That case falls through
+  // to the view, which reports the failure instead of inventing an answer.
+  if ((await customerShopStatus()) === "none") {
     redirect("/dashboard?denied=noshop");
   }
 

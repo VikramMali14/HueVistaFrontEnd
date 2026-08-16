@@ -1303,12 +1303,31 @@ export async function getMyAccess(): Promise<MyAccess | null> {
  * missing tab, against a page that can only tell the visitor it has nothing for them.
  */
 export async function customerHasShop(): Promise<boolean> {
+  return (await customerShopStatus()) === "linked";
+}
+
+/**
+ * The same question, keeping "we could not tell" apart from "no".
+ *
+ * `customerHasShop` folds a failure into `false`, which is right for the nav: the
+ * cost of being wrong there is one missing tab. It is NOT right for a page guard.
+ * /assigned-products now turns a shopless customer away, and a guard built on the
+ * folded answer would read a backend blip as "this account has no shop" and evict a
+ * customer who is entitled to the page — with a banner confidently telling them to go
+ * and find a code they already redeemed.
+ *
+ * So the three states stay three. Only a definite `none` — the endpoint answered, and
+ * answered null — closes the page. `unknown` leaves it open and lets the view behind
+ * it report the failure, which is the same way `requireRole` treats an account it
+ * could not load.
+ */
+export async function customerShopStatus(): Promise<"linked" | "none" | "unknown"> {
   const token = await getAccessToken();
-  if (!token) return false;
+  if (!token) return "unknown";
   try {
-    return (await entitlementApi.my(token)) !== null;
+    return (await entitlementApi.my(token)) !== null ? "linked" : "none";
   } catch {
-    return false;
+    return "unknown";
   }
 }
 
