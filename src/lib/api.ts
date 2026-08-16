@@ -1289,6 +1289,12 @@ export const api = {
     browserFetch<import("./types").ProjectRender>(
       `api/projects/${encodeURIComponent(projectId)}/renders/${encodeURIComponent(renderId)}`,
     ),
+  // Every FINISHED image this account owns, across all of its rooms — the /ai-images
+  // shelf. Keyed by the session rather than by a project id, because the whole point is
+  // to find an image again WITHOUT remembering which room it was on. Each entry carries
+  // the room's name and the combination's shades, so one picture can be shown, named and
+  // printed on its own sheet without opening the project behind it.
+  listMyRenders: () => browserFetch<import("./types").MyRender[]>("api/me/renders"),
   // Persist a hand-drawn (polygon) mask as a new region. maskBase64 may be a bare
   // base64 string or a data URL; category is MAIN_WALL | ACCENT_WALL | TRIM | MANUAL.
   createCustomMask: (

@@ -446,6 +446,14 @@ export interface ProjectDetail {
   reopenPricePoints?: number;
   reopenPricePaise?: number;
 
+  /** Copied off the free library shelf.
+   *
+   *  It changes what the studio may offer, not just how it looks: a library room has no
+   *  board cap, never closes and can never lapse, so the "Close project" button, the
+   *  boards-left countdown and the validity banner are all describing rules that do not
+   *  apply to it — and the server now refuses the close outright. */
+  fromLibrary?: boolean;
+
   /** When the job finished — by the customer closing it, or by its last colour board.
    *  Absent while it is still running. A closed project is read-only whatever plan or
    *  access code is covering it, and the studio shows only its board combinations. */
@@ -489,6 +497,9 @@ export interface ProjectSummary {
   accessCodeId?: string | null;
   /** Look-but-don't-touch (subscription lapsed, or this room's validity ran out). */
   readOnly?: boolean;
+  /** Copied off the free library shelf — it never lapses and never closes, so neither
+   *  the expiry line nor the "done" badge belongs on its card. */
+  fromLibrary?: boolean;
   /** When this room's paid validity ends; absent when it has no window of its own. */
   accessExpiresAt?: string | null;
   /** When the job finished. A closed room is DONE; a merely read-only one ran out.
@@ -577,6 +588,40 @@ export interface ProjectRender extends RenderOptions {
   /** Why it failed, fit to show. Null unless FAILED — and a failed render has
    *  already handed its credit back, so trying again costs nothing. */
   failureReason?: string | null;
+  createdAt?: string;
+  completedAt?: string | null;
+}
+
+/**
+ * One finished AI image, seen from the ACCOUNT rather than from a project.
+ *
+ * `ProjectRender` above is what the studio polls while an image is being made: it belongs
+ * to a project the caller already has open, so it needs no room name and no shades. This
+ * is the other view — the shelf at /ai-images, where an image made last week has to be
+ * findable without remembering which room it was on.
+ *
+ * That is why it carries the project's name and the combination's shades. Both are needed
+ * to say what the picture is, and the shades in particular are what let a single image be
+ * printed on a sheet of its own: a page with the picture and no colours on it would be a
+ * screenshot, not a colour document.
+ */
+export interface MyRender extends RenderOptions {
+  id: string;
+  /** The room it was made from, so the shelf can name it and link back to it. */
+  projectId: string;
+  projectName: string;
+  roomType?: string | null;
+  /** Always "READY" on this endpoint — the shelf shows finished pictures only. */
+  status: RenderStatus;
+  /** Presigned fresh on every read, like every other image URL in the product. */
+  imageUrl?: string | null;
+  /** The colour-board combination it was made from, when that page still exists. */
+  comboId?: string | null;
+  comboTitle?: string | null;
+  boardIndex?: number | null;
+  /** The shades that combination was printed in. Empty when the board page has since
+   *  been deleted — the image still downloads, it just has no shade table to print. */
+  shades: ProjectComboShade[];
   createdAt?: string;
   completedAt?: string | null;
 }

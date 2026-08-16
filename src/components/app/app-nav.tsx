@@ -14,6 +14,7 @@ const TABS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/studio", label: "Studio" },
   { href: "/library", label: "Library" },
+  { href: "/ai-images", label: "AI images" },
   { href: "/my-projects", label: "Projects & credits" },
   { href: "/assigned-products", label: "My products" },
   { href: "/colour-finder", label: "Colour finder" },
@@ -106,6 +107,15 @@ export function AppNav({ user, access = null, libraryLive = false, hasShop = fal
     if (t.href === "/network" && (!user || (user.role !== "ADMIN" && user.role !== "DISTRIBUTOR" && user.role !== "RETAILER"))) return false;
     // A shop's downline is painters, and the painter module is still in testing.
     if (t.href === "/network" && user?.role === "RETAILER" && !SHOP_PAINTER_MODULE_ENABLED) return false;
+    // The account's own AI images. Shown to everyone who can hold one, which is
+    // everyone with a studio — a distributor has no rooms of their own, so the page
+    // could only ever be empty for them, and the STUDIO grant below closes it for a
+    // shop whose distributor withheld the studio. Deliberately NOT hidden when the
+    // shelf is empty, the way Library is: an empty Library is a page with nothing on
+    // it and nothing to do, while an empty "My AI images" is where somebody goes to
+    // look for the picture they think they made, and hiding it answers that question
+    // by making the question unaskable.
+    if (t.href === "/ai-images" && user && user.role === "DISTRIBUTOR") return false;
     if (t.href === "/portal" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     if (t.href === "/products" && user && user.role !== "RETAILER" && user.role !== "ADMIN") return false;
     // The customer's own projects + AI credits. Customers only: everyone else buys

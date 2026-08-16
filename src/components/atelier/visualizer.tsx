@@ -370,6 +370,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
    * so the studio has to be able to tell them apart.
    */
   const [closed, setClosed] = useState(false);
+  /**
+   * This room came off the free library shelf.
+   *
+   * It changes what may be OFFERED, not merely how things are worded. A library room has
+   * no board cap, never closes and never lapses — the server refuses to close one at all
+   * — so the "Close project" button, the boards-left countdown and the validity banner
+   * are all describing rules that do not apply here. Leaving the button on screen would
+   * be worse than untidy: its whole purpose is to make a project view-only, which is
+   * exactly the thing a free room can no longer be, so every press would be a no-op the
+   * customer had no way to understand.
+   */
+  const [fromLibrary, setFromLibrary] = useState(false);
   const [unlockedShadeCodes, setUnlockedShadeCodes] = useState<string[]>([]);
   const [boardsUsed, setBoardsUsed] = useState(0);
   const [boardsAllowed, setBoardsAllowed] = useState(0);
@@ -914,7 +926,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setViewOnlyReason(detail.readOnlyReason ?? null);
       setReopenPoints(detail.reopenPricePoints ?? 0);
       setReopenPaiseForProject(detail.reopenPricePaise ?? 0);
-      setClosed(Boolean(detail.closedAt));
+      setFromLibrary(Boolean(detail.fromLibrary));
+      // A library room reads as open whatever timestamp is on the row — the server
+      // already answers that way, and matching it here keeps the studio from briefly
+      // showing "finished" on a room that is not.
+      setClosed(Boolean(detail.closedAt) && !detail.fromLibrary);
       setBoardsUsed(detail.boardsUsed ?? 0);
       setBoardsAllowed(detail.boardsAllowed ?? 0);
       // MANUAL-mode projects arrive SEGMENTED with zero auto regions — the
@@ -2811,8 +2827,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   )}
                   {/* Finishing early. Only offered once a board has actually been
                       handed over: closing with nothing to show for it would lock the
-                      catalogue on a job that produced nothing to choose from. */}
-                  {!guest && !closed && boardsUsed > 0 && (
+                      catalogue on a job that produced nothing to choose from.
+
+                      Never on a library room. Closing one is refused by the server, so
+                      the button would be a control that does nothing — and what it
+                      claims to do (finish the job, lock the catalogue) is the one thing
+                      a free room is guaranteed never to have happen to it. */}
+                  {!guest && !closed && !fromLibrary && boardsUsed > 0 && (
                     <button
                       type="button"
                       className="hv-pdf-close-project"
@@ -2824,7 +2845,17 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     </button>
                   )}
                 </div>
-                {!guest && boardsAllowed > 0 && !closed && (
+                {/* A library room has no cap to count down, so it gets the fact that
+                    matters to it instead: it stays open. Said plainly because the
+                    customer has no way to know that this room plays by different rules
+                    from the one they uploaded last week. */}
+                {!guest && fromLibrary && (
+                  <p className="hv-pdf-boards-left">
+                    This room came from the library, so it stays open — take as many colour
+                    boards as your plan allows, and come back to it whenever you like.
+                  </p>
+                )}
+                {!guest && !fromLibrary && boardsAllowed > 0 && !closed && (
                   <p className="hv-pdf-boards-left">
                     {boardsAllowed - boardsUsed === 1
                       ? `One colour board on this project — up to ${maxPdfPages} colour`
