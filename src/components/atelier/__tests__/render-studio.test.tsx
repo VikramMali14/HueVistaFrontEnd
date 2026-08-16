@@ -141,10 +141,12 @@ describe("RenderStudio", () => {
     render(<RenderStudio projectId="p1" />);
 
     expect(await screen.findByText("Scheme 1")).toBeInTheDocument();
-    const options = await screen.findAllByRole("radio", { name: /Scheme/ });
+    // Pressed buttons in a group, not ARIA radios: the radio pattern announces
+    // arrow-key navigation across one tab stop, and none is implemented here.
+    const options = await screen.findAllByRole("button", { name: /Scheme/ });
     expect(options).toHaveLength(8);
     // Board order is the order the customer saw them in.
-    expect(options[0]).toHaveAttribute("aria-checked", "true");
+    expect(options[0]).toHaveAttribute("aria-pressed", "true");
   });
 
   it("sends the chosen combination and options to the server", async () => {
@@ -153,9 +155,9 @@ describe("RenderStudio", () => {
     render(<RenderStudio projectId="p1" />);
 
     await screen.findByText("Scheme 1");
-    await userEvent.click(screen.getByRole("radio", { name: /Scheme 3/ }));
-    await userEvent.click(screen.getByRole("radio", { name: "Night" }));
-    await userEvent.click(screen.getByRole("radio", { name: "Suggest borders" }));
+    await userEvent.click(screen.getByRole("button", { name: /Scheme 3/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Night" }));
+    await userEvent.click(screen.getByRole("button", { name: "Suggest borders" }));
     await userEvent.click(screen.getByRole("button", { name: /Make my image/ }));
 
     await waitFor(() =>

@@ -71,8 +71,15 @@ export function DashboardProjects({ isCustomer = false }: { isCustomer?: boolean
     <>
       {/* Stats count everything, not just the current filter — they describe the
           business, and a number that moves when you flip a view is a number nobody
-          can quote. */}
-      <DashboardStats projects={projects} />
+          can quote.
+
+          A walk-in customer has no business to describe. Four cards of counter
+          analytics — "Projects saved · in your suite", "Walls & surfaces · regions
+          across all projects" — sat above the one or two rooms they came to look at,
+          in a vocabulary written for a shop, repeating a count the access banner had
+          already given them in the sentence that actually matters ("1 of 3 projects
+          used · 8 days of access"). */}
+      {!isCustomer && <DashboardStats projects={projects} />}
       <section style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>
         <h2 className="display" style={{ fontSize: 48 }}>Recent projects</h2>
         <LinkButton href="/studio" variant="ghost" size="sm">New project <span className="arr">→</span></LinkButton>

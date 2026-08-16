@@ -47,7 +47,12 @@ export default async function PortalPage() {
           <PortalSubdomain slug={subdomainSlug} />
         </div>
         <h1 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Your customer{" "}<br />portal</h1>
-        <Lead style={{ marginTop: 24 }}>Issue temporary access codes for your customers. They visualise colours without seeing shade codes. When they're ready, they &ldquo;Send to retailer&rdquo; and you receive the full project.</Lead>
+        {/* "When they're ready, they Send to retailer and you receive the full project"
+            described a button most of these customers never see: "Send to my shop" is
+            guest-only, and a code entered at /unlock opens an ACCOUNT. Nothing is sent
+            because nothing needs to be — every room made under a code you issued is
+            already yours to read, here and on your dashboard. */}
+        <Lead style={{ marginTop: 24 }}>Issue temporary access codes for your customers. They pick colours by eye, reading your own shade numbers rather than the manufacturer&rsquo;s. Every room they make under your code shows up here and on your dashboard, with the real shades on it — there is nothing for them to send.</Lead>
       </header>
       <SectionNav
         items={[
@@ -65,9 +70,14 @@ export default async function PortalPage() {
       />
       <section id="active-codes" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>Active codes</h2>
+        {/* Both halves of the old sentence were wrong about the form directly below it.
+            "One project" is whatever count you set when you issue the code (and can top
+            up later), and the window is a fixed ten days rather than one you choose —
+            what you control is whether to give it another ten. */}
         <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
           Issue a code and share it with a customer. They enter it at <Mono>{site.unlockLabel}</Mono> to start
-          visualising — with one project and a validity window you control.
+          visualising — with the number of projects you assign, for ten days. You can add
+          projects or another ten days to a code they are already holding.
         </p>
         <AccessCodes org={shopOrg} />
       </section>
@@ -136,9 +146,15 @@ export default async function PortalPage() {
         <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
           Customers &amp; projects
         </h2>
+        {/* "Or they can pay for one themselves" is the opposite of what the product does:
+            a customer a shop onboarded is deliberately never sold a project — the refusal
+            they get names this shop and asks them to request one, and the app carries that
+            message to you. Telling a shop the customer can self-serve leaves the request
+            sitting unanswered. */}
         <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
-          Each customer gets one project with their access code. Grant another when they want a second
-          room — or they can pay for one themselves from the visualiser.
+          Each customer holds the projects you assigned on their code. When they want another
+          room they cannot buy one — their projects are yours to give. They ask from inside
+          the app, we email you, and you grant it on their row here in one click.
         </p>
         <RetailerCustomers org={shopOrg} />
       </section>
@@ -150,7 +166,10 @@ export default async function PortalPage() {
       <section id="what-they-see" style={{ marginTop: 56, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
         <Mono style={{ marginBottom: 18, display: "block" }}>What they see</Mono>
         <h2 className="display" style={{ fontSize: "clamp(32px, 4.5vw, 52px)", marginBottom: 20 }}>Simple. Yours.</h2>
-        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "44ch" }}>The customer enters your code and gets a single instruction: upload a photo. They never see shade codes; they pick by feel. You get the codes.</p>
+        {/* "They never see shade codes" contradicted the Shade codes section higher up
+            this same page, which explains at length that they see YOUR number on every
+            screen. The distinction that matters is whose number it is. */}
+        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "44ch" }}>The customer enters your code and gets a single instruction: upload a photo. They pick by eye, and every colour they keep carries your shade number — never the manufacturer&rsquo;s. Only you can read it back.</p>
       </section>
     </>
   );

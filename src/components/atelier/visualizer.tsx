@@ -2574,9 +2574,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   : `or pay ₹${(reopenPaise / 100).toLocaleString("en-IN")}`}
               </Button>
             )}
-            <LinkButton href="/plan" size="sm" variant="ghost">
-              See plans <span className="arr">→</span>
-            </LinkButton>
+            {/* Where to go when neither rail is on offer.
+                The server quotes 0 on both for exactly one state: a room a shop's
+                access code paid for, after that code's window closed. Nothing there is
+                for sale — a customer can hold neither points nor a plan, and the
+                backend refuses the reopen outright — so "See plans" was pointing the
+                one person who cannot buy anything at the page that sells it. The way
+                back is a fresh code from the same shop. */}
+            {reopenPaise > 0 || reopenPoints > 0 ? (
+              <LinkButton href="/plan" size="sm" variant="ghost">
+                See plans <span className="arr">→</span>
+              </LinkButton>
+            ) : (
+              <LinkButton href="/unlock" size="sm" variant="ghost">
+                Unlock with a new code <span className="arr">→</span>
+              </LinkButton>
+            )}
           </span>
           <style>{`
             .hv-viewonly-bar {
@@ -2666,13 +2679,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     <span className="hv-studio-tool-icon"><SunIcon /></span>
                     Brighten
                   </span>
-                  <div className="hv-seg" role="radiogroup" aria-label="Brighten the photo">
+                  {/* Pressed buttons in a group, not a radiogroup: the ARIA radio pattern
+                      announces "radio button, 2 of 3" and promises arrow-key movement
+                      across one tab stop, which nothing here implements. These are
+                      ordinary Tab-and-press buttons, so they say so. */}
+                  <div className="hv-seg" role="group" aria-label="Brighten the photo">
                     {BRIGHTEN_LEVELS.map((l) => (
                       <button
                         key={l.id}
                         type="button"
-                        role="radio"
-                        aria-checked={brighten === l.id}
+                        aria-pressed={brighten === l.id}
                         data-on={brighten === l.id}
                         className="hv-seg-btn"
                         title={
