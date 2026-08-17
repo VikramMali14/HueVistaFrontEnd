@@ -382,6 +382,27 @@ export interface SegmentationOptions {
    *  unavailable Nano Banana; "NONE" forces an honest run on a deployment where
    *  the simulation is switched on globally. */
   simulateFailure?: "NONE" | "CLEAN" | "MASK" | "BOTH";
+  /** ADMIN-only testing knobs (the backend strips them for other roles): which
+   *  Replicate model runs this run's photo clean-up, and which one generates its
+   *  wall mask, instead of the configured ones — so two models can be compared on
+   *  the same photo. The id must be one the backend offers (`listAiModels`); the
+   *  empty string is how the studio says "back to the configured model".
+   *
+   *  A pinned model is asked ALONE: the clean's usual fallback hierarchy is not
+   *  walked, because a comparison answered by some other model is worse than no
+   *  answer — nothing in the image says which one produced it. */
+  cleanModel?: string;
+  maskModel?: string;
+}
+
+/** One image model an admin may pin a run to. Served by the backend rather than
+ *  listed here so the studio can only ever offer models the backend will run —
+ *  the same list the segment endpoint validates against. `family` is the request
+ *  schema it speaks (NANO_BANANA / FLUX / FLUX_KONTEXT / OPENAI / SEEDREAM). */
+export interface AiModelOption {
+  id: string;
+  label: string;
+  family: string;
 }
 
 export interface ProjectDetail {
@@ -415,6 +436,12 @@ export interface ProjectDetail {
    *  team has already been told; the pipeline files its own report here, because
    *  somebody holding a working room never would. */
   autoMaskFailed?: boolean;
+  /** The image models this project's last run was PINNED to by an admin comparing
+   *  models; null/undefined (the normal case) means the server's configured ones.
+   *  Read by the admin mask viewer so the canvas and mask on screen can be
+   *  attributed — a comparison nobody can attribute afterwards was not one. */
+  cleanModel?: string | null;
+  maskModel?: string | null;
   regions: RegionDetail[];
   hasShareLink?: boolean;
   shareExpiresAt?: string | null;

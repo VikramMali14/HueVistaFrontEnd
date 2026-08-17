@@ -50,6 +50,7 @@ import { codesAreUniversal, displayCodeOf, type ShadeCodeScheme } from "@/lib/sh
 import { resolveMediaUrl } from "@/lib/media";
 import { loadCrossOriginImage as loadImage } from "@/lib/load-image";
 import type {
+  AiModelOption,
   FailureStage,
   MaskReportIssue,
   PaintShade,
@@ -294,6 +295,76 @@ function presetIssuesFor(stage: FailureStage | "UNKNOWN" | null): MaskReportIssu
   return [];
 }
 
+/**
+ * Which image model runs one half of the pipeline for THIS run (admin testing panel).
+ *
+ * Radios rather than a dropdown: the whole job here is comparing models, and a list
+ * that shows every option at once — with the one in play visibly ticked — is what makes
+ * "I ran this photo on FLUX 2 Max" checkable at a glance after the run finishes.
+ *
+ * The empty value is a real option, not a placeholder: it means "whatever the server is
+ * configured with", which is what every ordinary run uses, and picking it back is how an
+ * admin leaves a comparison behind. A picked model is asked ALONE — the clean's usual
+ * fallback chain is switched off — so a result can always be attributed to it.
+ */
+function ModelPicker({
+  name, title, hint, models, value, onChange,
+}: {
+  name: string;
+  title: string;
+  hint: string;
+  models: ReadonlyArray<AiModelOption>;
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const row: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    font: "400 13px/1.4 var(--sans)",
+    color: "var(--fg-soft)",
+    cursor: "pointer",
+    padding: "2px 0",
+  };
+  return (
+    <fieldset style={{ border: 0, padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+      <legend style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", padding: 0 }}>
+        {title}
+        <span style={{ display: "block", font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
+          {hint}
+        </span>
+      </legend>
+      <label style={row}>
+        <input
+          type="radio"
+          name={name}
+          value=""
+          checked={!value}
+          onChange={() => onChange("")}
+        />
+        The configured model
+      </label>
+      {models.map((model) => (
+        <label key={model.id} style={row}>
+          <input
+            type="radio"
+            name={name}
+            value={model.id}
+            checked={value === model.id}
+            onChange={() => onChange(model.id)}
+          />
+          <span>
+            {model.label}
+            <span style={{ display: "block", font: "400 11px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
+              {model.id}
+            </span>
+          </span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 export function Visualizer({ projectId: openProjectId, shades, initialName, guest = false, isAdmin = false }: VisualizerProps) {
   // Guest mode swaps the CRUD calls to the access-code-scoped endpoints. Signatures
   // match the user `api`, so the rest of the flow is identical. User-only calls
@@ -437,11 +508,22 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // field means "carry on as before" — and an admin who rehearsed a failure once,
   // then reloaded the page, would have every later run on that project keep failing
   // with nothing on screen saying why. Sending NONE makes each run state its intent.
+  // cleanModel/maskModel carry the empty string for exactly the same reason: it is
+  // this run saying "the configured model, please", so a model pinned once for a
+  // comparison cannot silently keep serving every later run of that room.
   const [segOptions, setSegOptions] = useState<SegmentationOptions>({
     cleanImage: true,
     maskMode: "AUTO",
     simulateFailure: "NONE",
+    cleanModel: "",
+    maskModel: "",
   });
+  // The image models this deployment will accept for the two knobs above. Fetched
+  // (admins only) rather than listed in the client so the radios can only offer what
+  // the backend will actually run. Empty until it arrives, and it stays empty if the
+  // call fails — the panel then just shows the configured-model default, which is
+  // what an admin who never touches these gets anyway.
+  const [aiModels, setAiModels] = useState<ReadonlyArray<AiModelOption>>([]);
   // The project quota, shown in the topbar so the cost is visible at the moment it's
   // spent. One project covers the whole automatic pipeline — clean-up and wall
   // detection — and everything after it (trying shades, recolouring, palettes) is
@@ -884,6 +966,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   useEffect(() => {
     refreshQuota();
   }, [refreshQuota]);
+
+  // The models the admin panel's radios offer. Admins only — the endpoint is 403 for
+  // everyone else, and a guest has no session to ask with. Best-effort like the quota
+  // above: a failure leaves the list empty and the panel falls back to naming only the
+  // configured model, which is the option every non-admin run uses regardless.
+  useEffect(() => {
+    if (!isAdmin || guest) return;
+    let live = true;
+    api
+      .listAiModels()
+      .then((models) => {
+        if (live) setAiModels(models);
+      })
+      .catch(() => {
+        if (live) setAiModels([]);
+      });
+    return () => {
+      live = false;
+    };
+  }, [isAdmin, guest]);
 
   const applyProjectDetail = useCallback(
     async (detail: ProjectDetail) => {
@@ -3119,6 +3221,37 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                         <option value="BOTH">Fail both</option>
                       </select>
                     </label>
+                    {/* Which model does each half. Two pickers rather than one because
+                        the two jobs reward different things — the clean rewards a model
+                        that holds a building still while it edits, the mask one that
+                        fills flat colour to an edge — so holding one fixed while the
+                        other changes is the only way to tell which model a bad result
+                        belongs to. Both cost a real generation: this panel runs the
+                        models, it doesn't rehearse them like the knob above. */}
+                    {aiModels.length > 0 && (
+                      <>
+                        <ModelPicker
+                          name="clean-model"
+                          title="Clean the photo with"
+                          hint="clutter removed, surfaces repainted white"
+                          models={aiModels}
+                          value={segOptions.cleanModel ?? ""}
+                          onChange={(id) => setSegOptions((o) => ({ ...o, cleanModel: id }))}
+                        />
+                        <ModelPicker
+                          name="mask-model"
+                          title="Generate the wall mask with"
+                          hint="the red/green/blue/black colour-blocked image"
+                          models={aiModels}
+                          value={segOptions.maskModel ?? ""}
+                          onChange={(id) => setSegOptions((o) => ({ ...o, maskModel: id }))}
+                        />
+                        <p style={{ margin: 0, font: "400 12px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
+                          A picked model is the only one asked — no fallback to another —
+                          so whatever comes back is that model&apos;s own work.
+                        </p>
+                      </>
+                    )}
                   </fieldset>
                 )}
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>

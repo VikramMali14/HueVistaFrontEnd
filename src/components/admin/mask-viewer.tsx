@@ -127,6 +127,22 @@ const pctOf = (bits: Uint8Array) => {
   return Math.round((n / bits.length) * 1000) / 10;
 };
 
+/**
+ * Which image models made what is on screen — but ONLY when they were pinned.
+ *
+ * A room whose run used the configured models says nothing here, because that is every
+ * room and the line would be noise. A room an admin pinned to a model to compare it is
+ * exactly the room where "which model drew this mask?" is the question being asked, and
+ * the answer is a fortnight gone from anyone's memory by the time the room is reopened.
+ */
+function modelsNote(p: ProjectDetail): string {
+  const parts = [
+    p.cleanModel ? `clean ${p.cleanModel}` : null,
+    p.maskModel ? `mask ${p.maskModel}` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? ` · pinned to ${parts.join(", ")}` : "";
+}
+
 /** How one room reads in the picker: whose it is, then what its run produced. */
 function describeOwner(p: AdminProjectRow): string {
   // Both can be set — a walk-in who later signed up keeps the code that started them.
@@ -286,7 +302,7 @@ export function MaskViewer({ initial, searchAction, loadAction, initialProjectId
           }
 
           const rawMeta = ` · raw mask ${rawImg.naturalWidth}×${rawImg.naturalHeight}`;
-          setMeta(`canvas ${w}×${h}${rawMeta}`);
+          setMeta(`canvas ${w}×${h}${rawMeta}${modelsNote(detail)}`);
 
           built.push(
             { id: "raw-red", group: "raw", label: "Red — main walls", swatches: [{ color: RAW_TINT.red }], canvas: bitmapToCanvas(bits.red, w, h, RAW_TINT.red), pct: pctOf(bits.red) },
@@ -313,7 +329,7 @@ export function MaskViewer({ initial, searchAction, loadAction, initialProjectId
           "No raw mask is stored for this project — it was segmented before raw-mask " +
           "capture shipped (or has only manual regions). Re-run segmentation to capture one.",
         );
-        setMeta(`canvas ${w}×${h}`);
+        setMeta(`canvas ${w}×${h}${modelsNote(detail)}`);
       }
 
       // ---- STORED: each persisted region mask (white-on-black PNG) ----

@@ -123,6 +123,13 @@ vi.mock("@/lib/api", () => {
       })),
       // Shop picks load best-effort on mount; default to none so the effect is a no-op.
       getRetailerCombos: vi.fn(async () => []),
+      // The admin panel's model radios. Only fetched for an admin; two entries is
+      // enough to prove the radios are built from the response rather than a list
+      // baked into the client.
+      listAiModels: vi.fn(async () => [
+        { id: "google/nano-banana-pro", label: "Nano Banana Pro", family: "NANO_BANANA" },
+        { id: "black-forest-labs/flux-2-max", label: "FLUX 2 Max", family: "FLUX" },
+      ]),
       // PDF tray quota loads best-effort on mount.
       getPdfAllowance: vi.fn(async () => ({
         imagesPerPdf: 8,
@@ -539,13 +546,16 @@ describe("Visualizer — confirm before processing", () => {
       fireEvent.click(confirm);
     });
 
-    // simulateFailure rides along as an explicit NONE. The backend keeps whatever
-    // it was last given, so an omitted field would silently carry a rehearsal from
-    // one run into every run after it.
+    // simulateFailure rides along as an explicit NONE, and the two model knobs as
+    // explicit blanks. The backend keeps whatever it was last given, so an omitted
+    // field would silently carry a rehearsal — or a model pinned for one comparison —
+    // from one run into every run after it.
     expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
       cleanImage: false,
       maskMode: "AUTO",
       simulateFailure: "NONE",
+      cleanModel: "",
+      maskModel: "",
     });
   });
 
@@ -575,7 +585,70 @@ describe("Visualizer — confirm before processing", () => {
       cleanImage: true,
       maskMode: "AUTO",
       simulateFailure: "MASK",
+      cleanModel: "",
+      maskModel: "",
     });
+  });
+
+  it("an admin can run each half of the pipeline on a chosen model", async () => {
+    // Comparing two image models used to mean editing the server config, restarting
+    // and re-uploading the photo. The two stages are picked separately because they
+    // reward different things — one holds a building still, the other fills flat
+    // colour to an edge.
+    const { container } = render(<Visualizer initialName="Test room" isAdmin />);
+    await screen.findByText("Add a photo of the room");
+
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
+
+    // The radios are built from what the backend said it will accept, not from a
+    // list baked into the studio — so the FLUX option only exists because the mocked
+    // endpoint named it.
+    await screen.findByText("Clean the photo with");
+    const radio = (group: string, value: string) => {
+      const found = container.querySelector<HTMLInputElement>(
+        `input[type="radio"][name="${group}"][value="${value}"]`,
+      );
+      if (!found) throw new Error(`No ${group} radio for ${value}`);
+      return found;
+    };
+
+    await act(async () => {
+      fireEvent.click(radio("clean-model", "black-forest-labs/flux-2-max"));
+    });
+    await act(async () => {
+      fireEvent.click(radio("mask-model", "google/nano-banana-pro"));
+    });
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
+      cleanImage: true,
+      maskMode: "AUTO",
+      simulateFailure: "NONE",
+      cleanModel: "black-forest-labs/flux-2-max",
+      maskModel: "google/nano-banana-pro",
+    });
+  });
+
+  it("a non-admin is never offered the model radios, nor asks for the list", async () => {
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    await screen.findByRole("button", { name: /Continue with this image/i });
+
+    expect(screen.queryByText("Clean the photo with")).not.toBeInTheDocument();
+    // The endpoint is ROLE_ADMIN only — asking would just be a 403 on every load.
+    expect(api.listAiModels).not.toHaveBeenCalled();
   });
 
   it("keeps the failure knob away from non-admins", async () => {
