@@ -941,13 +941,28 @@ export interface ProjectReopenResult {
  * Result of redeeming a retailer code with no login — the backend auto-provisions a
  * passwordless CUSTOMER account and returns a full session (backend RedeemAccountResponse).
  */
-/** What a redeemed customer was assigned by their retailer (backend AssignedProductsResponse). */
-export interface AssignedProducts {
+/** One shop's unlocked paint, inside {@link AssignedProducts}. */
+export interface AssignedShop {
+  /** Stable id — what a collapsed/expanded section is remembered against. */
+  shopId: string;
   shopName: string;
   /** Whole companies unlocked. Empty/absent = no company restriction (all brands). */
   allowedBrands?: string[];
   /** Individually unlocked products, resolved to full listings. */
   products: ShopProduct[];
+}
+
+/**
+ * The paint a customer may browse, grouped by the shop that unlocked it (backend
+ * AssignedProductsResponse).
+ *
+ * A LIST of shops, because a customer may hold codes from several — the shop near work
+ * and the shop near home are both real unlocks that were separately paid for. This used
+ * to describe exactly one, so redeeming a second code looked like it had replaced the
+ * first: same page, different shop name, the first shop's paint simply gone.
+ */
+export interface AssignedProducts {
+  shops: AssignedShop[];
 }
 
 // --- Retailer-curated shade combinations ("shop picks") ---
