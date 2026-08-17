@@ -720,6 +720,33 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 .hv-code-action:hover:not(:disabled) { border-color: var(--accent); color: var(--fg); }
 .hv-code-action:disabled { opacity: .5; cursor: default; }
 
+/* The customer's AI image, inside a code's expanded room panel. A thumbnail rather than
+   a link that says "AI image": the shop is looking at a room it has never seen, and the
+   picture identifies itself where a label would have to be trusted. Opens full size in a
+   new tab — the shop reads it, it has nothing here to change. */
+.hv-code-render {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  align-self: flex-start;
+  padding: 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color .2s var(--ease), background .2s var(--ease);
+}
+.hv-code-render:hover { border-color: var(--accent); background: var(--surface); }
+.hv-code-render:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hv-code-render img {
+  width: 92px;
+  height: 69px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+  flex: none;
+}
+
 /* ----- Portal "Active codes" + "Customers" tables → card list on phones ----- */
 @media (max-width: 640px) {
   .hv-portal-row.hv-portal-head,

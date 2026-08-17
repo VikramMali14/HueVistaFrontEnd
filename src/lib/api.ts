@@ -254,10 +254,20 @@ export const accessCodeServerApi = {
  * Customer entitlement for SERVER components (e.g. the studio's access gate for
  * CUSTOMER accounts). Returns null when the customer has no entitlement yet.
  * The browser equivalent is `api.getMyEntitlement()` via the BFF.
+ *
+ * "No entitlement" arrives as an EMPTY 200, not as the JSON literal `null`: the
+ * backend answers `ResponseEntity.ok(null)`, and Spring writes no body at all for a
+ * null one. `serverFetch` turns an empty body into `undefined`, so the declared
+ * `| null` was a type the value never actually took, and every `=== null` test
+ * against it read "this account has no shop" as "this account has one". Normalised
+ * here, at the one place that knows the endpoint's shape, so no caller has to know
+ * the difference between the two empties.
  */
 export const entitlementApi = {
-  my: (accessToken: string) =>
-    serverFetch<CustomerEntitlement | null>("/api/me/entitlement", { accessToken }),
+  my: async (accessToken: string): Promise<CustomerEntitlement | null> =>
+    (await serverFetch<CustomerEntitlement | null | undefined>("/api/me/entitlement", {
+      accessToken,
+    })) ?? null,
 };
 
 /**
@@ -1617,6 +1627,18 @@ export const api = {
   listProjectsForCode: (codeId: string) =>
     browserFetch<ProjectDetail[]>(
       `api/access-codes/${encodeURIComponent(codeId)}/projects`,
+    ),
+  // And the finished AI images made in those rooms. The shop pays for the room, prints
+  // the board and takes the order, but the picture the customer actually leaves with was
+  // visible only to the account that made it — so a customer ringing the counter about
+  // "the image you did for my hall" was describing something the shop could not open.
+  //
+  // Scoped to the CODE, not the customer: it is the only key a counter holds, and it is
+  // the narrower claim — the rooms this shop paid for, never everything that account has
+  // made elsewhere or bought for itself.
+  listRendersForCode: (codeId: string) =>
+    browserFetch<import("./types").MyRender[]>(
+      `api/access-codes/${encodeURIComponent(codeId)}/renders`,
     ),
   createAccessCode: (
     orgId: string,

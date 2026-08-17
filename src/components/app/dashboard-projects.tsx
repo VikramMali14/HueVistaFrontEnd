@@ -7,7 +7,7 @@ import { LinkButton } from "@/components/ui/button";
 import { DashboardStats } from "@/components/app/dashboard-stats";
 import { ProjectsGrid } from "@/components/app/projects-grid";
 import { Mono } from "@/components/ui/eyebrow";
-import type { ProjectSummary } from "@/lib/types";
+import type { MyRender, ProjectSummary } from "@/lib/types";
 
 /**
  * Which rooms the dashboard is showing. A shop's dashboard carries two quite
@@ -29,6 +29,7 @@ const FILTER_LABELS: Record<Filter, string> = {
  */
 export function DashboardProjects({ isCustomer = false }: { isCustomer?: boolean }) {
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
+  const [renders, setRenders] = useState<MyRender[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("ALL");
 
@@ -48,6 +49,30 @@ export function DashboardProjects({ isCustomer = false }: { isCustomer?: boolean
       cancelled = true;
     };
   }, []);
+
+  // The finished AI images, so a room that made one can say so on its card. Its own
+  // fetch, and a failing one is silent on purpose: this decorates the grid rather than
+  // filling it, and turning "the image list was unreachable" into the projects error
+  // would report a broken dashboard over rooms that had loaded perfectly.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .listMyRenders()
+      .then((list) => !cancelled && setRenders(list))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Newest image per room — the list arrives newest first, so the first one wins. */
+  const rendersByProject = useMemo(() => {
+    const byProject = new Map<string, MyRender>();
+    for (const r of renders) {
+      if (r.projectId && !byProject.has(r.projectId)) byProject.set(r.projectId, r);
+    }
+    return byProject;
+  }, [renders]);
 
   // The filter only appears once there is actually something to separate — a shop
   // with no customer rooms yet doesn't need a control that can only empty the page.
@@ -143,6 +168,7 @@ export function DashboardProjects({ isCustomer = false }: { isCustomer?: boolean
       <ProjectsGrid
         projects={visible}
         error={error}
+        rendersByProject={rendersByProject}
         emptyHint={
           isCustomer ? (
             <p style={{ margin: 0, font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "34ch" }}>

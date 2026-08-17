@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { AiCreditWallet } from "@/components/app/ai-credit-wallet";
+import { AiImagesStrip } from "@/components/app/ai-images-strip";
 import { CustomerProjectsPanel } from "@/components/app/customer-projects-panel";
 
 export const metadata: Metadata = {
@@ -44,6 +45,13 @@ export default async function MyProjectsPage() {
 
       <div style={{ marginTop: 28 }}>
         <AiCreditWallet />
+      </div>
+
+      {/* And what those credits actually bought. Renders nothing until there is a
+          picture to show, so the page is unchanged for an account that has not made
+          one yet. */}
+      <div style={{ marginTop: 36 }}>
+        <AiImagesStrip />
       </div>
 
       {/* Deliberately says "the counter" rather than "any HueVista shop": which is
