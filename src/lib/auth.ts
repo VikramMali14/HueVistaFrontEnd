@@ -1317,15 +1317,21 @@ export async function customerHasShop(): Promise<boolean> {
  * and find a code they already redeemed.
  *
  * So the three states stay three. Only a definite `none` — the endpoint answered, and
- * answered null — closes the page. `unknown` leaves it open and lets the view behind
- * it report the failure, which is the same way `requireRole` treats an account it
- * could not load.
+ * answered with no entitlement — closes the page. `unknown` leaves it open and lets
+ * the view behind it report the failure, which is the same way `requireRole` treats
+ * an account it could not load.
+ *
+ * `== null` rather than `=== null`, deliberately: the backend says "no entitlement"
+ * with an empty 200 body, which reaches us as `undefined`. A strict test against
+ * `null` therefore answered "linked" for every shopless customer alive — the tab
+ * appeared, the page opened, and the fetch behind it 404'd. `entitlementApi.my` now
+ * normalises that, and this stays loose so a second empty can never mean "yes".
  */
 export async function customerShopStatus(): Promise<"linked" | "none" | "unknown"> {
   const token = await getAccessToken();
   if (!token) return "unknown";
   try {
-    return (await entitlementApi.my(token)) !== null ? "linked" : "none";
+    return (await entitlementApi.my(token)) != null ? "linked" : "none";
   } catch {
     return "unknown";
   }

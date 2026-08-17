@@ -254,10 +254,20 @@ export const accessCodeServerApi = {
  * Customer entitlement for SERVER components (e.g. the studio's access gate for
  * CUSTOMER accounts). Returns null when the customer has no entitlement yet.
  * The browser equivalent is `api.getMyEntitlement()` via the BFF.
+ *
+ * "No entitlement" arrives as an EMPTY 200, not as the JSON literal `null`: the
+ * backend answers `ResponseEntity.ok(null)`, and Spring writes no body at all for a
+ * null one. `serverFetch` turns an empty body into `undefined`, so the declared
+ * `| null` was a type the value never actually took, and every `=== null` test
+ * against it read "this account has no shop" as "this account has one". Normalised
+ * here, at the one place that knows the endpoint's shape, so no caller has to know
+ * the difference between the two empties.
  */
 export const entitlementApi = {
-  my: (accessToken: string) =>
-    serverFetch<CustomerEntitlement | null>("/api/me/entitlement", { accessToken }),
+  my: async (accessToken: string): Promise<CustomerEntitlement | null> =>
+    (await serverFetch<CustomerEntitlement | null | undefined>("/api/me/entitlement", {
+      accessToken,
+    })) ?? null,
 };
 
 /**
