@@ -69,6 +69,13 @@ const WALLET: AiCreditSummary = {
   minPurchase: 1,
   maxPurchase: 50,
   renderCost: 1,
+  // The tiers the server sells, which is where every credit figure on the screen comes
+  // from. A quick look, the one most people want, and the one that gets printed.
+  renderTiers: [
+    { quality: "BASIC", credits: 1 },
+    { quality: "PRO", credits: 2 },
+    { quality: "MAX", credits: 4 },
+  ],
   currency: "INR",
   recentActivity: [],
 };
@@ -168,6 +175,9 @@ describe("RenderStudio", () => {
         lighting: "NATURAL",
         furnishing: "KEEP",
         style: "MODERN",
+        // Nobody touched the quality row, so the cheapest tier travels — the one option
+        // here that costs money must never be arrived at by default.
+        quality: "BASIC",
         note: undefined,
       }),
     );
@@ -229,6 +239,58 @@ describe("RenderStudio", () => {
     await waitFor(() => expect(buyAiCredits).toHaveBeenCalledWith(1));
   });
 
+  // ── Quality tiers ───────────────────────────────────────────────────────
+  //
+  // The one row on this screen that changes the price. Two things have to be true of it or
+  // somebody is charged for a choice they did not make: it opens at the cheapest tier, and
+  // every figure it shows comes off the server's own list rather than out of this file.
+
+  it("opens at the cheapest tier and labels every tier with its price", async () => {
+    render(<RenderStudio projectId="p1" />);
+
+    const basic = await screen.findByRole("button", { name: "Basic · 1 credit" });
+    expect(basic).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Pro · 2 credits" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Max · 4 credits" })).toBeInTheDocument();
+  });
+
+  it("sends the chosen tier and charges the difference on a room with an image included", async () => {
+    // The included image covers the BASIC one. Asking for Max on top of it must not
+    // forfeit the allowance — that would leave somebody worse off for having a room with
+    // an image in it — so the wallet is asked for the difference and nothing more.
+    api.getAiCredits.mockResolvedValue({ ...WALLET, balance: 3 });
+    api.requestRender.mockResolvedValue({ ...READY_RENDER, status: "QUEUED" });
+    api.getRender.mockResolvedValue(READY_RENDER);
+    render(<RenderStudio projectId="p1" />);
+
+    await screen.findByText("Scheme 1");
+    await userEvent.click(screen.getByRole("button", { name: "Max · 4 credits" }));
+
+    expect(screen.getByText(/this tier adds 3 credits on top, from your 3/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Make my image · 3 credits/ }));
+
+    await waitFor(() =>
+      expect(api.requestRender).toHaveBeenCalledWith(
+        "p1",
+        expect.objectContaining({ quality: "MAX" }),
+      ),
+    );
+  });
+
+  it("tops up exactly what the chosen tier is short by", async () => {
+    // Buying a flat single credit was right when an image cost exactly one. With tiers it
+    // would leave somebody who picked Pro one short and none the wiser.
+    api.getProject.mockResolvedValue(SHOP_GRANTED);
+    render(<RenderStudio projectId="p1" />);
+
+    await screen.findByText("Scheme 1");
+    await userEvent.click(screen.getByRole("button", { name: "Pro · 2 credits" }));
+
+    const button = await screen.findByRole("button", { name: /Buy 2 credits · ₹198/ });
+    await userEvent.click(button);
+    await waitFor(() => expect(buyAiCredits).toHaveBeenCalledWith(2));
+  });
+
   // ── A room the shop gave away ───────────────────────────────────────────
   //
   // The whole point of the change: these carry no included image, so the very first
@@ -242,7 +304,7 @@ describe("RenderStudio", () => {
 
     expect(await screen.findByRole("button", { name: /Buy 1 credit · ₹99/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Make my image/ })).not.toBeInTheDocument();
-    expect(screen.getByText(/doesn't include an AI image/)).toBeInTheDocument();
+    expect(screen.getByText(/You need 1 credit for this image and have 0/)).toBeInTheDocument();
   });
 
   it("says what the click will cost once the credit is in the wallet", async () => {

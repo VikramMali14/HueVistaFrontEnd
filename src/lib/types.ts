@@ -578,6 +578,13 @@ export interface RenderOptions {
   lighting: "NATURAL" | "WARM" | "COOL" | "DRAMATIC";
   furnishing: "KEEP" | "STAGED" | "EMPTY";
   style: "MODERN" | "MINIMAL" | "TRADITIONAL" | "HERITAGE" | "LUXE";
+  /**
+   * How good an image to make, and therefore what it costs in credits.
+   *
+   * Optional: omitting it asks for BASIC, which is what every render made before the tiers
+   * existed was. Defaulting the other way would charge four credits for saying nothing.
+   */
+  quality?: RenderQuality;
   note?: string;
 }
 
@@ -1364,18 +1371,105 @@ export interface AiCreditSummary {
   discountPercent: number;
   minPurchase: number;
   maxPurchase: number;
-  /** Credits one AI image costs. */
+  /** Credits the plainest AI image costs — the BASIC tier, and the floor the others are
+   *  quoted against. */
   renderCost: number;
+  /**
+   * What each quality of image costs, straight from the server.
+   *
+   * A list rather than three named fields because the tiers are configuration: a screen
+   * that iterates this shows whatever is actually sold, and one that hard-codes "Pro is 2"
+   * starts lying the day that changes. Optional so an older backend reads as "one price
+   * for one image", which is what it had.
+   */
+  renderTiers?: Array<{ quality: RenderQuality; credits: number }>;
+  /** When the soonest batch of credits lapses, and how many go with it. Null and 0 for a
+   *  wallet holding nothing dated — a shop's credits never expire. */
+  soonestExpiryAt?: string | null;
+  expiringCredits?: number;
   currency: string;
   recentActivity: Array<{
     id: string;
     /** Signed: positive is bought or handed back, negative is spent. */
     credits: number;
-    type: "PURCHASED" | "SPENT_ON_RENDER" | "RENDER_REFUNDED" | "GRANTED";
+    type: "PURCHASED" | "SPENT_ON_RENDER" | "RENDER_REFUNDED" | "GRANTED" | "EXPIRED";
     balanceAfter: number;
     note?: string | null;
     createdAt: string;
   }>;
+}
+
+/**
+ * How good an AI image to make — which model makes it, and what it costs in credits.
+ *
+ * Three tiers because "one photorealistic image" was never one thing: the models behind
+ * them differ by close to an order of magnitude in what they cost to run. BASIC is a whole
+ * picture on its own rather than a deliberately poor one; MAX is the one that gets printed.
+ */
+export type RenderQuality = "BASIC" | "PRO" | "MAX";
+
+/**
+ * The customer's counter (backend CartCatalogueResponse): what is for sale, what it costs,
+ * what an offer would take off, and what the account already holds.
+ *
+ * Everything the cart screen needs in one call — the alternative would let prices, offers
+ * and balances disagree with each other for a page load, on a screen with a Pay button.
+ *
+ * Prices here are FINAL: what is quoted is what Razorpay is asked for. The cart multiplies
+ * them by its quantities to draw the running total, and the server prices the order again
+ * from the same numbers when it is opened, so the client's arithmetic is a courtesy to the
+ * buyer and never the authority.
+ */
+export interface CartCatalogue {
+  /** False for a shop (which buys at its plan's rate) and for accounts that own no
+   *  projects. The cart hides itself rather than offering buttons that come back 403. */
+  eligible: boolean;
+  /** One project, on its own, in paise. */
+  projectPricePaise: number;
+  /** One AI image credit, on its own, in paise. */
+  creditPricePaise: number;
+  /** The combo, and what is in it. Cheaper than its parts bought separately. */
+  comboPricePaise: number;
+  comboProjects: number;
+  comboCredits: number;
+  /** Days everything on this counter is good for — a year, on every line. */
+  validDays: number;
+  /** The most of any one line a single order may hold. */
+  maxQuantity: number;
+  /** The offers, weakest first, so the cart can show the next one to reach for. */
+  offers: Array<{ code: string; minSubtotalPaise: number; percentOff: number }>;
+  /** Projects already paid for and not yet started. */
+  availableProjects: number;
+  /** Spendable AI image credits. */
+  creditBalance: number;
+  /** When the soonest batch of credits lapses, and how many go with it. */
+  creditsExpireAt?: string | null;
+  creditsExpiring?: number;
+  currency: string;
+}
+
+/**
+ * The Razorpay order for a basket, with the bill that produced it (backend
+ * CartOrderResponse).
+ *
+ * The breakdown travels back rather than only the amount, so what the cart showed and what
+ * Checkout is opened for are the same arithmetic — a cart that displayed one total and
+ * charged another would be right about the money and wrong about the only thing the buyer
+ * can check.
+ */
+export interface CartOrder {
+  orderId: string;
+  subtotalPaise: number;
+  discountCode?: string | null;
+  discountPercent: number;
+  discountPaise: number;
+  amountPaise: number;
+  /** What this order hands over once paid — combos already unpacked. */
+  projectsGranted: number;
+  creditsGranted: number;
+  validDays: number;
+  currency: string;
+  razorpayKeyId: string;
 }
 
 /** Razorpay order details for an AI image credit top-up. */

@@ -8,6 +8,22 @@ import { api, HttpError } from "@/lib/api";
 import { buyOneProject } from "@/lib/payments";
 import type { CustomerEntitlement, ProjectPurchaseOptions } from "@/lib/types";
 
+/**
+ * "a year" / "30 days" — how long a room stays open, in words.
+ *
+ * A year reads as a year, not as "365 days": the catalogue sells the window in years and
+ * quoting it in days makes a generous term sound like a countdown. Anything else is left in
+ * days, which is how the shop-side windows are actually thought about.
+ */
+function validityPhrase(days: number | undefined): string {
+  if (!days) return "30 days";
+  if (days % 365 === 0) {
+    const years = days / 365;
+    return years === 1 ? "a year" : `${years} years`;
+  }
+  return `${days} days`;
+}
+
 /** Paise → a rupee figure for a sentence ("₹99", "₹9", "₹49.50"). */
 function rupees(paise: number): string {
   return paise % 100 === 0 ? `₹${paise / 100}` : `₹${(paise / 100).toFixed(2)}`;
@@ -39,8 +55,12 @@ const cardStyle: React.CSSProperties = {
  *
  * The AI wallet sits below this and is the same for both: a project covers the room
  * and the colour board, never the photorealistic image at the end of it.
+ *
+ * @param showBuy whether the shopless branch sells projects here as well as counting them.
+ *        False on the Projects &amp; credits page, where the cart above does the selling —
+ *        one screen must not offer the same project at two prices through two buttons.
  */
-export function CustomerProjectsPanel() {
+export function CustomerProjectsPanel({ showBuy = true }: { showBuy?: boolean } = {}) {
   // undefined = loading, null = no shop behind this account, "error" = fetch failed
   const [ent, setEnt] = useState<CustomerEntitlement | null | "error" | undefined>(undefined);
   const [options, setOptions] = useState<ProjectPurchaseOptions | null>(null);
@@ -92,7 +112,7 @@ export function CustomerProjectsPanel() {
           {credits > 0 ? (
             <>
               Each one opens a room you can photograph, repaint and save — a project stays
-              open for {options?.validDays ?? 30} days once you begin it.{" "}
+              open for {validityPhrase(options?.validDays)} once you begin it.{" "}
               {/* The link matters: this is the one panel that tells a customer with no
                   shop that they hold something, and it used to name every route out of
                   the page except the one that spends it. */}
@@ -102,13 +122,13 @@ export function CustomerProjectsPanel() {
             </>
           ) : (
             <>
-              You pay per room rather than by the month. Buy a project and it stays open
-              for {options?.validDays ?? 30} days. If a paint shop gave you an access
-              code, unlock with that instead and the room is on them.
+              You pay per room rather than by the month. Buy a project below and it stays
+              open for {validityPhrase(options?.validDays)} once you begin it. If a paint
+              shop gave you an access code, unlock with that instead and the room is on them.
             </>
           )}
         </p>
-        <BuyProjects options={options} onBought={setOptions} />
+        {showBuy && <BuyProjects options={options} onBought={setOptions} />}
         <p style={{ marginTop: 14, font: "400 13.5px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
           Got a code from a paint shop?{" "}
           <Link href="/unlock" style={{ color: "var(--accent)" }}>
