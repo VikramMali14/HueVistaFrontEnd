@@ -255,6 +255,13 @@ export async function openStoreCheckout(
     signature: string;
   }) => Promise<void>,
   report?: CheckoutReporter,
+  /**
+   * What the walk-in already told the kiosk about themselves, so Checkout does not ask
+   * a second time. Collected before this opens, because the address is how they get
+   * back into what they are about to buy — and asking for it AFTER the payment means
+   * asking someone who has already got what they came for.
+   */
+  prefill?: { email?: string; name?: string; contact?: string },
 ): Promise<boolean> {
   await loadCheckout();
   if (!window.Razorpay) throw new Error("Payment library unavailable.");
@@ -278,6 +285,9 @@ export async function openStoreCheckout(
         ? `One room visualisation · ${order.shopName}`
         : "One room visualisation",
       theme: { color: "#7c5cff" },
+      ...(prefill && (prefill.email || prefill.name || prefill.contact)
+        ? { prefill: { ...(prefill.email ? { email: prefill.email } : {}), ...(prefill.name ? { name: prefill.name } : {}), ...(prefill.contact ? { contact: prefill.contact } : {}) } }
+        : {}),
       handler: async (resp: CheckoutSuccess) => {
         tracker.settle();
         try {

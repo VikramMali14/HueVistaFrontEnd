@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { HttpError, storeServerApi } from "@/lib/api";
-import { hasGuestSession } from "@/lib/auth";
+import { hasSession } from "@/lib/auth";
 import type { StorePublicInfo } from "@/lib/types";
 import { Footer } from "@/components/layout/footer";
 import { StoreKiosk } from "./store-kiosk";
@@ -32,12 +32,13 @@ export default async function StoreKioskPage({ params }: Props) {
     if (err instanceof HttpError && err.status === 404) notFound();
     throw err;
   }
-  // A customer who already paid (guest cookie still valid) can jump straight back in.
-  const hasSession = await hasGuestSession();
+  // A customer who already paid on this device is signed in to the account that
+  // purchase opened, so they can jump straight back into the studio.
+  const signedIn = await hasSession();
   return (
     <>
       <main id="main" style={{ maxWidth: 760, margin: "0 auto", padding: "64px var(--gutter) 120px" }}>
-        <StoreKiosk info={info} hasGuestSession={hasSession} />
+        <StoreKiosk info={info} signedIn={signedIn} />
       </main>
       {/* The one page on this site where a member of the public — no account, nobody at
           the counter to ask — hands over money. It carried no merchant identity and no

@@ -48,6 +48,18 @@ export const config = {
   // names). LABELLING only — the restriction itself is enforced server-side from the
   // access code (see lib/catalogue.ts). Set alongside the guest token at unlock time.
   guestBrandsCookie: "hv_guest_brands",
+  // A kiosk account waiting to be claimed: the access token of the passwordless
+  // account a walk-in's purchase opened, kept aside so that when they later sign in
+  // to their real account we can offer to move the room across.
+  //
+  // Separate from the session cookies on purpose. Signing in REPLACES the session, so
+  // by the time we know which real account to merge into, the kiosk session that
+  // authorises the merge is already gone — unless it was parked somewhere first.
+  kioskClaimCookie: "hv_kiosk_claim",
+  // How long a kiosk purchase stays claimable in this browser. Long enough to cover
+  // "I'll do it at home tonight"; short enough that a shared counter tablet is not
+  // still offering a stranger's room to the next customer a week later.
+  kioskClaimTtlSeconds: 60 * 60 * 24 * 2,
   refreshTtlSeconds: 60 * 60 * 24 * 7,
 } as const;
 

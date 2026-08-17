@@ -1125,23 +1125,43 @@ export interface DeleteAllShadesResult {
  * Server-side guest helpers. `redeemGuest` is anonymous (no token); `claimGuest`
  * runs right after a user signs in to re-point their guest projects to the account.
  */
-export const guestServerApi = {
-  redeem: (code: string, clientIp?: string) =>
-    serverFetch<import("./types").GuestRedeemResult>("/api/access-codes/redeem-guest", {
+/**
+ * The kiosk walk-in's account: getting back into it, and claiming it.
+ *
+ * <p>Note what is NOT here: an endpoint that turns a printed access code into a
+ * session. A redeemed code never expires, so a till slip that opened its account would
+ * be a password with no way to change it. Re-entry goes to the address the buyer gave
+ * when they paid, and the merge is authorised by the kiosk session itself.
+ */
+export const kioskServerApi = {
+  /**
+   * Ask for a one-time sign-in code by email. Always resolves the same way whether or
+   * not that address bought anything — the backend refuses to say, and so does this.
+   */
+  requestReentry: (email: string, clientIp?: string) =>
+    serverFetch<{ sent: boolean; expiresInSeconds: number; cooldownSeconds: number }>(
+      "/api/store/re-entry",
+      {
+        method: "POST",
+        body: JSON.stringify({ email }),
+        headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+      },
+    ),
+
+  /** Exchange that emailed code for a full session on the account the purchase lives on. */
+  confirmReentry: (email: string, code: string, clientIp?: string) =>
+    serverFetch<import("./types").AuthResponse>("/api/store/re-entry/confirm", {
       method: "POST",
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ email, code }),
       headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
     }),
-  // No-login redemption: auto-creates a passwordless CUSTOMER account and returns a
-  // full session the caller persists as cookies.
-  redeemAccount: (code: string, clientIp?: string) =>
-    serverFetch<import("./types").RedeemAccountResult>("/api/access-codes/redeem-account", {
-      method: "POST",
-      body: JSON.stringify({ code }),
-      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
-    }),
-  claim: (accessToken: string, guestToken: string) =>
-    serverFetch<{ linked: number }>("/api/projects/claim-guest", {
+
+  /**
+   * Fold the kiosk account named by `guestToken` into the signed-in account. The token
+   * is the authorisation: only the browser that made the purchase holds it.
+   */
+  mergeGuestAccount: (accessToken: string, guestToken: string) =>
+    serverFetch<import("./types").GuestMergeResult>("/api/me/merge-guest-account", {
       method: "POST",
       accessToken,
       body: JSON.stringify({ guestToken }),

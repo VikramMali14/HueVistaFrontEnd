@@ -206,17 +206,6 @@ export interface ApiError {
   code?: string;
 }
 
-/** Result of an anonymous guest redeeming a shop access code. */
-export interface GuestRedeemResult {
-  guestToken: string;
-  code: string;
-  shopName: string;
-  validDays: number;
-  expiresAt: string;
-  /** Paint companies the shop unlocked for this guest. Empty/absent = all brands. */
-  allowedBrands?: string[];
-}
-
 /**
  * Canonical colour families, used for the bundled sample shades and as the
  * fallback bucket when a catalogue shade has no family in the shades table.
@@ -943,17 +932,6 @@ export interface ProjectReopenResult {
  * Result of redeeming a retailer code with no login — the backend auto-provisions a
  * passwordless CUSTOMER account and returns a full session (backend RedeemAccountResponse).
  */
-export interface RedeemAccountResult {
-  accessToken: string;
-  refreshToken: string;
-  tokenType?: string;
-  expiresIn: number;
-  user: AuthUser;
-  shopName: string;
-  validDays: number;
-  customerName: string;
-}
-
 /** What a redeemed customer was assigned by their retailer (backend AssignedProductsResponse). */
 export interface AssignedProducts {
   shopName: string;
@@ -1032,12 +1010,33 @@ export interface StoreOrder {
 
 /** Result of a verified kiosk payment: pickup code + live guest session. */
 export interface StoreCheckoutResult {
-  guestToken: string;
   code: string;
   shopName: string;
   validDays: number;
   expiresAt: string;
   amountPaise: number;
+  /**
+   * A live session on the account the purchase landed on. The walk-in is signed in
+   * with this and starts work immediately — the sign-up is deferred, not skipped.
+   */
+  session: AuthResponse | null;
+  /** Where the receipt went, echoed back so a typo is visible while they're still there. */
+  accountEmail?: string | null;
+  /**
+   * True when the purchase attached to an account the customer already had, so there
+   * is nothing to offer to merge.
+   */
+  existingAccount: boolean;
+}
+
+/** What moved when a kiosk account was folded into a real one. */
+export interface GuestMergeResult {
+  mergedFromUserId: string;
+  projectsMoved: number;
+  imagesMoved: number;
+  projectAllowanceMoved: number;
+  aiCreditsMoved: number;
+  shopName?: string | null;
 }
 
 /**

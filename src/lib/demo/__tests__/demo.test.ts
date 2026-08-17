@@ -53,9 +53,25 @@ describe("demoServerFetch (server-action boundary)", () => {
     ).rejects.toBeInstanceOf(HttpError);
   });
 
-  it("redeems the seeded guest access code MEHTA7K2", async () => {
-    const res = await demoServerFetch<{ shopName: string; code: string }>("/api/access-codes/redeem-guest", post({ code: "MEHTA7K2" }));
-    expect(res.shopName).toBe("Mehta Paints");
-    expect(res.code).toBe("MEHTA7K2");
+  /**
+   * Kiosk re-entry answers the same way for every address, so the demo must too — a
+   * fixture that only responded for a "known" address would teach the frontend a shape
+   * the real endpoint deliberately refuses to have.
+   */
+  it("accepts any address for a kiosk sign-in code without saying whether it has a room", async () => {
+    const known = await demoServerFetch<{ sent: boolean }>("/api/store/re-entry", post({ email: "anjali@example.com" }));
+    const unknown = await demoServerFetch<{ sent: boolean }>("/api/store/re-entry", post({ email: "nobody@example.com" }));
+    expect(known).toEqual(unknown);
+    expect(known.sent).toBe(true);
+  });
+
+  it("exchanges a six-digit kiosk code for a customer session and refuses a short one", async () => {
+    const res = await demoServerFetch<{ user: { role: string } }>(
+      "/api/store/re-entry/confirm", post({ email: "anjali@example.com", code: "123456" }));
+    expect(res.user.role).toBe("CUSTOMER");
+
+    await expect(
+      demoServerFetch("/api/store/re-entry/confirm", post({ email: "anjali@example.com", code: "123" })),
+    ).rejects.toBeInstanceOf(HttpError);
   });
 });
