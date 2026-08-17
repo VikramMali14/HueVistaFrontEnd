@@ -50,6 +50,10 @@ export const BFF_ALLOWED_PREFIXES = [
   // account uses — a project their shop gave them includes no AI image, and they can
   // hold no points and buy no plan, so this is their only way to pay for one.
   "api/billing/ai-credits",
+  // The customer's basket — the counter, the order and the verification. Its own prefix
+  // rather than a path under the two ledgers it credits, because one payment buys from
+  // both and the discount belongs to the basket rather than to either line.
+  "api/billing/cart",
   "api/billing/pdf-allowance",
   "api/billing/pdf-downloads",
   // Checkout telemetry: the browser reporting that a Razorpay window opened, was

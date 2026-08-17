@@ -1501,6 +1501,32 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  // --- The customer's basket: projects, AI credits and the combo of the two, bought
+  // together in one payment with one offer applied to the lot.
+  //
+  // There is deliberately no "price my basket" call. The cart multiplies the catalogue's
+  // own rates by its quantities to draw the running total, and createCartOrder prices it
+  // again server-side when real money is about to move. A quote endpoint would cost a
+  // round trip per tap on a plus button and still not be the authority.
+  getCart: () => browserFetch<import("./types").CartCatalogue>("api/billing/cart"),
+  // Quantities and, at most, a code. No prices: the amount is derived server-side, and the
+  // discount is re-derived from the subtotal — a code that has not been earned takes
+  // nothing off however it is sent.
+  createCartOrder: (body: {
+    projects: number;
+    credits: number;
+    combos: number;
+    discountCode?: string;
+  }) =>
+    browserFetch<import("./types").CartOrder>("api/billing/cart/order", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  verifyCartPurchase: (body: { orderId: string; paymentId: string; signature: string }) =>
+    browserFetch<import("./types").CartCatalogue>("api/billing/cart/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   /**
    * Tell the backend what happened to a Razorpay Checkout — that it opened, that the
    * buyer closed it without paying, or that the card was refused.

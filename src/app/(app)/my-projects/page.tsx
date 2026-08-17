@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { AiCreditWallet } from "@/components/app/ai-credit-wallet";
 import { AiImagesStrip } from "@/components/app/ai-images-strip";
+import { CreditsCart } from "@/components/app/credits-cart";
 import { CustomerProjectsPanel } from "@/components/app/customer-projects-panel";
 
 export const metadata: Metadata = {
@@ -39,12 +40,23 @@ export default async function MyProjectsPage() {
         that comes out of the credits below.
       </Lead>
 
+      {/* What is already on the account, first. Somebody arriving here is answering "what
+          do I have" before "what do I want", and a counter shown above the answer is a
+          shop assistant talking over the question. Both panels count and neither sells:
+          the cart below is the one place on this page anything is bought, so a customer
+          is never shown the same project at two prices through two buttons. */}
       <div style={{ marginTop: 32 }}>
-        <CustomerProjectsPanel />
+        <CustomerProjectsPanel showBuy={false} />
       </div>
 
       <div style={{ marginTop: 28 }}>
-        <AiCreditWallet />
+        <AiCreditWallet showBuy={false} />
+      </div>
+
+      {/* The counter. Quantities, an offer over ₹289, one payment for the lot — and
+          everything on it good for a year. */}
+      <div style={{ marginTop: 28 }}>
+        <CreditsCart />
       </div>
 
       {/* And what those credits actually bought. Renders nothing until there is a
