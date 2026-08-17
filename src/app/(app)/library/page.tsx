@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { fetchPublishedProjects } from "@/lib/free-projects-server";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { LibraryRooms } from "@/components/app/library-rooms";
+import { MyLibraryRooms } from "@/components/app/my-library-rooms";
 
 export const metadata: Metadata = {
   title: "Library",
@@ -35,11 +36,18 @@ export default async function LibraryPage() {
         Rooms that are <i>already made.</i>
       </h1>
       <Lead style={{ maxWidth: "60ch" }}>
-        Finished rooms with their walls already marked. Open one and it becomes your own
-        project — repaint it, save it, share it as usual. There is no photo to upload, no
-        wall detection to wait for, and nothing to pay: the room reuses pictures we have
-        already stored.
+        Finished rooms with their walls already marked. Open one and it is yours to paint,
+        save and share — there is no photo to upload, no wall detection to wait for, and
+        nothing to pay, because the room reuses pictures we have already stored. The walls
+        stay as they were marked when the room was published; the paint is yours.
       </Lead>
+
+      {/* What this account has already painted, above the shelf it came from.
+          Library rooms are kept off the dashboard — free browsing would bury the paid
+          work there — so this is where somebody who spent twenty minutes on one and
+          closed the tab comes looking, and it is the same place they took it from.
+          Renders nothing until there is a room to show. */}
+      <MyLibraryRooms />
 
       {isAdmin && (
         <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>

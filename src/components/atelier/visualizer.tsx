@@ -457,6 +457,24 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
    * so the studio has to be able to tell them apart.
    */
   const [closed, setClosed] = useState(false);
+  /**
+   * This room came off the library shelf, so its WALLS are fixed.
+   *
+   * A library room is a copy of a finished, curated template: the photo was cleaned and
+   * the surfaces were cut once, by an admin, and the shelf's thumbnail is a promise
+   * about what a copy looks like. Paint is the customer's to change; the geometry is
+   * not — a copy that re-cuts its own walls quietly stops being the room it names, and
+   * nothing on the shelf shows that it has.
+   *
+   * The trade only goes one way. A room the account uploaded is theirs end to end: they
+   * paid for the detection, and hand-marking is how a bad detection gets fixed. A
+   * library room cost nobody anything and had nothing to fix.
+   *
+   * Everything else is untouched — paint any surface, ask for suggestions, take a colour
+   * board, buy a render. The backend refuses the same four writes (findWallEditable), so
+   * this is the UI half of one rule rather than a rule of its own.
+   */
+  const [wallsLocked, setWallsLocked] = useState(false);
   const [unlockedShadeCodes, setUnlockedShadeCodes] = useState<string[]>([]);
   const [boardsUsed, setBoardsUsed] = useState(0);
   const [boardsAllowed, setBoardsAllowed] = useState(0);
@@ -1063,6 +1081,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setReopenPoints(detail.reopenPricePoints ?? 0);
       setReopenPaiseForProject(detail.reopenPricePaise ?? 0);
       setClosed(Boolean(detail.closedAt));
+      setWallsLocked(Boolean(detail.fromLibrary));
       setBoardsUsed(detail.boardsUsed ?? 0);
       setBoardsAllowed(detail.boardsAllowed ?? 0);
       // MANUAL-mode projects arrive SEGMENTED with zero auto regions — the
@@ -2464,7 +2483,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // still telling them to start would then just be in the way. It also stands
   // down for the gates and errors above, which are about a room that ISN'T open.
   const showAutoMaskNotice = Boolean(
-    autoMaskFailed && masksReady && imageUrl && !autoMaskNoticeDismissed &&
+    // Never on a library room: its walls came off the template and are already there,
+    // and the card's whole content is an instruction to draw one, which that room
+    // refuses. Belt and braces — a copy should not carry the flag — but the card would
+    // be actively wrong if one ever did.
+    autoMaskFailed && !wallsLocked && masksReady && imageUrl && !autoMaskNoticeDismissed &&
     !regions.some((r) => r.backendId) &&
     !pendingFile && !uploading && !segmenting && !showCanvasError &&
     !limitReached && !askRetailer && !accessExpired && !needVerification && !needSubscription &&
@@ -3715,13 +3738,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             showBrands={showBrands}
             encodeCode={encodeCode}
             onSelectRegion={(id) => setActiveRegion(id)}
-            onAddWall={() => {
+            // Undefined rather than disabled when the walls are fixed: these props are
+            // what the panel renders its wall tools FROM, so leaving them out removes
+            // the buttons instead of showing four things that refuse to work.
+            onAddWall={wallsLocked ? undefined : () => {
               setEditingRegionId(null);
               setMaskStudioOpen(true);
             }}
-            onEditWall={editRegionMask}
-            onDeleteWall={handleDeleteWall}
-            masksRemaining={masksRemaining}
+            onEditWall={wallsLocked ? undefined : editRegionMask}
+            onDeleteWall={wallsLocked ? undefined : handleDeleteWall}
+            masksRemaining={wallsLocked ? undefined : masksRemaining}
             triedShades={triedByRegion[activeRegion]}
             recentShades={recentShades}
             outdoor={classification === "OUTDOOR"}
