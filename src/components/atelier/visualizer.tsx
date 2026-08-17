@@ -454,6 +454,20 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [reopenPaiseForProject, setReopenPaiseForProject] = useState(0);
   const [reopening, setReopening] = useState<"points" | "money" | null>(null);
   const [segmenting, setSegmenting] = useState(false);
+  /**
+   * The run's own account of what it is doing, straight from the backend.
+   *
+   * The pipeline works through a chain of image models and hands over whenever one is
+   * busy, which used to be invisible here: one motionless "Detecting walls" spinner for
+   * anything between forty seconds and eight minutes, so a run patiently working through
+   * its third model looked exactly like a run that had died. The rational response to a
+   * dead page is to close it, and closing it is the one thing that actually loses the
+   * work — so the wait now says "that model was busy, trying the next one" in the
+   * backend's words rather than ours.
+   *
+   * Cleared whenever a run starts or ends; null falls back to the static hint below.
+   */
+  const [progressNote, setProgressNote] = useState<string | null>(null);
   const [masksReady, setMasksReady] = useState(false);
   // Guest AI is billed to the shop; when the shop is out of credits we silently
   // fall back to manual wall-marking and show this gentle note (guests only).
@@ -658,6 +672,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // user chose, the other is something that went wrong and has already been
   // reported to the team on their behalf.
   const [autoMaskFailed, setAutoMaskFailed] = useState(false);
+  /** What the backend says about that, so this screen doesn't write its own version. */
+  const [autoMaskNotice, setAutoMaskNotice] = useState<string | null>(null);
   // The "mark them yourself" card is an instruction, not a warning, so it can be
   // waved away — the standing pill in the topbar keeps the explanation available.
   const [autoMaskNoticeDismissed, setAutoMaskNoticeDismissed] = useState(false);
@@ -1043,6 +1059,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       // this is the only thing that says the AI missed rather than that the room
       // was always going to be marked by hand.
       setAutoMaskFailed(Boolean(detail.autoMaskFailed));
+      setAutoMaskNotice(detail.autoMaskNotice ?? null);
       const openingBrand = pickOpeningBrand(shades ?? []);
       const mapped = detail.regions
         .slice()
@@ -1115,6 +1132,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return pollSegmentationStatus<ProjectDetail>({
       getStatus: () => (guest ? guestApi.getProject(id) : api.getProjectStatus(id)),
       isCancelled: () => token.cancelled,
+      // Only fires when the sentence CHANGES, so this is a handful of renders per run
+      // rather than one per poll.
+      onProgress: setProgressNote,
       // Wall detection is two generative model calls back to back (image
       // clean + colour-coded mask), each of which the backend allows up to
       // ~3 minutes — plus a retry when the first generation is a dud. The
@@ -1149,6 +1169,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setNeedSubscription(false);
       setProjectLimitReached(false);
       setSegmenting(true);
+      setProgressNote(null);
       try {
         const project = await createProjectCall({
           imageId,
@@ -1234,6 +1255,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         }
       } finally {
         setSegmenting(false);
+        setProgressNote(null);
         refreshQuota(); // segmentation charges on success / refunds on failure
       }
     },
@@ -1371,6 +1393,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setAutoMaskFailed(false);
     setProjectLimitReached(false);
     setSegmenting(true);
+    setProgressNote(null);
     try {
       if (guest) {
         // Guest retry is billed to the shop again; a 402/failure quietly drops
@@ -1416,6 +1439,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       }
     } finally {
       setSegmenting(false);
+      setProgressNote(null);
       refreshQuota(); // retry charges on success / refunds on failure
     }
   }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, segOptions]);
@@ -2402,13 +2426,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const overlayHint = uploading && !segmenting
     ? "Uploading the photo."
     : segmenting
-      ? manualRun
-        ? "Tidying up the photo. When it's done, click each wall to mark it yourself."
-        // "About a minute" against a job the backend gives eight minutes to finish:
-        // detection is two generative model calls in sequence, and a real upload
-        // took two and a half. An estimate the wait routinely beats is worse than a
-        // wider one, because the person reading it starts wondering what broke.
-        : "Finding the walls and other paintable surfaces. This usually takes one to three minutes; a busy photo can take longer."
+      // The run's own words when it has any. The backend narrates its model chain —
+      // "That model was busy — trying Nano Banana 2 (2 of 4)" — and the whole point is
+      // that the line CHANGES: a sentence that moves is the difference between a wait
+      // somebody sits through and a page they close. The static hints below are the
+      // opening state, before the first model has reported back.
+      ? progressNote
+        ?? (manualRun
+          ? "Tidying up the photo. When it's done, click each wall to mark it yourself."
+          // "About a minute" against a job the backend gives eight minutes to finish:
+          // detection is two generative model calls in sequence, and a real upload
+          // took two and a half. An estimate the wait routinely beats is worse than a
+          // wider one, because the person reading it starts wondering what broke.
+          : "Finding the walls and other paintable surfaces. This usually takes one to three minutes; a busy photo can take longer.")
       : undefined;
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
@@ -2578,7 +2608,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           {masksReady && autoMaskFailed && (
             <span
               className="hv-status-pill"
-              title="The photo was cleaned, but wall detection didn't find anything usable. Mark the walls yourself with 'Add a wall' — it's free and unlimited. Our team has already been told."
+              // The backend's own sentence, so the studio, the share view and the kiosk
+              // stop each carrying their own slightly different version of it.
+              title={autoMaskNotice ??
+                "We couldn't create the custom wall masks for this photo — the issue has been sent to our tech team. Mark the walls yourself with 'Add a wall'; it's free and unlimited."}
             >
               Photo ready · walls not detected
             </span>
@@ -3382,12 +3415,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 }}
               >
                 <p style={{ margin: 0, font: "400 15px/1.45 var(--serif)", color: "var(--fg)" }}>
-                  Your photo is cleaned and ready — but we couldn&rsquo;t pick out the walls in
-                  it. Mark them yourself: press <strong style={{ fontWeight: 500 }}>Add a wall</strong>{" "}
-                  and click a surface. It&rsquo;s free, and there&rsquo;s no limit.
+                  We couldn&rsquo;t create the custom wall masks for this photo. Your cleaned
+                  photo is ready, so mark the walls yourself: press{" "}
+                  <strong style={{ fontWeight: 500 }}>Add a wall</strong> and click a surface.
+                  It&rsquo;s free, and there&rsquo;s no limit.
                 </p>
                 <Mono style={{ color: "var(--fg-mute)" }}>
-                  This run has already been sent to our team to look at
+                  The issue has already been sent to our tech team
                 </Mono>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
                   <button

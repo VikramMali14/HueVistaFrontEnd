@@ -425,6 +425,15 @@ export interface ProjectDetail {
    *  team has already been told; the pipeline files its own report here, because
    *  somebody holding a working room never would. */
   autoMaskFailed?: boolean;
+  /** What to SAY about `autoMaskFailed`, written by the backend so the studio, the
+   *  share view and the kiosk stop each inventing their own wording. Null unless
+   *  `autoMaskFailed`. */
+  autoMaskNotice?: string | null;
+  /** What the AI run is doing right now, while `status` is SEGMENTING — "That model
+   *  was busy — trying Nano Banana 2 (2 of 4)". The pipeline walks a chain of models
+   *  and hands over whenever one is busy; without this the studio shows one motionless
+   *  spinner for minutes, and a working run is indistinguishable from a dead one. */
+  aiProgressNote?: string | null;
   /** The image models this project's last run was PINNED to by an admin comparing
    *  models; null/undefined (the normal case) means the server's configured ones.
    *  Read by the admin mask viewer so the canvas and mask on screen can be

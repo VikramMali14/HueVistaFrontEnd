@@ -18,6 +18,16 @@ export interface SegmentationStatusLike {
   failureReason?: string | null;
   /** "CLEAN" / "MASK" on a FAILED status — which half of the run gave up. */
   failureStage?: string | null;
+  /**
+   * What the run is doing right now, in a sentence written for the person waiting —
+   * "That model was busy — trying Nano Banana 2 (2 of 4)".
+   *
+   * The backend works through a chain of models and hands over whenever one is busy,
+   * which used to be invisible from here: one unchanging spinner for anything between
+   * forty seconds and eight minutes, so a working run and a dead one looked identical.
+   * Null on a run that has not said anything yet, and on any finished project.
+   */
+  aiProgressNote?: string | null;
 }
 
 export interface PollOptions<T extends SegmentationStatusLike = SegmentationStatusLike & Record<string, unknown>> {
@@ -33,6 +43,16 @@ export interface PollOptions<T extends SegmentationStatusLike = SegmentationStat
   backoffFactor?: number;
   /** Cooperative cancellation — checked before every request and after every sleep. */
   isCancelled?: () => boolean;
+  /**
+   * Called with each new `aiProgressNote` the backend reports, so the caller can put
+   * the run's own words under its spinner.
+   *
+   * Only on CHANGE, and never with a blank: a run says the same sentence for as long as
+   * one model is thinking, and re-setting identical state on every poll would re-render
+   * the studio a few dozen times per run for no visible difference. A cancelled poll
+   * stops calling this, like everything else here.
+   */
+  onProgress?: (note: string) => void;
   /** Injectable so tests can use fake timers. Default: setTimeout-based sleep. */
   sleep?: (ms: number) => Promise<void>;
   /** Injectable clock so tests can use fake timers. Default: Date.now. */
@@ -105,6 +125,7 @@ export async function pollUntilSegmented<T extends SegmentationStatusLike>(optio
     maxIntervalMs = DEFAULT_MAX_INTERVAL_MS,
     backoffFactor = DEFAULT_BACKOFF_FACTOR,
     isCancelled = () => false,
+    onProgress,
     sleep = defaultSleep,
     now = Date.now,
   } = options;
@@ -112,12 +133,18 @@ export async function pollUntilSegmented<T extends SegmentationStatusLike>(optio
   // Never below the starting interval, even if a caller passes a smaller ceiling.
   const ceiling = Math.max(intervalMs, maxIntervalMs);
   let wait = intervalMs;
+  let lastNote: string | null = null;
   for (;;) {
     if (isCancelled()) throw new PollCancelledError();
     if (now() - start > timeoutMs) throw new PollTimeoutError();
     const status = await getStatus();
     // The request may have resolved AFTER cancellation — don't act on it.
     if (isCancelled()) throw new PollCancelledError();
+    const note = status.aiProgressNote;
+    if (note && note !== lastNote) {
+      lastNote = note;
+      onProgress?.(note);
+    }
     if (status.status === "SEGMENTED") return status;
     if (status.status === "FAILED") {
       throw new PollFailedError(status.failureReason, status.failureStage);
