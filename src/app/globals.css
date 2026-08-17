@@ -2892,14 +2892,38 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .hv-studio-legend { bottom: 92px; max-width: min(72%, 340px); }
 }
 
-/* Indicative-colour disclaimer, a quiet caption under the preview. Mirrors the
-   line printed on the colour-board PDF so the expectation is set on-screen too. */
+/* Indicative-colour disclaimer. Mirrors the line printed on the colour-board PDF
+   so the expectation is set on-screen too.
+   It renders inside `.hv-studio-canvas` — a full-height `overflow: hidden` box
+   whose <canvas> is absolutely positioned — so as a static block it laid out
+   from the TOP of that box rather than under the preview: across the photo,
+   beneath the Maximise and Hold-to-compare buttons, and cut off mid-sentence at
+   "...may look different on your". The one line that sets expectations about
+   screens versus real paint was the one line nobody could finish reading.
+   Anchored opposite the legend now, sharing its backdrop so it stays legible
+   over any photo, and clearing the same PDF tray on narrow screens. */
 .hv-studio-disclaimer {
-  margin: 10px auto 0;
-  max-width: 62ch;
-  text-align: center;
-  font: 400 12px/1.5 var(--sans);
-  color: var(--fg-mute);
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 8;
+  margin: 0;
+  max-width: min(46%, 340px);
+  padding: 10px 12px;
+  text-align: right;
+  font: 400 12px/1.45 var(--sans);
+  color: rgba(247,247,245,.82);
+  background: rgba(10,9,15,.72);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 11px;
+  box-shadow: 0 16px 40px -22px rgba(0,0,0,.6);
+  pointer-events: none;
+}
+@media (max-width: 760px) {
+  /* Above the legend, which has itself moved up to clear the PDF tray. */
+  .hv-studio-disclaimer { bottom: 170px; max-width: min(72%, 340px); }
 }
 
 /* "Not right? Report a problem" — the channel for an AI run that came out wrong.
@@ -3353,15 +3377,25 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: var(--fg-soft);
   max-width: 42ch;
 }
-/* Dimmed enough to read as waiting, not so far that the colours stop being
-   colours. At .38 twelve thousand swatches went uniformly grey, which looks like
-   a library that failed to load rather than one that is not ready yet — and a
-   pointer that still says "click me" over inert controls tells the same lie, so
-   the cursor says otherwise. */
-.hv-studio-panel.is-awaiting-photo [inert] { opacity: .62; cursor: not-allowed; }
+/* Waiting reads through the gate banner above, the not-allowed cursor and real
+   `inert` — never by draining the colour out of the product.
+   Dimming the container cannot be walked back per-child: `opacity` composites
+   the whole subtree as one group, so no descendant can opt back in. At .38 and
+   then at .62 the pale end of the library blended into the surface behind it
+   until Air Breeze (#F3EDE8), White Clay, Pink Mist and Day Lily were one muddy
+   grey — a paint shop's first screen showing twelve thousand shades that all
+   look alike. So the chrome dims and the paint does not. */
+.hv-studio-panel.is-awaiting-photo [inert] { cursor: not-allowed; }
 .hv-studio-panel.is-awaiting-photo [inert] * { pointer-events: none; }
+.hv-studio-panel.is-awaiting-photo .hv-studio-tabs,
+.hv-studio-panel.is-awaiting-photo .hv-studio-filter-bar,
+.hv-studio-panel.is-awaiting-photo .hv-studio-swatch-name,
+.hv-studio-panel.is-awaiting-photo .hv-studio-swatch-code { opacity: .62; }
 @media (prefers-reduced-transparency: reduce) {
-  .hv-studio-panel.is-awaiting-photo [inert] { opacity: .8; }
+  .hv-studio-panel.is-awaiting-photo .hv-studio-tabs,
+  .hv-studio-panel.is-awaiting-photo .hv-studio-filter-bar,
+  .hv-studio-panel.is-awaiting-photo .hv-studio-swatch-name,
+  .hv-studio-panel.is-awaiting-photo .hv-studio-swatch-code { opacity: .8; }
 }
 .hv-studio-tabs {
   display: flex;

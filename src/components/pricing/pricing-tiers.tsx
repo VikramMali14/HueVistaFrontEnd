@@ -205,13 +205,21 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
             <div key={t.name} className={t.featured ? "hv-tier hv-tier--featured" : "hv-tier"} style={{ background: t.featured ? "var(--accent-deep)" : "var(--charcoal-soft)", color: t.featured ? "#fff" : "var(--ivory)", padding: "56px 36px", display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
               {t.ribbon && (<span style={{ position: "absolute", top: 0, right: 24, background: "#fff", color: "var(--accent-deep)", font: "500 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", padding: "8px 14px", transform: "translateY(-50%)" }}>{t.ribbon}</span>)}
               <div style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".3em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.85)" : "var(--brass)" }}>{t.name}</div>
+              {/* Min, not fixed: if a price does still take two lines in a narrow
+                  column the caption below is pushed, never overlapped. */}
               <div style={{ minHeight: 84 }}>
-                <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: 72, lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "#fff" : "var(--ivory)" }}>
+                {/* The four-digit prices did not fit their column at a flat 72px, so
+                    Professional and Business broke as "₹2,499 /" with "month" alone on
+                    the next line, landing on the billing caption below — the two cards
+                    we most want read were the two that looked broken. The price now
+                    scales with the column and the unit is one unbreakable token, so it
+                    can never split across the slash again. */}
+                <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(48px, 4vw, 72px)", lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "#fff" : "var(--ivory)" }}>
                   {/* "₹0 / month" reads like an invoice for nothing. The free card says
                       the word instead, and keeps the same type size so the row of prices
                       still scans as one ladder. */}
                   {plan === null ? "Free" : `₹${inr(t.monthlyN)}`}
-                  <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)", marginLeft: 6 }}>
+                  <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)", marginLeft: 6, whiteSpace: "nowrap" }}>
                     {/* Who the plan is FOR, not how long it lasts. "For good" answered a
                         question nobody was asking — the one people do ask about a ₹0 card
                         is who is allowed on it, and the answer is: a paint shop. A walk-in
