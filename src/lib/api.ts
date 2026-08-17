@@ -1628,6 +1628,18 @@ export const api = {
     browserFetch<ProjectDetail[]>(
       `api/access-codes/${encodeURIComponent(codeId)}/projects`,
     ),
+  // And the finished AI images made in those rooms. The shop pays for the room, prints
+  // the board and takes the order, but the picture the customer actually leaves with was
+  // visible only to the account that made it — so a customer ringing the counter about
+  // "the image you did for my hall" was describing something the shop could not open.
+  //
+  // Scoped to the CODE, not the customer: it is the only key a counter holds, and it is
+  // the narrower claim — the rooms this shop paid for, never everything that account has
+  // made elsewhere or bought for itself.
+  listRendersForCode: (codeId: string) =>
+    browserFetch<import("./types").MyRender[]>(
+      `api/access-codes/${encodeURIComponent(codeId)}/renders`,
+    ),
   createAccessCode: (
     orgId: string,
     body: {

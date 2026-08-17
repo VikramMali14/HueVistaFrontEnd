@@ -6,7 +6,7 @@ import { formatDate } from "@/lib/dates";
 import { resolveMediaUrl } from "@/lib/media";
 import { Mono } from "@/components/ui/eyebrow";
 import { ImageCompare } from "@/components/ui/image-compare";
-import type { ProjectSummary } from "@/lib/types";
+import type { MyRender, ProjectSummary } from "@/lib/types";
 
 // Progressive reveal: 11 projects to start, then 8 more per "Load more" click.
 // The dashboard fetches every project once (shared with the KPI cards), so this
@@ -57,6 +57,16 @@ interface ProjectsGridProps {
    * gate. Callers who know the account supply the sentence that is true for it.
    */
   emptyHint?: React.ReactNode;
+  /**
+   * The account's finished AI images, keyed by the room that made them.
+   *
+   * The picture is the last thing a room produces and the thing its owner actually
+   * leaves with, and the card said nothing about it — a closed room looked exactly like
+   * an open one, so the only way back to an image was the "AI images" tab, if you knew
+   * it was there. Absent (or without an entry for a room) simply means no picture to
+   * show, which is the ordinary case for a room still being painted.
+   */
+  rendersByProject?: Map<string, MyRender>;
 }
 
 /**
@@ -80,7 +90,7 @@ function projectHref(p: ProjectSummary): string {
  * photo has been AI-cleaned show a raw-vs-cleaned before/after slider; the
  * title opens the project in the studio.
  */
-export function ProjectsGrid({ projects, error, emptyHint }: ProjectsGridProps) {
+export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: ProjectsGridProps) {
   const [visible, setVisible] = useState(INITIAL_VISIBLE);
 
   const sorted = projects
@@ -165,6 +175,11 @@ export function ProjectsGrid({ projects, error, emptyHint }: ProjectsGridProps) 
           const cleaned = p.cleanedImageUrl ? resolveMediaUrl(p.cleanedImageUrl) : null;
           const href = projectHref(p);
           const isCustomerRoom = p.source === "CUSTOMER";
+          // A customer's room never carries one here: the image was bought with THEIR
+          // credit and belongs to their account, so the shop's own shelf has no entry
+          // for it. The shop reads those in the portal, per code.
+          const render = rendersByProject?.get(p.id);
+          const renderThumb = render?.imageUrl ? resolveMediaUrl(render.imageUrl) : null;
           return (
             <article key={p.id}>
               <div className="hv-proj-thumb" style={{ aspectRatio: "4 / 5", border: "1px solid var(--rule)", borderRadius: "var(--radius)", overflow: "hidden", background: "var(--surface)" }}>
@@ -199,6 +214,25 @@ export function ProjectsGrid({ projects, error, emptyHint }: ProjectsGridProps) 
                     <Mono>View only{expiryNote(p.accessExpiresAt)}</Mono>
                   </div>
                 )}
+                {/* The picture the room was closed to make. Shown as the picture itself
+                    rather than as the words "AI image": it is the one thing on this card
+                    somebody is looking FOR, and a thumbnail is recognised where a label
+                    has to be read. Links to the render page, which is where it can be
+                    downloaded or turned into a sheet. */}
+                {render && (
+                  <Link
+                    href={`/render?project=${encodeURIComponent(p.id)}`}
+                    className="hv-proj-ai"
+                    aria-label={`Open the AI image for ${p.name}`}
+                  >
+                    {renderThumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={renderThumb} alt="" aria-hidden />
+                    ) : null}
+                    <Mono brass>AI image</Mono>
+                    <span className="arr" aria-hidden>→</span>
+                  </Link>
+                )}
                 <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                   <Mono>
                     {p.regionCount} region{p.regionCount === 1 ? "" : "s"}
@@ -232,6 +266,22 @@ export function ProjectsGrid({ projects, error, emptyHint }: ProjectsGridProps) 
             transition: color .2s var(--ease);
           }
           a:hover .hv-proj-title { color: var(--accent); }
+          /* The AI-image row. Sits under the caption as its own tappable strip rather
+             than inside the title link, so "open the room" and "open the picture" stay
+             two separate targets on a phone. */
+          .hv-proj-ai {
+            display: inline-flex; align-items: center; gap: 8px;
+            margin-top: 10px; padding: 5px 10px 5px 5px;
+            border: 1px solid var(--rule); border-radius: var(--radius-pill);
+            text-decoration: none; color: var(--fg-soft);
+            transition: border-color .2s var(--ease), background .2s var(--ease), color .2s var(--ease);
+          }
+          .hv-proj-ai:hover { border-color: var(--accent); background: var(--surface-soft); color: var(--fg); }
+          .hv-proj-ai:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+          .hv-proj-ai img {
+            width: 26px; height: 26px; border-radius: 50%;
+            object-fit: cover; display: block; flex: none;
+          }
         `}</style>
       </section>
 

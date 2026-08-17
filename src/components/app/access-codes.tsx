@@ -9,8 +9,9 @@ import { ALL, FilterBar, facetOptionsFrom, matchesQuery } from "@/components/ui/
 import { useCopied } from "@/hooks/use-copied";
 import { AssignableProjects } from "@/components/app/assignable-projects";
 import { api, HttpError } from "@/lib/api";
+import { resolveMediaUrl } from "@/lib/media";
 import { site } from "@/lib/config";
-import { type AccessCode, type OrgResponse, type ProjectDetail, type ShopProduct } from "@/lib/types";
+import { type AccessCode, type MyRender, type OrgResponse, type ProjectDetail, type ShopProduct } from "@/lib/types";
 
 const FIXED_VALID_DAYS = 10;
 
@@ -73,6 +74,11 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   // carry several projects (one image charged per assigned project), so this is a list.
   const [openRoom, setOpenRoom] = useState<string | null>(null);
   const [rooms, setRooms] = useState<Record<string, ProjectDetail[] | "loading" | "error">>({});
+  // The finished AI images made in those rooms, keyed by code. Loaded beside the rooms
+  // and deliberately without a loading or error state of its own: the shades are what
+  // this panel is FOR — they are how the counter fills the order — and a picture that
+  // could not be listed must not put an error over them, or delay them arriving.
+  const [codeRenders, setCodeRenders] = useState<Record<string, MyRender[]>>({});
 
   // Issued-code filters. A busy shop accumulates hundreds of codes, so the
   // history is only usable with a search and status/company facets over it.
@@ -163,6 +169,13 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
         .listProjectsForCode(codeId)
         .then((d) => setRooms((p) => ({ ...p, [codeId]: d ?? [] })))
         .catch(() => setRooms((p) => ({ ...p, [codeId]: "error" })));
+      // The picture the customer walked out with. Fetched here rather than per project
+      // because one call answers for the whole code, and skipped once it has answered —
+      // reopening a row must not re-ask.
+      api
+        .listRendersForCode(codeId)
+        .then((d) => setCodeRenders((p) => ({ ...p, [codeId]: d ?? [] })))
+        .catch(() => setCodeRenders((p) => ({ ...p, [codeId]: [] })));
       return { ...prev, [codeId]: "loading" };
     });
   }, []);
@@ -648,6 +661,41 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                                 </span>
                               )}
                             </div>
+                            {/* The AI image this room produced, if the customer bought one.
+                                The shop pays for the room, prints the board and takes the
+                                order, and this was the one thing it could never see — so a
+                                customer ringing the counter about "the picture you did for
+                                my hall" was describing something nobody here could open.
+                                Read-only, and deliberately so: the credit that paid for it
+                                was theirs. */}
+                            {(codeRenders[c.id] ?? [])
+                              .filter((r) => r.projectId === project.id)
+                              .map((r) => ({ render: r, src: resolveMediaUrl(r.imageUrl) }))
+                              // No URL means nothing to show — a card with an empty frame
+                              // would read as a picture that failed to load rather than
+                              // one the shop was never meant to see.
+                              .filter((x): x is { render: MyRender; src: string } => x.src !== null)
+                              .map(({ render, src }) => (
+                                <a
+                                  key={render.id}
+                                  href={src}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hv-code-render"
+                                  title="Open the customer's AI image full size"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={src} alt={`AI image of ${project.name}`} />
+                                  <span>
+                                    <Mono brass>AI image</Mono>
+                                    {render.comboTitle ? (
+                                      <span style={{ display: "block", font: "300 14px/1.4 var(--serif)", color: "var(--fg-soft)", marginTop: 4 }}>
+                                        {render.comboTitle}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </a>
+                              ))}
                             {project.regions.filter((r) => r.appliedHexCode).length === 0 ? (
                               <p style={{ margin: 0, font: "300 15px/1.5 var(--serif)", color: "var(--fg-mute)" }}>No colours applied yet.</p>
                             ) : (

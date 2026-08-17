@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ProjectSummary } from "@/lib/types";
+import type { MyRender, ProjectSummary } from "@/lib/types";
 import { DashboardProjects } from "../dashboard-projects";
 import { api } from "@/lib/api";
 
@@ -14,7 +14,7 @@ vi.mock("@/lib/api", () => {
       this.status = status;
     }
   }
-  return { HttpError, api: { listProjects: vi.fn() } };
+  return { HttpError, api: { listProjects: vi.fn(), listMyRenders: vi.fn() } };
 });
 
 const OWN: ProjectSummary = {
@@ -43,9 +43,27 @@ const CUSTOMER: ProjectSummary = {
   updatedAt: "2026-07-21T10:00:00Z",
 };
 
+/** One finished picture, made in the shop's own room. */
+const RENDER: MyRender = {
+  id: "r-1",
+  projectId: "p-own",
+  projectName: "My showroom wall",
+  status: "READY",
+  imageUrl: "/render-1.png",
+  comboTitle: "Calm",
+  timeOfDay: "DAY",
+  borderMode: "KEEP_ORIGINAL",
+  lighting: "NATURAL",
+  furnishing: "KEEP",
+  style: "MODERN",
+  shades: [],
+};
+
 describe("DashboardProjects — separating a shop's work from its customers'", () => {
   beforeEach(() => {
     vi.mocked(api.listProjects).mockReset();
+    vi.mocked(api.listMyRenders).mockReset();
+    vi.mocked(api.listMyRenders).mockResolvedValue([]);
   });
 
   it("names the customer and their code on a customer room", async () => {
@@ -117,9 +135,57 @@ describe("DashboardProjects — separating a shop's work from its customers'", (
  * The two defects here are the same mistake in different places: showing somebody a
  * thing the next click, or the next sentence, contradicts.
  */
+/**
+ * The picture a room was closed to make.
+ *
+ * A closed room's card looked exactly like an open one — same photo, same status line —
+ * so the AI image it produced was invisible from the page somebody lands on straight
+ * after making it, and the only route back was the "AI images" tab if you knew it was
+ * there. The card now carries the picture itself.
+ */
+describe("DashboardProjects — the AI image on a room's card", () => {
+  beforeEach(() => {
+    vi.mocked(api.listProjects).mockReset();
+    vi.mocked(api.listMyRenders).mockReset();
+  });
+
+  it("shows the room's AI image and links to it", async () => {
+    vi.mocked(api.listProjects).mockResolvedValue([OWN]);
+    vi.mocked(api.listMyRenders).mockResolvedValue([RENDER]);
+    render(<DashboardProjects />);
+
+    const link = await screen.findByRole("link", { name: /AI image for My showroom wall/i });
+    expect(link).toHaveAttribute("href", "/render?project=p-own");
+  });
+
+  it("says nothing on a room that has not made one", async () => {
+    vi.mocked(api.listProjects).mockResolvedValue([OWN]);
+    vi.mocked(api.listMyRenders).mockResolvedValue([]);
+    render(<DashboardProjects />);
+
+    expect(await screen.findByText("My showroom wall")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /AI image/i })).not.toBeInTheDocument();
+  });
+
+  /**
+   * The decoration must never take the page down with it. The rooms are the point of
+   * this grid; an unreachable image list is a missing badge, not a broken dashboard.
+   */
+  it("still renders the rooms when the image list cannot be read", async () => {
+    vi.mocked(api.listProjects).mockResolvedValue([OWN]);
+    vi.mocked(api.listMyRenders).mockRejectedValue(new Error("upstream down"));
+    render(<DashboardProjects />);
+
+    expect(await screen.findByText("My showroom wall")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /AI image/i })).not.toBeInTheDocument();
+  });
+});
+
 describe("DashboardProjects — the customer's view", () => {
   beforeEach(() => {
     vi.mocked(api.listProjects).mockReset();
+    vi.mocked(api.listMyRenders).mockReset();
+    vi.mocked(api.listMyRenders).mockResolvedValue([]);
   });
 
   /**
