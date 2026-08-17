@@ -4,13 +4,18 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ACCESS_CODE_ERROR_MESSAGE } from "@/lib/validation";
 import { UnlockForm } from "../unlock-form";
-import { addCodeToAccountAction, unlockAccountAction } from "@/lib/auth";
+import {
+  addCodeToAccountAction,
+  confirmKioskReentryAction,
+  requestKioskReentryAction,
+} from "@/lib/auth";
 
 // `@/lib/auth` is a "use server" module importing next/headers — replace it wholesale.
 // `logoutAction` is here for the LogoutButton the "wrong account" branch renders.
 vi.mock("@/lib/auth", () => ({
-  unlockAccountAction: vi.fn(),
   addCodeToAccountAction: vi.fn(),
+  requestKioskReentryAction: vi.fn(),
+  confirmKioskReentryAction: vi.fn(),
   logoutAction: vi.fn(),
 }));
 
@@ -23,21 +28,121 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-const unlockAccount = vi.mocked(unlockAccountAction);
 const addCodeToAccount = vi.mocked(addCodeToAccountAction);
+const requestReentry = vi.mocked(requestKioskReentryAction);
+const confirmReentry = vi.mocked(confirmKioskReentryAction);
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("UnlockForm (no-login account unlock)", () => {
-  it("keeps the Unlock button disabled until the code is a valid 8-character code", async () => {
-    const user = userEvent.setup();
+describe("UnlockForm (signed out — a kiosk buyer coming back)", () => {
+  /**
+   * The load-bearing property of this screen. A printed code never expires, so if it
+   * alone opened the account it would be a permanent password on a slip of till paper.
+   * Signed out, there must be no box that takes one.
+   */
+  it("offers no code box at all — the way back is the email, not the receipt", () => {
     render(<UnlockForm />);
 
-    const input = screen.getByLabelText("Access code");
-    const button = screen.getByRole("button", { name: /Unlock/ });
+    expect(screen.queryByLabelText("Access code")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/email you gave at the shop/i)).toBeInTheDocument();
+  });
 
+  it("asks for a sign-in code by email", async () => {
+    const user = userEvent.setup();
+    requestReentry.mockResolvedValue({ sent: true } as never);
+    render(<UnlockForm />);
+
+    await user.type(screen.getByLabelText(/email you gave at the shop/i), "priya@example.com");
+    await user.click(screen.getByRole("button", { name: /Email me a code/ }));
+
+    expect(requestReentry).toHaveBeenCalledWith("priya@example.com");
+    expect(await screen.findByLabelText(/code from your email/i)).toBeInTheDocument();
+  });
+
+  /**
+   * The wording after sending must not reveal whether that address bought anything.
+   * The backend refuses to say; a screen that said "we found your room" would answer
+   * the question anyway, for anyone holding a stranger's address.
+   */
+  it("says nothing about whether that address actually has a room", async () => {
+    const user = userEvent.setup();
+    requestReentry.mockResolvedValue({ sent: true } as never);
+    render(<UnlockForm />);
+
+    await user.type(screen.getByLabelText(/email you gave at the shop/i), "nobody@example.com");
+    await user.click(screen.getByRole("button", { name: /Email me a code/ }));
+
+    // Conditional wording ("if that address has a room"), never a confirmation.
+    expect(await screen.findByText(/has a room with us/i)).toBeInTheDocument();
+    expect(screen.queryByText(/we found/i)).not.toBeInTheDocument();
+  });
+
+  it("signs the customer in once the emailed code is accepted", async () => {
+    const user = userEvent.setup();
+    requestReentry.mockResolvedValue({ sent: true } as never);
+    confirmReentry.mockResolvedValue({ name: "Priya" } as never);
+    render(<UnlockForm />);
+
+    await user.type(screen.getByLabelText(/email you gave at the shop/i), "priya@example.com");
+    await user.click(screen.getByRole("button", { name: /Email me a code/ }));
+
+    await user.type(await screen.findByLabelText(/code from your email/i), "123456");
+    await user.click(screen.getByRole("button", { name: /^Sign in/ }));
+
+    expect(confirmReentry).toHaveBeenCalledWith("priya@example.com", "123456");
+    expect(await screen.findByRole("heading", { name: /Welcome back\./ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open your rooms/ })).toHaveAttribute("href", "/my-projects");
+  });
+
+  it("keeps a refused code on the form with the backend's own wording", async () => {
+    const user = userEvent.setup();
+    requestReentry.mockResolvedValue({ sent: true } as never);
+    confirmReentry.mockResolvedValue({ error: "Incorrect code. 3 attempts left." } as never);
+    render(<UnlockForm />);
+
+    await user.type(screen.getByLabelText(/email you gave at the shop/i), "priya@example.com");
+    await user.click(screen.getByRole("button", { name: /Email me a code/ }));
+    await user.type(await screen.findByLabelText(/code from your email/i), "000000");
+    await user.click(screen.getByRole("button", { name: /^Sign in/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Incorrect code. 3 attempts left.");
+  });
+
+  /** A counter code needs an account to land on, so this points at the front door. */
+  it("sends someone holding a counter code to sign in first", () => {
+    render(<UnlockForm />);
+    expect(screen.getByRole("link", { name: /Sign in/ })).toHaveAttribute("href", "/sign-in?next=/unlock");
+    expect(screen.getByRole("link", { name: /Create an account/ })).toHaveAttribute("href", "/join?next=/unlock");
+  });
+});
+
+describe("UnlockForm (a customer who is already signed in)", () => {
+  /**
+   * The bug this covers: running a signed-OUT route for a signed-in customer signs them
+   * out and strands every project they already made. The code has to join the account
+   * in hand instead.
+   */
+  it("adds the code to the current account instead of creating a new one", async () => {
+    const user = userEvent.setup();
+    addCodeToAccount.mockResolvedValue({ shopName: "Mehta Paints", projects: 3 } as never);
+    render(<UnlockForm signedInAs={{ name: "Priya Sharma", role: "CUSTOMER" }} />);
+
+    await user.type(screen.getByLabelText("Access code"), "7K2NQ9PX");
+    await user.click(screen.getByRole("button", { name: /Add code/ }));
+
+    expect(await screen.findByRole("heading", { name: /Code added\./ })).toBeInTheDocument();
+    expect(screen.getByText(/3 projects from Mehta Paints/)).toBeInTheDocument();
+    expect(addCodeToAccount).toHaveBeenCalledWith("7K2NQ9PX");
+  });
+
+  it("keeps the button disabled until the code is a valid 8-character code", async () => {
+    const user = userEvent.setup();
+    render(<UnlockForm signedInAs={{ name: "Priya Sharma", role: "CUSTOMER" }} />);
+
+    const input = screen.getByLabelText("Access code");
+    const button = screen.getByRole("button", { name: /Add code/ });
     expect(button).toBeDisabled();
 
     await user.type(input, "7K2NQ9P"); // 7 chars — still short
@@ -49,91 +154,21 @@ describe("UnlockForm (no-login account unlock)", () => {
 
   it("normalizes lowercase input to uppercase as you type", async () => {
     const user = userEvent.setup();
-    render(<UnlockForm />);
+    render(<UnlockForm signedInAs={{ name: "Priya Sharma", role: "CUSTOMER" }} />);
 
     const input = screen.getByLabelText("Access code");
     await user.type(input, "7k2nq9px");
-
     expect(input).toHaveValue("7K2NQ9PX");
   });
 
-  it("shows the validation error when submitting a 7-character code via Enter", async () => {
+  it("shows the validation error when submitting a short code via Enter", async () => {
     const user = userEvent.setup();
-    render(<UnlockForm />);
-
-    const input = screen.getByLabelText("Access code");
-    await user.type(input, "7K2NQ9P{Enter}");
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(ACCESS_CODE_ERROR_MESSAGE);
-    expect(input).toHaveAttribute("aria-invalid", "true");
-    expect(unlockAccount).not.toHaveBeenCalled();
-  });
-
-  it("unlocks with a valid code via the server action and greets the customer by first name", async () => {
-    const user = userEvent.setup();
-    unlockAccount.mockResolvedValue({ name: "Priya Sharma", shopName: "Mehta Paint House" } as never);
-    render(<UnlockForm />);
-
-    await user.type(screen.getByLabelText("Access code"), "7k2nq9px");
-    await user.click(screen.getByRole("button", { name: /Unlock/ }));
-
-    expect(await screen.findByRole("heading", { name: /Welcome, Priya\./ })).toBeInTheDocument();
-    expect(screen.getByText(/Mehta Paint House/)).toBeInTheDocument();
-    expect(unlockAccount).toHaveBeenCalledTimes(1);
-    expect(unlockAccount).toHaveBeenCalledWith("7K2NQ9PX");
-  });
-
-  it("surfaces a server-action error and stays on the form", async () => {
-    const user = userEvent.setup();
-    unlockAccount.mockResolvedValue({ error: "That code has already been used or expired." } as never);
-    render(<UnlockForm />);
-
-    await user.type(screen.getByLabelText("Access code"), "7K2NQ9PX");
-    await user.click(screen.getByRole("button", { name: /Unlock/ }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("That code has already been used or expired.");
-    expect(screen.getByLabelText("Access code")).toBeInTheDocument();
-  });
-
-  /**
-   * A kiosk code is consumed by a GUEST, so the account route can only ever refuse it.
-   * The action falls back to resuming the guest session — the promise printed on the
-   * kiosk receipt — and the screen has to send them to the guest studio, not a dashboard
-   * they have no account for.
-   */
-  it("sends a resumed kiosk code to the guest studio", async () => {
-    const user = userEvent.setup();
-    unlockAccount.mockResolvedValue({ guest: true, shopName: "Mehta Paints", validDays: 7 } as never);
-    render(<UnlockForm />);
-
-    await user.type(screen.getByLabelText("Access code"), "7K2NQ9PX");
-    await user.click(screen.getByRole("button", { name: /Unlock/ }));
-
-    expect(await screen.findByRole("heading", { name: /Welcome back\./ })).toBeInTheDocument();
-    const open = screen.getByRole("link", { name: /Open your room/ });
-    expect(open).toHaveAttribute("href", "/guest-studio");
-  });
-});
-
-describe("UnlockForm (a customer who is already signed in)", () => {
-  /**
-   * The bug this covers: running the signed-OUT route for a signed-in customer signs
-   * them out and mints a second account keyed to the new code, stranding every project
-   * they already made. The code has to join the account in hand instead.
-   */
-  it("adds the code to the current account instead of creating a new one", async () => {
-    const user = userEvent.setup();
-    addCodeToAccount.mockResolvedValue({ shopName: "Mehta Paints", projects: 3 } as never);
     render(<UnlockForm signedInAs={{ name: "Priya Sharma", role: "CUSTOMER" }} />);
 
-    await user.type(screen.getByLabelText("Access code"), "7K2NQ9PX");
-    await user.click(screen.getByRole("button", { name: /Unlock/ }));
+    await user.type(screen.getByLabelText("Access code"), "7K2NQ9P{Enter}");
 
-    expect(await screen.findByRole("heading", { name: /Code added\./ })).toBeInTheDocument();
-    expect(screen.getByText(/3 projects from Mehta Paints/)).toBeInTheDocument();
-    expect(addCodeToAccount).toHaveBeenCalledWith("7K2NQ9PX");
-    // The account-creating route must not run for someone who already has an account.
-    expect(unlockAccount).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(ACCESS_CODE_ERROR_MESSAGE);
+    expect(addCodeToAccount).not.toHaveBeenCalled();
   });
 
   it("keeps a refused code on the form with the backend's own wording", async () => {
@@ -142,7 +177,7 @@ describe("UnlockForm (a customer who is already signed in)", () => {
     render(<UnlockForm signedInAs={{ name: "Priya Sharma", role: "CUSTOMER" }} />);
 
     await user.type(screen.getByLabelText("Access code"), "7K2NQ9PX");
-    await user.click(screen.getByRole("button", { name: /Unlock/ }));
+    await user.click(screen.getByRole("button", { name: /Add code/ }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("This access code was cancelled by the shop");
     expect(screen.getByLabelText("Access code")).toBeInTheDocument();
@@ -162,7 +197,6 @@ describe("UnlockForm (a shop or admin is signed in)", () => {
 
       expect(screen.queryByLabelText("Access code")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Sign out and unlock/ })).toBeInTheDocument();
-      expect(unlockAccount).not.toHaveBeenCalled();
       expect(addCodeToAccount).not.toHaveBeenCalled();
     },
   );

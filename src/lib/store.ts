@@ -62,31 +62,75 @@ export async function reportStoreCheckoutEventAction(
 }
 
 /**
- * Public kiosk: verify the Checkout success payload. On success the backend
- * issues the shop's access code and a guest token; we store the token in the
- * same httpOnly guest cookie the /unlock flow uses, so /studio just works.
- * Returns the pickup code the customer keeps for the counter.
+ * Public kiosk: verify the Checkout success payload.
+ *
+ * On success the backend issues the shop's pickup code AND opens (or reuses) the
+ * account the purchase belongs to, handing back a real session. We persist that
+ * session exactly as any sign-in would, so the customer walks away from the till
+ * already inside their own studio rather than at a sign-up form.
+ *
+ * When the account is a fresh unclaimed one, its access token is also parked in a
+ * separate short-lived cookie. Signing in later REPLACES the session, so without
+ * parking it the token that authorises "move this room onto my real account" would be
+ * gone by the time we knew which account to move it to.
  */
 export async function verifyStorePaymentAction(
   slug: string,
-  payload: { orderId: string; paymentId: string; signature: string },
+  payload: {
+    orderId: string;
+    paymentId: string;
+    signature: string;
+    email?: string;
+    name?: string;
+  },
 ): Promise<
-  | { code: string; shopName: string; validDays: number; amountPaise: number }
+  | {
+      code: string;
+      shopName: string;
+      validDays: number;
+      amountPaise: number;
+      accountEmail?: string | null;
+      claimable: boolean;
+    }
   | { error: string }
 > {
   "use server";
   try {
     const res: StoreCheckoutResult = await storeServerApi.verify(slug.trim(), payload, await clientIp());
     const jar = await cookies();
-    const ttlSeconds = Math.max(60, Math.floor((new Date(res.expiresAt).getTime() - Date.now()) / 1000));
-    jar.set(config.guestCookie, res.guestToken, { ...cookieDefaults, maxAge: ttlSeconds });
-    // Kiosk codes carry no brand restriction — clear any stale filter.
+
+    if (res.session) {
+      jar.set(config.sessionCookie, res.session.refreshToken, {
+        ...cookieDefaults,
+        maxAge: config.refreshTtlSeconds,
+      });
+      jar.set(config.accessCookie, res.session.accessToken, {
+        ...cookieDefaults,
+        maxAge: Math.max(60, res.session.expiresIn),
+      });
+    }
+
+    // Only an unclaimed account is worth offering to merge. A purchase that landed on
+    // an account the customer already had has nowhere to go.
+    const claimable = Boolean(res.session) && !res.existingAccount;
+    if (claimable && res.session) {
+      jar.set(config.kioskClaimCookie, res.session.accessToken, {
+        ...cookieDefaults,
+        maxAge: config.kioskClaimTtlSeconds,
+      });
+    } else {
+      jar.delete(config.kioskClaimCookie);
+    }
+    // Kiosk purchases carry no brand restriction — clear any stale filter.
     jar.delete(config.guestBrandsCookie);
+
     return {
       code: res.code,
       shopName: res.shopName,
       validDays: res.validDays,
       amountPaise: res.amountPaise,
+      accountEmail: res.accountEmail ?? null,
+      claimable,
     };
   } catch (err) {
     if (err instanceof HttpError) return { error: err.message };

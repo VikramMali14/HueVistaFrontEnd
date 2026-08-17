@@ -1,6 +1,6 @@
 /**
  * DEMO_MODE handler for the `serverFetch` boundary (server actions in
- * src/lib/auth.ts + billingApi/adminApi/guestServerApi). Answers the auth and
+ * src/lib/auth.ts + billingApi/adminApi/kioskServerApi). Answers the auth and
  * billing endpoints from fixtures and throws HttpError for the realistic error
  * cases (bad login → 401, no subscription for a customer → 404, …).
  */
@@ -8,7 +8,6 @@ import { HttpError } from "../http-error";
 import type {
   AccessCode,
   AuthResponse,
-  GuestRedeemResult,
   NetworkNode,
   NetworkReport,
   RetailerBrandOption,
@@ -216,47 +215,29 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
     return { ...match, used: true, usedAt: new Date().toISOString() } as T;
   }
 
-  // --- Anonymous guest redemption of a shop access code ---
-  if (p === "/api/access-codes/redeem-guest" && method === "POST") {
-    const { code = "" } = parseBody<{ code?: string }>(init);
-    const want = code.trim().toUpperCase();
-    const match = getStore().accessCodes.find((c) => c.code.toUpperCase() === want);
-    if (!match) throw new HttpError(404, "That code wasn't found.");
-    if (match.used) throw new HttpError(409, "That code has already been used.");
-    if (match.expired) throw new HttpError(404, "That code has expired.");
-    const result: GuestRedeemResult = {
-      guestToken: `hvdemo-guest.${match.id}`,
-      code: match.code,
-      shopName: match.organizationName ?? "Mehta Paints",
-      validDays: match.validDays,
-      expiresAt: match.expiresAt ?? new Date(Date.now() + match.validDays * 86_400_000).toISOString(),
-      allowedBrands: match.allowedBrands,
-    };
-    return result as T;
+  // --- Kiosk re-entry: email me a sign-in code, then redeem it ---
+  // Answers identically whether or not the address bought anything, exactly as the
+  // real endpoint does — the demo must not teach a shape the backend refuses to have.
+  if (p === "/api/store/re-entry" && method === "POST") {
+    return { sent: true, expiresInSeconds: 1200, cooldownSeconds: 60 } as T;
   }
 
-  // --- No-login redemption that auto-creates a customer account and signs in ---
-  if (p === "/api/access-codes/redeem-account" && method === "POST") {
+  if (p === "/api/store/re-entry/confirm" && method === "POST") {
     const { code = "" } = parseBody<{ code?: string }>(init);
-    const want = code.trim().toUpperCase();
-    const match = getStore().accessCodes.find((c) => c.code.toUpperCase() === want);
-    if (!match) throw new HttpError(404, "That code wasn't found.");
-    if (match.expired) throw new HttpError(410, "That code has expired.");
-    const auth = authResponseFor("CUSTOMER");
+    if (code.trim().length !== 6) throw new HttpError(400, "Incorrect code. 4 attempts left.");
+    return authResponseFor("CUSTOMER") as T;
+  }
+
+  // --- Folding a kiosk account into the signed-in one ---
+  if (p === "/api/me/merge-guest-account" && method === "POST") {
     return {
-      accessToken: auth.accessToken,
-      refreshToken: auth.refreshToken,
-      tokenType: "Bearer",
-      expiresIn: auth.expiresIn,
-      user: auth.user,
-      shopName: match.organizationName ?? "Mehta Paints",
-      validDays: match.validDays,
-      customerName: match.customerName ?? auth.user.name,
+      mergedFromUserId: "usr_demo_kiosk",
+      projectsMoved: 1,
+      imagesMoved: 1,
+      projectAllowanceMoved: 1,
+      aiCreditsMoved: 0,
+      shopName: "Mehta Paints",
     } as T;
-  }
-
-  if (p === "/api/projects/claim-guest" && method === "POST") {
-    return { linked: 1 } as T;
   }
 
   // --- Public shop-account lead form (/trial) ---
@@ -314,13 +295,18 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
         id: nextId("sp"), amountPaise: store.wallet.kioskPricePaise, bonusPoints: points,
         reversed: false, code: code.code, createdAt: new Date().toISOString(),
       });
+      const { email } = parseBody<{ email?: string }>(init);
       const result: StoreCheckoutResult = {
-        guestToken: `hvdemo-guest.${code.id}`,
         code: code.code,
         shopName: link.organizationName ?? "Mehta Paints",
         validDays: link.validDays,
         expiresAt: code.expiresAt!,
         amountPaise: store.wallet.kioskPricePaise,
+        // The walk-in leaves the till already signed in to the account their
+        // purchase opened — that is the whole point of the flow.
+        session: authResponseFor("CUSTOMER"),
+        accountEmail: email?.trim() || null,
+        existingAccount: false,
       };
       return result as T;
     }

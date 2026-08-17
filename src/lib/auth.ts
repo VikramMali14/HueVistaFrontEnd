@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { accessCodeServerApi, adminApi, authApi, billingApi, entitlementApi, guestServerApi, networkApi, HttpError } from "./api";
+import { accessCodeServerApi, adminApi, authApi, billingApi, entitlementApi, kioskServerApi, networkApi, HttpError } from "./api";
 import type { SiteAsset } from "./site-assets";
 import { SITE_ASSETS_TAG } from "./site-assets-server";
 import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult, DistributorOption, PaymentAttemptRow, PaymentAuditFilters, PaymentAuditSummary, ShadeUploadResult, ShopLeadRow, UploadBrand } from "./api";
@@ -37,27 +37,39 @@ export async function clearSession() {
   jar.delete(config.accessCookie);
 }
 
-/** Whether an anonymous guest session (unlocked with a shop code) is active. */
-export async function hasGuestSession(): Promise<boolean> {
+/** Whether this browser is holding an unclaimed kiosk purchase. */
+export async function hasKioskClaim(): Promise<boolean> {
   const jar = await cookies();
-  return Boolean(jar.get(config.guestCookie)?.value);
+  return Boolean(jar.get(config.kioskClaimCookie)?.value);
 }
 
 /**
- * Right after a user signs in/up, fold any active guest session into their
- * account: re-point the guest's projects to the new user, then drop the guest
- * cookie. Best-effort — a failure here must never block the auth redirect.
+ * Right after a user signs in or registers, fold any kiosk purchase this browser is
+ * still holding into the account they just used.
+ *
+ * <p>This is the "add it to my original account" half of the kiosk flow, and it runs
+ * automatically because the alternative is worse: the customer signs in, sees none of
+ * the work they paid for, and concludes it is lost. The merge moves everything and
+ * retires the kiosk account, so afterwards there is exactly one account with
+ * everything on it.
+ *
+ * <p>Best-effort — a failure here must never block the sign-in redirect. The claim
+ * cookie is dropped either way: a merge that failed because the kiosk account was
+ * already merged would otherwise retry on every future sign-in.
  */
-async function maybeClaimGuestProjects(accessToken: string) {
+async function maybeMergeKioskAccount(accessToken: string) {
   const jar = await cookies();
-  const guestToken = jar.get(config.guestCookie)?.value;
-  if (!guestToken) return;
+  const kioskToken = jar.get(config.kioskClaimCookie)?.value;
+  if (!kioskToken) return;
+  // Signing back in to the SAME kiosk account is not a merge — it would be an account
+  // absorbing itself, which the backend refuses. Nothing to do but keep the claim.
+  if (kioskToken === accessToken) return;
   try {
-    await guestServerApi.claim(accessToken, guestToken);
+    await kioskServerApi.mergeGuestAccount(accessToken, kioskToken);
   } catch {
-    /* best-effort */
+    /* best-effort — see above */
   }
-  jar.delete(config.guestCookie);
+  jar.delete(config.kioskClaimCookie);
   jar.delete(config.guestBrandsCookie);
 }
 
@@ -143,7 +155,7 @@ export async function loginAction(formData: FormData) {
     // The form re-submits everything plus the code via loginWithOtpAction.
     if (auth.twoFactorRequired) return { otpRequired: true };
     await persistSession(auth);
-    await maybeClaimGuestProjects(auth.accessToken);
+    await maybeMergeKioskAccount(auth.accessToken);
   } catch (err) {
     if (err instanceof HttpError) {
       if (err.status === 401) return { error: "Incorrect email or password." };
@@ -184,112 +196,76 @@ export async function loginWithOtpAction(formData: FormData) {
 }
 
 /**
- * Open an anonymous guest session for a code, storing the guest token in an httpOnly
- * cookie that dies with the code.
+ * Kiosk re-entry, step one: ask for a one-time sign-in code by email.
  *
- * Returns the backend's own refusal on failure rather than a flat null: the reasons a
- * guest code is turned away are things the customer needs to hear precisely — the room
- * has already been sent to the counter, the shop cancelled the code, the window closed —
- * and collapsing them into one house sentence sends someone back to a counter with the
- * wrong question.
+ * <p>This is how a walk-in gets back to what they bought, and deliberately NOT the
+ * printed code. A redeemed access code never expires, so a till slip that reopened its
+ * account would be a permanent password — one printed on paper, handed across a
+ * counter, and impossible to change. Reaching the address the buyer paid with is what
+ * proves they are the buyer.
  *
- * Not exported: it is the tail of the unlock flow, not an entry point of its own.
+ * <p>The answer is the same whether or not the address bought anything. The backend
+ * refuses to say, and the wording here must not give it away either: "if that address
+ * has a room, a code is on its way" is the whole of what anyone gets to learn.
  */
-async function startGuestSession(
-  code: string,
-  clientIp: string | undefined,
-): Promise<{ shopName: string; code: string; validDays: number } | { error: string }> {
+export async function requestKioskReentryAction(
+  email: string,
+): Promise<{ sent: true } | { error: string }> {
+  "use server";
+  const value = email.trim().toLowerCase();
+  if (!value || !value.includes("@")) {
+    return { error: "Enter the email address you gave at the shop." };
+  }
+  const clientIp = clientIpFromHeaders(await headers());
   try {
-    const res = await guestServerApi.redeem(code, clientIp);
-    const jar = await cookies();
-    const ttlSeconds = Math.max(60, Math.floor((new Date(res.expiresAt).getTime() - Date.now()) / 1000));
-    jar.set(config.guestCookie, res.guestToken, { ...cookieDefaults, maxAge: ttlSeconds });
-    if (res.allowedBrands && res.allowedBrands.length > 0) {
-      jar.set(config.guestBrandsCookie, JSON.stringify(res.allowedBrands), { ...cookieDefaults, maxAge: ttlSeconds });
-    } else {
-      jar.delete(config.guestBrandsCookie); // no restriction → every brand
-    }
-    return { shopName: res.shopName, code: res.code, validDays: res.validDays };
+    await kioskServerApi.requestReentry(value, clientIp);
+    return { sent: true };
   } catch (err) {
-    if (err instanceof HttpError && err.message) return { error: err.message };
-    return { error: "That code has already been used or expired." };
+    if (err instanceof HttpError && err.status === 429) {
+      return { error: "Too many requests just now. Wait a minute and try again." };
+    }
+    return { error: "Could not send the code. Please try again in a moment." };
   }
 }
 
 /**
- * The primary walk-in flow: unlock with a retailer code and NO login. The backend
- * auto-provisions a passwordless CUSTOMER account and returns a full session, which
- * we persist as cookies so the customer is signed straight in.
+ * Kiosk re-entry, step two: exchange the emailed code for the session on the account
+ * the purchase lives on.
  *
- * Redemption is anonymous, so we redeem BEFORE touching the caller's cookies and
- * only swap sessions once the code has actually been accepted. A retailer who
- * mistypes a customer's code therefore keeps their own session — the old order
- * (clear, then redeem) signed them out on every bad code, which mattered because
- * the portal sends retailers to this very page.
- *
- * For a visitor who is already SIGNED IN this is the wrong action entirely — see
- * {@link addCodeToAccountAction}, which the unlock page uses instead.
+ * <p>Whoever is currently signed in is signed out only AFTER the code is accepted. A
+ * shop assistant helping a customer at the counter must not lose their own session to
+ * a mistyped digit — the same rule the code-redemption path follows, for the same
+ * reason.
  */
-export async function unlockAccountAction(
+export async function confirmKioskReentryAction(
+  email: string,
   code: string,
-): Promise<{ name: string; shopName: string } | { guest: true; shopName: string; validDays: number } | { error: string }> {
+): Promise<{ name: string } | { error: string }> {
   "use server";
+  const address = email.trim().toLowerCase();
   const value = code.trim();
-  if (!value) return { error: "Enter the code from your shop." };
+  if (!address || !value) return { error: "Enter the code from your email." };
 
-  const hdrs = await headers();
-  const clientIp = clientIpFromHeaders(hdrs);
+  const clientIp = clientIpFromHeaders(await headers());
   try {
-    const res = await guestServerApi.redeemAccount(value, clientIp);
-    // The code is good — now log out whoever is here (retailer, another customer, a
-    // stale guest) so the code's own account is the only session that survives.
+    const auth = await kioskServerApi.confirmReentry(address, value, clientIp);
     await clearSession();
-    const jar = await cookies();
-    jar.delete(config.guestCookie);
-    jar.delete(config.guestBrandsCookie);
-    await persistSession({
-      accessToken: res.accessToken,
-      refreshToken: res.refreshToken,
-      tokenType: "Bearer",
-      expiresIn: res.expiresIn,
-      user: res.user,
-    });
-    return { name: res.customerName || res.user.name, shopName: res.shopName };
+    await persistSession(auth);
+    return { name: auth.user.name };
   } catch (err) {
-    if (err instanceof HttpError) {
-      if (err.status === 404) return { error: "That code wasn't found. Check it and try again." };
-      if (err.status === 409 || err.status === 410) {
-        // "Already used" is not the whole story. A code consumed by a GUEST — every
-        // kiosk purchase, and any counter code redeemed without an account — has no
-        // account to sign into, so the account route can only ever refuse it. The
-        // backend deliberately lets a guest back in with the same code while it is
-        // valid, which is precisely the promise the kiosk prints on its receipt
-        // ("lose the tab or switch phones? enter this code again"). Without this
-        // fallback that promise was false: a customer who had already paid was told
-        // their own code was used up, with nothing else on the page to try.
-        const guest = await startGuestSession(value, clientIp);
-        if ("error" in guest) return guest;
-        // Only now, once the code has actually been accepted, does anyone get signed
-        // out — same rule as the account path above, and for the same reason: a
-        // retailer who mistypes a customer's code must keep their own session.
-        await clearSession();
-        return { guest: true, shopName: guest.shopName, validDays: guest.validDays };
-      }
-      return { error: err.message };
-    }
-    return { error: "Could not unlock with that code. Please try again." };
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not sign you in. Please request a new code." };
   }
 }
 
 /**
  * Redeem a shop code onto the account that is ALREADY signed in.
  *
- * The difference from {@link unlockAccountAction} is the whole point of it. That one
- * mints a new passwordless account keyed to the code; running it for a signed-in
- * customer signed them out and dropped them into a different account, leaving every
- * project, every colour board and every AI credit they held behind in an account they
- * may have no password for. Every "unlock your projects" invitation in the app —
- * dashboard, access banner, studio gate, products page — pointed at that.
+ * This is the ONLY way a counter-issued code is redeemed: onto an account that already
+ * exists. There is no longer a route that mints an account from a code alone, and that
+ * is deliberate — such an account has no password and, without an address on it,
+ * nothing its owner could ever use to get back in. A customer with a shop's slip signs
+ * in (or registers) first, then adds the code here.
  *
  * The backend adds the code's allowance to the existing entitlement rather than
  * replacing it, so a second shop's code tops the customer up instead of resetting
@@ -357,7 +333,7 @@ export async function registerAction(formData: FormData) {
   try {
     const auth = await authApi.register({ name, email, password, shopName, city, state, phone, tier, accountType }, clientIp);
     await persistSession(auth);
-    await maybeClaimGuestProjects(auth.accessToken);
+    await maybeMergeKioskAccount(auth.accessToken);
   } catch (err) {
     if (err instanceof HttpError) {
       if (err.status === 409) return { error: "An account with that email already exists." };
@@ -418,7 +394,7 @@ export async function completeGoogleSignIn(input: {
   });
   // Fold any active guest session into the freshly signed-in account — parity
   // with the email/password + register flows. Best-effort; never blocks login.
-  await maybeClaimGuestProjects(input.accessToken);
+  await maybeMergeKioskAccount(input.accessToken);
   // Honor the page the user started from (stashed before the OAuth hop).
   const requested = jar.get("hv_oauth_next")?.value ?? "";
   const next =
