@@ -1234,14 +1234,20 @@ export const api = {
     }),
   // opts.maskMode ("AUTO" default / "MANUAL") is open to every caller — it decides
   // whether AI wall detection runs after the compulsory photo clean-up (MANUAL stops
-  // there; walls are then marked by hand, free on every plan). opts.cleanImage is an
-  // ADMIN-only testing knob (the backend strips it for other roles). Masks are always
-  // stored raw — exactly as the model painted them.
+  // there; walls are then marked by hand, free on every plan). opts.cleanImage,
+  // opts.simulateFailure and opts.cleanModel/opts.maskModel are ADMIN-only testing
+  // knobs (the backend strips them for other roles). Masks are always stored raw —
+  // exactly as the model painted them.
   requestSegmentation: (projectId: string, opts?: SegmentationOptions) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/segment`, {
       method: "POST",
       ...(opts ? { body: JSON.stringify(opts) } : {}),
     }),
+  // The image models a run may be pinned to, for the admin testing panel's radios.
+  // Fetched rather than hard-coded so the studio only offers what the backend will
+  // actually accept — a deployment can narrow or extend the list from config.
+  // ROLE_ADMIN only: 403 for everyone else, so only call it for an admin.
+  listAiModels: () => browserFetch<import("./types").AiModelOption[]>("api/projects/ai-models"),
   getProjectStatus: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/status`),
   getProject: (projectId: string) =>
