@@ -86,6 +86,13 @@ export interface ShadeLabels {
   /** False when this shop hides paint names wherever a colour is shown. */
   showNames: boolean;
   /**
+   * False when the paint COMPANY must not be printed against an individual shade —
+   * every customer, guest, painter and share-link viewer. Not a per-shop switch: see
+   * {@link ShadeCodeScheme.showBrands}. Unrelated to filtering BY company, which those
+   * viewers still do.
+   */
+  showBrands: boolean;
+  /**
    * The code to print for a shade.
    *
    * Takes the whole shade, not just its code string, because the answer now depends on
@@ -110,6 +117,10 @@ export function useShadeLabels(): ShadeLabels {
   const scheme = useShadeCodeScheme();
   return useMemo(() => {
     const showNames = scheme?.showNames !== false;
+    // Defaults to the code question rather than to `true`. An older backend does not
+    // send showBrands at all, and a viewer who may not read the manufacturer's code
+    // must not be handed the company instead — the two identify a colour equally well.
+    const showBrands = scheme?.showBrands ?? scheme?.showRealCodes ?? true;
     const codeOf = (shade: LabelledShade | string) =>
       displayCodeOf(scheme, typeof shade === "string" ? { code: shade } : shade);
     return {
@@ -118,6 +129,7 @@ export function useShadeLabels(): ShadeLabels {
       // HV codes is patterned whether or not their shop ever set a pattern up.
       patterned: !scheme?.showRealCodes || hasScheme(scheme),
       showNames,
+      showBrands,
       codeOf,
       nameOf: (shade) => (showNames ? shade.name : codeOf(shade)),
     };

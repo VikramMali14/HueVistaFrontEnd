@@ -160,112 +160,35 @@ describe("Palette card actions", () => {
   });
 });
 
-describe("Custom tab — no hex on screen", () => {
-  it("drops the hex field entirely", async () => {
-    const user = userEvent.setup();
-    render(<ShadeGrid onSelect={vi.fn()} shades={CATALOGUE} onApplyExact={vi.fn()} />);
-    await user.click(screen.getByRole("tab", { name: "Custom" }));
+describe("Custom colour — gone", () => {
+  /**
+   * The panel used to carry a third tab: a colour wheel that applied any hex exactly.
+   *
+   * It is removed because the product's output is a colour BOARD — a sheet of codes
+   * somebody carries to a counter and buys paint against. A hand-picked hex has no code,
+   * so it printed as "Custom colour" with a swatch and nothing to order, and on the wall
+   * it was a promise the shop could not keep: the mixing machine works from the
+   * catalogue, not from a screen.
+   *
+   * Asserted rather than merely deleted, because the failure mode of removing a tab is
+   * leaving a way back to it — a "Find similar" button, a deep link, a keyboard path —
+   * and every one of those lands the user on a panel that no longer exists.
+   */
+  it("offers only the two tabs that end in a buyable shade", () => {
+    render(<ShadeGrid onSelect={vi.fn()} shades={CATALOGUE} />);
 
-    expect(screen.queryByLabelText("Hex colour")).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText(/#/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Colours",
+      "AI Suggest",
+    ]);
+    expect(screen.queryByRole("tab", { name: "Custom" })).not.toBeInTheDocument();
   });
 
-  it("prints no hex code anywhere the user can read it", async () => {
-    const user = userEvent.setup();
-    render(<ShadeGrid onSelect={vi.fn()} shades={CATALOGUE} onApplyExact={vi.fn()} />);
-    await user.click(screen.getByRole("tab", { name: "Custom" }));
+  it("leaves no route back to the picker from a selected shade", () => {
+    render(<ShadeGrid onSelect={vi.fn()} shades={CATALOGUE} activeShade={CATALOGUE[0]} />);
 
-    // Text content only: the colour swatch's own value attribute is how the
-    // native picker works and is not something the user reads off the panel.
-    const panel = document.querySelector(".hv-studio-scroll")!;
-    expect(panel.textContent ?? "").not.toMatch(/#[0-9a-fA-F]{6}/);
-  });
-
-  it("still applies the picked colour exactly", async () => {
-    const user = userEvent.setup();
-    const onApplyExact = vi.fn();
-    render(<ShadeGrid onSelect={vi.fn()} shades={CATALOGUE} onApplyExact={onApplyExact} />);
-    await user.click(screen.getByRole("tab", { name: "Custom" }));
-
-    fireEvent.change(screen.getByLabelText("Pick a colour"), { target: { value: "#2244cc" } });
-    await user.click(screen.getByRole("button", { name: /Use this exact colour/ }));
-
-    expect(onApplyExact).toHaveBeenCalledWith("#2244cc");
-  });
-});
-
-/**
- * The way back in for the one customer a month who arrives with a code from a
- * brand sheet or an architect's note. Folded away, because the panel is built for
- * a counter where colours get pointed at — but reachable, because without it that
- * colour cannot be entered at all.
- */
-describe("Custom tab — entering a code by hand", () => {
-  const openCustom = async (user: ReturnType<typeof userEvent.setup>) => {
-    render(<ShadeGrid onSelect={vi.fn()} shades={CATALOGUE} onApplyExact={vi.fn()} />);
-    await user.click(screen.getByRole("tab", { name: "Custom" }));
-  };
-
-  it("keeps the field folded away until asked for", async () => {
-    const user = userEvent.setup();
-    await openCustom(user);
-
+    expect(screen.queryByRole("button", { name: "Find similar" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Pick a colour")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Colour code")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Enter a code" })).toBeInTheDocument();
-  });
-
-  it("opens the field, focused, when asked", async () => {
-    const user = userEvent.setup();
-    await openCustom(user);
-
-    await user.click(screen.getByRole("button", { name: "Enter a code" }));
-
-    const field = screen.getByLabelText("Colour code");
-    expect(field).toBeInTheDocument();
-    expect(field).toHaveFocus();
-  });
-
-  it("drives the colour from a typed code, with or without the hash", async () => {
-    const user = userEvent.setup();
-    const onApplyExact = vi.fn();
-    render(<ShadeGrid onSelect={vi.fn()} shades={CATALOGUE} onApplyExact={onApplyExact} />);
-    await user.click(screen.getByRole("tab", { name: "Custom" }));
-    await user.click(screen.getByRole("button", { name: "Enter a code" }));
-
-    const field = screen.getByLabelText("Colour code");
-    await user.clear(field);
-    await user.type(field, "A47148");
-
-    // The swatch follows the code…
-    expect(screen.getByLabelText("Pick a colour")).toHaveValue("#a47148");
-    // …and applying uses it.
-    await user.click(screen.getByRole("button", { name: /Use this exact colour/ }));
-    expect(onApplyExact).toHaveBeenCalledWith("#A47148");
-  });
-
-  it("says what a code looks like only once something unusable is typed", async () => {
-    const user = userEvent.setup();
-    await openCustom(user);
-    await user.click(screen.getByRole("button", { name: "Enter a code" }));
-
-    const field = screen.getByLabelText("Colour code");
-    await user.clear(field);
-    // An empty field is a field just opened, not a mistake.
-    expect(screen.queryByText(/Six digits or letters/)).not.toBeInTheDocument();
-
-    await user.type(field, "zzz");
-    expect(screen.getByText(/Six digits or letters/)).toBeInTheDocument();
-    expect(field).toHaveAttribute("aria-invalid", "true");
-  });
-
-  it("folds away again, leaving no hex on screen", async () => {
-    const user = userEvent.setup();
-    await openCustom(user);
-    await user.click(screen.getByRole("button", { name: "Enter a code" }));
-    await user.click(screen.getByRole("button", { name: "Close the code field" }));
-
-    expect(screen.queryByLabelText("Colour code")).not.toBeInTheDocument();
-    const panel = document.querySelector(".hv-studio-scroll")!;
-    expect(panel.textContent ?? "").not.toMatch(/#[0-9a-fA-F]{6}/);
   });
 });

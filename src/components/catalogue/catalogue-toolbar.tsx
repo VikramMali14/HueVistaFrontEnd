@@ -111,7 +111,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
   // Under a shop's own numbering these swatches read the way that shop's swatches
   // read everywhere else. A signed-out visitor is under no shop, so the public
   // catalogue is unchanged for them.
-  const { patterned, showNames, codeOf, nameOf } = useShadeLabels();
+  const { patterned, showNames, showBrands, codeOf, nameOf } = useShadeLabels();
   // Counter tools: comparison queue, fan-deck strip, hold-to-wall.
   const [compareCodes, setCompareCodes] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -369,7 +369,16 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
                 >
                   <div className="hv-shade-swatch" style={{ aspectRatio: "1 / 1.1", position: "relative", background: s.hex, overflow: "hidden", boxShadow: "0 1px 0 rgba(255,255,255,.06) inset, 0 20px 40px -20px rgba(0,0,0,.6)" }}>
                     <span style={{ position: "absolute", top: 14, right: 14, font: "400 14px/1 var(--serif)", color: ink }}>{patterned ? codeOf(s) : s.code.split("-")[1]}</span>
-                    <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: inkSoft }}>{s.brand}</span>
+                    {/* The company, printed on the swatch — for the people who are
+                        allowed to know it. A colour is identified by its company, its
+                        name and its code together, so a screen that withholds two of
+                        the three and stamps the third across the chip has withheld
+                        nothing: one call to that company resolves the shade. Customers
+                        still CHOOSE a company from the filter above; what they do not
+                        get is an attribution per swatch. */}
+                    {showBrands && (
+                      <span style={{ position: "absolute", bottom: 14, left: 14, font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: inkSoft }}>{s.brand}</span>
+                    )}
                   </div>
                   <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
                     <span className="hv-shade-card-title" title={nameOf(s)} style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--fg)", lineHeight: 1.05 }}>{nameOf(s)}</span>

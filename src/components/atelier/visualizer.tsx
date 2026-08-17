@@ -432,6 +432,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // and won't be there next time.
   // The shop hides paint names everywhere a colour appears — studio, dock, PDF board.
   const [hideNames, setHideNames] = useState(false);
+  /**
+   * Whether the paint COMPANY may be attributed to individual shades.
+   *
+   * False for every customer, guest and painter — the panel then drops its per-company
+   * headings, because a heading names the company of every swatch beneath it exactly as
+   * plainly as a label on each chip. Nothing to do with the company PICKER above it,
+   * which those viewers keep and need: they will be buying from a shop that stocks some
+   * companies and not others.
+   */
+  const [showBrands, setShowBrands] = useState(true);
   const [viewOnly, setViewOnly] = useState(false);
   const [viewOnlyReason, setViewOnlyReason] = useState<string | null>(null);
   /**
@@ -744,6 +754,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         // showNames is a shop-wide switch, independent of whether a pattern is set:
         // a shop can hide paint names without running its own codes.
         setHideNames(scheme?.showNames === false);
+        // Defaults to the CODE question rather than to true: an older backend does not
+        // send showBrands, and whoever may not read the manufacturer's code must not be
+        // handed the company instead — either one identifies the colour.
+        setShowBrands(scheme?.showBrands ?? scheme?.showRealCodes ?? true);
       })
       // Settled either way: a failed lookup must not leave codes hidden forever, or a
       // shop with no scheme at all would never see a code again.
@@ -1567,34 +1581,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const onSelectShade = useCallback(
     (shade: PaintShade) => applyShadeTo(activeRegion, shade),
     [applyShadeTo, activeRegion],
-  );
-
-  // Apply a custom-picked colour EXACTLY (no catalogue shade) to the active region.
-  const onApplyCustom = useCallback(
-    (hex: string) => {
-      if (viewOnly) return;
-      let updatedBackendId: number | undefined;
-      setRegions((prev) =>
-        prev.map((r) => {
-          if (r.id !== activeRegion) return r;
-          updatedBackendId = r.backendId;
-          return { ...r, hex, shade: undefined, applied: true };
-        }),
-      );
-      // Applying a colour must always show the result — never the original peek.
-      setCompare(false);
-      setStage("recolor");
-
-      if (projectId && updatedBackendId !== undefined) {
-        const payload: RegionColorUpdate[] = [
-          { regionId: updatedBackendId, shadeCode: null, hexCode: hex },
-        ];
-        runSave(async () => {
-          await updateRegionColorsCall(projectId, payload);
-        });
-      }
-    },
-    [activeRegion, projectId, updateRegionColorsCall, runSave, viewOnly],
   );
 
   // "Keep original" — strip any colour from a region so it renders unpainted
@@ -2590,6 +2576,31 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               {classification === "INDOOR" ? "Indoor" : classification === "OUTDOOR" ? "Outdoor" : "Unknown"}
             </span>
           )}
+          {/* The board cap, said up front rather than discovered at the end.
+              It already had a countdown, but that countdown lives inside the download
+              tray — a panel somebody opens once they have chosen their colours, which is
+              exactly too late to learn that the project allows a fixed number of sheets
+              and closes on the last one. Here it sits beside Indoor/Outdoor from the
+              moment the room opens.
+
+              The NUMBER comes from the server (boardsAllowed), never from a literal
+              here: the cap is configuration, and a studio printing its own copy of it
+              would start lying the first time it moved. Hidden for guests, whose boards
+              are capped by their code's allowance instead, and for a closed project,
+              where the count is finished and the state itself is the message. */}
+          {!guest && !closed && boardsAllowed > 0 && (
+            <span
+              className={`hv-status-pill ${boardsAllowed - boardsUsed <= 0 ? "is-error" : ""}`}
+              title={
+                `This project allows ${boardsAllowed} colour board${boardsAllowed === 1 ? "" : "s"}`
+                + ` — each one a sheet with your colours, their codes and your AI image on it.`
+                + " The last one closes the project and unlocks the render."
+              }
+            >
+              Max {boardsAllowed} colour board{boardsAllowed === 1 ? "" : "s"}
+              {boardsUsed > 0 ? ` · ${Math.max(0, boardsAllowed - boardsUsed)} left` : ""}
+            </span>
+          )}
           {segmenting && (
             <span className="hv-status-pill">
               <span className="dot" />
@@ -2706,6 +2717,27 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           >
             Download
           </Button>
+          {/* Finishing the job, offered where the job is rather than only inside the
+              download tray. The tray's button is reachable only while that panel is
+              open, so a customer who had taken their board, closed the tray and come
+              back later had no way to say they were done — and closing is what unlocks
+              the AI render, so "no way to say they were done" also meant "no way to get
+              the picture".
+
+              Same guard as the tray's copy: at least one board handed over. Closing with
+              nothing to show for it locks the catalogue on a job that produced nothing
+              to choose from, which is a state worth being unable to reach by accident. */}
+          {!guest && !closed && boardsUsed > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={closing}
+              onClick={() => void closeProject()}
+              title="Finish this job and make your AI image. The project becomes view-only."
+            >
+              {closing ? "Closing…" : "Close project"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -3669,7 +3701,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           <ShadeGrid
             selected={active.shade?.code}
             onSelect={onSelectShade}
-            onApplyExact={onApplyCustom}
             activeShade={active.shade}
             activeRegionLabel={active.label}
             activeApplied={active.applied}
@@ -3681,6 +3712,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             onKeepOriginal={onKeepOriginalActive}
             hideCodes={hideRawCodes}
             hideNames={hideNames}
+            showBrands={showBrands}
             encodeCode={encodeCode}
             onSelectRegion={(id) => setActiveRegion(id)}
             onAddWall={() => {
