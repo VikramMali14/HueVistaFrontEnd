@@ -36,6 +36,7 @@ import type {
   ProjectRender,
   RegionDetail,
   RenderOptions,
+  RenderQuality,
 } from "@/lib/types";
 
 /**
@@ -96,7 +97,24 @@ const DEFAULT_OPTIONS: RenderOptions = {
   lighting: "NATURAL",
   furnishing: "KEEP",
   style: "MODERN",
+  // The cheapest tier, deliberately. This is the one option on the screen that costs
+  // money to change, so it opens at the price somebody expects and every step up is
+  // something they chose rather than something they were defaulted into.
+  quality: "BASIC",
 };
+
+/**
+ * The three qualities, in credits-ascending order.
+ *
+ * The prices are NOT here — they come off the wallet, which reads them from the server, so
+ * this screen cannot quote a number the charge then contradicts. What lives here is the
+ * prose about choosing, which is the thing the server has no opinion about.
+ */
+const QUALITY: Choice<RenderQuality>[] = [
+  { value: "BASIC", label: "Basic", hint: "A quick, honest look at the room" },
+  { value: "PRO", label: "Pro", hint: "Sharper, and truer to the building's own lines" },
+  { value: "MAX", label: "Max", hint: "The best we have, at the largest size — for printing" },
+];
 
 type Choice<T extends string> = { value: T; label: string; hint: string };
 
@@ -516,7 +534,11 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     setBuying(true);
     setError(null);
     try {
-      const fresh = await buyAiCredits(credits(wallet));
+      // Enough for the image in front of them at the tier they chose, less whatever they
+      // already hold. Buying a flat one credit was right when an image cost exactly one;
+      // with tiers it would leave somebody who picked Max three short and none the wiser.
+      const shortfall = Math.max(1, shortBy(wallet, options.quality, project));
+      const fresh = await buyAiCredits(shortfall);
       // null = Checkout was closed. Not an error, and nothing to report.
       if (fresh) {
         setWallet(fresh);
@@ -527,7 +549,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     } finally {
       setBuying(false);
     }
-  }, [wallet]);
+  }, [wallet, options.quality, project]);
 
   // ── Rendering ────────────────────────────────────────────────────────────
 
@@ -559,10 +581,21 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   // A shop-granted room starts at zero included, so for those the wallet is the whole
   // answer from the first image onwards.
   const rendersLeft = (project?.rendersAllowed ?? 0) - (project?.rendersUsed ?? 0);
-  const cost = credits(wallet);
+  const cost = credits(wallet, options.quality);
   const creditsLeft = wallet?.balance ?? 0;
+  /**
+   * What pressing the button actually spends from the WALLET.
+   *
+   * A room that still includes an image covers the basic one, and a better tier tops up
+   * the difference rather than costing the whole price — so on those the number that
+   * matters is the upgrade, not the sticker. Getting this wrong in the cautious direction
+   * would grey out a button somebody can afford to press.
+   */
+  const walletCost = rendersLeft > 0
+    ? Math.max(0, cost - credits(wallet, "BASIC"))
+    : cost;
   /** Can the button actually make an image right now, on either pocket? */
-  const canGenerate = rendersLeft > 0 || creditsLeft >= cost;
+  const canGenerate = creditsLeft >= walletCost;
   const busy = waiting;
   const ready = active?.status === "READY" ? active : null;
 
@@ -665,11 +698,11 @@ export function RenderStudio({ projectId }: { projectId: string }) {
             </Button>
             {canGenerate ? (
               <Button variant="ghost" onClick={() => setActive(null)}>
-                Make another{creditsLeft >= cost && rendersLeft <= 0 ? ` · ${cost} credit` : ""}
+                Make another{walletCost > 0 ? ` · ${walletCost} credit${walletCost === 1 ? "" : "s"}` : ""}
               </Button>
             ) : (
               <Button variant="ghost" disabled={buying} onClick={() => void topUp()}>
-                {buying ? "Opening checkout…" : buyCreditLabel(wallet)}
+                {buying ? "Opening checkout…" : buyCreditLabel(wallet, walletCost - creditsLeft)}
               </Button>
             )}
             {/* Where this picture will be tomorrow. Said here rather than left to be
@@ -685,6 +718,15 @@ export function RenderStudio({ projectId }: { projectId: string }) {
         </section>
       ) : (
         <section className="hv-render-options">
+          {/* First, because it is the only row that changes the price. Every other choice
+              here is free to move; this one is the purchase. */}
+          <OptionRow
+            label="Quality"
+            choices={qualityChoices(wallet)}
+            value={options.quality ?? "BASIC"}
+            onChange={(quality) => setOptions((o) => ({ ...o, quality }))}
+            disabled={busy}
+          />
           <OptionRow label="Time of day" choices={TIME_OF_DAY} value={options.timeOfDay}
             onChange={(timeOfDay) => setOptions((o) => ({ ...o, timeOfDay }))} disabled={busy} />
           <OptionRow label="Borders and trim" choices={BORDERS} value={options.borderMode}
@@ -713,16 +755,18 @@ export function RenderStudio({ projectId }: { projectId: string }) {
               <Button variant="brass" disabled={busy || !selected} onClick={() => void generate()}>
                 {busy
                   ? "Making your image…"
-                  : rendersLeft > 0
+                  : walletCost === 0
                     ? "Make my image"
-                    : `Make my image · ${cost} credit${cost === 1 ? "" : "s"}`}
+                    : `Make my image · ${walletCost} credit${walletCost === 1 ? "" : "s"}`}
               </Button>
             ) : (
               <Button variant="brass" disabled={buying} onClick={() => void topUp()}>
-                {buying ? "Opening checkout…" : buyCreditLabel(wallet)}
+                {buying ? "Opening checkout…" : buyCreditLabel(wallet, walletCost - creditsLeft)}
               </Button>
             )}
-            <span className="hv-render-left">{allowanceNote(rendersLeft, creditsLeft, cost)}</span>
+            <span className="hv-render-left">
+              {allowanceNote(rendersLeft, creditsLeft, cost, walletCost)}
+            </span>
           </div>
         </section>
       )}
@@ -870,9 +914,43 @@ function OptionRow<T extends string>({
   );
 }
 
-/** Credits one image costs. One, unless the server says otherwise. */
-function credits(wallet: AiCreditSummary | null): number {
-  return wallet?.renderCost ?? 1;
+/**
+ * Credits one image costs at {@param quality}, read off the server's own tier list.
+ *
+ * Falls back to the flat render cost for a backend that knows nothing about tiers, and to
+ * 1 for a wallet that has not loaded — the label is only ever a label, and the server
+ * refuses any amount but its own, but a button naming a price the payment then contradicts
+ * is worse than one that names none.
+ */
+function credits(wallet: AiCreditSummary | null, quality: RenderQuality = "BASIC"): number {
+  const tier = wallet?.renderTiers?.find((t) => t.quality === quality);
+  return tier?.credits ?? wallet?.renderCost ?? 1;
+}
+
+/** The tier buttons, each labelled with what it costs. */
+function qualityChoices(wallet: AiCreditSummary | null): Choice<RenderQuality>[] {
+  return QUALITY.map((choice) => {
+    const n = credits(wallet, choice.value);
+    return { ...choice, label: `${choice.label} · ${n} credit${n === 1 ? "" : "s"}` };
+  });
+}
+
+/**
+ * How many credits short this account is of the image it just asked for.
+ *
+ * Accounts for the project's own allowance, which covers the basic image — so somebody on
+ * a room that still includes one and asking for Max needs the DIFFERENCE, not the sticker
+ * price.
+ */
+function shortBy(
+  wallet: AiCreditSummary | null,
+  quality: RenderQuality | undefined,
+  project: ProjectDetail | null,
+): number {
+  const rendersLeft = (project?.rendersAllowed ?? 0) - (project?.rendersUsed ?? 0);
+  const cost = credits(wallet, quality ?? "BASIC");
+  const owed = rendersLeft > 0 ? Math.max(0, cost - credits(wallet, "BASIC")) : cost;
+  return owed - (wallet?.balance ?? 0);
 }
 
 /**
@@ -882,9 +960,9 @@ function credits(wallet: AiCreditSummary | null): number {
  * but a button that names a price the payment then refuses is worse than one that names
  * none, which is why it reads the wallet's own figure rather than a constant.
  */
-function buyCreditLabel(wallet: AiCreditSummary | null): string {
+function buyCreditLabel(wallet: AiCreditSummary | null, needed: number): string {
   if (!wallet) return "Buy an AI image credit";
-  const n = credits(wallet);
+  const n = Math.max(1, needed);
   return `Buy ${n} credit${n === 1 ? "" : "s"} · ${formatRupees(wallet.pricePaise * n)}`;
 }
 
@@ -896,16 +974,28 @@ function buyCreditLabel(wallet: AiCreditSummary | null): string {
  * spends money-equivalent without a payment sheet, so it must never be a surprise. A room
  * with neither says what to do about it.
  */
-function allowanceNote(rendersLeft: number, creditsLeft: number, cost: number): string {
-  if (rendersLeft > 0) {
+function allowanceNote(
+  rendersLeft: number,
+  creditsLeft: number,
+  cost: number,
+  walletCost: number,
+): string {
+  if (rendersLeft > 0 && walletCost === 0) {
     return rendersLeft === 1
       ? "One image included with this project."
       : `${rendersLeft} images left on this project.`;
   }
-  if (creditsLeft >= cost) {
+  if (rendersLeft > 0 && creditsLeft >= walletCost) {
+    // The upgrade case, and the one worth spelling out: the included image is not lost by
+    // asking for a better one, it is put towards it.
+    return `Your included image covers the basic one — this tier adds ${walletCost} credit`
+      + `${walletCost === 1 ? "" : "s"} on top, from your ${creditsLeft}.`;
+  }
+  if (creditsLeft >= walletCost) {
     return `This image uses ${cost} of your ${creditsLeft} AI credit${creditsLeft === 1 ? "" : "s"}.`;
   }
-  return "This project doesn't include an AI image. Buy a credit to make one — it never expires and works on any room.";
+  return `You need ${walletCost} credit${walletCost === 1 ? "" : "s"} for this image and have `
+    + `${creditsLeft}. Credits work on any room.`;
 }
 
 function hexToRgb01(hex: string): [number, number, number] {

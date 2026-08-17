@@ -2,6 +2,8 @@ import { api } from "./api";
 import type { CheckoutEventBody } from "./api";
 import type {
   AiCreditSummary,
+  CartCatalogue,
+  CartOrder,
   ProjectPurchaseOptions,
   ProjectReopenResult,
   PurchasablePlan,
@@ -558,4 +560,80 @@ export async function buyAiCredits(
     });
     openTracked(rzp, tracker);
   });
+}
+
+/**
+ * Pay for a basket: projects, AI image credits and combos, in one Checkout.
+ *
+ * The other buy functions in this file each sell one thing behind one button, which is the
+ * shape the product had before this: somebody doing up two rooms opened Checkout six times.
+ * This is the one flow where the size of the order is visible to both sides, which is what
+ * makes an offer at ₹289 possible at all.
+ *
+ * Only quantities and (at most) a code travel. The amount is priced server-side from the
+ * catalogue's own rates and the offer the subtotal has earned, and verification re-reads
+ * the order back from Razorpay — so a browser can neither name its own price nor claim a
+ * discount the basket has not reached.
+ *
+ * Resolves the refreshed counter once the projects and credits land, `null` if the buyer
+ * closes Checkout, and throws on a real error. A `PaymentVerificationError` means the money
+ * has already left and must never be retried — see the class note.
+ */
+export async function checkoutCart(
+  basket: { projects: number; credits: number; combos: number; discountCode?: string },
+  prefill?: { name?: string; email?: string },
+): Promise<CartCatalogue | null> {
+  const order: CartOrder = await api.createCartOrder(basket);
+  await loadCheckout();
+  if (!window.Razorpay) throw new Error("Payment library unavailable.");
+
+  const tracker = track(order.orderId);
+
+  return new Promise<CartCatalogue | null>((resolve, reject) => {
+    const rzp = new window.Razorpay!({
+      key: order.razorpayKeyId,
+      amount: order.amountPaise,
+      currency: order.currency,
+      order_id: order.orderId,
+      name: "HueVista",
+      description: describeBasket(order),
+      prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
+      theme: { color: "#7c5cff" },
+      handler: async (resp: CheckoutSuccess) => {
+        tracker.settle();
+        try {
+          resolve(
+            await api.verifyCartPurchase({
+              orderId: resp.razorpay_order_id,
+              paymentId: resp.razorpay_payment_id,
+              signature: resp.razorpay_signature,
+            }),
+          );
+        } catch (e) {
+          tracker.verifyFailed(resp.razorpay_payment_id, String(e));
+          reject(verificationFailed(e));
+        }
+      },
+      modal: { ondismiss: () => { tracker.dismissed(); resolve(null); } },
+    });
+    openTracked(rzp, tracker);
+  });
+}
+
+/**
+ * What the Checkout sheet — and the buyer's bank statement — should call this basket.
+ *
+ * Built from what the order GRANTS rather than from the lines the cart sent, because that
+ * is the thing the buyer is actually getting and the only description that stays true when
+ * a combo is in the basket.
+ */
+function describeBasket(order: CartOrder): string {
+  const parts: string[] = [];
+  if (order.projectsGranted > 0) {
+    parts.push(`${order.projectsGranted} project${order.projectsGranted === 1 ? "" : "s"}`);
+  }
+  if (order.creditsGranted > 0) {
+    parts.push(`${order.creditsGranted} AI credit${order.creditsGranted === 1 ? "" : "s"}`);
+  }
+  return parts.join(" + ") || "HueVista basket";
 }
