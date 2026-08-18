@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { requireAccessToken, requireFeature } from "@/lib/auth";
-import { Eyebrow, Lead } from "@/components/ui/eyebrow";
+import { RenderProjectPicker } from "@/components/atelier/render-project-picker";
 import { RenderStudio } from "@/components/atelier/render-studio";
 
 export const metadata: Metadata = {
   title: "Your AI image",
-  description: "Pick one of your colour-board combinations and see the room for real.",
+  description:
+    "Pick a room you have finished and one of its colour-board combinations, and see it "
+    + "for real.",
 };
 
 export default async function RenderPage({
@@ -19,23 +20,12 @@ export default async function RenderPage({
   await requireAccessToken();
   await requireFeature("STUDIO");
 
+  // No room named is a question this page can answer rather than one it should ask. It
+  // used to be a dead end — "Which room?" and a link back to the dashboard — which sent
+  // somebody who wanted another picture of a finished job away to go and find it.
   const { project } = await searchParams;
   if (!project) {
-    return (
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "96px var(--gutter)", textAlign: "center" }}>
-        <Eyebrow>Your AI image</Eyebrow>
-        <h1 className="display" style={{ fontSize: "clamp(30px, 4vw, 48px)", margin: "16px 0 14px" }}>
-          Which room?
-        </h1>
-        <Lead style={{ maxWidth: "44ch", margin: "0 auto 28px" }}>
-          An AI image is made from one finished project&apos;s colour boards. Open the room
-          you closed and we&apos;ll take it from there.
-        </Lead>
-        <Link className="btn btn-brass" href="/dashboard">
-          Back to my rooms <span className="arr">→</span>
-        </Link>
-      </div>
-    );
+    return <RenderProjectPicker />;
   }
 
   return <RenderStudio projectId={project} />;

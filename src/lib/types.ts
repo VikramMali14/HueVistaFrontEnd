@@ -489,14 +489,10 @@ export interface ProjectDetail {
    *  with these so "one board left" can be said before the last one closes it. */
   boardsUsed?: number;
   boardsAllowed?: number;
-  /** AI renders this project may make, and how many it has. A project the account paid
-   *  for includes one; a room a shop granted, and a room off the library shelf, include
-   *  none — every image on those is bought with an AI credit. */
-  rendersAllowed?: number;
+  /** AI images this room has made. A count, not an allowance: no room includes an image
+   *  and none can be bought for one room alone. Every image is paid for with an AI credit
+   *  from the ACCOUNT's wallet, which is where the studio reads the price from. */
   rendersUsed?: number;
-  /** What one more costs, in paise. Quoted by the server rather than inferred from the
-   *  reopen price they happen to share today — they are two separate settings. */
-  renderPricePaise?: number;
 }
 
 /** Where a dashboard room came from, seen from the reader's side. */
@@ -610,7 +606,44 @@ export interface RenderOptions {
    * existed was. Defaulting the other way would charge four credits for saying nothing.
    */
   quality?: RenderQuality;
+  /**
+   * Which photograph of the room the model paints.
+   *
+   * Optional: omitting it asks for CLEANED, which is what every image made before the
+   * choice existed was given and the better starting point in the ordinary case. ORIGINAL
+   * is for the times the clean-up took something real with it — a picture rail, a texture,
+   * a shadow that was the point of the photograph. A room with no cleaned photo gets its
+   * original either way.
+   */
+  sourceImage?: RenderSourceImage;
   note?: string;
+}
+
+/** Which photograph of the room an image is painted from. */
+export type RenderSourceImage = "CLEANED" | "ORIGINAL";
+
+/**
+ * One finished room offered as the starting point for a new AI image, from
+ * `GET /api/me/renderable-projects`.
+ *
+ * Deliberately not `ProjectSummary`. That describes a room to work IN — its status, its
+ * regions, its access window, whose shop it is — and none of that is a reason to pick one
+ * here. This carries what the choice is actually made on: what the room is called, what it
+ * looks like, and how many combinations are waiting in it.
+ */
+export interface RenderableProject {
+  id: string;
+  name: string;
+  roomType?: string | null;
+  /** The photograph as it was taken. Always present. */
+  imageUrl: string;
+  /** The cleaned photograph, or null when the room never got one — which is what tells
+   *  the picker there is no choice to offer rather than one with a single real option. */
+  cleanedImageUrl?: string | null;
+  /** When the job finished. Never null: only closed rooms are offered. */
+  closedAt?: string | null;
+  /** Combinations this room can be photographed in. Never zero. */
+  comboCount: number;
 }
 
 /** One AI render, while it is being made and after it lands. */

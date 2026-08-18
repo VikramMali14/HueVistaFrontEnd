@@ -94,21 +94,10 @@ const PROJECT: ProjectDetail = {
   closedAt: "2026-08-01T10:00:00",
   boardsUsed: 2,
   boardsAllowed: 2,
-  rendersAllowed: 1,
   rendersUsed: 0,
   readOnly: true,
   reopenPricePaise: 9900,
-  renderPricePaise: 9900,
 };
-
-/**
- * A project a SHOP gave a customer: no included image at all.
- *
- * This is the shape the change under test creates, and the reason the wallet exists. The
- * shop spent a project credit so its customer could try colours and take a colour board
- * away; nobody paid for the model call at the end of it.
- */
-const SHOP_GRANTED: ProjectDetail = { ...PROJECT, rendersAllowed: 0, rendersUsed: 0 };
 
 /** Two boards of four — the eight combinations the closing flow is built on. */
 const COMBOS: ProjectCombo[] = Array.from({ length: 8 }, (_, i) => ({
@@ -140,7 +129,10 @@ beforeEach(() => {
   api.getProject.mockResolvedValue(PROJECT);
   api.getProjectCombos.mockResolvedValue(COMBOS);
   api.listRenders.mockResolvedValue([]);
-  api.getAiCredits.mockResolvedValue(WALLET);
+  // One credit in hand is the ORDINARY case now that every image is bought: a wallet at
+  // zero is a screen showing a Buy button, which is a specific case a few tests below ask
+  // for explicitly rather than the state the rest should be written against.
+  api.getAiCredits.mockResolvedValue({ ...WALLET, balance: 1 });
 });
 
 describe("RenderStudio", () => {
@@ -178,6 +170,9 @@ describe("RenderStudio", () => {
         // Nobody touched the quality row, so the cheapest tier travels — the one option
         // here that costs money must never be arrived at by default.
         quality: "BASIC",
+        // Nor the photo row, so the cleaned picture travels: the better starting point,
+        // and what every image made before that row existed was given.
+        sourceImage: "CLEANED",
         note: undefined,
       }),
     );
@@ -227,8 +222,8 @@ describe("RenderStudio", () => {
     }
   });
 
-  it("offers a credit top-up once the included image is spent and the wallet is empty", async () => {
-    api.getProject.mockResolvedValue({ ...PROJECT, rendersUsed: 1 });
+  it("offers a credit top-up when the wallet is empty", async () => {
+    api.getAiCredits.mockResolvedValue(WALLET);
     render(<RenderStudio projectId="p1" />);
 
     const button = await screen.findByRole("button", { name: /Buy 1 credit · ₹99/ });
@@ -254,11 +249,11 @@ describe("RenderStudio", () => {
     expect(screen.getByRole("button", { name: "Max · 4 credits" })).toBeInTheDocument();
   });
 
-  it("sends the chosen tier and charges the difference on a room with an image included", async () => {
-    // The included image covers the BASIC one. Asking for Max on top of it must not
-    // forfeit the allowance — that would leave somebody worse off for having a room with
-    // an image in it — so the wallet is asked for the difference and nothing more.
-    api.getAiCredits.mockResolvedValue({ ...WALLET, balance: 3 });
+  it("sends the chosen tier and charges its full price", async () => {
+    // No room includes an image any more, so a tier costs what it costs. This used to
+    // charge the DIFFERENCE against a room's included basic image, which made the price
+    // of a picture depend on how the room had been bought.
+    api.getAiCredits.mockResolvedValue({ ...WALLET, balance: 4 });
     api.requestRender.mockResolvedValue({ ...READY_RENDER, status: "QUEUED" });
     api.getRender.mockResolvedValue(READY_RENDER);
     render(<RenderStudio projectId="p1" />);
@@ -266,8 +261,8 @@ describe("RenderStudio", () => {
     await screen.findByText("Scheme 1");
     await userEvent.click(screen.getByRole("button", { name: "Max · 4 credits" }));
 
-    expect(screen.getByText(/this tier adds 3 credits on top, from your 3/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Make my image · 3 credits/ }));
+    expect(screen.getByText(/uses 4 of your 4 AI credits/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Make my image · 4 credits/ }));
 
     await waitFor(() =>
       expect(api.requestRender).toHaveBeenCalledWith(
@@ -280,7 +275,7 @@ describe("RenderStudio", () => {
   it("tops up exactly what the chosen tier is short by", async () => {
     // Buying a flat single credit was right when an image cost exactly one. With tiers it
     // would leave somebody who picked Pro one short and none the wiser.
-    api.getProject.mockResolvedValue(SHOP_GRANTED);
+    api.getAiCredits.mockResolvedValue(WALLET);
     render(<RenderStudio projectId="p1" />);
 
     await screen.findByText("Scheme 1");
@@ -291,15 +286,15 @@ describe("RenderStudio", () => {
     await waitFor(() => expect(buyAiCredits).toHaveBeenCalledWith(2));
   });
 
-  // ── A room the shop gave away ───────────────────────────────────────────
+  // ── Every image is bought ───────────────────────────────────────────────
   //
-  // The whole point of the change: these carry no included image, so the very first
-  // picture is bought. Getting this wrong in either direction is expensive — offering a
-  // free one gives away a model call nobody paid for, and refusing to say what it costs
-  // sends the customer into a 402 they were never warned about.
+  // No room includes one, however it was paid for. Getting this wrong in either direction
+  // is expensive — offering a free image gives away a model call nobody paid for, and
+  // refusing to say what it costs sends the customer into a 402 they were never warned
+  // about.
 
-  it("asks a shop-granted room's owner to buy a credit before the FIRST image", async () => {
-    api.getProject.mockResolvedValue(SHOP_GRANTED);
+  it("asks for a credit before the FIRST image on any room", async () => {
+    api.getAiCredits.mockResolvedValue(WALLET);
     render(<RenderStudio projectId="p1" />);
 
     expect(await screen.findByRole("button", { name: /Buy 1 credit · ₹99/ })).toBeInTheDocument();
@@ -308,7 +303,6 @@ describe("RenderStudio", () => {
   });
 
   it("says what the click will cost once the credit is in the wallet", async () => {
-    api.getProject.mockResolvedValue(SHOP_GRANTED);
     api.getAiCredits.mockResolvedValue({ ...WALLET, balance: 2 });
     api.requestRender.mockResolvedValue({ ...READY_RENDER, status: "QUEUED" });
     api.getRender.mockResolvedValue(READY_RENDER);
@@ -323,14 +317,18 @@ describe("RenderStudio", () => {
     await waitFor(() => expect(api.requestRender).toHaveBeenCalled());
   });
 
-  it("hides the wallet entirely for an account that cannot hold credits", async () => {
-    // A painter or distributor: the backend answers 403, the fetch fails, and the screen
-    // must still work off the project's own allowance rather than breaking.
+  it("stays usable for an account whose wallet cannot be read", async () => {
+    // A painter or distributor: the backend answers 403 and the fetch fails. The screen
+    // must still render rather than breaking — the server is the authority on whether the
+    // image can actually be made, and it answers 402 if not.
     api.getAiCredits.mockRejectedValue(new HttpError(403, "Not for this account."));
     render(<RenderStudio projectId="p1" />);
 
-    expect(await screen.findByRole("button", { name: /Make my image/ })).toBeInTheDocument();
-    expect(screen.getByText(/One image included with this project/)).toBeInTheDocument();
+    // The combinations still load and the screen still works. There is no wallet to read,
+    // so the price is unknown here and the button offers to buy rather than to spend —
+    // which is the honest thing to show when the cost cannot be named.
+    expect(await screen.findByText("Scheme 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Buy an AI image credit/ })).toBeInTheDocument();
   });
 
   it("shows the reason a failed render gives, and does not pretend it succeeded", async () => {

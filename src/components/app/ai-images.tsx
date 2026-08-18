@@ -147,9 +147,14 @@ export function AiImages() {
             your colours in the studio, download the board, and the image is the step after
             it. Every one you make will be here.
           </Lead>
-          <LinkButton href="/dashboard" variant="brass">
-            Go to my rooms <span className="arr">→</span>
-          </LinkButton>
+          <div className="hv-imgs-actions">
+            <LinkButton href="/render" variant="brass">
+              Choose a finished room <span className="arr">→</span>
+            </LinkButton>
+            <LinkButton href="/dashboard" variant="ghost">
+              Go to my rooms
+            </LinkButton>
+          </div>
         </div>
         {error && <p className="hv-imgs-error" role="alert">{error}</p>}
         <Styles />
@@ -245,7 +250,7 @@ export function AiImages() {
                 className="btn btn-ghost"
                 href={`/render?project=${encodeURIComponent(selected.projectId)}`}
               >
-                Make another of this room
+                Another of this room
               </Link>
               <Link
                 className="btn btn-ghost"
@@ -281,6 +286,17 @@ function Header({ count }: { count: number }) {
           : `${count} image${count === 1 ? "" : "s"}, newest first. Download any of them on `
             + "their own, or as a one-page PDF with the shades printed underneath."}
       </Lead>
+      {/* The way to make ANOTHER one, on the page where somebody looking at the last one
+          thinks of it. Every image is bought with an AI credit and no room includes one,
+          so this is a purchase and not a leftover allowance — which is exactly why it
+          belongs beside the pictures rather than buried in a room. */}
+      {count > 0 && (
+        <div className="hv-imgs-head-go">
+          <LinkButton href="/render" variant="brass">
+            Make a new image <span className="arr">→</span>
+          </LinkButton>
+        </div>
+      )}
     </header>
   );
 }
@@ -310,6 +326,7 @@ function Styles() {
     <style>{`
       .hv-imgs { max-width: 1180px; }
       .hv-imgs-head { margin-bottom: 28px; }
+      .hv-imgs-head-go { margin-top: 18px; }
       .hv-imgs-head .display { font-size: clamp(30px, 4.4vw, 52px); margin: 12px 0 14px; }
       .hv-imgs-loading {
         display: flex; align-items: center; gap: 10px;

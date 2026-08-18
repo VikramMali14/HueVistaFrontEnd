@@ -2621,11 +2621,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 // download IS the ending, and saying so is the whole warning.
                 boardsAllowed === 1
                   ? "This project hands over one colour board — a sheet with your colours,"
-                    + " their codes and your AI image on it. Downloading it finishes the job"
-                    + " and unlocks the render."
+                    + " their codes and your AI image on it. Downloading it finishes the job,"
+                    + " and an AI image of any combination on it costs an AI credit."
                   : `This project allows ${boardsAllowed} colour boards — each one a sheet`
                     + " with your colours, their codes and your AI image on it. The last one"
-                    + " closes the project and unlocks the render."
+                    + " closes the project; an AI image costs an AI credit either way."
               }
             >
               Max {boardsAllowed} colour board{boardsAllowed === 1 ? "" : "s"}

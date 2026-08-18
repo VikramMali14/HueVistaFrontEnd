@@ -57,12 +57,12 @@ import type {
  * selected one is painted at full size into a single canvas, with the masks loaded once
  * and reused as the selection moves. One engine, one mask fetch, a bigger picture.
  *
- * **Who pays, and what the button says.** A room the account paid for itself includes one
- * image. A room a SHOP gave a customer includes none — the shop bought the room, not the
- * model call at the end of it — so the first image there is bought with an AI credit, as is
- * every image past the included one on any room. The server decides all of that; this
- * screen only has to name it honestly before the click, which is why the wallet is read
- * alongside the project rather than after a 402 comes back.
+ * **Who pays, and what the button says.** An AI credit, every time, on every room. There
+ * used to be an image included with rooms the account had paid for itself, which meant
+ * this screen had to say one of three different things depending on how the room had been
+ * bought — and meant the price of a picture was unpredictable from the outside. One
+ * pocket now: the account's wallet, read alongside the project so the cost is named
+ * honestly before the click rather than after a 402 comes back.
  */
 
 const POLL_INTERVAL_MS = 2500;
@@ -101,6 +101,9 @@ const DEFAULT_OPTIONS: RenderOptions = {
   // money to change, so it opens at the price somebody expects and every step up is
   // something they chose rather than something they were defaulted into.
   quality: "BASIC",
+  // The cleaned photograph, which is what this made before the choice existed and the
+  // better starting point in the ordinary case.
+  sourceImage: "CLEANED",
 };
 
 /**
@@ -151,6 +154,27 @@ const FURNISHING: Choice<RenderOptions["furnishing"]>[] = [
   { value: "KEEP", label: FURNISHING_LABELS.KEEP, hint: "Nothing moves — only the paint changes" },
   { value: "STAGED", label: FURNISHING_LABELS.STAGED, hint: "Dressed to suit the colours" },
   { value: "EMPTY", label: FURNISHING_LABELS.EMPTY, hint: "Cleared, so the walls are fully visible" },
+];
+
+/**
+ * Which photograph the model paints.
+ *
+ * Only offered on a room that HAS both, which is why it is not simply another row in the
+ * list below. On a room whose clean-up never ran there is one picture, the server uses it
+ * whatever is asked for, and a choice with a single real option in it is worse than no
+ * choice — it invites somebody to pick the wrong one and then quietly ignores them.
+ */
+const SOURCE_IMAGE: Choice<NonNullable<RenderOptions["sourceImage"]>>[] = [
+  {
+    value: "CLEANED",
+    label: "Cleaned photo",
+    hint: "Clutter removed and surfaces flattened, so the colour lands true — the usual choice",
+  },
+  {
+    value: "ORIGINAL",
+    label: "Original photo",
+    hint: "The room exactly as you photographed it, if the clean-up lost something you wanted",
+  },
 ];
 
 const STYLE: Choice<RenderOptions["style"]>[] = [
@@ -537,7 +561,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
       // Enough for the image in front of them at the tier they chose, less whatever they
       // already hold. Buying a flat one credit was right when an image cost exactly one;
       // with tiers it would leave somebody who picked Max three short and none the wiser.
-      const shortfall = Math.max(1, shortBy(wallet, options.quality, project));
+      const shortfall = Math.max(1, shortBy(wallet, options.quality));
       const fresh = await buyAiCredits(shortfall);
       // null = Checkout was closed. Not an error, and nothing to report.
       if (fresh) {
@@ -549,7 +573,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     } finally {
       setBuying(false);
     }
-  }, [wallet, options.quality, project]);
+  }, [wallet, options.quality]);
 
   // ── Rendering ────────────────────────────────────────────────────────────
 
@@ -577,25 +601,12 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     );
   }
 
-  // What this project still includes, and what the wallet can cover once it doesn't.
-  // A shop-granted room starts at zero included, so for those the wallet is the whole
-  // answer from the first image onwards.
-  const rendersLeft = (project?.rendersAllowed ?? 0) - (project?.rendersUsed ?? 0);
+  // What the picture costs, and whether the wallet covers it. One number now: no room
+  // includes an image, so the sticker price IS what pressing the button spends.
   const cost = credits(wallet, options.quality);
   const creditsLeft = wallet?.balance ?? 0;
-  /**
-   * What pressing the button actually spends from the WALLET.
-   *
-   * A room that still includes an image covers the basic one, and a better tier tops up
-   * the difference rather than costing the whole price — so on those the number that
-   * matters is the upgrade, not the sticker. Getting this wrong in the cautious direction
-   * would grey out a button somebody can afford to press.
-   */
-  const walletCost = rendersLeft > 0
-    ? Math.max(0, cost - credits(wallet, "BASIC"))
-    : cost;
-  /** Can the button actually make an image right now, on either pocket? */
-  const canGenerate = creditsLeft >= walletCost;
+  /** Can the button actually make an image right now? */
+  const canGenerate = creditsLeft >= cost;
   const busy = waiting;
   const ready = active?.status === "READY" ? active : null;
 
@@ -698,11 +709,11 @@ export function RenderStudio({ projectId }: { projectId: string }) {
             </Button>
             {canGenerate ? (
               <Button variant="ghost" onClick={() => setActive(null)}>
-                Make another{walletCost > 0 ? ` · ${walletCost} credit${walletCost === 1 ? "" : "s"}` : ""}
+                Make another · {cost} credit{cost === 1 ? "" : "s"}
               </Button>
             ) : (
               <Button variant="ghost" disabled={buying} onClick={() => void topUp()}>
-                {buying ? "Opening checkout…" : buyCreditLabel(wallet, walletCost - creditsLeft)}
+                {buying ? "Opening checkout…" : buyCreditLabel(wallet, cost - creditsLeft)}
               </Button>
             )}
             {/* Where this picture will be tomorrow. Said here rather than left to be
@@ -727,6 +738,19 @@ export function RenderStudio({ projectId }: { projectId: string }) {
             onChange={(quality) => setOptions((o) => ({ ...o, quality }))}
             disabled={busy}
           />
+          {/* Second, and only when there are two pictures to choose between. This used to
+              be a decision the code made silently — always the cleaned one — and it is
+              the one option here that changes what the model is actually looking at
+              rather than what it is asked to do with it. */}
+          {project?.cleanedImageUrl && (
+            <OptionRow
+              label="Paint from"
+              choices={SOURCE_IMAGE}
+              value={options.sourceImage ?? "CLEANED"}
+              onChange={(sourceImage) => setOptions((o) => ({ ...o, sourceImage }))}
+              disabled={busy}
+            />
+          )}
           <OptionRow label="Time of day" choices={TIME_OF_DAY} value={options.timeOfDay}
             onChange={(timeOfDay) => setOptions((o) => ({ ...o, timeOfDay }))} disabled={busy} />
           <OptionRow label="Borders and trim" choices={BORDERS} value={options.borderMode}
@@ -755,18 +779,14 @@ export function RenderStudio({ projectId }: { projectId: string }) {
               <Button variant="brass" disabled={busy || !selected} onClick={() => void generate()}>
                 {busy
                   ? "Making your image…"
-                  : walletCost === 0
-                    ? "Make my image"
-                    : `Make my image · ${walletCost} credit${walletCost === 1 ? "" : "s"}`}
+                  : `Make my image · ${cost} credit${cost === 1 ? "" : "s"}`}
               </Button>
             ) : (
               <Button variant="brass" disabled={buying} onClick={() => void topUp()}>
-                {buying ? "Opening checkout…" : buyCreditLabel(wallet, walletCost - creditsLeft)}
+                {buying ? "Opening checkout…" : buyCreditLabel(wallet, cost - creditsLeft)}
               </Button>
             )}
-            <span className="hv-render-left">
-              {allowanceNote(rendersLeft, creditsLeft, cost, walletCost)}
-            </span>
+            <span className="hv-render-left">{costNote(creditsLeft, cost)}</span>
           </div>
         </section>
       )}
@@ -935,22 +955,9 @@ function qualityChoices(wallet: AiCreditSummary | null): Choice<RenderQuality>[]
   });
 }
 
-/**
- * How many credits short this account is of the image it just asked for.
- *
- * Accounts for the project's own allowance, which covers the basic image — so somebody on
- * a room that still includes one and asking for Max needs the DIFFERENCE, not the sticker
- * price.
- */
-function shortBy(
-  wallet: AiCreditSummary | null,
-  quality: RenderQuality | undefined,
-  project: ProjectDetail | null,
-): number {
-  const rendersLeft = (project?.rendersAllowed ?? 0) - (project?.rendersUsed ?? 0);
-  const cost = credits(wallet, quality ?? "BASIC");
-  const owed = rendersLeft > 0 ? Math.max(0, cost - credits(wallet, "BASIC")) : cost;
-  return owed - (wallet?.balance ?? 0);
+/** How many credits short this account is of the image it just asked for. */
+function shortBy(wallet: AiCreditSummary | null, quality: RenderQuality | undefined): number {
+  return credits(wallet, quality ?? "BASIC") - (wallet?.balance ?? 0);
 }
 
 /**
@@ -967,34 +974,18 @@ function buyCreditLabel(wallet: AiCreditSummary | null, needed: number): string 
 }
 
 /**
- * The line under the button, which has to say three quite different things.
+ * The line under the button: what this click will cost, or what to do if it cannot.
  *
- * A room that still includes an image says so. A room with none left but a wallet that can
- * cover it says what pressing the button will actually cost — the one case where a click
- * spends money-equivalent without a payment sheet, so it must never be a surprise. A room
- * with neither says what to do about it.
+ * Two cases where there used to be four. The others described a room's included image and
+ * the upgrade that topped it up, and they are gone with the allowance itself — which is
+ * the point: pressing this button spends money-equivalent without a payment sheet, and the
+ * fewer different sentences that can precede it, the less surprising it is.
  */
-function allowanceNote(
-  rendersLeft: number,
-  creditsLeft: number,
-  cost: number,
-  walletCost: number,
-): string {
-  if (rendersLeft > 0 && walletCost === 0) {
-    return rendersLeft === 1
-      ? "One image included with this project."
-      : `${rendersLeft} images left on this project.`;
-  }
-  if (rendersLeft > 0 && creditsLeft >= walletCost) {
-    // The upgrade case, and the one worth spelling out: the included image is not lost by
-    // asking for a better one, it is put towards it.
-    return `Your included image covers the basic one — this tier adds ${walletCost} credit`
-      + `${walletCost === 1 ? "" : "s"} on top, from your ${creditsLeft}.`;
-  }
-  if (creditsLeft >= walletCost) {
+function costNote(creditsLeft: number, cost: number): string {
+  if (creditsLeft >= cost) {
     return `This image uses ${cost} of your ${creditsLeft} AI credit${creditsLeft === 1 ? "" : "s"}.`;
   }
-  return `You need ${walletCost} credit${walletCost === 1 ? "" : "s"} for this image and have `
+  return `You need ${cost} credit${cost === 1 ? "" : "s"} for this image and have `
     + `${creditsLeft}. Credits work on any room.`;
 }
 

@@ -462,68 +462,12 @@ export async function reopenProjectWithMoney(
 }
 
 /**
- * Pay by card for one more AI image on a project that has spent the one it came with.
- *
- * Refused server-side (409) while a render is still unspent, so nobody reaches Checkout
- * to buy something they already have. Which project gets the image comes off the order,
- * not from the browser.
- *
- * <b>The render studio uses {@link buyAiCredits} instead.</b> The two rails buy the same
- * picture at the same price, and the wallet is the better one to put in front of somebody:
- * a credit works on any room and survives the project, where this one is spent the moment
- * it is bought and only on the project named. This stays because the endpoint behind it is
- * live and a per-project purchase is still a coherent thing to offer.
- *
- * Resolves true when the image is credited, false if the buyer closes Checkout, and
- * throws on a real error.
- */
-export async function buyExtraRender(
-  projectId: string,
-  prefill?: { name?: string; email?: string },
-): Promise<boolean> {
-  const order = await api.createRenderOrder(projectId);
-  await loadCheckout();
-  if (!window.Razorpay) throw new Error("Payment library unavailable.");
-
-  const tracker = track(order.orderId);
-
-  return new Promise<boolean>((resolve, reject) => {
-    const rzp = new window.Razorpay!({
-      key: order.razorpayKeyId,
-      amount: order.amount,
-      currency: order.currency,
-      order_id: order.orderId,
-      name: "HueVista",
-      description: "1 more AI image",
-      prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
-      theme: { color: "#7c5cff" },
-      handler: async (resp: CheckoutSuccess) => {
-        tracker.settle();
-        try {
-          await api.verifyRenderPurchase({
-            orderId: resp.razorpay_order_id,
-            paymentId: resp.razorpay_payment_id,
-            signature: resp.razorpay_signature,
-          });
-          resolve(true);
-        } catch (e) {
-          tracker.verifyFailed(resp.razorpay_payment_id, String(e));
-          reject(verificationFailed(e));
-        }
-      },
-      modal: { ondismiss: () => { tracker.dismissed(); resolve(false); } },
-    });
-    openTracked(rzp, tracker);
-  });
-}
-
-/**
  * Top up the AI image wallet.
  *
- * The other rail to {@link buyExtraRender}, and the only one open to a customer: a project
- * a shop gave them includes no AI image, they cannot hold points and cannot buy a plan, so
- * credits are how they get the picture at all. Both rails are priced the same, so topping
- * up in advance never costs more than paying per project.
+ * The ONLY way an AI image is paid for. There used to be a per-project rail beside this —
+ * a flat purchase that added one image to one room — and, under both of them, an image
+ * included with rooms bought certain ways. Both are gone: a credit belongs to the account,
+ * works on any room it owns, and is the single answer to "what does a picture cost?".
  *
  * Only the COUNT travels. The amount is priced server-side at the current rate, so the
  * browser can neither name its own price nor claim a launch discount that has ended.
