@@ -80,6 +80,15 @@ interface VisualizerProps {
    *  on the photo-confirm step, sent with the segmentation request. The backend
    *  ignores the flag for every other role. */
   isAdmin?: boolean;
+  /**
+   * Signed in as CUSTOMER — which decides where a view-only room sends someone who
+   * would rather buy their way out of it than pay the reopen.
+   *
+   * A customer may not hold a plan at all: /plan redirects them, and the app navbar
+   * doesn't even carry the tab. Their equivalent is /my-projects. Defaults to false,
+   * which keeps the shop-side behaviour for anything that doesn't say.
+   */
+  isCustomer?: boolean;
 }
 
 interface RegionState {
@@ -365,7 +374,7 @@ function ModelPicker({
   );
 }
 
-export function Visualizer({ projectId: openProjectId, shades, initialName, guest = false, isAdmin = false }: VisualizerProps) {
+export function Visualizer({ projectId: openProjectId, shades, initialName, guest = false, isAdmin = false, isCustomer = false }: VisualizerProps) {
   // Guest mode swaps the CRUD calls to the access-code-scoped endpoints. Signatures
   // match the user `api`, so the rest of the flow is identical. User-only calls
   // (segmentation, share) are guarded by `!guest` at their call sites.
@@ -794,7 +803,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
    * fallback.
    *
    * Reopening stopped having one price when closing arrived: a lapsed window is ₹9 and a
-   * closed project ₹99. The account-level quote knows the buyer, not the room, so it can
+   * closed project costs a whole one. The account-level quote knows the buyer, not the room, so it can
    * only ever answer with the lapsed rate — which on a closed project would have put ₹9
    * on the banner and then had the payment refuse to match it.
    */
@@ -2431,11 +2440,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const overlayHint = uploading && !segmenting
     ? "Uploading the photo."
     : segmenting
-      // The run's own words when it has any. The backend narrates its model chain —
-      // "That model was busy — trying Nano Banana 2 (2 of 4)" — and the whole point is
-      // that the line CHANGES: a sentence that moves is the difference between a wait
-      // somebody sits through and a page they close. The static hints below are the
-      // opening state, before the first model has reported back.
+      // The run's own words when it has any — "Still cleaning up your photo — this is
+      // taking a moment (2 of 4)". The whole point is that the line CHANGES: a sentence
+      // that moves is the difference between a wait somebody sits through and a page
+      // they close. It deliberately names no model; which supplier is answering is an
+      // operator's fact and the backend keeps it in its logs. The static hints below are
+      // the opening state, before the run has reported anything back.
       ? progressNote
         ?? (manualRun
           ? "Tidying up the photo. When it's done, click each wall to mark it yourself."
@@ -2822,9 +2832,21 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 one person who cannot buy anything at the page that sells it. The way
                 back is a fresh code from the same shop. */}
             {reopenPaise > 0 || reopenPoints > 0 ? (
-              <LinkButton href="/plan" size="sm" variant="ghost">
-                See plans <span className="arr">→</span>
-              </LinkButton>
+              // Where "I'd rather buy another room than reopen this one" leads, and it
+              // is not the same door for both. A shop buys rooms by subscribing, so
+              // /plan is right for them. A CUSTOMER cannot hold a plan at all —
+              // /plan redirects them and the navbar hides the tab — so sending them
+              // there was a button whose only effect was to lose their place. Their
+              // catalogue is /my-projects.
+              isCustomer ? (
+                <LinkButton href="/my-projects" size="sm" variant="ghost">
+                  Buy another project <span className="arr">→</span>
+                </LinkButton>
+              ) : (
+                <LinkButton href="/plan" size="sm" variant="ghost">
+                  See plans <span className="arr">→</span>
+                </LinkButton>
+              )
             ) : (
               <LinkButton href="/unlock" size="sm" variant="ghost">
                 Unlock with a new code <span className="arr">→</span>

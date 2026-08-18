@@ -155,22 +155,42 @@ export function CustomerProjectsPanel(
   const daysLeft = ent.accessExpiresAt
     ? Math.max(0, Math.ceil((new Date(ent.accessExpiresAt).getTime() - now) / 86_400_000))
     : null;
-  const noneLeft = ent.projectsRemaining <= 0;
+  const codeLeft = Math.max(0, ent.projectsRemaining);
+  /**
+   * Projects this account BOUGHT, on top of whatever its shop assigned.
+   *
+   * The product describes these two as alternatives — a shop's customer, or a customer
+   * who signed up alone — and this panel used to branch as though that were enforced.
+   * It is not. The cart on this very page sells projects to anyone, and the customer
+   * most likely to buy one is precisely the one whose shop allowance has run out: the
+   * "buy" button is the one in front of them. So an account could pay, land back here,
+   * and be told "you've used every project on your code" with no mention of the project
+   * it had just bought — while the studio, which asks the backend rather than this
+   * panel, would have let them start a room with it all along.
+   */
+  const bought = Math.max(0, options?.availableCredits ?? 0);
+  // What is spendable RIGHT NOW. An expired window takes the shop's allowance with it;
+  // bought projects have their own validity and outlive it, which is the whole reason
+  // they cannot simply be added to the figure above.
+  const usable = (ent.expired ? 0 : codeLeft) + bought;
+  const noneLeft = usable <= 0;
   const shopName = "your paint shop";
 
   return (
     <div style={cardStyle}>
       <Mono style={{ display: "block", marginBottom: 12 }}>Your projects</Mono>
       <p style={{ font: "300 30px/1.1 var(--serif)", color: "var(--fg)", margin: "0 0 10px" }}>
-        {ent.projectsRemaining}{" "}
-        <span style={{ fontSize: 17, color: "var(--fg-soft)" }}>
-          left of {ent.projectAllowance}
-        </span>
+        {usable}{" "}
+        <span style={{ fontSize: 17, color: "var(--fg-soft)" }}>ready to use</span>
       </p>
       {/* The deduction, not just the remainder: "1 of 3 used" says the shop assigned
-          three and one is gone, which a bare "2 left" doesn't. */}
+          three and one is gone, which a bare "2 left" doesn't. Bought projects are named
+          separately rather than folded in — they came from a different place, they
+          outlive the shop's window, and a customer who paid for one should be able to
+          see it sitting there. */}
       <p style={{ font: "400 14px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "0 0 16px" }}>
-        {ent.projectsCreated} of {ent.projectAllowance} used
+        {ent.projectsCreated} of {ent.projectAllowance} used on your code
+        {bought > 0 ? ` · ${bought} you bought` : ""}
         {ent.expired
           ? " · your access window has closed"
           : daysLeft !== null
@@ -178,7 +198,7 @@ export function CustomerProjectsPanel(
             : ""}
       </p>
 
-      {ent.expired ? (
+      {ent.expired && bought === 0 ? (
         <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch" }}>
           Ask {shopName} for a fresh code and your saved work comes right back —{" "}
           <Link href="/unlock" style={{ color: "var(--accent)" }}>
@@ -197,7 +217,17 @@ export function CustomerProjectsPanel(
         </>
       ) : (
         <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch" }}>
+          {/* Said whenever anything is spendable, including the case this panel used to
+              get wrong: the code is finished but a bought project is sitting there. */}
           Each one opens a room you can photograph, repaint and save.{" "}
+          {/* The line above has already said the window closed; this only has to say
+              what survives it, or it says the same thing twice in one card. */}
+          {ent.expired && (
+            <>
+              The {bought === 1 ? "project" : "projects"} you bought{" "}
+              {bought === 1 ? "is" : "are"} yours to keep either way.{" "}
+            </>
+          )}
           <Link href="/studio" style={{ color: "var(--accent)" }}>
             Start one →
           </Link>

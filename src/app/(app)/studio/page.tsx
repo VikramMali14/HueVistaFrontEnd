@@ -22,17 +22,21 @@ type CustomerGate = "missing" | "expired" | null;
  * Why a CUSTOMER cannot start a room right now — checked up front so they see a clear
  * screen instead of being invited to upload a photo and rejected afterwards.
  *
- * There are TWO ways a customer holds a project and this has to ask about both, because
- * they are mutually exclusive by design (see CustomerEntitlementService#hasEntitlement):
+ * There are TWO ways a customer holds a project and this has to ask about both:
  *
  *  - A shop onboarded them: an entitlement row carries the allowance and the window.
- *  - They signed up alone: no entitlement will ever exist, and what they hold is
- *    project credits they bought.
+ *  - They BOUGHT project credits, which is open to any customer — including one who
+ *    already has a shop behind them, and most often exactly that customer, since the
+ *    cart is what /my-projects offers when a shop's allowance runs out.
  *
  * Only the first was asked about, so the second kind was turned away at the door for
  * want of a code they were never given — with the dashboard beside it saying "projects
  * paid for and ready, start one whenever you like", and the backend perfectly willing
  * to spend the credit. Somebody had paid and the studio would not open.
+ *
+ * Note the ORDER below, which is the part worth keeping right: a live entitlement is
+ * enough on its own, and bought credits are asked about only once it isn't. Neither
+ * excludes the other, so the answer is "does anything at all let them start a room".
  *
  * Fail-open on any fetch problem — the backend enforces the same rules authoritatively
  * on every write.
@@ -146,6 +150,7 @@ export default async function AtelierPage({
         shades={shades}
         initialName={name}
         isAdmin={user?.role === "ADMIN"}
+        isCustomer={user?.role === "CUSTOMER"}
       />
     </div>
   );
