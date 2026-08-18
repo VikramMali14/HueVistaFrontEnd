@@ -20,7 +20,6 @@ import { SHADE_ACCURACY_TEXT } from "@/components/shared/accuracy-note";
 import { generatePalettes } from "@/lib/palettes";
 import { mapToPaintShade } from "@/lib/shade-mapping";
 import { HttpError } from "@/lib/http-error";
-import { CustomMatchPanel } from "./color-wheel";
 import { CoordinateSuggestions, type RegionLite } from "./coordinate-suggestions";
 import type {
   AiColorCombo,
@@ -31,7 +30,20 @@ import type {
   RetailerCombo,
 } from "@/lib/types";
 
-const TABS = ["Catalogue", "AI Suggest", "Custom"] as const;
+/**
+ * The two ways a colour gets chosen here.
+ *
+ * There used to be a third, "Custom": a colour wheel that applied any hex the user
+ * landed on, exactly. It has been removed, and the reason is that the product's whole
+ * output is a colour BOARD — a sheet of codes somebody carries to a counter and buys
+ * paint against. A hand-picked hex has no code, so it printed as "Custom colour" with a
+ * swatch and nothing to order; and on the wall it was a promise the shop could not keep,
+ * because the mixing machine works from the catalogue, not from a screen. The nearest
+ * genuine version of what people wanted it for — "something like this, but real" — is
+ * the catalogue search and AI Suggest, both of which return shades that can actually be
+ * bought.
+ */
+const TABS = ["Catalogue", "AI Suggest"] as const;
 type Tab = (typeof TABS)[number];
 
 // Light/Medium/Dark quick filter, in LRV terms a painter would recognise.
@@ -55,7 +67,6 @@ interface ShadeGridProps {
   selected?: string;
   onSelect: (shade: PaintShade) => void;
   /** Apply a picked colour exactly (Custom tab), without snapping to a shade. */
-  onApplyExact?: (hex: string) => void;
   activeShade?: PaintShade;
   activeRegionLabel?: string;
   /** Whether the active region currently has a colour on it (drives "Keep original"). */
@@ -77,6 +88,17 @@ interface ShadeGridProps {
    *  its code only. Usually paired with a code scheme — printing the manufacturer's
    *  name beside the shop's own number gives away exactly what the number hides. */
   hideNames?: boolean;
+  /**
+   * False when the paint COMPANY must not be attributed to individual shades — every
+   * customer, guest and painter. The panel then renders one flat list instead of
+   * per-company sections, because a section HEADING is an attribution: it names the
+   * company of every swatch beneath it just as plainly as a label on each chip would.
+   *
+   * Filtering BY company is unaffected and deliberately so — that lives in the studio's
+   * own picker above this panel, and a customer needs it, since they will be buying
+   * from a shop that stocks some companies and not others.
+   */
+  showBrands?: boolean;
   /** With hideCodes: show this shop-scheme encoding of the code instead of nothing,
    *  so the counter reads the shade straight off the guest's screen. */
   encodeCode?: (code: string) => string;
@@ -155,7 +177,6 @@ export function matchesQuery(
 export function ShadeGrid({
   selected,
   onSelect,
-  onApplyExact,
   activeShade,
   activeRegionLabel,
   activeApplied = false,
@@ -167,6 +188,7 @@ export function ShadeGrid({
   onApplyToRegion,
   hideCodes = false,
   hideNames = false,
+  showBrands = true,
   encodeCode,
   onSelectRegion,
   onAddWall,
@@ -199,7 +221,6 @@ export function ShadeGrid({
   // How many swatches each company section currently shows (keyed by brand name).
   const [companyVisible, setCompanyVisible] = useState<Record<string, number>>({});
   // Seed colour for the Custom (nearest-match) panel, set by a shade's "Find similar".
-  const [customSeed, setCustomSeed] = useState<string | undefined>(undefined);
   // Keep keystrokes snappy on a 10k-shade catalogue: the input updates immediately,
   // the filtered grid re-renders at deferred priority.
   const deferredQuery = useDeferredValue(query);
@@ -261,17 +282,10 @@ export function ShadeGrid({
     setTone("All");
   };
 
-  const tabLabel = (tabId: Tab) => {
-    if (tabId === "Catalogue") return "Colours";
-    if (tabId === "AI Suggest") return "AI Suggest";
-    return "Custom";
-  };
+  const tabLabel = (tabId: Tab) => (tabId === "Catalogue" ? "Colours" : "AI Suggest");
 
-  const tabIcon = (tabId: Tab) => {
-    if (tabId === "Catalogue") return <PaletteIcon />;
-    if (tabId === "AI Suggest") return <SparkleIcon />;
-    return <DropperIcon />;
-  };
+  const tabIcon = (tabId: Tab) =>
+    tabId === "Catalogue" ? <PaletteIcon /> : <SparkleIcon />;
 
   return (
     <div className={`hv-studio-panel${awaitingPhoto ? " is-awaiting-photo" : ""}`}>
@@ -416,14 +430,15 @@ export function ShadeGrid({
                 {byCompany.map(({ brand, list }) => (
                   <CompanySection
                     key={brand}
-                    brand={brand}
+                    brand={showBrands ? brand : null}
                     list={list}
                     visible={companyVisible[brand] ?? COMPANY_INITIAL}
                     onShowMore={showMoreOfCompany}
+                    groupKey={brand}
                     selected={selected}
                     onSelect={onSelect}
                     hideCodes={hideCodes}
-        hideNames={hideNames}
+                    hideNames={hideNames}
                     encodeCode={encodeCode}
                   />
                 ))}
@@ -456,18 +471,6 @@ export function ShadeGrid({
           />
         )}
 
-        {tab === "Custom" && (
-          <CustomMatchPanel
-            onSelect={onSelect}
-            onApplyExact={onApplyExact}
-            catalogue={catalogue}
-            activeRegionLabel={activeRegionLabel}
-            initialHex={customSeed}
-            hideCodes={hideCodes}
-        hideNames={hideNames}
-            encodeCode={encodeCode}
-          />
-        )}
       </div>
 
       <SelectionDock
@@ -475,14 +478,6 @@ export function ShadeGrid({
         catalogue={catalogue}
         outdoor={outdoor}
         onSelectShade={onSelect}
-        onFindSimilar={
-          activeShade
-            ? () => {
-                setCustomSeed(activeShade.hex);
-                setTab("Custom");
-              }
-            : undefined
-        }
         onApply={activeShade ? () => onSelect(activeShade) : undefined}
         onKeepOriginal={onKeepOriginal}
         canKeepOriginal={activeApplied}
@@ -577,16 +572,21 @@ const CompanySection = memo(function CompanySection({
   list,
   visible,
   onShowMore,
+  groupKey,
   selected,
   onSelect,
   hideCodes,
   hideNames,
   encodeCode,
 }: {
-  brand: string;
+  /** The heading to print, or null when this viewer may not be told the company. */
+  brand: string | null;
   list: ReadonlyArray<PaintShade>;
   visible: number;
   onShowMore: (brand: string, next: number) => void;
+  /** The company this group actually is — the key "show more" counts against, kept
+   *  separate from `brand` so hiding the heading does not merge every group's counter. */
+  groupKey: string;
   selected?: string;
   onSelect: (shade: PaintShade) => void;
   hideCodes?: boolean;
@@ -599,8 +599,11 @@ const CompanySection = memo(function CompanySection({
   );
   return (
     <div>
+      {/* The heading names the company of every swatch under it, so for a viewer who
+          may not be told the company it goes entirely — leaving the count, which is
+          still worth having and gives away nothing. */}
       <div className="hv-studio-brand-head">
-        <span>{brand}</span>
+        {brand && <span>{brand}</span>}
         <Mono>{slice.length < list.length ? `${slice.length} of ${list.length}` : list.length}</Mono>
       </div>
       <SwatchGrid shades={slice} selected={selected} onSelect={onSelect} hideCodes={hideCodes} hideNames={hideNames} encodeCode={encodeCode} />
@@ -609,7 +612,7 @@ const CompanySection = memo(function CompanySection({
           type="button"
           className="btn btn-sm btn-ghost"
           style={{ margin: "8px 16px 4px" }}
-          onClick={() => onShowMore(brand, visible + COMPANY_STEP)}
+          onClick={() => onShowMore(groupKey, visible + COMPANY_STEP)}
         >
           Show {Math.min(COMPANY_STEP, list.length - slice.length)} more
         </button>
@@ -628,7 +631,6 @@ function SelectionDock({
   catalogue,
   outdoor = false,
   onSelectShade,
-  onFindSimilar,
   onApply,
   onKeepOriginal,
   canKeepOriginal = false,
@@ -648,7 +650,6 @@ function SelectionDock({
   outdoor?: boolean;
   /** Applies any shade (steppers, warning alternatives and the recent strip use this). */
   onSelectShade: (shade: PaintShade) => void;
-  onFindSimilar?: () => void;
   onApply?: () => void;
   /** Remove the colour from the active region so it renders unpainted. */
   onKeepOriginal?: () => void;
@@ -750,11 +751,6 @@ function SelectionDock({
                   <span aria-hidden style={{ width: 14, height: 8, borderRadius: 2, background: `linear-gradient(90deg, ${shade.hex} 50%, ${shift.warmHex} 50%)`, border: "1px solid var(--rule-strong)" }} />
                   shifts in lamplight
                 </span>
-              )}
-              {onFindSimilar && (
-                <button type="button" onClick={onFindSimilar} className="btn btn-sm btn-ghost">
-                  Find similar
-                </button>
               )}
             </div>
           )}
@@ -1823,18 +1819,6 @@ function SparkleIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z" />
       <path d="M18 14l1 2.5L21.5 18l-2.5 1L18 21.5l-1-2.5L14.5 18l2.5-1L18 14z" />
-    </svg>
-  );
-}
-
-function DropperIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M19 11l-6-6-1.5 1.5" />
-      <path d="M15 15l-3 3a2.828 2.828 0 1 1-4-4l3-3" />
-      <path d="M14 7l3 3" />
-      <path d="M5 19l-2 2" />
-      <path d="M3 21l2-2" />
     </svg>
   );
 }

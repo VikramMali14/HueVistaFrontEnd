@@ -29,6 +29,24 @@ export interface ShadeCodeScheme {
    */
   showNames?: boolean;
   /**
+   * Whether the paint COMPANY may be printed against an individual shade.
+   *
+   * False for every customer, guest, painter and share-link viewer, and unlike
+   * {@link showNames} that is not a per-shop choice. A shade is identified by its
+   * company, its name and its code together, so hiding two of the three while stamping
+   * "Asian Paints" on the swatch withholds nothing — one call to that company resolves
+   * the colour.
+   *
+   * This says nothing about the company as a FILTER. Customers still pick which
+   * companies they are browsing, because they will be buying from a shop that stocks
+   * some and not others, and the picker names them. What goes is the per-shade
+   * attribution.
+   *
+   * Absent means yes — the default for shop staff, and for an older backend that does
+   * not send the field, whose viewers are resolved by `showRealCodes` anyway.
+   */
+  showBrands?: boolean;
+  /**
    * Whether this viewer may see the manufacturer's own shade codes.
    *
    * True for shop staff and administrators. False for everyone else — customers,

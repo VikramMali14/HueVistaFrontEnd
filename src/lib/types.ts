@@ -425,6 +425,15 @@ export interface ProjectDetail {
    *  team has already been told; the pipeline files its own report here, because
    *  somebody holding a working room never would. */
   autoMaskFailed?: boolean;
+  /** What to SAY about `autoMaskFailed`, written by the backend so the studio, the
+   *  share view and the kiosk stop each inventing their own wording. Null unless
+   *  `autoMaskFailed`. */
+  autoMaskNotice?: string | null;
+  /** What the AI run is doing right now, while `status` is SEGMENTING — "That model
+   *  was busy — trying Nano Banana 2 (2 of 4)". The pipeline walks a chain of models
+   *  and hands over whenever one is busy; without this the studio shows one motionless
+   *  spinner for minutes, and a working run is indistinguishable from a dead one. */
+  aiProgressNote?: string | null;
   /** The image models this project's last run was PINNED to by an admin comparing
    *  models; null/undefined (the normal case) means the server's configured ones.
    *  Read by the admin mask viewer so the canvas and mask on screen can be
@@ -932,13 +941,28 @@ export interface ProjectReopenResult {
  * Result of redeeming a retailer code with no login — the backend auto-provisions a
  * passwordless CUSTOMER account and returns a full session (backend RedeemAccountResponse).
  */
-/** What a redeemed customer was assigned by their retailer (backend AssignedProductsResponse). */
-export interface AssignedProducts {
+/** One shop's unlocked paint, inside {@link AssignedProducts}. */
+export interface AssignedShop {
+  /** Stable id — what a collapsed/expanded section is remembered against. */
+  shopId: string;
   shopName: string;
   /** Whole companies unlocked. Empty/absent = no company restriction (all brands). */
   allowedBrands?: string[];
   /** Individually unlocked products, resolved to full listings. */
   products: ShopProduct[];
+}
+
+/**
+ * The paint a customer may browse, grouped by the shop that unlocked it (backend
+ * AssignedProductsResponse).
+ *
+ * A LIST of shops, because a customer may hold codes from several — the shop near work
+ * and the shop near home are both real unlocks that were separately paid for. This used
+ * to describe exactly one, so redeeming a second code looked like it had replaced the
+ * first: same page, different shop name, the first shop's paint simply gone.
+ */
+export interface AssignedProducts {
+  shops: AssignedShop[];
 }
 
 // --- Retailer-curated shade combinations ("shop picks") ---

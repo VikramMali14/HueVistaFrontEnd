@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
-import { AiCreditWallet } from "@/components/app/ai-credit-wallet";
 import { AiImagesStrip } from "@/components/app/ai-images-strip";
-import { CreditsCart } from "@/components/app/credits-cart";
-import { CustomerProjectsPanel } from "@/components/app/customer-projects-panel";
+import { ProjectsAndCredits } from "@/components/app/projects-and-credits";
 
 export const metadata: Metadata = {
   title: "Projects & credits",
@@ -40,24 +38,11 @@ export default async function MyProjectsPage() {
         that comes out of the credits below.
       </Lead>
 
-      {/* What is already on the account, first. Somebody arriving here is answering "what
-          do I have" before "what do I want", and a counter shown above the answer is a
-          shop assistant talking over the question. Both panels count and neither sells:
-          the cart below is the one place on this page anything is bought, so a customer
-          is never shown the same project at two prices through two buttons. */}
-      <div style={{ marginTop: 32 }}>
-        <CustomerProjectsPanel showBuy={false} />
-      </div>
-
-      <div style={{ marginTop: 28 }}>
-        <AiCreditWallet showBuy={false} />
-      </div>
-
-      {/* The counter. Quantities, an offer over ₹289, one payment for the lot — and
-          everything on it good for a year. */}
-      <div style={{ marginTop: 28 }}>
-        <CreditsCart />
-      </div>
+      {/* The two counters and the counter that sells, wired together so a purchase on
+          this page is reflected by the balances on it. They were three independent
+          fetch-once panels, which meant buying credits left the balance directly above
+          the cart still reading its pre-payment number. */}
+      <ProjectsAndCredits />
 
       {/* And what those credits actually bought. Renders nothing until there is a
           picture to show, so the page is unchanged for an account that has not made

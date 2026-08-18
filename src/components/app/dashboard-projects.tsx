@@ -38,7 +38,19 @@ export function DashboardProjects({ isCustomer = false }: { isCustomer?: boolean
     (async () => {
       try {
         const list = await api.listProjects();
-        if (!cancelled) setProjects(list);
+        // Library rooms are kept OUT of the dashboard and shown on /library instead.
+        //
+        // They are not the same kind of thing as the rooms below them. A dashboard
+        // project is a job: a photo the account uploaded, walls it paid to have found,
+        // a colour board at the end. A library room is a copy of something already
+        // finished — free to open, free to open again, and openable a dozen times in an
+        // afternoon by somebody just trying colours out. Mixed into one grid they bury
+        // the paid work under the free browsing, and the count beside it ("3 of 5
+        // projects") stops describing anything the customer recognises.
+        //
+        // They are not lost: /library lists the copies this account has made, which is
+        // also where somebody who painted one would look for it.
+        if (!cancelled) setProjects(list.filter((p) => !p.fromLibrary));
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof HttpError ? err.message : "Could not load your projects.");

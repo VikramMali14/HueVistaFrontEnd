@@ -40,12 +40,21 @@ const QUICK_BUY = [1, 3, 5, 10];
  * is how a customer ends up with two prices in front of them and no idea which applies.
  * The BALANCE and the statement still belong there, so the panel stays; only the buttons go.
  */
+/**
+ * @param reloadKey bump it to refetch the balance.
+ *
+ * The panel is a counter, and a counter that only ever reads once is wrong the moment
+ * something is bought elsewhere on the same screen — which on the customer's billing
+ * page is the whole point of the screen. See {@code ProjectsAndCredits}.
+ */
 export function AiCreditWallet({
   compact = false,
   showBuy = true,
+  reloadKey = 0,
 }: {
   compact?: boolean;
   showBuy?: boolean;
+  reloadKey?: number;
 }) {
   const [wallet, setWallet] = useState<AiCreditSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,7 +73,7 @@ export function AiCreditWallet({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const purchase = useCallback(async (credits: number) => {
     setBuying(true);

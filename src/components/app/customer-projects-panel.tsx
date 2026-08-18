@@ -60,7 +60,14 @@ const cardStyle: React.CSSProperties = {
  *        False on the Projects &amp; credits page, where the cart above does the selling —
  *        one screen must not offer the same project at two prices through two buttons.
  */
-export function CustomerProjectsPanel({ showBuy = true }: { showBuy?: boolean } = {}) {
+/**
+ * @param reloadKey bump it to refetch. Same reasoning as the wallet's: this panel
+ *                  counts what the account holds, and something bought elsewhere on the
+ *                  page changes that. See {@code ProjectsAndCredits}.
+ */
+export function CustomerProjectsPanel(
+  { showBuy = true, reloadKey = 0 }: { showBuy?: boolean; reloadKey?: number } = {},
+) {
   // undefined = loading, null = no shop behind this account, "error" = fetch failed
   const [ent, setEnt] = useState<CustomerEntitlement | null | "error" | undefined>(undefined);
   const [options, setOptions] = useState<ProjectPurchaseOptions | null>(null);
@@ -80,7 +87,7 @@ export function CustomerProjectsPanel({ showBuy = true }: { showBuy?: boolean } 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   if (ent === undefined) {
     return (

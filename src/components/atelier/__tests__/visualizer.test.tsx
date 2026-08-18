@@ -951,9 +951,11 @@ describe("Visualizer — a run that cleaned the photo but found no walls", () =>
     await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
 
     // The instruction, and the reassurance that reporting it is already done — the
-    // user is not being asked to chase anything.
-    expect(await screen.findByText(/couldn.t pick out the walls/i)).toBeInTheDocument();
-    expect(screen.getByText(/already been sent to our team/i)).toBeInTheDocument();
+    // user is not being asked to chase anything. It names the CUSTOM MASKS rather
+    // than "the walls" because that is what the failure actually is: the photo came
+    // out, and the surfaces the studio would have cut from it did not.
+    expect(await screen.findByText(/couldn.t create the custom wall masks/i)).toBeInTheDocument();
+    expect(screen.getByText(/already been sent to our tech team/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add a wall" })).toBeInTheDocument();
 
     // Not an error and not a success: claiming "Walls detected" over an empty room

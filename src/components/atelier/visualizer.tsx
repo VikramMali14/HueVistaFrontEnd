@@ -432,6 +432,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // and won't be there next time.
   // The shop hides paint names everywhere a colour appears — studio, dock, PDF board.
   const [hideNames, setHideNames] = useState(false);
+  /**
+   * Whether the paint COMPANY may be attributed to individual shades.
+   *
+   * False for every customer, guest and painter — the panel then drops its per-company
+   * headings, because a heading names the company of every swatch beneath it exactly as
+   * plainly as a label on each chip. Nothing to do with the company PICKER above it,
+   * which those viewers keep and need: they will be buying from a shop that stocks some
+   * companies and not others.
+   */
+  const [showBrands, setShowBrands] = useState(true);
   const [viewOnly, setViewOnly] = useState(false);
   const [viewOnlyReason, setViewOnlyReason] = useState<string | null>(null);
   /**
@@ -447,6 +457,24 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
    * so the studio has to be able to tell them apart.
    */
   const [closed, setClosed] = useState(false);
+  /**
+   * This room came off the library shelf, so its WALLS are fixed.
+   *
+   * A library room is a copy of a finished, curated template: the photo was cleaned and
+   * the surfaces were cut once, by an admin, and the shelf's thumbnail is a promise
+   * about what a copy looks like. Paint is the customer's to change; the geometry is
+   * not — a copy that re-cuts its own walls quietly stops being the room it names, and
+   * nothing on the shelf shows that it has.
+   *
+   * The trade only goes one way. A room the account uploaded is theirs end to end: they
+   * paid for the detection, and hand-marking is how a bad detection gets fixed. A
+   * library room cost nobody anything and had nothing to fix.
+   *
+   * Everything else is untouched — paint any surface, ask for suggestions, take a colour
+   * board, buy a render. The backend refuses the same four writes (findWallEditable), so
+   * this is the UI half of one rule rather than a rule of its own.
+   */
+  const [wallsLocked, setWallsLocked] = useState(false);
   const [unlockedShadeCodes, setUnlockedShadeCodes] = useState<string[]>([]);
   const [boardsUsed, setBoardsUsed] = useState(0);
   const [boardsAllowed, setBoardsAllowed] = useState(0);
@@ -454,6 +482,20 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [reopenPaiseForProject, setReopenPaiseForProject] = useState(0);
   const [reopening, setReopening] = useState<"points" | "money" | null>(null);
   const [segmenting, setSegmenting] = useState(false);
+  /**
+   * The run's own account of what it is doing, straight from the backend.
+   *
+   * The pipeline works through a chain of image models and hands over whenever one is
+   * busy, which used to be invisible here: one motionless "Detecting walls" spinner for
+   * anything between forty seconds and eight minutes, so a run patiently working through
+   * its third model looked exactly like a run that had died. The rational response to a
+   * dead page is to close it, and closing it is the one thing that actually loses the
+   * work — so the wait now says "that model was busy, trying the next one" in the
+   * backend's words rather than ours.
+   *
+   * Cleared whenever a run starts or ends; null falls back to the static hint below.
+   */
+  const [progressNote, setProgressNote] = useState<string | null>(null);
   const [masksReady, setMasksReady] = useState(false);
   // Guest AI is billed to the shop; when the shop is out of credits we silently
   // fall back to manual wall-marking and show this gentle note (guests only).
@@ -658,6 +700,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // user chose, the other is something that went wrong and has already been
   // reported to the team on their behalf.
   const [autoMaskFailed, setAutoMaskFailed] = useState(false);
+  /** What the backend says about that, so this screen doesn't write its own version. */
+  const [autoMaskNotice, setAutoMaskNotice] = useState<string | null>(null);
   // The "mark them yourself" card is an instruction, not a warning, so it can be
   // waved away — the standing pill in the topbar keeps the explanation available.
   const [autoMaskNoticeDismissed, setAutoMaskNoticeDismissed] = useState(false);
@@ -728,6 +772,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         // showNames is a shop-wide switch, independent of whether a pattern is set:
         // a shop can hide paint names without running its own codes.
         setHideNames(scheme?.showNames === false);
+        // Defaults to the CODE question rather than to true: an older backend does not
+        // send showBrands, and whoever may not read the manufacturer's code must not be
+        // handed the company instead — either one identifies the colour.
+        setShowBrands(scheme?.showBrands ?? scheme?.showRealCodes ?? true);
       })
       // Settled either way: a failed lookup must not leave codes hidden forever, or a
       // shop with no scheme at all would never see a code again.
@@ -1033,6 +1081,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setReopenPoints(detail.reopenPricePoints ?? 0);
       setReopenPaiseForProject(detail.reopenPricePaise ?? 0);
       setClosed(Boolean(detail.closedAt));
+      setWallsLocked(Boolean(detail.fromLibrary));
       setBoardsUsed(detail.boardsUsed ?? 0);
       setBoardsAllowed(detail.boardsAllowed ?? 0);
       // MANUAL-mode projects arrive SEGMENTED with zero auto regions — the
@@ -1043,6 +1092,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       // this is the only thing that says the AI missed rather than that the room
       // was always going to be marked by hand.
       setAutoMaskFailed(Boolean(detail.autoMaskFailed));
+      setAutoMaskNotice(detail.autoMaskNotice ?? null);
       const openingBrand = pickOpeningBrand(shades ?? []);
       const mapped = detail.regions
         .slice()
@@ -1115,6 +1165,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return pollSegmentationStatus<ProjectDetail>({
       getStatus: () => (guest ? guestApi.getProject(id) : api.getProjectStatus(id)),
       isCancelled: () => token.cancelled,
+      // Only fires when the sentence CHANGES, so this is a handful of renders per run
+      // rather than one per poll.
+      onProgress: setProgressNote,
       // Wall detection is two generative model calls back to back (image
       // clean + colour-coded mask), each of which the backend allows up to
       // ~3 minutes — plus a retry when the first generation is a dud. The
@@ -1149,6 +1202,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setNeedSubscription(false);
       setProjectLimitReached(false);
       setSegmenting(true);
+      setProgressNote(null);
       try {
         const project = await createProjectCall({
           imageId,
@@ -1234,6 +1288,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         }
       } finally {
         setSegmenting(false);
+        setProgressNote(null);
         refreshQuota(); // segmentation charges on success / refunds on failure
       }
     },
@@ -1371,6 +1426,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setAutoMaskFailed(false);
     setProjectLimitReached(false);
     setSegmenting(true);
+    setProgressNote(null);
     try {
       if (guest) {
         // Guest retry is billed to the shop again; a 402/failure quietly drops
@@ -1416,6 +1472,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       }
     } finally {
       setSegmenting(false);
+      setProgressNote(null);
       refreshQuota(); // retry charges on success / refunds on failure
     }
   }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, segOptions]);
@@ -1543,34 +1600,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const onSelectShade = useCallback(
     (shade: PaintShade) => applyShadeTo(activeRegion, shade),
     [applyShadeTo, activeRegion],
-  );
-
-  // Apply a custom-picked colour EXACTLY (no catalogue shade) to the active region.
-  const onApplyCustom = useCallback(
-    (hex: string) => {
-      if (viewOnly) return;
-      let updatedBackendId: number | undefined;
-      setRegions((prev) =>
-        prev.map((r) => {
-          if (r.id !== activeRegion) return r;
-          updatedBackendId = r.backendId;
-          return { ...r, hex, shade: undefined, applied: true };
-        }),
-      );
-      // Applying a colour must always show the result — never the original peek.
-      setCompare(false);
-      setStage("recolor");
-
-      if (projectId && updatedBackendId !== undefined) {
-        const payload: RegionColorUpdate[] = [
-          { regionId: updatedBackendId, shadeCode: null, hexCode: hex },
-        ];
-        runSave(async () => {
-          await updateRegionColorsCall(projectId, payload);
-        });
-      }
-    },
-    [activeRegion, projectId, updateRegionColorsCall, runSave, viewOnly],
   );
 
   // "Keep original" — strip any colour from a region so it renders unpainted
@@ -2402,13 +2431,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const overlayHint = uploading && !segmenting
     ? "Uploading the photo."
     : segmenting
-      ? manualRun
-        ? "Tidying up the photo. When it's done, click each wall to mark it yourself."
-        // "About a minute" against a job the backend gives eight minutes to finish:
-        // detection is two generative model calls in sequence, and a real upload
-        // took two and a half. An estimate the wait routinely beats is worse than a
-        // wider one, because the person reading it starts wondering what broke.
-        : "Finding the walls and other paintable surfaces. This usually takes one to three minutes; a busy photo can take longer."
+      // The run's own words when it has any. The backend narrates its model chain —
+      // "That model was busy — trying Nano Banana 2 (2 of 4)" — and the whole point is
+      // that the line CHANGES: a sentence that moves is the difference between a wait
+      // somebody sits through and a page they close. The static hints below are the
+      // opening state, before the first model has reported back.
+      ? progressNote
+        ?? (manualRun
+          ? "Tidying up the photo. When it's done, click each wall to mark it yourself."
+          // "About a minute" against a job the backend gives eight minutes to finish:
+          // detection is two generative model calls in sequence, and a real upload
+          // took two and a half. An estimate the wait routinely beats is worse than a
+          // wider one, because the person reading it starts wondering what broke.
+          : "Finding the walls and other paintable surfaces. This usually takes one to three minutes; a busy photo can take longer.")
       : undefined;
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
@@ -2448,7 +2483,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // still telling them to start would then just be in the way. It also stands
   // down for the gates and errors above, which are about a room that ISN'T open.
   const showAutoMaskNotice = Boolean(
-    autoMaskFailed && masksReady && imageUrl && !autoMaskNoticeDismissed &&
+    // Never on a library room: its walls came off the template and are already there,
+    // and the card's whole content is an instruction to draw one, which that room
+    // refuses. Belt and braces — a copy should not carry the flag — but the card would
+    // be actively wrong if one ever did.
+    autoMaskFailed && !wallsLocked && masksReady && imageUrl && !autoMaskNoticeDismissed &&
     !regions.some((r) => r.backendId) &&
     !pendingFile && !uploading && !segmenting && !showCanvasError &&
     !limitReached && !askRetailer && !accessExpired && !needVerification && !needSubscription &&
@@ -2560,6 +2599,31 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               {classification === "INDOOR" ? "Indoor" : classification === "OUTDOOR" ? "Outdoor" : "Unknown"}
             </span>
           )}
+          {/* The board cap, said up front rather than discovered at the end.
+              It already had a countdown, but that countdown lives inside the download
+              tray — a panel somebody opens once they have chosen their colours, which is
+              exactly too late to learn that the project allows a fixed number of sheets
+              and closes on the last one. Here it sits beside Indoor/Outdoor from the
+              moment the room opens.
+
+              The NUMBER comes from the server (boardsAllowed), never from a literal
+              here: the cap is configuration, and a studio printing its own copy of it
+              would start lying the first time it moved. Hidden for guests, whose boards
+              are capped by their code's allowance instead, and for a closed project,
+              where the count is finished and the state itself is the message. */}
+          {!guest && !closed && boardsAllowed > 0 && (
+            <span
+              className={`hv-status-pill ${boardsAllowed - boardsUsed <= 0 ? "is-error" : ""}`}
+              title={
+                `This project allows ${boardsAllowed} colour board${boardsAllowed === 1 ? "" : "s"}`
+                + ` — each one a sheet with your colours, their codes and your AI image on it.`
+                + " The last one closes the project and unlocks the render."
+              }
+            >
+              Max {boardsAllowed} colour board{boardsAllowed === 1 ? "" : "s"}
+              {boardsUsed > 0 ? ` · ${Math.max(0, boardsAllowed - boardsUsed)} left` : ""}
+            </span>
+          )}
           {segmenting && (
             <span className="hv-status-pill">
               <span className="dot" />
@@ -2578,7 +2642,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           {masksReady && autoMaskFailed && (
             <span
               className="hv-status-pill"
-              title="The photo was cleaned, but wall detection didn't find anything usable. Mark the walls yourself with 'Add a wall' — it's free and unlimited. Our team has already been told."
+              // The backend's own sentence, so the studio, the share view and the kiosk
+              // stop each carrying their own slightly different version of it.
+              title={autoMaskNotice ??
+                "We couldn't create the custom wall masks for this photo — the issue has been sent to our tech team. Mark the walls yourself with 'Add a wall'; it's free and unlimited."}
             >
               Photo ready · walls not detected
             </span>
@@ -2673,6 +2740,27 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           >
             Download
           </Button>
+          {/* Finishing the job, offered where the job is rather than only inside the
+              download tray. The tray's button is reachable only while that panel is
+              open, so a customer who had taken their board, closed the tray and come
+              back later had no way to say they were done — and closing is what unlocks
+              the AI render, so "no way to say they were done" also meant "no way to get
+              the picture".
+
+              Same guard as the tray's copy: at least one board handed over. Closing with
+              nothing to show for it locks the catalogue on a job that produced nothing
+              to choose from, which is a state worth being unable to reach by accident. */}
+          {!guest && !closed && boardsUsed > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={closing}
+              onClick={() => void closeProject()}
+              title="Finish this job and make your AI image. The project becomes view-only."
+            >
+              {closing ? "Closing…" : "Close project"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -3382,12 +3470,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 }}
               >
                 <p style={{ margin: 0, font: "400 15px/1.45 var(--serif)", color: "var(--fg)" }}>
-                  Your photo is cleaned and ready — but we couldn&rsquo;t pick out the walls in
-                  it. Mark them yourself: press <strong style={{ fontWeight: 500 }}>Add a wall</strong>{" "}
-                  and click a surface. It&rsquo;s free, and there&rsquo;s no limit.
+                  We couldn&rsquo;t create the custom wall masks for this photo. Your cleaned
+                  photo is ready, so mark the walls yourself: press{" "}
+                  <strong style={{ fontWeight: 500 }}>Add a wall</strong> and click a surface.
+                  It&rsquo;s free, and there&rsquo;s no limit.
                 </p>
                 <Mono style={{ color: "var(--fg-mute)" }}>
-                  This run has already been sent to our team to look at
+                  The issue has already been sent to our tech team
                 </Mono>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
                   <button
@@ -3635,7 +3724,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           <ShadeGrid
             selected={active.shade?.code}
             onSelect={onSelectShade}
-            onApplyExact={onApplyCustom}
             activeShade={active.shade}
             activeRegionLabel={active.label}
             activeApplied={active.applied}
@@ -3647,15 +3735,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             onKeepOriginal={onKeepOriginalActive}
             hideCodes={hideRawCodes}
             hideNames={hideNames}
+            showBrands={showBrands}
             encodeCode={encodeCode}
             onSelectRegion={(id) => setActiveRegion(id)}
-            onAddWall={() => {
+            // Undefined rather than disabled when the walls are fixed: these props are
+            // what the panel renders its wall tools FROM, so leaving them out removes
+            // the buttons instead of showing four things that refuse to work.
+            onAddWall={wallsLocked ? undefined : () => {
               setEditingRegionId(null);
               setMaskStudioOpen(true);
             }}
-            onEditWall={editRegionMask}
-            onDeleteWall={handleDeleteWall}
-            masksRemaining={masksRemaining}
+            onEditWall={wallsLocked ? undefined : editRegionMask}
+            onDeleteWall={wallsLocked ? undefined : handleDeleteWall}
+            masksRemaining={wallsLocked ? undefined : masksRemaining}
             triedShades={triedByRegion[activeRegion]}
             recentShades={recentShades}
             outdoor={classification === "OUTDOOR"}
