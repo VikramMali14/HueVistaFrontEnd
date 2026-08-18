@@ -2615,9 +2615,17 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             <span
               className={`hv-status-pill ${boardsAllowed - boardsUsed <= 0 ? "is-error" : ""}`}
               title={
-                `This project allows ${boardsAllowed} colour board${boardsAllowed === 1 ? "" : "s"}`
-                + ` — each one a sheet with your colours, their codes and your AI image on it.`
-                + " The last one closes the project and unlocks the render."
+                // Two sentences, because one board and several are different offers. A
+                // customer's project is sold with one, and "each one … the last one"
+                // describes a countdown that never happens to them — for them the first
+                // download IS the ending, and saying so is the whole warning.
+                boardsAllowed === 1
+                  ? "This project hands over one colour board — a sheet with your colours,"
+                    + " their codes and your AI image on it. Downloading it finishes the job,"
+                    + " and an AI image of any combination on it costs an AI credit."
+                  : `This project allows ${boardsAllowed} colour boards — each one a sheet`
+                    + " with your colours, their codes and your AI image on it. The last one"
+                    + " closes the project; an AI image costs an AI credit either way."
               }
             >
               Max {boardsAllowed} colour board{boardsAllowed === 1 ? "" : "s"}

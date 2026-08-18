@@ -1362,6 +1362,11 @@ export const api = {
   // the room's name and the combination's shades, so one picture can be shown, named and
   // printed on its own sheet without opening the project behind it.
   listMyRenders: () => browserFetch<import("./types").MyRender[]>("api/me/renders"),
+  // The finished rooms a NEW image can be started from: closed, and carrying at least one
+  // colour-board combination. Both halves matter — an open room is reached from the studio
+  // it is open in, and a room that closed without taking a board has nothing to photograph.
+  listRenderableProjects: () =>
+    browserFetch<import("./types").RenderableProject[]>("api/me/renderable-projects"),
   // Persist a hand-drawn (polygon) mask as a new region. maskBase64 may be a bare
   // base64 string or a data URL; category is MAIN_WALL | ACCENT_WALL | TRIM | MANUAL.
   createCustomMask: (
@@ -1489,18 +1494,6 @@ export const api = {
     ),
   verifyReopen: (body: { orderId: string; paymentId: string; signature: string }) =>
     browserFetch<import("./types").ProjectReopenResult>("api/billing/projects/reopen/verify", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-  // One more AI image on a project that spent the one it came with. Refused up-front
-  // (409) while a render is still unspent, so nobody buys one they already have.
-  createRenderOrder: (projectId: string) =>
-    browserFetch<import("./types").ProjectOrder>(
-      `api/billing/projects/${encodeURIComponent(projectId)}/renders/order`,
-      { method: "POST" },
-    ),
-  verifyRenderPurchase: (body: { orderId: string; paymentId: string; signature: string }) =>
-    browserFetch<void>("api/billing/projects/renders/verify", {
       method: "POST",
       body: JSON.stringify(body),
     }),
