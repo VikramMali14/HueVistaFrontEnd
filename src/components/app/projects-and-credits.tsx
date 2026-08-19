@@ -31,25 +31,30 @@ export function ProjectsAndCredits() {
   const onPurchased = useCallback(() => setReloadKey((k) => k + 1), []);
 
   return (
-    <>
+    // One stack with one gap, rather than three margins that have to be kept in step.
+    // The two counters and the counter that sells are the same weight of thing and sit
+    // at the same rhythm; a page whose spacing wanders reads as unfinished however good
+    // the panels on it are.
+    <div className="hv-pac">
       {/* What is already on the account, first. Somebody arriving here is answering "what
           do I have" before "what do I want", and a counter shown above the answer is a
           shop assistant talking over the question. Both panels count and neither sells:
           the cart below is the one place on this page anything is bought, so a customer
           is never shown the same project at two prices through two buttons. */}
-      <div style={{ marginTop: 32 }}>
-        <CustomerProjectsPanel showBuy={false} reloadKey={reloadKey} />
-      </div>
+      <CustomerProjectsPanel showBuy={false} reloadKey={reloadKey} />
+      <AiCreditWallet showBuy={false} reloadKey={reloadKey} />
 
-      <div style={{ marginTop: 28 }}>
-        <AiCreditWallet showBuy={false} reloadKey={reloadKey} />
-      </div>
-
-      {/* The counter. Quantities, an offer over ₹289, one payment for the lot — and
+      {/* The counter. Quantities, the special offer, one payment for the lot — and
           everything on it good for a year. */}
-      <div style={{ marginTop: 28 }}>
-        <CreditsCart onPurchased={onPurchased} />
-      </div>
-    </>
+      <CreditsCart onPurchased={onPurchased} />
+
+      <style>{`
+        .hv-pac { display: grid; gap: 22px; margin-top: 36px; }
+        /* The wallet carries its own top margin for the screens it appears on alone.
+           Inside this stack the gap is the spacing, and two of them stack up. */
+        .hv-pac > section { margin-top: 0; }
+        @media (max-width: 560px) { .hv-pac { gap: 16px; margin-top: 28px; } }
+      `}</style>
+    </div>
   );
 }

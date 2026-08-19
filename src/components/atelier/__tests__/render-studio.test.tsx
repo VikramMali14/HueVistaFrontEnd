@@ -70,11 +70,10 @@ const WALLET: AiCreditSummary = {
   maxPurchase: 50,
   renderCost: 1,
   // The tiers the server sells, which is where every credit figure on the screen comes
-  // from. A quick look, the one most people want, and the one that gets printed.
+  // from. The ordinary picture, and the one that gets printed.
   renderTiers: [
-    { quality: "BASIC", credits: 1 },
-    { quality: "PRO", credits: 2 },
-    { quality: "MAX", credits: 4 },
+    { quality: "PREMIUM", credits: 1 },
+    { quality: "LUXURY", credits: 2 },
   ],
   currency: "INR",
   recentActivity: [],
@@ -169,7 +168,7 @@ describe("RenderStudio", () => {
         style: "MODERN",
         // Nobody touched the quality row, so the cheapest tier travels — the one option
         // here that costs money must never be arrived at by default.
-        quality: "BASIC",
+        quality: "PREMIUM",
         // Nor the photo row, so the cleaned picture travels: the better starting point,
         // and what every image made before that row existed was given.
         sourceImage: "CLEANED",
@@ -243,43 +242,45 @@ describe("RenderStudio", () => {
   it("opens at the cheapest tier and labels every tier with its price", async () => {
     render(<RenderStudio projectId="p1" />);
 
-    const basic = await screen.findByRole("button", { name: "Basic · 1 credit" });
-    expect(basic).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Pro · 2 credits" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Max · 4 credits" })).toBeInTheDocument();
+    const premium = await screen.findByRole("button", { name: "Premium · 1 credit" });
+    expect(premium).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Luxury · 2 credits" })).toBeInTheDocument();
+    // And nothing above it. The four-credit tier is retired, and a button for it here
+    // would be a price this build can no longer be charged at.
+    expect(screen.queryByRole("button", { name: /Max/ })).not.toBeInTheDocument();
   });
 
   it("sends the chosen tier and charges its full price", async () => {
     // No room includes an image any more, so a tier costs what it costs. This used to
-    // charge the DIFFERENCE against a room's included basic image, which made the price
+    // charge the DIFFERENCE against a room's included Premium image, which made the price
     // of a picture depend on how the room had been bought.
-    api.getAiCredits.mockResolvedValue({ ...WALLET, balance: 4 });
+    api.getAiCredits.mockResolvedValue({ ...WALLET, balance: 2 });
     api.requestRender.mockResolvedValue({ ...READY_RENDER, status: "QUEUED" });
     api.getRender.mockResolvedValue(READY_RENDER);
     render(<RenderStudio projectId="p1" />);
 
     await screen.findByText("Scheme 1");
-    await userEvent.click(screen.getByRole("button", { name: "Max · 4 credits" }));
+    await userEvent.click(screen.getByRole("button", { name: "Luxury · 2 credits" }));
 
-    expect(screen.getByText(/uses 4 of your 4 AI credits/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Make my image · 4 credits/ }));
+    expect(screen.getByText(/uses 2 of your 2 AI credits/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Make my image · 2 credits/ }));
 
     await waitFor(() =>
       expect(api.requestRender).toHaveBeenCalledWith(
         "p1",
-        expect.objectContaining({ quality: "MAX" }),
+        expect.objectContaining({ quality: "LUXURY" }),
       ),
     );
   });
 
   it("tops up exactly what the chosen tier is short by", async () => {
     // Buying a flat single credit was right when an image cost exactly one. With tiers it
-    // would leave somebody who picked Pro one short and none the wiser.
+    // would leave somebody who picked Luxury one short and none the wiser.
     api.getAiCredits.mockResolvedValue(WALLET);
     render(<RenderStudio projectId="p1" />);
 
     await screen.findByText("Scheme 1");
-    await userEvent.click(screen.getByRole("button", { name: "Pro · 2 credits" }));
+    await userEvent.click(screen.getByRole("button", { name: "Luxury · 2 credits" }));
 
     const button = await screen.findByRole("button", { name: /Buy 2 credits · ₹198/ });
     await userEvent.click(button);

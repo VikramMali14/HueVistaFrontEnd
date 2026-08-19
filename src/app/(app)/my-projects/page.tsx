@@ -27,9 +27,16 @@ export default async function MyProjectsPage() {
   await requireRole(["CUSTOMER"]);
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div style={{ maxWidth: 780 }}>
       <Eyebrow>Projects &amp; credits</Eyebrow>
-      <h1 className="display" style={{ fontSize: "clamp(34px, 5vw, 56px)", margin: "12px 0 14px" }}>
+      <h1
+        className="display"
+        style={{
+          fontSize: "clamp(36px, 5.4vw, 60px)",
+          margin: "14px 0 16px",
+          letterSpacing: "-.02em",
+        }}
+      >
         What you <i>have.</i>
       </h1>
       <Lead style={{ maxWidth: "56ch" }}>
@@ -47,7 +54,7 @@ export default async function MyProjectsPage() {
       {/* And what those credits actually bought. Renders nothing until there is a
           picture to show, so the page is unchanged for an account that has not made
           one yet. */}
-      <div style={{ marginTop: 36 }}>
+      <div style={{ marginTop: 44 }}>
         <AiImagesStrip />
       </div>
 
@@ -55,7 +62,16 @@ export default async function MyProjectsPage() {
           true depends on the issuing shop's numbering, and this page has no scheme
           loaded to tell them apart. The colour board itself carries the precise
           answer in its footer, where it matters. */}
-      <p style={{ marginTop: 32, font: "400 14px/1.6 var(--sans)", color: "var(--fg-mute)", maxWidth: "58ch" }}>
+      <p
+        style={{
+          marginTop: 40,
+          paddingTop: 24,
+          borderTop: "1px solid var(--rule)",
+          font: "400 14px/1.7 var(--sans)",
+          color: "var(--fg-mute)",
+          maxWidth: "58ch",
+        }}
+      >
         Every colour you see carries a code. Take it to the counter and they can look up
         the exact shade, or the closest match in a company they stock —{" "}
         <Link href="/studio" style={{ color: "var(--accent)" }}>

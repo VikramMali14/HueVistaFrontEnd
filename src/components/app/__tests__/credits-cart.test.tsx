@@ -17,14 +17,22 @@ import type { CartCatalogue } from "@/lib/types";
 const api = vi.mocked(realApi);
 const checkoutCart = vi.mocked(realCheckout);
 
-/** The counter as the server serves it: ₹149 a project, ₹35 a credit, ₹199 the combo. */
+/**
+ * The counter as the server serves it: ₹149 a project, ₹70 a credit, ₹199 the combo, and
+ * the special offer at ₹438 for what would cost ₹657 line by line.
+ */
 const CART: CartCatalogue = {
   eligible: true,
   projectPricePaise: 14900,
-  creditPricePaise: 3500,
+  creditPricePaise: 7000,
   comboPricePaise: 19900,
   comboProjects: 1,
-  comboCredits: 2,
+  comboCredits: 1,
+  bundleAvailable: true,
+  bundlePricePaise: 43800,
+  bundleListPricePaise: 65700,
+  bundleProjects: 3,
+  bundleCredits: 3,
   validDays: 365,
   maxQuantity: 20,
   offers: [
@@ -62,7 +70,7 @@ describe("CreditsCart", () => {
     expect(screen.getByRole("button", { name: "Pay ₹149" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "One more One AI image credit" }));
-    expect(screen.getByRole("button", { name: "Pay ₹184" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pay ₹219" })).toBeInTheDocument();
   });
 
   it("applies the earned offer without being asked, and keeps the rest out of reach", async () => {
@@ -121,6 +129,7 @@ describe("CreditsCart", () => {
         projects: 0,
         credits: 0,
         combos: 2,
+        bundles: 0,
         discountCode: "HUE10",
       }),
     );
@@ -137,10 +146,65 @@ describe("CreditsCart", () => {
     await userEvent.click(more);
     await userEvent.click(more);
 
-    // Two combos = two projects and four credits, not "2 combos" — the buyer is being told
+    // Two combos = two projects and two credits, not "2 combos" — the buyer is being told
     // what lands on their account, which is the only description that survives a combo.
-    expect(screen.getByText(/2 projects and 4 AI image credits · valid for a year/))
+    expect(screen.getByText(/2 projects and 2 AI image credits · valid for a year/))
       .toBeInTheDocument();
+  });
+
+  // ── The special offer ───────────────────────────────────────────────────
+  //
+  // Three rooms and three pictures for the price of two of each. It is a LINE, priced by
+  // the server, and everything the buyer reads about it — the price, the struck-through
+  // figure, the saving — has to be the server's arithmetic rather than this screen's.
+
+  it("prices the special offer from the server and unpacks what it hands over", async () => {
+    render(<CreditsCart />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "One more Special offer" }));
+
+    // ₹438 also appears on the bill below, which is the point — the offer's own price and
+    // the line it adds to the basket are the same number.
+    expect(screen.getAllByText("₹438").length).toBeGreaterThan(0);
+    expect(screen.getByText("₹657")).toBeInTheDocument();
+    expect(screen.getByText("Save ₹219")).toBeInTheDocument();
+    expect(screen.getByText(/3 projects and 3 AI image credits · valid for a year/))
+      .toBeInTheDocument();
+  });
+
+  it("sends the bundle quantity and stacks the earned percentage on top of it", async () => {
+    // The bundle is the price of the line, not a code, so a basket holding one is still
+    // big enough to have earned HUE10 — and the server would apply it whatever this screen
+    // sent, so quoting the undiscounted total here would be quoting a total we do not
+    // charge. No code travels: nobody tapped a chip, and the code is only ever a
+    // preference between offers the basket has already earned.
+    checkoutCart.mockResolvedValue(CART);
+    render(<CreditsCart />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "One more Special offer" }));
+    expect(screen.getByRole("button", { name: /HUE10/ })).toHaveAttribute("aria-pressed", "true");
+    // ₹438 less 10% = ₹394.20.
+    await userEvent.click(screen.getByRole("button", { name: "Pay ₹394.20" }));
+
+    await waitFor(() =>
+      expect(checkoutCart).toHaveBeenCalledWith({
+        projects: 0,
+        credits: 0,
+        combos: 0,
+        bundles: 1,
+        discountCode: undefined,
+      }),
+    );
+  });
+
+  it("hides the offer entirely when it is not running", async () => {
+    // Wound down rather than discounted to nothing: a "special offer" that saves ₹0 is
+    // worse than no offer at all.
+    api.getCart.mockResolvedValue({ ...CART, bundleAvailable: false });
+    render(<CreditsCart />);
+
+    await screen.findByText("One project");
+    expect(screen.queryByText("Special offer")).not.toBeInTheDocument();
   });
 
   it("stops the Pay button dead when verification fails after the charge", async () => {

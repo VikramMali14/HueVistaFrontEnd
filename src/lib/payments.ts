@@ -537,7 +537,13 @@ export async function buyAiCredits(
  * has already left and must never be retried — see the class note.
  */
 export async function checkoutCart(
-  basket: { projects: number; credits: number; combos: number; discountCode?: string },
+  basket: {
+    projects: number;
+    credits: number;
+    combos: number;
+    bundles: number;
+    discountCode?: string;
+  },
   prefill?: { name?: string; email?: string },
 ): Promise<CartCatalogue | null> {
   const order: CartOrder = await api.createCartOrder(basket);

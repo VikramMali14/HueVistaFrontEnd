@@ -1535,6 +1535,7 @@ export const api = {
     projects: number;
     credits: number;
     combos: number;
+    bundles: number;
     discountCode?: string;
   }) =>
     browserFetch<import("./types").CartOrder>("api/billing/cart/order", {

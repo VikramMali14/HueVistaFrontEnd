@@ -29,11 +29,21 @@ function rupees(paise: number): string {
   return paise % 100 === 0 ? `₹${paise / 100}` : `₹${(paise / 100).toFixed(2)}`;
 }
 
+/**
+ * The panel's shell, matching the wallet and the cart beside it.
+ *
+ * One card language across the customer's billing screens — a generous radius, a single
+ * wash of accent from one corner — because three panels that differ in what they say and
+ * not in how they are built are what make a page read as one thing rather than as three
+ * bolted together.
+ */
 const cardStyle: React.CSSProperties = {
   border: "1px solid var(--rule)",
-  borderRadius: "var(--radius)",
-  padding: "20px 20px 18px",
-  background: "var(--surface-soft)",
+  borderRadius: "calc(var(--radius) * 1.8)",
+  padding: "30px",
+  background:
+    "radial-gradient(110% 80% at 0% 0%, rgba(124,92,255,.07), transparent 60%),"
+    + " var(--surface)",
 };
 
 /**
@@ -112,8 +122,8 @@ export function CustomerProjectsPanel(
     return (
       <div style={cardStyle}>
         <Mono style={{ display: "block", marginBottom: 12 }}>Your projects</Mono>
-        <p style={{ font: "300 30px/1.1 var(--serif)", color: "var(--fg)", margin: "0 0 10px" }}>
-          {credits} <span style={{ fontSize: 17, color: "var(--fg-soft)" }}>ready to use</span>
+        <p style={{ font: "300 40px/1 var(--serif)", color: "var(--fg)", margin: "0 0 12px", letterSpacing: "-.02em" }}>
+          {credits} <span style={{ font: "500 11px/1.5 var(--sans)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-mute)" }}>ready to use</span>
         </p>
         <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch", margin: "0 0 16px" }}>
           {credits > 0 ? (
@@ -179,9 +189,9 @@ export function CustomerProjectsPanel(
   return (
     <div style={cardStyle}>
       <Mono style={{ display: "block", marginBottom: 12 }}>Your projects</Mono>
-      <p style={{ font: "300 30px/1.1 var(--serif)", color: "var(--fg)", margin: "0 0 10px" }}>
+      <p style={{ font: "300 40px/1 var(--serif)", color: "var(--fg)", margin: "0 0 12px", letterSpacing: "-.02em" }}>
         {usable}{" "}
-        <span style={{ fontSize: 17, color: "var(--fg-soft)" }}>ready to use</span>
+        <span style={{ font: "500 11px/1.5 var(--sans)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-mute)" }}>ready to use</span>
       </p>
       {/* The deduction, not just the remainder: "1 of 3 used" says the shop assigned
           three and one is gone, which a bare "2 left" doesn't. Bought projects are named
