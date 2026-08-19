@@ -18,8 +18,14 @@ import type { ProjectPurchaseOptions, SubscriptionSummary } from "@/lib/types";
  *
  * Best-effort and self-contained: both grant surfaces render it, and neither should fail
  * or stall because a count could not be fetched. Nothing renders until it is known.
+ *
+ * @param reloadKey bump it to refetch. This panel states a POOL, and the screens that
+ *        render it are the screens that spend from it — granting a project to a customer
+ *        takes one out of the very number printed here. Fetching once on mount meant the
+ *        line above the table kept saying "5 projects available to assign" while the shop
+ *        clicked its way through all five, and only a page reload ever corrected it.
  */
-export function AssignableProjects() {
+export function AssignableProjects({ reloadKey = 0 }: { reloadKey?: number } = {}) {
   const [sub, setSub] = useState<SubscriptionSummary | null>(null);
   const [options, setOptions] = useState<ProjectPurchaseOptions | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -38,7 +44,7 @@ export function AssignableProjects() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   if (!loaded || !sub) return null;
 

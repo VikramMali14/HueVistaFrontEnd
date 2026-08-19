@@ -1,5 +1,6 @@
 import { api } from "./api";
 import type { CheckoutEventBody } from "./api";
+import { announceBalanceChanged } from "@/hooks/use-account-balance";
 import type {
   AiCreditSummary,
   CartCatalogue,
@@ -392,13 +393,15 @@ export async function buyOneProject(
       handler: async (resp: CheckoutSuccess) => {
         tracker.settle();
         try {
-          resolve(
-            await api.verifyProjectPurchase({
-              orderId: resp.razorpay_order_id,
-              paymentId: resp.razorpay_payment_id,
-              signature: resp.razorpay_signature,
-            }),
-          );
+          const fresh = await api.verifyProjectPurchase({
+            orderId: resp.razorpay_order_id,
+            paymentId: resp.razorpay_payment_id,
+            signature: resp.razorpay_signature,
+          });
+          // The projects are on the account now, so every counter on screen — the
+          // navbar's included — is one payment out of date until it hears about it.
+          announceBalanceChanged();
+          resolve(fresh);
         } catch (e) {
           tracker.verifyFailed(resp.razorpay_payment_id, String(e));
           reject(verificationFailed(e));
@@ -498,13 +501,13 @@ export async function buyAiCredits(
       handler: async (resp: CheckoutSuccess) => {
         tracker.settle();
         try {
-          resolve(
-            await api.verifyAiCreditPurchase({
-              orderId: resp.razorpay_order_id,
-              paymentId: resp.razorpay_payment_id,
-              signature: resp.razorpay_signature,
-            }),
-          );
+          const fresh = await api.verifyAiCreditPurchase({
+            orderId: resp.razorpay_order_id,
+            paymentId: resp.razorpay_payment_id,
+            signature: resp.razorpay_signature,
+          });
+          announceBalanceChanged();
+          resolve(fresh);
         } catch (e) {
           tracker.verifyFailed(resp.razorpay_payment_id, String(e));
           reject(verificationFailed(e));
@@ -556,13 +559,13 @@ export async function checkoutCart(
       handler: async (resp: CheckoutSuccess) => {
         tracker.settle();
         try {
-          resolve(
-            await api.verifyCartPurchase({
-              orderId: resp.razorpay_order_id,
-              paymentId: resp.razorpay_payment_id,
-              signature: resp.razorpay_signature,
-            }),
-          );
+          const fresh = await api.verifyCartPurchase({
+            orderId: resp.razorpay_order_id,
+            paymentId: resp.razorpay_payment_id,
+            signature: resp.razorpay_signature,
+          });
+          announceBalanceChanged();
+          resolve(fresh);
         } catch (e) {
           tracker.verifyFailed(resp.razorpay_payment_id, String(e));
           reject(verificationFailed(e));

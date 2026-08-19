@@ -20,11 +20,13 @@ export interface SegmentationStatusLike {
   failureStage?: string | null;
   /**
    * What the run is doing right now, in a sentence written for the person waiting —
-   * "That model was busy — trying Nano Banana 2 (2 of 4)".
+   * "Still cleaning up your photo — this is taking a moment (2 of 4)".
    *
-   * The backend works through a chain of models and hands over whenever one is busy,
+   * The backend works through a chain of suppliers and hands over whenever one is busy,
    * which used to be invisible from here: one unchanging spinner for anything between
    * forty seconds and eight minutes, so a working run and a dead one looked identical.
+   * The sentence names none of them on purpose — it carries only that the run is alive
+   * and how far along it is. Render it as given; it is already written for a user.
    * Null on a run that has not said anything yet, and on any finished project.
    */
   aiProgressNote?: string | null;

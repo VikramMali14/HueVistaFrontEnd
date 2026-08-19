@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Logo } from "@/components/ui/logo";
+import { NavBalance } from "@/components/app/nav-balance";
+import { BugReportButton } from "@/components/support/bug-report-button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { canUsePath, planWithholdsPath, SHOP_PAINTER_MODULE_ENABLED } from "@/lib/features";
 import { syncShadeCodeSchemeIdentity } from "@/hooks/use-shade-code-scheme";
@@ -155,6 +157,12 @@ export function AppNav({ user, access = null, libraryLive = false, hasShop = fal
 
   const isPlanLocked = (href: string) => planWithholdsPath(access, href);
 
+  // Projects and AI credits are the CUSTOMER's pair of balances — the two things
+  // /my-projects counts. Every other role holds something else (a shop has a monthly
+  // quota and points; a distributor has neither), so the readout is offered to the one
+  // role it is actually true for rather than reinterpreted per role in the navbar.
+  const isCustomer = user?.role === "CUSTOMER";
+
   // ADMIN carries 8 tabs once the library shelf is live — the row overflows the
   // floating bar well above the 900px drawer breakpoint, so wide tab sets get
   // tighter spacing and an earlier drawer via the .nav-wide rules below.
@@ -265,6 +273,14 @@ export function AppNav({ user, access = null, libraryLive = false, hasShop = fal
               <Link href="/" className="studio-minibar-link">
                 Home
               </Link>
+              {/* The studio's one way to say something is broken. The floating support
+                  bubble is switched off in here on purpose (it covers whichever tool it
+                  is nearest), and the canvas's own "Report a problem" needs a finished
+                  AI run to attach itself to — so a save that fails, an upload that never
+                  returns or a wall that will not take a colour had nowhere to go. This
+                  bar is the only chrome the studio always shows, which is exactly why
+                  the button belongs on it. */}
+              <BugReportButton className="studio-minibar-link studio-minibar-bug" />
             </div>
             <button
               type="button"
@@ -314,6 +330,11 @@ export function AppNav({ user, access = null, libraryLive = false, hasShop = fal
             </Link>
           ))}
           <div className="app-drawer-meta">
+            {isCustomer && <NavBalance />}
+            {/* The minibar the button normally lives on is desktop-only — below 900px
+                the studio stacks and that bar is hidden — so the drawer carries it
+                there. Studio only: everywhere else the support bubble is on screen. */}
+            {studioMode && <BugReportButton className="app-tab tap-row studio-minibar-bug" />}
             <HomeLink />
             <ThemeToggle />
             {user && (
@@ -349,6 +370,10 @@ export function AppNav({ user, access = null, libraryLive = false, hasShop = fal
           ))}
         </nav>
         <div className="app-nav-meta">
+          {/* What the account holds, where it is spent from. See NavBalance for why
+              this is customers only — a shop's two numbers are a monthly quota and a
+              points balance, which are different quantities on a different page. */}
+          {isCustomer && <NavBalance />}
           <HomeLink />
           <ThemeToggle />
           {user && (
@@ -460,6 +485,12 @@ export function AppNav({ user, access = null, libraryLive = false, hasShop = fal
         }
         .studio-minibar-link:hover { color: var(--fg); background: rgba(var(--fg-rgb), .06); }
         .studio-minibar-link:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+        /* The bug button wears the minibar's link styling, which the element does not
+           inherit on its own: a <button> brings its own background, border and font. */
+        .studio-minibar-bug {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: transparent; border: none; cursor: pointer;
+        }
         .studio-nav-handle {
           display: inline-flex; align-items: center; gap: 8px;
           /* Sized to the bar, which the dropped logo let shrink. Desktop-only —
