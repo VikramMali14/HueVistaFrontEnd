@@ -31,7 +31,10 @@ import type {
 } from "@/lib/types";
 
 /**
- * The two ways a colour gets chosen here.
+ * The two ways a colour gets CHOSEN here, plus the one way it gets chosen again.
+ *
+ * "Your Selection" is the third and it is not a browser at all — it replays the
+ * combinations a locked project already handed over. See OPEN_TABS/LOCKED_TABS below.
  *
  * There used to be a third, "Custom": a colour wheel that applied any hex the user
  * landed on, exactly. It has been removed, and the reason is that the product's whole
@@ -43,8 +46,22 @@ import type {
  * the catalogue search and AI Suggest, both of which return shades that can actually be
  * bought.
  */
-const TABS = ["Catalogue", "AI Suggest"] as const;
-type Tab = (typeof TABS)[number];
+type Tab = "Catalogue" | "AI Suggest" | "Your Selection";
+
+/**
+ * Which tabs exist depends on whether the project is still LIVE.
+ *
+ * A live room gets the two ways of choosing a colour. A locked one — closed, or past
+ * its window — gets exactly one: the colours this customer already chose. Browsing
+ * 10,000 shades and asking the AI for more are both offers to repaint, and a locked
+ * project refuses every repaint on the server; leaving them on screen was an invitation
+ * to spend ten minutes picking a shade that could never be applied. What the customer
+ * still has a real use for is their OWN selection — the combinations off their colour
+ * boards — so that becomes the whole panel until the project is bought open again, at
+ * which point the live tabs come straight back.
+ */
+const OPEN_TABS: ReadonlyArray<Tab> = ["Catalogue", "AI Suggest"];
+const LOCKED_TABS: ReadonlyArray<Tab> = ["Your Selection"];
 
 // Light/Medium/Dark quick filter, in LRV terms a painter would recognise.
 const TONES = ["All", "Light", "Medium", "Dark"] as const;
@@ -62,6 +79,27 @@ const toneOf = (lrv: number): Exclude<Tone, "All"> =>
 // steps as the user asks for more.
 const COMPANY_INITIAL = 48;
 const COMPANY_STEP = 240;
+
+/**
+ * One combination the customer was handed on a colour board, in the shape this panel
+ * renders. The studio maps the backend's `ProjectCombo` into it, so the panel never has
+ * to know how a board is stored: it is handed real `PaintShade`s and, where the wall it
+ * sat on still exists, the region to put each one back onto.
+ */
+export interface SelectionCombo {
+  id: string;
+  /** What the board called it ("Board 1 · Option 2" when it had no title of its own). */
+  title: string;
+  entries: ReadonlyArray<SelectionEntry>;
+}
+
+export interface SelectionEntry {
+  /** The studio region this colour was on, when that wall still exists. */
+  regionId?: string;
+  /** The wall's name as the board printed it — the swatch's label. */
+  regionLabel?: string;
+  shade: PaintShade;
+}
 
 interface ShadeGridProps {
   selected?: string;
@@ -128,6 +166,22 @@ interface ShadeGridProps {
   onAddComboToPdf?: () => void;
   /** The shop's predefined combinations (AI Suggest tab). Absent/empty = hidden. */
   shopCombos?: ReadonlyArray<RetailerCombo>;
+  /**
+   * The combinations this project already handed over — the "Your Selection" tab.
+   *
+   * Empty on a live project, where nothing has been committed to yet and the two
+   * browsing tabs are the point. The studio loads them only once the project locks.
+   */
+  selectionCombos?: ReadonlyArray<SelectionCombo>;
+  /**
+   * The project is locked (closed, or its window lapsed), so the two browsing tabs are
+   * replaced by "Your Selection" rather than sitting there offering repaints the server
+   * refuses. Flips back to false the moment the project is bought open again.
+   */
+  selectionOnly?: boolean;
+  /** Why the panel is showing only the saved selection — the studio's own view-only
+   *  wording, so the two never drift apart. */
+  selectionNote?: string | null;
   /** No photo yet, so there is nothing for a colour to land on. The panel stays
    *  on screen but goes quiet: dimmed, not operable, and saying why. */
   awaitingPhoto?: boolean;
@@ -202,13 +256,30 @@ export function ShadeGrid({
   onFetchAiPalettes,
   onAddComboToPdf,
   shopCombos,
+  selectionCombos,
+  selectionOnly = false,
+  selectionNote,
   awaitingPhoto = false,
   onNeedPhoto,
 }: ShadeGridProps) {
   const [family, setFamily] = useState<string>("All");
   const [tone, setTone] = useState<Tone>("All");
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<Tab>("Catalogue");
+  const tabs = selectionOnly ? LOCKED_TABS : OPEN_TABS;
+  /**
+   * The tab that is showing, and the one the user last pressed — not the same thing.
+   *
+   * Locking and reopening both happen UNDER this panel: a project can close while it is
+   * open on screen, and a reopen purchase drops it straight back to live without a
+   * remount. Either way the pressed tab may no longer be one of the tabs, so what SHOWS
+   * is resolved on every render rather than corrected afterwards by an effect — an
+   * effect leaves one frame in which the panel renders a tab it is no longer offering.
+   *
+   * Keeping the press rather than overwriting it means a customer who was on Colours
+   * when the project locked is back on Colours the moment they buy it open.
+   */
+  const [pressedTab, setTab] = useState<Tab>("Catalogue");
+  const tab = tabs.includes(pressedTab) ? pressedTab : tabs[0]!;
   // Family/depth pills live behind a toggle so the fixed header stays compact;
   // the button shows how many filters are currently narrowing the grid.
   //
@@ -282,10 +353,11 @@ export function ShadeGrid({
     setTone("All");
   };
 
-  const tabLabel = (tabId: Tab) => (tabId === "Catalogue" ? "Colours" : "AI Suggest");
+  const tabLabel = (tabId: Tab) =>
+    tabId === "Catalogue" ? "Colours" : tabId === "AI Suggest" ? "AI Suggest" : "Your Selection";
 
   const tabIcon = (tabId: Tab) =>
-    tabId === "Catalogue" ? <PaletteIcon /> : <SparkleIcon />;
+    tabId === "Catalogue" ? <PaletteIcon /> : tabId === "AI Suggest" ? <SparkleIcon /> : <BookmarkIcon />;
 
   return (
     <div className={`hv-studio-panel${awaitingPhoto ? " is-awaiting-photo" : ""}`}>
@@ -308,7 +380,7 @@ export function ShadeGrid({
         </div>
       )}
       <div className="hv-studio-tabs" role="tablist" inert={awaitingPhoto || undefined}>
-        {TABS.map((tabId) => {
+        {tabs.map((tabId) => {
           const isActive = tab === tabId;
           return (
             <button
@@ -468,6 +540,20 @@ export function ShadeGrid({
             onAddComboToPdf={onAddComboToPdf}
             shopCombos={shopCombos}
             outdoor={outdoor}
+          />
+        )}
+
+        {tab === "Your Selection" && (
+          <SelectionPanel
+            combos={selectionCombos}
+            note={selectionNote}
+            regions={regions}
+            activeRegionId={activeRegionId}
+            onSelect={onSelect}
+            onApplyToRegion={onApplyToRegion}
+            hideCodes={hideCodes}
+            hideNames={hideNames}
+            encodeCode={encodeCode}
           />
         )}
 
@@ -933,6 +1019,49 @@ function SelectionDock({
 const PALETTE_ROLES = ["Main", "Accent", "Trim"] as const;
 
 /**
+ * Put a whole palette on the room at once, by ROLE: first colour → main wall, second →
+ * accent, third → trim. Falls back to the active wall when the regions can't be mapped
+ * (no per-region apply available, or a room with a single surface), so "Apply all"
+ * always does something visible rather than silently landing nowhere.
+ *
+ * Shared by every card that has an "Apply all": the AI suggestions, the shop's picks and
+ * the customer's own saved selection. Those cards differ in where their colours come
+ * from, not in what applying three of them at once means.
+ */
+function applyShadesByRole(
+  shades: ReadonlyArray<PaintShade | undefined>,
+  {
+    regions,
+    activeRegionId,
+    onApplyToRegion,
+    onSelect,
+  }: {
+    regions?: ReadonlyArray<RegionLite>;
+    activeRegionId?: string;
+    onApplyToRegion?: (regionId: string, shade: PaintShade) => void;
+    onSelect: (shade: PaintShade) => void;
+  },
+): void {
+  const byKind = (k: RegionKind) => regions?.find((r) => r.kind === k);
+  const main = byKind("MAIN_WALL") ?? regions?.find((r) => r.id === activeRegionId) ?? regions?.[0];
+  const targets: Array<[RegionLite | undefined, PaintShade | undefined]> = [
+    [main, shades[0]],
+    [byKind("ACCENT_WALL"), shades[1]],
+    [byKind("TRIM"), shades[2]],
+  ];
+  let applied = false;
+  if (onApplyToRegion) {
+    for (const [region, shade] of targets) {
+      if (region && shade) {
+        onApplyToRegion(region.id, shade);
+        applied = true;
+      }
+    }
+  }
+  if (!applied && shades[0]) onSelect(shades[0]); // single-surface / no mapping → active wall
+}
+
+/**
  * One suggestion card, shared by "Room palettes", "Claude's picks" and the
  * shop's combos: three fixed role slots (Main / Accent / Trim) holding three
  * colours. Tap a swatch to put that colour on the active wall; DRAG a swatch
@@ -1109,6 +1238,165 @@ function PaletteTrioCard({
   );
 }
 
+/**
+ * "Your Selection" — the only colour tab a LOCKED project has.
+ *
+ * When a project closes (or its window lapses) the catalogue and the AI suggestions go
+ * away, because both are offers to repaint and the server refuses every repaint on a
+ * locked project. What survives is the thing the customer actually finished with: the
+ * combinations printed on their colour boards, each one still on its own walls.
+ *
+ * It reads like the AI Suggest cards on purpose — same card, same swatches, same
+ * "Apply all" — because it is the same gesture. The difference is where the colours come
+ * from and where they land: a board recorded WHICH wall each colour was on, so a
+ * two-colour combination goes back onto its two walls and a three-colour one onto its
+ * three, in one press, exactly as the customer last saw the room. Tapping one swatch
+ * puts that single colour on its own wall.
+ *
+ * Applying here repaints the picture on screen and nothing else. The project stays
+ * locked and nothing is saved — the studio's own view-only banner says so, and this
+ * panel repeats it once above the cards rather than letting a customer press Apply and
+ * wonder whether they have just changed something they had finished with.
+ */
+function SelectionPanel({
+  combos,
+  note,
+  regions,
+  activeRegionId,
+  onSelect,
+  onApplyToRegion,
+  hideCodes = false,
+  hideNames = false,
+  encodeCode,
+}: {
+  combos?: ReadonlyArray<SelectionCombo>;
+  note?: string | null;
+  regions?: ReadonlyArray<RegionLite>;
+  activeRegionId?: string;
+  onSelect: (shade: PaintShade) => void;
+  onApplyToRegion?: (regionId: string, shade: PaintShade) => void;
+  hideCodes?: boolean;
+  hideNames?: boolean;
+  encodeCode?: (code: string) => string;
+}) {
+  const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
+  const nameLabel = (s: { name: string; code: string }) =>
+    hideNames ? (codeLabel(s.code) ?? "") : s.name;
+
+  // A wall the board named is only a target if it is still IN the room. A region
+  // deleted since the board was printed leaves its colour on the card — it was part of
+  // the combination — but sends it to the role fallback rather than to an id that no
+  // longer resolves.
+  const liveRegionId = (entry: SelectionEntry) =>
+    entry.regionId && regions?.some((r) => r.id === entry.regionId) ? entry.regionId : undefined;
+
+  /**
+   * Put a whole saved combination back on the room in one press.
+   *
+   * By the RECORDED wall wherever the board knew it, which is what makes this exact
+   * rather than approximate: the customer sees the room as they left it, not a fresh
+   * guess at which colour belongs where. Anything the board couldn't place — an older
+   * board with no region on it, or a wall since deleted — falls through to the same
+   * main/accent/trim mapping every other "Apply all" uses.
+   */
+  const applyCombo = (combo: SelectionCombo) => {
+    const placed: SelectionEntry[] = [];
+    const unplaced: SelectionEntry[] = [];
+    for (const entry of combo.entries) (liveRegionId(entry) ? placed : unplaced).push(entry);
+
+    if (onApplyToRegion) {
+      for (const entry of placed) onApplyToRegion(liveRegionId(entry)!, entry.shade);
+    }
+    // Nothing could be placed by name → the whole combination goes through the roles.
+    // Some placed, some not → only the leftovers do, and they must not overwrite a wall
+    // the board named, so the already-painted regions are held out of the mapping.
+    if (unplaced.length > 0) {
+      const taken = new Set(placed.map((e) => liveRegionId(e)));
+      applyShadesByRole(
+        unplaced.map((e) => e.shade),
+        {
+          regions: regions?.filter((r) => !taken.has(r.id)),
+          activeRegionId,
+          onApplyToRegion,
+          onSelect,
+        },
+      );
+    }
+  };
+
+  if (!combos || combos.length === 0) {
+    return (
+      <div className="hv-ai-panel">
+        <p className="hv-studio-empty">
+          No colours were saved on this project, so there is nothing to show here. The room
+          above is exactly as it was left.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hv-ai-panel">
+      <div className="hv-ai-head">
+        <Mono brass>Colours you chose</Mono>
+      </div>
+      <p className="hv-ai-card-rationale" style={{ marginTop: 0, marginBottom: 14 }}>
+        {note ?? "This project is view-only."} Applying a combination here repaints the
+        preview so you can look at it again — it doesn&apos;t change anything saved.
+      </p>
+      <div className="hv-ai-cards">
+        {combos.map((combo) => (
+          <div key={combo.id} className="hv-ai-card">
+            <div className="hv-ai-card-name">{combo.title}</div>
+            <div className="hv-ai-trio">
+              {combo.entries.map((entry, i) => {
+                const code = codeLabel(entry.shade.code);
+                const name = nameLabel(entry.shade);
+                // The wall the board printed it against, so a customer reads their own
+                // room ("Back wall") rather than a role vocabulary they never chose.
+                // Falls back to Main/Accent/Trim for a board that recorded no wall.
+                const where = entry.regionLabel ?? PALETTE_ROLES[i] ?? "Colour";
+                const target = liveRegionId(entry);
+                return (
+                  <button
+                    key={`${combo.id}-${i}-${entry.shade.code}`}
+                    type="button"
+                    className="hv-ai-swatch"
+                    onClick={() =>
+                      target && onApplyToRegion
+                        ? onApplyToRegion(target, entry.shade)
+                        : onSelect(entry.shade)
+                    }
+                    title={`${name || "Colour"}${code ? ` · ${code}` : ""} — tap to put it back on ${
+                      target ? where : "the active wall"
+                    }`}
+                    aria-label={`${where}: ${name || "colour"}${code ? ` (${code})` : ""}. Tap to apply.`}
+                  >
+                    <span aria-hidden className="hv-ai-swatch-color" style={{ background: entry.shade.hex }} />
+                    <span className="hv-ai-swatch-role">{where}</span>
+                    <span className="hv-ai-swatch-name">{name}</span>
+                    {code && <span className="hv-ai-swatch-code">{code}</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="hv-ai-card-actions">
+              <button
+                type="button"
+                onClick={() => applyCombo(combo)}
+                className="btn btn-sm"
+                title="Put this whole combination back on the room"
+              >
+                Apply all
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AISuggestPanel({
   onSelect,
   catalogue,
@@ -1189,29 +1477,10 @@ function AISuggestPanel({
   const seedValue = snap.baseHex && /^#[0-9a-fA-F]{6}$/.test(snap.baseHex) ? snap.baseHex : "#C8C2B8";
 
   // "Apply all" puts the whole palette on the room at once: main → main wall,
-  // accent → accent wall, trim → trim — each to its matching region. Falls
-  // back to the active wall only when we can't map regions (e.g. no per-region
-  // apply available, or the project has a single surface). Targets the LIVE
-  // regions, not the snapshot, so paint always lands on the real walls.
-  const applyCombo = (shades: ReadonlyArray<PaintShade | undefined>) => {
-    const byKind = (k: RegionKind) => regions?.find((r) => r.kind === k);
-    const main = byKind("MAIN_WALL") ?? regions?.find((r) => r.id === activeRegionId) ?? regions?.[0];
-    const targets: Array<[RegionLite | undefined, PaintShade | undefined]> = [
-      [main, shades[0]],
-      [byKind("ACCENT_WALL"), shades[1]],
-      [byKind("TRIM"), shades[2]],
-    ];
-    let applied = false;
-    if (onApplyToRegion) {
-      for (const [region, shade] of targets) {
-        if (region && shade) {
-          onApplyToRegion(region.id, shade);
-          applied = true;
-        }
-      }
-    }
-    if (!applied && shades[0]) onSelect(shades[0]); // single-surface / no mapping → active wall
-  };
+  // accent → accent wall, trim → trim — each to its matching region. Targets the
+  // LIVE regions, not the snapshot, so paint always lands on the real walls.
+  const applyCombo = (shades: ReadonlyArray<PaintShade | undefined>) =>
+    applyShadesByRole(shades, { regions, activeRegionId, onApplyToRegion, onSelect });
 
   // Apply, then hand off to the caller to capture. Sequencing the two here rather than
   // in each section keeps "what Apply all does" in exactly one place.
@@ -1769,15 +2038,21 @@ function RegionStrip({
             </div>
           );
         })}
-        <button
-          type="button"
-          onClick={() => onAddWall?.()}
-          disabled={addDisabled}
-          title={addDisabled ? "You can add up to 3 walls" : "Draw a wall we missed"}
-          className="hv-studio-add-wall-chip"
-        >
-          + Wall
-        </button>
+        {/* No handler, no chip — same rule the ✕ and the refine pencil already follow.
+            It used to render whatever it was given and call `onAddWall?.()`, so a room
+            whose walls are fixed (off the library shelf, or a locked project) showed a
+            button that did nothing at all when pressed. */}
+        {onAddWall && (
+          <button
+            type="button"
+            onClick={onAddWall}
+            disabled={addDisabled}
+            title={addDisabled ? "You can add up to 3 walls" : "Draw a wall we missed"}
+            className="hv-studio-add-wall-chip"
+          >
+            + Wall
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1810,6 +2085,15 @@ function PaletteIcon() {
       <path d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
       <path d="M18 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
       <path d="M6 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+    </svg>
+  );
+}
+
+function BookmarkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
+      <path d="M9 9h6" />
     </svg>
   );
 }
