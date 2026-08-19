@@ -317,6 +317,97 @@ function presetIssuesFor(stage: FailureStage | "UNKNOWN" | null): MaskReportIssu
  * admin leaves a comparison behind. A picked model is asked ALONE — the clean's usual
  * fallback chain is switched off — so a result can always be attributed to it.
  */
+/**
+ * The house types an admin may pin a run to, in the order they are worth reaching for:
+ * exteriors, then interiors. Labels rather than enum names because the panel is read by
+ * a person, and "COMPOUND_WALL" is a database value.
+ *
+ * Listed here rather than fetched, unlike the model list: these are a fixed vocabulary
+ * the backend compiles against, not deployment configuration that can change under the
+ * client. A name this build offers and the backend does not know would be refused with
+ * a 400 rather than silently running the default, which is the behaviour that matters.
+ */
+const HOUSE_TYPES: ReadonlyArray<{ value: NonNullable<SegmentationOptions["houseType"]>; label: string }> = [
+  { value: "INDEPENDENT_HOUSE", label: "Independent house" },
+  { value: "APARTMENT_BLOCK", label: "Apartment block" },
+  { value: "ROW_HOUSE", label: "Row house" },
+  { value: "SHOPFRONT", label: "Shopfront" },
+  { value: "COMPOUND_WALL", label: "Compound wall" },
+  { value: "LIVING_ROOM", label: "Living room" },
+  { value: "BEDROOM", label: "Bedroom" },
+  { value: "KITCHEN", label: "Kitchen" },
+  { value: "BATHROOM", label: "Bathroom" },
+  { value: "STAIRWELL_OR_HALLWAY", label: "Stairwell or hallway" },
+  { value: "OFFICE_OR_SHOP", label: "Office or shop interior" },
+];
+
+const CLEAN_FURNISHING: ReadonlyArray<{
+  value: NonNullable<SegmentationOptions["cleanFurnishing"]>; label: string; hint: string;
+}> = [
+  { value: "KEEP", label: "Leave it", hint: "exactly as photographed — today's behaviour" },
+  { value: "EMPTY", label: "Clear it", hint: "loose furniture out, built-ins stay" },
+];
+
+const CLEAN_ANGLE: ReadonlyArray<{
+  value: NonNullable<SegmentationOptions["cleanAngle"]>; label: string; hint: string;
+}> = [
+  { value: "AS_SHOT", label: "As shot", hint: "the photo's own camera — today's behaviour" },
+  { value: "BEST_VIEW", label: "Best view", hint: "let the model re-frame, within limits" },
+];
+
+/**
+ * A row of radios for one admin prompt knob. Same shape as the render studio's
+ * OptionRow, kept local because this panel's rows carry a hint per choice and the
+ * studio's carry one per row — and a shared component with both would be a component
+ * with a mode.
+ */
+function AdminChoiceRow<T extends string>({
+  name, title, choices, value, onChange,
+}: {
+  name: string;
+  title: string;
+  choices: ReadonlyArray<{ value: T; label: string; hint: string }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <fieldset style={{ border: 0, padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+      <legend style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", padding: 0 }}>
+        {title}
+      </legend>
+      {choices.map((choice) => (
+        <label
+          key={choice.value}
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 8,
+            font: "400 13px/1.4 var(--sans)",
+            color: "var(--fg-soft)",
+            cursor: "pointer",
+            padding: "2px 0",
+          }}
+        >
+          <input
+            type="radio"
+            name={name}
+            value={choice.value}
+            checked={value === choice.value}
+            onChange={() => onChange(choice.value)}
+            style={{ marginTop: 2 }}
+          />
+          <span>
+            {choice.label}
+            <span style={{ display: "block", font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
+              {choice.hint}
+            </span>
+          </span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 function ModelPicker({
   name, title, hint, models, value, onChange,
 }: {
@@ -582,13 +673,28 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // cleanModel/maskModel carry the empty string for exactly the same reason: it is
   // this run saying "the configured model, please", so a model pinned once for a
   // comparison cannot silently keep serving every later run of that room.
+  // analysePhoto/houseType/cleanFurnishing/cleanAngle are the ADMIN prompt knobs, and
+  // they are spelled out here for the same reason simulateFailure is: the backend keeps
+  // the last value it was given, so an omitted field means "carry on as before", and an
+  // admin who ran one photo as BEST_VIEW would have every later run of that project keep
+  // re-framing with nothing on screen saying why. Every run states its whole intent.
+  // These four defaults reproduce the prompt every run used before they existed.
   const [segOptions, setSegOptions] = useState<SegmentationOptions>({
     cleanImage: true,
     maskMode: "AUTO",
     simulateFailure: "NONE",
     cleanModel: "",
     maskModel: "",
+    analysePhoto: false,
+    houseType: "",
+    cleanFurnishing: "KEEP",
+    cleanAngle: "AS_SHOT",
   });
+  // Which half of the admin panel is on screen. The panel got long enough that the
+  // Continue button fell off the bottom of the popover, and the two halves are asked at
+  // different moments anyway: which models run this, and then what the photo is and how
+  // it should be prompted. Admins only — nobody else sees this panel at all.
+  const [adminStep, setAdminStep] = useState<1 | 2>(1);
   // The image models this deployment will accept for the two knobs above. Fetched
   // (admins only) rather than listed in the client so the radios can only offer what
   // the backend will actually run. Empty until it arrives, and it stays empty if the
@@ -3372,8 +3478,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     }}
                   >
                     <legend style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)", padding: "0 6px" }}>
-                      Admin · testing
+                      Admin · testing · step {adminStep} of 2
                     </legend>
+                    {adminStep === 1 && (
+                      <>
                     <label
                       style={{
                         display: "inline-flex",
@@ -3459,6 +3567,122 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                           A picked model is the only one asked — no fallback to another —
                           so whatever comes back is that model&apos;s own work.
                         </p>
+                      </>
+                    )}
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ alignSelf: "flex-end" }}
+                          onClick={() => setAdminStep(2)}
+                        >
+                          Next: the photo →
+                        </button>
+                      </>
+                    )}
+                    {adminStep === 2 && (
+                      <>
+                        {/* What the photo IS, and how that should change the prompt.
+                            Every control here is off or default to begin with, and with
+                            all four left alone the run is prompted exactly as it was
+                            before this panel had a second page. */}
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 8,
+                            font: "400 13px/1.4 var(--sans)",
+                            color: "var(--fg-soft)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={Boolean(segOptions.analysePhoto)}
+                            onChange={(e) =>
+                              setSegOptions((o) => ({ ...o, analysePhoto: e.target.checked }))
+                            }
+                            style={{ marginTop: 2 }}
+                          />
+                          <span>
+                            Look at the photo properly first
+                            <span style={{ display: "block", font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
+                              one cheap call: what kind of place it is, and what colour
+                              the walls are now
+                            </span>
+                          </span>
+                        </label>
+                        {/* The override, second, because it only makes sense once you
+                            know what the analysis would have said. Blank hands the
+                            choice back to it. Two runs of the same photo under two
+                            types is the only way to see what a clause is worth. */}
+                        <label
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                            font: "400 13px/1.4 var(--sans)",
+                            color: "var(--fg-soft)",
+                          }}
+                        >
+                          Treat it as
+                          <select
+                            value={segOptions.houseType ?? ""}
+                            onChange={(e) =>
+                              setSegOptions((o) => ({
+                                ...o,
+                                houseType: e.target.value as NonNullable<SegmentationOptions["houseType"]>,
+                              }))
+                            }
+                            style={{
+                              padding: "6px 8px",
+                              border: "1px solid var(--rule-strong)",
+                              borderRadius: 6,
+                              background: "var(--bg)",
+                              color: "var(--fg)",
+                              font: "400 13px/1.4 var(--sans)",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <option value="">Whatever the photo looks like</option>
+                            {HOUSE_TYPES.map((t) => (
+                              <option key={t.value} value={t.value}>{t.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <AdminChoiceRow
+                          name="clean-furnishing"
+                          title="Furniture in the cleaned photo"
+                          choices={CLEAN_FURNISHING}
+                          value={segOptions.cleanFurnishing ?? "KEEP"}
+                          onChange={(cleanFurnishing) =>
+                            setSegOptions((o) => ({ ...o, cleanFurnishing }))
+                          }
+                        />
+                        <AdminChoiceRow
+                          name="clean-angle"
+                          title="Camera in the cleaned photo"
+                          choices={CLEAN_ANGLE}
+                          value={segOptions.cleanAngle ?? "AS_SHOT"}
+                          onChange={(cleanAngle) => setSegOptions((o) => ({ ...o, cleanAngle }))}
+                        />
+                        {segOptions.cleanAngle === "BEST_VIEW" && (
+                          /* Said here rather than only in the prompt, because the person
+                             about to spend a generation on it is the one who needs to
+                             know what they are trading. */
+                          <p style={{ margin: 0, font: "400 12px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
+                            Moving the camera means the model draws surfaces the photo
+                            never showed it. The masks will match the new view, not the
+                            original photo.
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ alignSelf: "flex-start" }}
+                          onClick={() => setAdminStep(1)}
+                        >
+                          ← Back to models
+                        </button>
                       </>
                     )}
                   </fieldset>

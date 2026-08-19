@@ -1254,10 +1254,17 @@ export const api = {
     }),
   // opts.maskMode ("AUTO" default / "MANUAL") is open to every caller — it decides
   // whether AI wall detection runs after the compulsory photo clean-up (MANUAL stops
-  // there; walls are then marked by hand, free on every plan). opts.cleanImage,
-  // opts.simulateFailure and opts.cleanModel/opts.maskModel are ADMIN-only testing
-  // knobs (the backend strips them for other roles). Masks are always stored raw —
-  // exactly as the model painted them.
+  // there; walls are then marked by hand, free on every plan). Everything else on the
+  // options object is an ADMIN-only testing knob: opts.cleanImage, opts.simulateFailure,
+  // opts.cleanModel/opts.maskModel, and the prompt knobs opts.analysePhoto,
+  // opts.houseType, opts.cleanFurnishing and opts.cleanAngle.
+  //
+  // "Admin-only" is enforced at the endpoint by REBUILDING the request with maskMode
+  // alone for every other role, so a knob added here is admin-only by default and a
+  // crafted request from a customer cannot reach one. Sending them from a non-admin is
+  // therefore harmless rather than forbidden — they are dropped, not rejected.
+  //
+  // Masks are always stored raw — exactly as the model painted them.
   requestSegmentation: (projectId: string, opts?: SegmentationOptions) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/segment`, {
       method: "POST",
