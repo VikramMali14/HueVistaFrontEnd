@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { formatRupees } from "@/lib/money";
 import { buyAiCredits } from "@/lib/payments";
-import type { AiCreditSummary } from "@/lib/types";
+import { QUALITY_LABELS } from "@/lib/render-labels";
+import type { AiCreditSummary, RenderQuality } from "@/lib/types";
 
 /**
  * The AI image wallet: what is in it, what a credit costs, and how to buy more.
@@ -105,8 +106,14 @@ export function AiCreditWallet({
         <h2 id="hv-aiw-title" className="hv-aiw-title">
           AI image credits
         </h2>
+        {/* The balance is the answer somebody came here for, so it is set as a figure
+            rather than as a line of the paragraph — large, quiet, and with the word that
+            explains it beneath rather than beside, where it would compete. */}
         <p className="hv-aiw-balance" aria-live="polite">
-          {wallet.balance.toLocaleString("en-IN")}
+          <span className="hv-aiw-balance-n">{wallet.balance.toLocaleString("en-IN")}</span>
+          <span className="hv-aiw-balance-w">
+            credit{wallet.balance === 1 ? "" : "s"}
+          </span>
         </p>
       </header>
 
@@ -197,33 +204,54 @@ export function AiCreditWallet({
       )}
 
       <style>{`
+        /* One card language across the customer's billing screens: a generous radius, a
+           single wash of accent from one corner, and a lit hairline along the top edge.
+           The panels differ in what they say and not in how they are built, which is what
+           makes a page of three of them read as one thing. */
         .hv-aiw {
-          border: 1px solid var(--rule); border-radius: var(--radius);
-          background: var(--surface); padding: 24px; margin-top: 32px;
+          position: relative; overflow: hidden;
+          border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.8);
+          background:
+            radial-gradient(110% 80% at 0% 0%, rgba(124,92,255,.07), transparent 60%),
+            var(--surface);
+          padding: 30px; margin-top: 32px;
         }
-        .hv-aiw.is-compact { padding: 16px; margin-top: 0; }
-        .hv-aiw-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-        .hv-aiw-title { font: 600 20px/1.2 var(--serif); color: var(--fg); margin: 0; }
-        .hv-aiw-balance { font: 600 34px/1 var(--serif); color: var(--brass); margin: 0; }
-        .hv-aiw-lead { font: 400 14px/1.6 var(--sans); color: var(--fg-soft); margin: 10px 0 0; max-width: 58ch; }
-        .hv-aiw-price { font: 400 15px/1.4 var(--sans); color: var(--fg); margin: 14px 0 0; }
-        .hv-aiw-expiry { font: 400 13px/1.5 var(--sans); color: var(--fg-mute); margin: 8px 0 0; }
-        .hv-aiw-price s { color: var(--fg-soft); }
+        .hv-aiw::before {
+          content: ""; position: absolute; inset: 0 0 auto; height: 1px;
+          background: linear-gradient(90deg, transparent, var(--rule-brass), transparent);
+        }
+        .hv-aiw.is-compact { padding: 18px; margin-top: 0; border-radius: calc(var(--radius) * 1.4); }
+        .hv-aiw-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .hv-aiw-title { font: 600 22px/1.25 var(--serif); color: var(--fg); margin: 0; letter-spacing: -.01em; }
+        .hv-aiw-balance { display: flex; align-items: baseline; gap: 8px; margin: 0; }
+        .hv-aiw-balance-n {
+          font: 300 40px/1 var(--serif); color: var(--accent-text);
+          letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+        }
+        .hv-aiw-balance-w {
+          font: 500 11px/1.5 var(--sans); letter-spacing: .14em; text-transform: uppercase;
+          color: var(--fg-mute);
+        }
+        .hv-aiw-lead { font: 400 14.5px/1.7 var(--sans); color: var(--fg-soft); margin: 14px 0 0; max-width: 58ch; }
+        .hv-aiw-price { font: 400 15px/1.45 var(--sans); color: var(--fg); margin: 16px 0 0; }
+        .hv-aiw-expiry { font: 400 13px/1.55 var(--sans); color: var(--fg-mute); margin: 10px 0 0; }
+        .hv-aiw-price s { color: var(--fg-mute); }
         .hv-aiw-tag {
-          display: inline-block; margin-left: 10px; padding: 3px 9px; border-radius: 999px;
-          font: 500 12px/1.2 var(--sans); color: var(--brass);
-          border: 1px solid var(--brass); background: var(--surface-soft);
+          display: inline-block; margin-left: 10px; padding: 3px 10px; border-radius: var(--radius-pill);
+          font: 500 11.5px/1.5 var(--sans); color: var(--accent-text);
+          border: 1px solid var(--rule-brass); background: transparent;
         }
-        .hv-aiw-buy { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-        .hv-aiw-fine { font: 400 12px/1.4 var(--sans); color: var(--fg-soft); margin: 10px 0 0; }
-        .hv-aiw-note { font: 400 14px/1.5 var(--sans); color: var(--fg); margin: 12px 0 0; }
-        .hv-aiw-error { font: 400 14px/1.5 var(--sans); color: var(--danger, #b3261e); margin: 12px 0 0; }
-        .hv-aiw-log { list-style: none; margin: 18px 0 0; padding: 14px 0 0; border-top: 1px solid var(--rule); display: grid; gap: 8px; }
-        .hv-aiw-log li { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; }
-        .hv-aiw-log-n { font: 600 14px/1.2 var(--sans); color: var(--brass); }
-        .hv-aiw-log-n.is-out { color: var(--fg-soft); }
-        .hv-aiw-log-note { font: 400 13px/1.4 var(--sans); color: var(--fg); overflow-wrap: anywhere; }
-        .hv-aiw-log-bal { font: 400 12px/1.4 var(--sans); color: var(--fg-soft); white-space: nowrap; }
+        .hv-aiw-buy { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+        .hv-aiw-fine { font: 400 12.5px/1.5 var(--sans); color: var(--fg-mute); margin: 12px 0 0; }
+        .hv-aiw-note { font: 400 14px/1.55 var(--sans); color: var(--fg); margin: 14px 0 0; }
+        .hv-aiw-error { font: 400 14px/1.55 var(--sans); color: var(--danger, #b3261e); margin: 14px 0 0; }
+        .hv-aiw-log { list-style: none; margin: 22px 0 0; padding: 18px 0 0; border-top: 1px solid var(--rule); display: grid; gap: 11px; }
+        .hv-aiw-log li { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; }
+        .hv-aiw-log-n { font: 600 14px/1.3 var(--sans); color: var(--accent-text); font-variant-numeric: tabular-nums; }
+        .hv-aiw-log-n.is-out { color: var(--fg-mute); }
+        .hv-aiw-log-note { font: 400 13.5px/1.5 var(--sans); color: var(--fg); overflow-wrap: anywhere; }
+        .hv-aiw-log-bal { font: 400 12.5px/1.5 var(--sans); color: var(--fg-mute); white-space: nowrap; }
+        @media (max-width: 560px) { .hv-aiw { padding: 20px; } }
       `}</style>
     </section>
   );
@@ -239,7 +267,14 @@ export function AiCreditWallet({
 function tierNote(wallet: AiCreditSummary): string {
   const tiers = wallet.renderTiers ?? [];
   if (tiers.length > 1) {
-    return ` An image costs ${tiers.map((t) => `${t.credits} for ${t.quality.toLowerCase()}`).join(", ")}.`;
+    const parts = tiers.map((t) => {
+      // The label a person says, falling back to the raw enum for a tier this build has
+      // not heard of — a sentence reading "LUXURY is 2 credits" is odd, one with a gap
+      // in it looks broken.
+      const name = QUALITY_LABELS[t.quality as RenderQuality] ?? t.quality;
+      return `${name} is ${t.credits} credit${t.credits === 1 ? "" : "s"}`;
+    });
+    return ` ${parts.join(", ")}.`;
   }
   return wallet.renderCost > 1 ? ` Each image costs ${wallet.renderCost} credits.` : "";
 }

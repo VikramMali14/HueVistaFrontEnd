@@ -1455,14 +1455,14 @@ export interface AiCreditSummary {
   discountPercent: number;
   minPurchase: number;
   maxPurchase: number;
-  /** Credits the plainest AI image costs — the BASIC tier, and the floor the others are
-   *  quoted against. */
+  /** Credits the plainest AI image costs — the PREMIUM tier, and the floor the dearer one
+   *  is quoted against. */
   renderCost: number;
   /**
    * What each quality of image costs, straight from the server.
    *
-   * A list rather than three named fields because the tiers are configuration: a screen
-   * that iterates this shows whatever is actually sold, and one that hard-codes "Pro is 2"
+   * A list rather than named fields because the tiers are configuration: a screen that
+   * iterates this shows whatever is actually sold, and one that hard-codes "Luxury is 2"
    * starts lying the day that changes. Optional so an older backend reads as "one price
    * for one image", which is what it had.
    */
@@ -1486,11 +1486,12 @@ export interface AiCreditSummary {
 /**
  * How good an AI image to make — which model makes it, and what it costs in credits.
  *
- * Three tiers because "one photorealistic image" was never one thing: the models behind
- * them differ by close to an order of magnitude in what they cost to run. BASIC is a whole
- * picture on its own rather than a deliberately poor one; MAX is the one that gets printed.
+ * Two tiers because "one photorealistic image" was never one thing: the models behind them
+ * differ by close to an order of magnitude in what they cost to run. PREMIUM is a whole
+ * picture on its own rather than a deliberately poor one; LUXURY is the one that gets
+ * printed. There used to be a third above both at four credits, and nobody chose it.
  */
-export type RenderQuality = "BASIC" | "PRO" | "MAX";
+export type RenderQuality = "PREMIUM" | "LUXURY";
 
 /**
  * The customer's counter (backend CartCatalogueResponse): what is for sale, what it costs,
@@ -1516,6 +1517,22 @@ export interface CartCatalogue {
   comboPricePaise: number;
   comboProjects: number;
   comboCredits: number;
+  /**
+   * The special offer: three rooms and three pictures for the price of two of each.
+   *
+   * `bundleAvailable` is the switch — false takes the line off the counter, so an offer
+   * that has been wound down is hidden rather than shown as a saving of nothing. Optional
+   * throughout so an older backend simply has no offer line.
+   *
+   * `bundleListPricePaise` is what the same contents cost bought line by line, and it
+   * comes from the server rather than being multiplied out here: the strike-through beside
+   * a price has to be the same arithmetic as the price.
+   */
+  bundleAvailable?: boolean;
+  bundlePricePaise?: number;
+  bundleListPricePaise?: number;
+  bundleProjects?: number;
+  bundleCredits?: number;
   /** Days everything on this counter is good for — a year, on every line. */
   validDays: number;
   /** The most of any one line a single order may hold. */

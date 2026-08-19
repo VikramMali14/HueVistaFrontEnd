@@ -100,23 +100,30 @@ const DEFAULT_OPTIONS: RenderOptions = {
   // The cheapest tier, deliberately. This is the one option on the screen that costs
   // money to change, so it opens at the price somebody expects and every step up is
   // something they chose rather than something they were defaulted into.
-  quality: "BASIC",
+  quality: "PREMIUM",
   // The cleaned photograph, which is what this made before the choice existed and the
   // better starting point in the ordinary case.
   sourceImage: "CLEANED",
 };
 
 /**
- * The three qualities, in credits-ascending order.
+ * The two qualities, in credits-ascending order.
  *
  * The prices are NOT here — they come off the wallet, which reads them from the server, so
  * this screen cannot quote a number the charge then contradicts. What lives here is the
  * prose about choosing, which is the thing the server has no opinion about.
+ *
+ * Two rather than three: the old top tier cost four credits, twice the one below it for a
+ * difference most people could not see on a phone, and a row of three where the third is
+ * never picked makes the two that are harder to read.
  */
 const QUALITY: Choice<RenderQuality>[] = [
-  { value: "BASIC", label: "Basic", hint: "A quick, honest look at the room" },
-  { value: "PRO", label: "Pro", hint: "Sharper, and truer to the building's own lines" },
-  { value: "MAX", label: "Max", hint: "The best we have, at the largest size — for printing" },
+  { value: "PREMIUM", label: "Premium", hint: "A clear, true photograph of your room" },
+  {
+    value: "LUXURY",
+    label: "Luxury",
+    hint: "Our finest — sharper, larger, and truer to your building's own lines",
+  },
 ];
 
 type Choice<T extends string> = { value: T; label: string; hint: string };
@@ -560,7 +567,8 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     try {
       // Enough for the image in front of them at the tier they chose, less whatever they
       // already hold. Buying a flat one credit was right when an image cost exactly one;
-      // with tiers it would leave somebody who picked Max three short and none the wiser.
+      // with tiers it would leave somebody who picked Luxury a credit short and none the
+      // wiser.
       const shortfall = Math.max(1, shortBy(wallet, options.quality));
       const fresh = await buyAiCredits(shortfall);
       // null = Checkout was closed. Not an error, and nothing to report.
@@ -734,9 +742,10 @@ export function RenderStudio({ projectId }: { projectId: string }) {
           <OptionRow
             label="Quality"
             choices={qualityChoices(wallet)}
-            value={options.quality ?? "BASIC"}
+            value={options.quality ?? "PREMIUM"}
             onChange={(quality) => setOptions((o) => ({ ...o, quality }))}
             disabled={busy}
+            showHint
           />
           {/* Second, and only when there are two pictures to choose between. This used to
               be a decision the code made silently — always the cleaned one — and it is
@@ -866,7 +875,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
           background: color-mix(in srgb, var(--surface) 88%, transparent); padding: 24px;
         }
         .hv-render-working-sub { font: 400 13px/1.4 var(--sans); color: var(--fg-soft); max-width: 34ch; }
-        .hv-render-options { margin-top: 28px; display: grid; gap: 18px; }
+        .hv-render-options { margin-top: 32px; display: grid; gap: 22px; }
         .hv-render-note { display: grid; gap: 6px; font: 400 13px/1.3 var(--sans); color: var(--fg-soft); }
         .hv-render-note input { padding: 10px 12px; border: 1px solid var(--rule); background: var(--surface); font: inherit; color: var(--fg); }
         .hv-render-go { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 6px; }
@@ -891,44 +900,75 @@ function OptionRow<T extends string>({
   value,
   onChange,
   disabled,
+  showHint,
 }: {
   label: string;
   choices: Choice<T>[];
   value: T;
   onChange: (value: T) => void;
   disabled?: boolean;
+  /**
+   * Show the chosen option's hint under the row.
+   *
+   * The hints have always been `title` attributes, which is to say invisible on a phone —
+   * where most of this is used. Printing every hint would be six lines of prose on a
+   * screen whose job is one decision, so only the one that has actually been chosen is
+   * shown, and only on the rows that ask for it. The quality row asks: it is the one
+   * choice here that costs money, and "what am I getting for the second credit" is
+   * exactly the question a tooltip nobody can open fails to answer.
+   */
+  showHint?: boolean;
 }) {
+  const hint = showHint ? choices.find((c) => c.value === value)?.hint : undefined;
   return (
     // role="group" + aria-pressed rather than the radio pattern — see the combo picker
     // above: nothing here implements the arrow-key navigation a radiogroup announces.
     <div className="hv-render-row" role="group" aria-label={label}>
       <span className="hv-render-row-label">{label}</span>
-      <span className="hv-render-row-choices">
-        {choices.map((c) => (
-          <button
-            key={c.value}
-            type="button"
-            aria-pressed={c.value === value}
-            title={c.hint}
-            disabled={disabled}
-            className={`hv-render-choice${c.value === value ? " is-on" : ""}`}
-            onClick={() => onChange(c.value)}
-          >
-            {c.label}
-          </button>
-        ))}
+      <span className="hv-render-row-body">
+        <span className="hv-render-row-choices">
+          {choices.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              aria-pressed={c.value === value}
+              title={c.hint}
+              disabled={disabled}
+              className={`hv-render-choice${c.value === value ? " is-on" : ""}`}
+              onClick={() => onChange(c.value)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </span>
+        {/* aria-live so the hint is heard when the choice changes rather than only found
+            by somebody who happens to read past the buttons. */}
+        {hint && (
+          <span className="hv-render-row-hint" aria-live="polite">
+            {hint}
+          </span>
+        )}
       </span>
       <style>{`
-        .hv-render-row { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; align-items: center; }
-        @media (max-width: 640px) { .hv-render-row { grid-template-columns: 1fr; } }
-        .hv-render-row-label { font: 500 13px/1.3 var(--sans); color: var(--fg); }
-        .hv-render-row-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+        .hv-render-row { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 14px; align-items: start; }
+        @media (max-width: 640px) { .hv-render-row { grid-template-columns: 1fr; gap: 8px; } }
+        .hv-render-row-label { font: 500 13px/1.3 var(--sans); color: var(--fg); padding-top: 10px; }
+        @media (max-width: 640px) { .hv-render-row-label { padding-top: 0; } }
+        .hv-render-row-body { display: grid; gap: 8px; min-width: 0; }
+        .hv-render-row-choices { display: flex; flex-wrap: wrap; gap: 9px; }
+        .hv-render-row-hint { font: 400 12.5px/1.5 var(--sans); color: var(--fg-mute); max-width: 46ch; }
         .hv-render-choice {
-          padding: 7px 13px; cursor: pointer; font: 400 13px/1.2 var(--sans); color: var(--fg);
-          border: 1px solid var(--rule); background: var(--surface); border-radius: 999px;
+          padding: 9px 16px; cursor: pointer; font: 400 13.5px/1.25 var(--sans); color: var(--fg-soft);
+          border: 1px solid var(--rule); background: var(--surface); border-radius: var(--radius-pill);
+          transition: border-color .25s var(--ease), color .25s var(--ease), background .25s var(--ease);
         }
-        .hv-render-choice.is-on { border-color: var(--brass); background: var(--surface-soft); font-weight: 500; }
-        .hv-render-choice:disabled { opacity: .5; cursor: default; }
+        .hv-render-choice:hover:not(:disabled):not(.is-on) { border-color: var(--rule-strong); color: var(--fg); }
+        .hv-render-choice.is-on {
+          border-color: var(--brass); background: var(--surface-soft); color: var(--fg);
+          font-weight: 500; box-shadow: 0 0 0 3px rgba(124,92,255,.12);
+        }
+        .hv-render-choice:disabled { opacity: .45; cursor: default; }
+        @media (prefers-reduced-motion: reduce) { .hv-render-choice { transition: none; } }
       `}</style>
     </div>
   );
@@ -942,7 +982,7 @@ function OptionRow<T extends string>({
  * refuses any amount but its own, but a button naming a price the payment then contradicts
  * is worse than one that names none.
  */
-function credits(wallet: AiCreditSummary | null, quality: RenderQuality = "BASIC"): number {
+function credits(wallet: AiCreditSummary | null, quality: RenderQuality = "PREMIUM"): number {
   const tier = wallet?.renderTiers?.find((t) => t.quality === quality);
   return tier?.credits ?? wallet?.renderCost ?? 1;
 }
@@ -957,7 +997,7 @@ function qualityChoices(wallet: AiCreditSummary | null): Choice<RenderQuality>[]
 
 /** How many credits short this account is of the image it just asked for. */
 function shortBy(wallet: AiCreditSummary | null, quality: RenderQuality | undefined): number {
-  return credits(wallet, quality ?? "BASIC") - (wallet?.balance ?? 0);
+  return credits(wallet, quality ?? "PREMIUM") - (wallet?.balance ?? 0);
 }
 
 /**

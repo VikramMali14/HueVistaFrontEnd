@@ -17,6 +17,13 @@ import type { CartCatalogue } from "@/lib/types";
  * while taking no notice of the fact that they had. A basket puts the size of the order in
  * front of both sides, which is the only reason an offer at ₹289 can exist.
  *
+ * <b>The special offer stands apart from the price list, on purpose.</b> Three rooms and
+ * three pictures for the price of two of each is not another line to be scanned and
+ * compared — it is the one thing on this screen somebody can decide in a second, and a
+ * saving stated as "the third is on us" is worked out in the head in a way "33% off" never
+ * is. It is a LINE, not a code: the percentage offers below still apply on top of a basket
+ * holding one, because a basket big enough to have earned HUE10 has earned it.
+ *
  * <b>The arithmetic here is a courtesy, not the price.</b> Every figure on this screen is
  * the server's own rate multiplied by a quantity, and the server prices the order again
  * when Checkout opens. That matters for the offers in particular: the code is a preference,
@@ -30,7 +37,7 @@ import type { CartCatalogue } from "@/lib/types";
  */
 
 /** A line on the counter, in the order it is shown. */
-type LineId = "combo" | "project" | "credit";
+type LineId = "bundle" | "combo" | "project" | "credit";
 
 interface Line {
   id: LineId;
@@ -44,7 +51,12 @@ interface Line {
 export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
   const [cart, setCart] = useState<CartCatalogue | null>(null);
   const [loading, setLoading] = useState(true);
-  const [qty, setQty] = useState<Record<LineId, number>>({ combo: 0, project: 0, credit: 0 });
+  const [qty, setQty] = useState<Record<LineId, number>>({
+    bundle: 0,
+    combo: 0,
+    project: 0,
+    credit: 0,
+  });
   /** The offer the buyer tapped. The server still decides what it is worth. */
   const [code, setCode] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
@@ -66,6 +78,24 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
       cancelled = true;
     };
   }, []);
+
+  /**
+   * The special offer, or null when it is not running.
+   *
+   * Everything it needs is derived from the server's own figures — the price, what the
+   * same contents cost line by line, and therefore the saving. Nothing here multiplies
+   * the parts itself: a strike-through worked out on this screen would one day disagree
+   * with the price beside it, and of the two numbers that is the one people check.
+   */
+  const bundle = useMemo(() => {
+    if (!cart?.bundleAvailable) return null;
+    const price = cart.bundlePricePaise ?? 0;
+    const list = cart.bundleListPricePaise ?? 0;
+    const projects = cart.bundleProjects ?? 0;
+    const credits = cart.bundleCredits ?? 0;
+    if (price <= 0 || list <= price || projects + credits === 0) return null;
+    return { price, list, projects, credits, saving: list - price };
+  }, [cart]);
 
   const lines: Line[] = useMemo(() => {
     if (!cart) return [];
@@ -102,8 +132,10 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
   }, [cart]);
 
   const subtotal = useMemo(
-    () => lines.reduce((sum, line) => sum + line.pricePaise * qty[line.id], 0),
-    [lines, qty],
+    () =>
+      lines.reduce((sum, line) => sum + line.pricePaise * qty[line.id], 0)
+      + (bundle?.price ?? 0) * qty.bundle,
+    [lines, qty, bundle],
   );
 
   /**
@@ -138,7 +170,7 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
 
   const discount = applied ? Math.floor((subtotal * applied.percentOff) / 100) : 0;
   const total = subtotal - discount;
-  const itemCount = qty.combo + qty.project + qty.credit;
+  const itemCount = qty.bundle + qty.combo + qty.project + qty.credit;
 
   const step = useCallback(
     (id: LineId, by: number) => {
@@ -159,12 +191,13 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
         projects: qty.project,
         credits: qty.credit,
         combos: qty.combo,
+        bundles: qty.bundle,
         discountCode: code ?? undefined,
       });
       // null = the buyer closed Checkout. Not an error, and not a reason to say anything.
       if (fresh) {
         setCart(fresh);
-        setQty({ combo: 0, project: 0, credit: 0 });
+        setQty({ bundle: 0, combo: 0, project: 0, credit: 0 });
         setCode(null);
         setNotice(
           "Paid — your projects and credits are on your account, and both are good for a year.",
@@ -205,9 +238,41 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
         </p>
       </header>
 
+      {/* The special offer, above the price list and looking nothing like it. It is not a
+          fourth thing to compare — it is the same two things in the quantity somebody doing
+          up a whole flat actually needs, with the third of each thrown in. */}
+      {bundle && (
+        <div className="hv-cart-special">
+          <div className="hv-cart-special-text">
+            <span className="hv-cart-special-flag">Special offer</span>
+            <p className="hv-cart-special-name">
+              {bundle.projects} projects &amp; {bundle.credits} AI image credits
+            </p>
+            <p className="hv-cart-special-blurb">
+              For the price of two of each — the third room and the third picture are on us.
+              A whole flat, or one room you want to see three ways.
+            </p>
+            <p className="hv-cart-special-price">
+              <span className="hv-cart-special-now">{formatRupees(bundle.price)}</span>
+              <s className="hv-cart-special-was">{formatRupees(bundle.list)}</s>
+              <span className="hv-cart-special-save">
+                Save {formatRupees(bundle.saving)}
+              </span>
+            </p>
+          </div>
+          <Stepper
+            label="Special offer"
+            value={qty.bundle}
+            max={cart.maxQuantity}
+            disabled={paying || stuck}
+            onStep={(by) => step("bundle", by)}
+          />
+        </div>
+      )}
+
       <ul className="hv-cart-lines">
         {lines.map((line) => (
-          <li key={line.id} className="hv-cart-line">
+          <li key={line.id} className={`hv-cart-line${line.tag ? " is-picked" : ""}`}>
             <div className="hv-cart-line-text">
               {line.tag && <span className="hv-cart-tag">{line.tag}</span>}
               <p className="hv-cart-line-name">{line.name}</p>
@@ -332,52 +397,117 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
 
       <style>{`
         .hv-cart {
-          border: 1px solid var(--rule); border-radius: var(--radius);
-          background: var(--surface); padding: 24px;
+          position: relative; overflow: hidden;
+          border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.8);
+          background:
+            radial-gradient(120% 90% at 100% 0%, rgba(124,92,255,.07), transparent 62%),
+            var(--surface);
+          padding: 30px;
         }
-        .hv-cart-title { font: 600 20px/1.2 var(--serif); color: var(--fg); margin: 0; }
-        .hv-cart-lead { font: 400 14px/1.6 var(--sans); color: var(--fg-soft); margin: 8px 0 0; max-width: 58ch; }
-        .hv-cart-lines { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 14px; }
+        /* A single hairline of light along the top edge. The whole panel is one purchase,
+           and a lit edge reads as a card rather than as a form. */
+        .hv-cart::before {
+          content: ""; position: absolute; inset: 0 0 auto; height: 1px;
+          background: linear-gradient(90deg, transparent, var(--rule-brass), transparent);
+        }
+        .hv-cart-title { font: 600 22px/1.25 var(--serif); color: var(--fg); margin: 0; letter-spacing: -.01em; }
+        .hv-cart-lead { font: 400 14.5px/1.65 var(--sans); color: var(--fg-soft); margin: 10px 0 0; max-width: 58ch; }
+
+        /* ── The special offer ───────────────────────────────────────────────
+           Deliberately the loudest thing on the panel and the only gradient on it.
+           It is one decision, and the layout says so: no comparison, no small print,
+           a price with what it replaces struck through beside it. */
+        .hv-cart-special {
+          position: relative; margin-top: 24px; padding: 20px;
+          display: flex; gap: 18px; align-items: center; justify-content: space-between;
+          flex-wrap: wrap;
+          border: 1px solid var(--rule-brass); border-radius: calc(var(--radius) * 1.5);
+          background:
+            linear-gradient(135deg, rgba(124,92,255,.13), rgba(124,92,255,.03) 55%),
+            var(--surface-soft);
+        }
+        .hv-cart-special-text { flex: 1 1 280px; min-width: 0; }
+        .hv-cart-special-flag {
+          display: inline-block; padding: 3px 10px; border-radius: var(--radius-pill);
+          font: 600 10.5px/1.5 var(--sans); letter-spacing: .12em; text-transform: uppercase;
+          color: var(--bg); background: var(--brass);
+        }
+        .hv-cart-special-name {
+          font: 600 19px/1.3 var(--serif); color: var(--fg); margin: 12px 0 0;
+          letter-spacing: -.01em;
+        }
+        .hv-cart-special-blurb {
+          font: 400 13.5px/1.6 var(--sans); color: var(--fg-soft); margin: 6px 0 0; max-width: 46ch;
+        }
+        .hv-cart-special-price {
+          display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 14px 0 0;
+        }
+        .hv-cart-special-now { font: 600 22px/1.2 var(--sans); color: var(--fg); }
+        .hv-cart-special-was { font: 400 14px/1.2 var(--sans); color: var(--fg-mute); }
+        .hv-cart-special-save {
+          padding: 3px 9px; border-radius: var(--radius-pill);
+          font: 500 12px/1.5 var(--sans); color: var(--accent-text);
+          border: 1px solid var(--rule-brass);
+        }
+
+        .hv-cart-lines { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 12px; }
         .hv-cart-line {
           display: flex; gap: 16px; align-items: center; justify-content: space-between;
-          padding: 14px; border: 1px solid var(--rule); border-radius: var(--radius);
+          padding: 18px; border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.4);
           background: var(--surface-soft); flex-wrap: wrap;
+          transition: border-color .25s var(--ease), transform .25s var(--ease);
         }
+        .hv-cart-line:hover { border-color: var(--rule-strong); }
+        .hv-cart-line.is-picked { border-color: var(--rule-brass); }
         .hv-cart-line-text { flex: 1 1 260px; min-width: 0; }
         .hv-cart-tag {
-          display: inline-block; margin-bottom: 6px; padding: 2px 8px; border-radius: 999px;
-          font: 500 11px/1.4 var(--sans); color: var(--brass);
-          border: 1px solid var(--brass); background: var(--surface);
+          display: inline-block; margin-bottom: 8px; padding: 2px 9px; border-radius: var(--radius-pill);
+          font: 500 10.5px/1.6 var(--sans); letter-spacing: .1em; text-transform: uppercase;
+          color: var(--accent-text); border: 1px solid var(--rule-brass); background: transparent;
         }
-        .hv-cart-line-name { font: 600 16px/1.3 var(--sans); color: var(--fg); margin: 0; }
-        .hv-cart-line-blurb { font: 400 13.5px/1.55 var(--sans); color: var(--fg-soft); margin: 4px 0 0; max-width: 52ch; }
-        .hv-cart-line-price { font: 600 15px/1.3 var(--sans); color: var(--fg); margin: 8px 0 0; }
-        .hv-cart-offers { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--rule); }
-        .hv-cart-offers-title { font: 500 13px/1.2 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--fg-mute); margin: 0 0 10px; }
+        .hv-cart-line-name { font: 600 16.5px/1.35 var(--sans); color: var(--fg); margin: 0; }
+        .hv-cart-line-blurb { font: 400 13.5px/1.6 var(--sans); color: var(--fg-soft); margin: 5px 0 0; max-width: 52ch; }
+        .hv-cart-line-price { font: 600 16px/1.3 var(--sans); color: var(--fg); margin: 10px 0 0; }
+
+        .hv-cart-offers { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--rule); }
+        .hv-cart-offers-title { font: 500 11px/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-mute); margin: 0 0 12px; }
         .hv-cart-offers-row { display: flex; gap: 10px; flex-wrap: wrap; }
         .hv-cart-offer {
-          display: grid; gap: 2px; text-align: left; cursor: pointer;
-          padding: 10px 14px; border: 1px dashed var(--rule); border-radius: var(--radius);
-          background: var(--surface-soft); color: var(--fg);
+          display: grid; gap: 3px; text-align: left; cursor: pointer;
+          padding: 11px 15px; border: 1px dashed var(--rule-strong); border-radius: var(--radius);
+          background: transparent; color: var(--fg);
+          transition: border-color .25s var(--ease), background .25s var(--ease);
         }
-        .hv-cart-offer.is-on { border-style: solid; border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
-        .hv-cart-offer.is-locked { opacity: .55; cursor: not-allowed; }
+        .hv-cart-offer:hover:not(:disabled) { background: var(--surface-soft); }
+        .hv-cart-offer.is-on {
+          border-style: solid; border-color: var(--brass); background: var(--surface-soft);
+        }
+        .hv-cart-offer.is-locked { opacity: .5; cursor: not-allowed; }
         .hv-cart-offer-code { font: 600 13px/1.2 var(--mono, var(--sans)); letter-spacing: .06em; }
-        .hv-cart-offer-terms { font: 400 12.5px/1.4 var(--sans); color: var(--fg-soft); }
-        .hv-cart-offer-state { font: 500 11.5px/1.4 var(--sans); color: var(--brass); }
-        .hv-cart-nudge { font: 400 13px/1.5 var(--sans); color: var(--fg-soft); margin: 10px 0 0; }
-        .hv-cart-bill { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--rule); display: grid; gap: 6px; }
+        .hv-cart-offer-terms { font: 400 12.5px/1.45 var(--sans); color: var(--fg-soft); }
+        .hv-cart-offer-state { font: 500 11.5px/1.45 var(--sans); color: var(--accent-text); }
+        .hv-cart-nudge { font: 400 13px/1.55 var(--sans); color: var(--fg-soft); margin: 12px 0 0; }
+
+        .hv-cart-bill {
+          margin-top: 24px; padding: 18px; display: grid; gap: 7px;
+          border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.4);
+          background: var(--surface-soft);
+        }
         .hv-cart-bill-row { display: flex; justify-content: space-between; gap: 16px; font: 400 14px/1.5 var(--sans); color: var(--fg-soft); margin: 0; }
-        .hv-cart-bill-row.is-off { color: var(--brass); }
-        .hv-cart-bill-row.is-total { font: 600 17px/1.4 var(--sans); color: var(--fg); padding-top: 6px; border-top: 1px solid var(--rule); }
-        .hv-cart-bill-note { font: 400 12.5px/1.5 var(--sans); color: var(--fg-mute); margin: 2px 0 0; }
-        .hv-cart-go { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 20px; }
-        .hv-cart-fine { font: 400 12.5px/1.5 var(--sans); color: var(--fg-mute); }
-        .hv-cart-note { font: 400 14px/1.5 var(--sans); color: var(--fg); margin: 14px 0 0; }
-        .hv-cart-error { font: 400 14px/1.5 var(--sans); color: var(--danger, #b3261e); margin: 14px 0 0; }
+        .hv-cart-bill-row.is-off { color: var(--accent-text); }
+        .hv-cart-bill-row.is-total { font: 600 18px/1.4 var(--sans); color: var(--fg); padding-top: 9px; border-top: 1px solid var(--rule); }
+        .hv-cart-bill-note { font: 400 12.5px/1.55 var(--sans); color: var(--fg-mute); margin: 3px 0 0; }
+        .hv-cart-go { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 22px; }
+        .hv-cart-fine { font: 400 12.5px/1.55 var(--sans); color: var(--fg-mute); }
+        .hv-cart-note { font: 400 14px/1.55 var(--sans); color: var(--fg); margin: 16px 0 0; }
+        .hv-cart-error { font: 400 14px/1.55 var(--sans); color: var(--danger, #b3261e); margin: 16px 0 0; }
         @media (max-width: 560px) {
-          .hv-cart { padding: 18px; }
-          .hv-cart-line { align-items: flex-start; }
+          .hv-cart { padding: 20px; }
+          .hv-cart-line, .hv-cart-special { align-items: flex-start; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hv-cart-line { transition: none; }
+          .hv-cart-offer { transition: none; }
         }
       `}</style>
     </section>
@@ -433,25 +563,33 @@ function Stepper({
       <style>{`
         .hv-step {
           display: inline-flex; align-items: center; gap: 2px;
-          border: 1px solid var(--brass); border-radius: var(--radius); overflow: hidden;
+          border: 1px solid var(--rule-brass); border-radius: var(--radius-pill);
+          background: var(--surface); overflow: hidden;
         }
         .hv-step-btn {
-          width: 40px; height: 40px; border: 0; background: transparent; cursor: pointer;
-          font: 500 18px/1 var(--sans); color: var(--brass);
+          width: 42px; height: 42px; border: 0; background: transparent; cursor: pointer;
+          font: 400 19px/1 var(--sans); color: var(--accent-text);
+          transition: background .2s var(--ease);
         }
-        .hv-step-btn:disabled { opacity: .35; cursor: not-allowed; }
+        .hv-step-btn:hover:not(:disabled) { background: var(--surface-soft); }
+        .hv-step-btn:disabled { opacity: .3; cursor: not-allowed; }
         .hv-step-value {
-          min-width: 34px; text-align: center; font: 600 15px/1 var(--sans); color: var(--fg);
+          min-width: 30px; text-align: center; font: 600 15px/1 var(--sans); color: var(--fg);
         }
+        @media (prefers-reduced-motion: reduce) { .hv-step-btn { transition: none; } }
       `}</style>
     </span>
   );
 }
 
-/** "2 projects and 5 AI credits" — what the basket actually hands over, combos unpacked. */
+/** "2 projects and 5 AI credits" — what the basket actually hands over, offers unpacked. */
 function describeBasket(qty: Record<LineId, number>, cart: CartCatalogue): string {
-  const projects = qty.project + qty.combo * cart.comboProjects;
-  const credits = qty.credit + qty.combo * cart.comboCredits;
+  const projects = qty.project
+    + qty.combo * cart.comboProjects
+    + qty.bundle * (cart.bundleProjects ?? 0);
+  const credits = qty.credit
+    + qty.combo * cart.comboCredits
+    + qty.bundle * (cart.bundleCredits ?? 0);
   const parts: string[] = [];
   if (projects > 0) parts.push(`${projects} project${projects === 1 ? "" : "s"}`);
   if (credits > 0) parts.push(`${credits} AI image credit${credits === 1 ? "" : "s"}`);

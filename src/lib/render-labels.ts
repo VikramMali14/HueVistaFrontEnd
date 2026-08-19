@@ -47,20 +47,19 @@ export const BORDER_LABELS: Record<RenderOptions["borderMode"], string> = {
   AI_SUGGESTED: "Suggest borders",
 };
 
-/** The three qualities, as a person says them. */
+/** The two qualities, as a person says them. */
 export const QUALITY_LABELS: Record<RenderQuality, string> = {
-  BASIC: "Basic",
-  PRO: "Pro",
-  MAX: "Max",
+  PREMIUM: "Premium",
+  LUXURY: "Luxury",
 };
 
 /**
- * "Modern · Day · Natural light · Max" — how one image was photographed, in one line.
+ * "Modern · Day · Natural light · Luxury" — how one image was photographed, in one line.
  *
  * The quality is on the end because two pictures of the same room in the same scheme can
  * now differ by nothing else, and a shelf of them with identical captions is a shelf
- * nobody can choose from. BASIC is left off: it is the ordinary picture, and labelling the
- * default is noise on every caption in order to be useful on a few.
+ * nobody can choose from. PREMIUM is left off: it is the ordinary picture, and labelling
+ * the default is noise on every caption in order to be useful on a few.
  *
  * Falls back to the raw enum value rather than to an empty string when a server sends
  * something this build has not heard of. A caption reading "TWILIGHT" is odd; a caption
@@ -73,6 +72,6 @@ export function describeRender(
   const when = TIME_OF_DAY_LABELS[render.timeOfDay] ?? render.timeOfDay;
   const light = LIGHTING_LABELS[render.lighting] ?? render.lighting;
   const line = `${look} · ${when} · ${light} light`;
-  if (!render.quality || render.quality === "BASIC") return line;
+  if (!render.quality || render.quality === "PREMIUM") return line;
   return `${line} · ${QUALITY_LABELS[render.quality] ?? render.quality}`;
 }
