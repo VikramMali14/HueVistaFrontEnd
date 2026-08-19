@@ -326,6 +326,30 @@ const UPLOADED: UploadedImage = {
   uploadedAt: "2026-06-11T00:00:00Z",
 };
 
+/**
+ * What an admin's segment request carries when every knob is left alone.
+ *
+ * Spread into each admin assertion below rather than written out three times, so that
+ * adding a knob is one edit here instead of three near-identical ones — and so the
+ * thing each test is actually about (an unchecked clean, a simulated failure, a pinned
+ * model) is the only line that differs from this baseline.
+ *
+ * Note what is NOT here: a non-admin's request sends `{ maskMode }` and nothing else,
+ * which the two assertions above already pin. That contrast is the point — every knob
+ * in this object is stripped by the endpoint for any other role.
+ */
+const ADMIN_DEFAULTS = {
+  cleanImage: true,
+  maskMode: "AUTO",
+  simulateFailure: "NONE",
+  cleanModel: "",
+  maskModel: "",
+  analysePhoto: false,
+  houseType: "",
+  cleanFurnishing: "KEEP",
+  cleanAngle: "AS_SHOT",
+} as const;
+
 function makeFile(name: string, type: string, size?: number): File {
   const file = new File(["x"], name, { type });
   if (size !== undefined) Object.defineProperty(file, "size", { value: size });
@@ -546,16 +570,13 @@ describe("Visualizer — confirm before processing", () => {
       fireEvent.click(confirm);
     });
 
-    // simulateFailure rides along as an explicit NONE, and the two model knobs as
-    // explicit blanks. The backend keeps whatever it was last given, so an omitted
-    // field would silently carry a rehearsal — or a model pinned for one comparison —
-    // from one run into every run after it.
+    // Every knob rides along explicitly, even the ones left alone. The backend keeps
+    // whatever it was last given, so an omitted field would silently carry a rehearsal
+    // — or a model pinned for one comparison, or a re-framed camera — from one run into
+    // every run after it.
     expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
+      ...ADMIN_DEFAULTS,
       cleanImage: false,
-      maskMode: "AUTO",
-      simulateFailure: "NONE",
-      cleanModel: "",
-      maskModel: "",
     });
   });
 
@@ -582,11 +603,8 @@ describe("Visualizer — confirm before processing", () => {
     });
 
     expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
-      cleanImage: true,
-      maskMode: "AUTO",
+      ...ADMIN_DEFAULTS,
       simulateFailure: "MASK",
-      cleanModel: "",
-      maskModel: "",
     });
   });
 
@@ -628,11 +646,70 @@ describe("Visualizer — confirm before processing", () => {
     });
 
     expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
-      cleanImage: true,
-      maskMode: "AUTO",
-      simulateFailure: "NONE",
+      ...ADMIN_DEFAULTS,
       cleanModel: "black-forest-labs/flux-2-max",
       maskModel: "google/nano-banana-pro",
+    });
+  });
+
+  it("an admin picks the models first, then what the photo is, then continues", async () => {
+    // The panel is two pages because the two halves are decided at different moments:
+    // which models run this, and then what the photo is and how it should be prompted.
+    // The models page is first because that is the choice an admin arrives with.
+    const { container } = render(<Visualizer initialName="Test room" isAdmin />);
+    await screen.findByText("Add a photo of the room");
+
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
+
+    // Page one: the models. The prompt knobs are not on screen yet.
+    await screen.findByText("Clean the photo with");
+    expect(screen.queryByText(/Look at the photo properly first/i)).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Next: the photo/i }));
+    });
+
+    // Page two: what the photo is. The model radios have made way for it.
+    expect(screen.queryByText("Clean the photo with")).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText(/Look at the photo properly first/i));
+    });
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/Treat it as/i), { target: { value: "BATHROOM" } });
+    });
+    const radio = (group: string, value: string) => {
+      const found = container.querySelector<HTMLInputElement>(
+        `input[type="radio"][name="${group}"][value="${value}"]`,
+      );
+      if (!found) throw new Error(`No ${group} radio for ${value}`);
+      return found;
+    };
+    await act(async () => {
+      fireEvent.click(radio("clean-furnishing", "EMPTY"));
+    });
+    await act(async () => {
+      fireEvent.click(radio("clean-angle", "BEST_VIEW"));
+    });
+
+    // Re-framing is the one choice here that changes something the customer can check
+    // against their own house, so the panel says so before the generation is spent.
+    expect(screen.getByText(/draws surfaces the photo\s+never showed it/i)).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
+      ...ADMIN_DEFAULTS,
+      analysePhoto: true,
+      houseType: "BATHROOM",
+      cleanFurnishing: "EMPTY",
+      cleanAngle: "BEST_VIEW",
     });
   });
 

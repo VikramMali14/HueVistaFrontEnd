@@ -382,7 +382,60 @@ export interface SegmentationOptions {
    *  answer — nothing in the image says which one produced it. */
   cleanModel?: string;
   maskModel?: string;
+  /** ADMIN-only testing knob (the backend strips it for other roles): spend one
+   *  extra Claude Haiku call looking at the photo properly before cleaning it —
+   *  what KIND of place it is, and what colour its walls are right now — and let
+   *  the answer tune the cleaning and mask prompts.
+   *
+   *  Off by default, and deliberately not part of the upload-time classification
+   *  every photo already goes through: that call has one job, accept or reject the
+   *  upload, and nothing about it needs a house type. A run with this off is
+   *  prompted exactly as every run was before this existed. */
+  analysePhoto?: boolean;
+  /** ADMIN-only testing knob: treat the photo as this kind of place instead of
+   *  whatever `analysePhoto` decided, so the same photo can be run under two types
+   *  and the prompt clauses compared. The empty string hands the choice back to the
+   *  analysis. Must name a HouseType — the backend 400s on anything else rather
+   *  than quietly running the default. */
+  houseType?: HouseType | "";
+  /** ADMIN-only testing knobs: what the clean-up does with the furniture already in
+   *  the room, and which camera the cleaned canvas comes back from. Both defaults
+   *  reproduce today's prompt byte for byte.
+   *
+   *  BEST_VIEW is the one option here that changes something the customer can check
+   *  against their own house — moving the camera means the model draws surfaces the
+   *  photo never showed it. Bounded hard in the prompt, and off by default. */
+  cleanFurnishing?: CleanFurnishing;
+  cleanAngle?: CleanAngle;
 }
+
+/** What kind of place a photo shows, one level finer than indoor/outdoor. Not a
+ *  taxonomy: every member earns its place by changing what the cleaning or mask
+ *  prompt should say, so a distinction that changes nothing is not a member.
+ *  UNKNOWN is the honest answer and adds no clause. */
+export type HouseType =
+  | "INDEPENDENT_HOUSE"
+  | "APARTMENT_BLOCK"
+  | "ROW_HOUSE"
+  | "SHOPFRONT"
+  | "COMPOUND_WALL"
+  | "LIVING_ROOM"
+  | "BEDROOM"
+  | "KITCHEN"
+  | "BATHROOM"
+  | "STAIRWELL_OR_HALLWAY"
+  | "OFFICE_OR_SHOP"
+  | "UNKNOWN";
+
+/** KEEP leaves the room exactly as photographed; EMPTY clears the loose furniture
+ *  so more wall is paintable. There is no STAGED here, unlike the render studio's
+ *  furnishing option: this decides what the WORKING CANVAS looks like, and a canvas
+ *  containing a sofa the room does not have is one the customer cannot check their
+ *  own house against. */
+export type CleanFurnishing = "KEEP" | "EMPTY";
+
+/** AS_SHOT keeps the photograph's own camera; BEST_VIEW lets the model re-frame. */
+export type CleanAngle = "AS_SHOT" | "BEST_VIEW";
 
 /** One image model an admin may pin a run to. Served by the backend rather than
  *  listed here so the studio can only ever offer models the backend will run —
@@ -441,6 +494,23 @@ export interface ProjectDetail {
    *  attributed — a comparison nobody can attribute afterwards was not one. */
   cleanModel?: string | null;
   maskModel?: string | null;
+  /** What a closer look at the photo found, when an admin asked for one. Null on
+   *  every project that never did, which is every customer project. Owner view only. */
+  houseType?: HouseType | null;
+  /** The colour the walls are RIGHT NOW, as they appear under the photo's own light,
+   *  plus the model's everyday name for it. Shown beside the palette as context and
+   *  never used as a paint colour — the cleaned canvas stays white because the
+   *  recolour maths treats it as an illumination map (see REF_WHITE in
+   *  canvas2d-recolor.ts). Null whenever no colour could be read honestly: an
+   *  unpainted wall, deep shadow, a wall too small in frame. Null is the RIGHT answer
+   *  there, because this sits next to shades a customer may be about to buy. */
+  detectedWallHex?: string | null;
+  detectedWallColour?: string | null;
+  detectedTrimHex?: string | null;
+  /** The prompt knobs this project's last run used. Null = the defaults. Carried so a
+   *  canvas that came back unlike the others can be traced to the choice that made it. */
+  cleanFurnishing?: CleanFurnishing | null;
+  cleanAngle?: CleanAngle | null;
   regions: RegionDetail[];
   hasShareLink?: boolean;
   shareExpiresAt?: string | null;
