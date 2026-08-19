@@ -1473,3 +1473,133 @@ describe("Visualizer — a guest who has used up their code", () => {
     expect(screen.queryByRole("button", { name: /Buy a project/i })).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// A locked project's colour panel
+// ---------------------------------------------------------------------------
+//
+// Closing a project, or running out of days on it, used to leave the two browsing
+// tabs on screen offering repaints the server refuses. These pin the swap: a locked
+// project gets one tab — the combinations it already handed over — the combinations
+// still apply to the preview, and nothing about them is saved.
+
+describe("Visualizer — a locked project shows the colours it handed over", () => {
+  const PANEL_SHADES: PaintShade[] = [
+    { code: "AP-1", name: "Blush Zephyr", hex: "#d98c8c", family: "Reds", lrv: 45, brand: "Asian Paints", finishes: [] },
+    { code: "AP-2", name: "Sun Zephyr", hex: "#d9c78c", family: "Yellows", lrv: 62, brand: "Asian Paints", finishes: [] },
+  ];
+
+  const CLOSED = projectDetail({
+    status: "SEGMENTED",
+    regions: SEGMENTED_REGIONS,
+    readOnly: true,
+    readOnlyReason: "This project is finished.",
+    closedAt: "2026-07-01T00:00:00Z",
+  });
+
+  const BOARD_COMBOS = [
+    {
+      id: "combo-1",
+      boardIndex: 1,
+      pageIndex: 0,
+      title: null,
+      rendered: false,
+      shades: [
+        { regionId: 11, regionLabel: "Left feature wall", shadeCode: "AP-1", shadeName: "Blush Zephyr", hex: "#d98c8c" },
+        { regionId: 12, regionLabel: "Window trim", shadeCode: "AP-2", shadeName: "Sun Zephyr", hex: "#d9c78c" },
+      ],
+    },
+  ];
+
+  /** Open p-1 in whatever state the mocks describe, and let the load settle. */
+  async function openProject() {
+    render(<Visualizer projectId="p-1" shades={PANEL_SHADES} />);
+    await screen.findAllByRole("tab");
+  }
+
+  beforeEach(() => {
+    vi.mocked(api.getProject).mockResolvedValue(CLOSED);
+    vi.mocked(api.getProjectCombos).mockResolvedValue(BOARD_COMBOS);
+  });
+
+  it("replaces both browsing tabs with the customer's own selection", async () => {
+    await openProject();
+
+    await waitFor(() =>
+      expect(screen.getAllByRole("tab").map((t) => t.textContent?.trim())).toEqual([
+        "Your Selection",
+      ]),
+    );
+    expect(screen.queryByRole("tab", { name: /AI Suggest/ })).not.toBeInTheDocument();
+    // The search that went with the catalogue goes with it.
+    expect(screen.queryByLabelText("Search by name or code")).not.toBeInTheDocument();
+  });
+
+  it("shows each colour against the wall the board put it on", async () => {
+    await openProject();
+
+    expect(
+      await screen.findByRole("button", { name: /^Left feature wall: Blush Zephyr \(AP-1\)/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Window trim: Sun Zephyr \(AP-2\)/ }),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The whole point of the tab. A locked project refused every apply, so its saved
+   * colours could be read and not SEEN — on the one screen whose job is showing the
+   * room in them.
+   */
+  it("repaints the room from a saved combination, and saves nothing", async () => {
+    const user = userEvent.setup();
+    await openProject();
+
+    await user.click(await screen.findByRole("button", { name: "Apply all" }));
+
+    // The dock names the colour that landed, so the canvas really did change.
+    await waitFor(() => expect(screen.getAllByText("Sun Zephyr").length).toBeGreaterThan(0));
+    // ...and the autosave never ran: a locked project's saved colours are what the
+    // customer finished with.
+    expect(api.updateRegionColors).not.toHaveBeenCalled();
+  });
+
+  it("offers no wall tools, every one of which the backend would refuse", async () => {
+    await openProject();
+    await screen.findByRole("button", { name: "Apply all" });
+
+    expect(screen.queryByRole("button", { name: "+ Wall" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Remove /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Fix the shape of /i })).not.toBeInTheDocument();
+  });
+
+  it("offers no 'Keep original', which would ask them to undo a finished room", async () => {
+    const user = userEvent.setup();
+    await openProject();
+
+    await user.click(await screen.findByRole("button", { name: "Apply all" }));
+    await waitFor(() => expect(screen.getAllByText("Sun Zephyr").length).toBeGreaterThan(0));
+
+    expect(screen.queryByRole("button", { name: /Keep original/i })).not.toBeInTheDocument();
+  });
+
+  it("gives a live project both browsing tabs and no selection tab", async () => {
+    vi.mocked(api.getProject).mockResolvedValue(
+      projectDetail({ status: "SEGMENTED", regions: SEGMENTED_REGIONS }),
+    );
+    await openProject();
+
+    await waitFor(() =>
+      expect(screen.getAllByRole("tab").map((t) => t.textContent?.trim())).toEqual([
+        "Colours",
+        "AI Suggest",
+      ]),
+    );
+    // Nothing to read the boards for while the whole catalogue is open.
+    expect(api.getProjectCombos).not.toHaveBeenCalled();
+    // ...and the wall tools the locked room does without are all here, which is what
+    // makes their absence up there mean something.
+    expect(screen.getByRole("button", { name: "+ Wall" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Remove /i }).length).toBeGreaterThan(0);
+  });
+});

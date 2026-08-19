@@ -8,7 +8,7 @@ import { Button, LinkButton } from "@/components/ui/button";
 import { LoaderOverlay } from "@/components/ui/loader-overlay";
 import { Spinner } from "@/components/ui/spinner";
 import { type PipelineStage } from "./pipeline-bar";
-import { ShadeGrid } from "./shade-grid";
+import { ShadeGrid, type SelectionCombo } from "./shade-grid";
 import { CompanyPicker } from "./company-picker";
 import { MaskStudio, type ExistingMask } from "./mask-studio";
 import { ProjectDetailsGate, type ProjectDetails } from "./project-details-gate";
@@ -45,6 +45,7 @@ import { BoardDownloadConfirm } from "./board-download-confirm";
 import { IMAGE_ACCEPT, cropAndEncode, imageFileError, loadImageFromFile } from "@/lib/image-upload";
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
+import { mapToPaintShade } from "@/lib/shade-mapping";
 import { formatLimitSymbol, projectAllowance } from "@/lib/plan-quota";
 import { codesAreUniversal, displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { resolveMediaUrl } from "@/lib/media";
@@ -484,7 +485,26 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
    * this is the UI half of one rule rather than a rule of its own.
    */
   const [wallsLocked, setWallsLocked] = useState(false);
-  const [unlockedShadeCodes, setUnlockedShadeCodes] = useState<string[]>([]);
+  /**
+   * The combinations this project handed over on its colour boards.
+   *
+   * Loaded only once the project LOCKS, which is the only state that reads them: while a
+   * project is live the whole catalogue is open, so this would be a request per studio
+   * open for an answer nothing renders. Once it locks they become the "Your Selection"
+   * tab — the customer's own colours, still on their own walls — and the set the shade
+   * panel is narrowed to.
+   */
+  const [savedCombos, setSavedCombos] = useState<import("@/lib/types").ProjectCombo[]>([]);
+  /**
+   * The project is LOCKED: no colour on it can change until it is bought open.
+   *
+   * Either half is enough. A closed project is finished — the customer said "this is the
+   * one" — and a project past its window has simply run out of days; the two want
+   * different sentences said to the customer, which is why they are separate flags, but
+   * they want the same colour panel, because the server refuses the same writes for
+   * both. One reopen purchase clears either, and this goes false the moment it does.
+   */
+  const projectLocked = viewOnly || closed;
   const [boardsUsed, setBoardsUsed] = useState(0);
   const [boardsAllowed, setBoardsAllowed] = useState(0);
   const [reopenPoints, setReopenPoints] = useState(0);
@@ -1572,11 +1592,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     })();
   }, []);
 
-  // Apply a catalogue shade to a SPECIFIC region (the active one, or any region
-  // a coordinate suggestion targets). Persists when the region exists on the backend.
+  /**
+   * Apply a catalogue shade to a SPECIFIC region (the active one, or any region a
+   * coordinate suggestion targets). Persists when the region exists on the backend.
+   *
+   * On a LOCKED project it repaints the picture and stops there — no autosave, and
+   * nothing asked of a server that would refuse it anyway. That is not a loosening of
+   * the lock: the lock is about what this project IS when it is next opened, and the
+   * customer flipping between the combinations they already chose changes none of it.
+   * Refusing the repaint outright is what used to make "Your Selection" a list of
+   * colours that could be read and not seen — the one thing a room preview is for.
+   */
   const applyShadeTo = useCallback(
     (regionId: string, shade: PaintShade) => {
-      if (viewOnly) return;
       let updatedBackendId: number | undefined;
       setRegions((prev) =>
         prev.map((r) => {
@@ -1594,7 +1622,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setRecentShades((prev) => [shade, ...prev.filter((s) => s.code !== shade.code)].slice(0, 10));
       setStage("recolor");
 
-      if (projectId && updatedBackendId !== undefined) {
+      // The one line the lock owns: a locked project's saved colours are what the
+      // customer finished with, and a preview must never overwrite them.
+      if (!viewOnly && projectId && updatedBackendId !== undefined) {
         const payload: RegionColorUpdate[] = [
           { regionId: updatedBackendId, shadeCode: shade.code, hexCode: shade.hex },
         ];
@@ -2290,7 +2320,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     // determined browser can do is look at a shade it cannot apply.
     if (closed) {
       const unlocked = new Set(
-        unlockedShadeCodes.map((c) => c.toUpperCase()),
+        savedCombos.flatMap((c) =>
+          c.shades.map((s) => s.shadeCode?.toUpperCase()).filter((x): x is string => !!x),
+        ),
       );
       const kept = (shades ?? []).filter((s) => unlocked.has(s.code.toUpperCase()));
       // Never hand back an empty panel: a closed project whose boards recorded only
@@ -2300,33 +2332,34 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     if (companies.length === 0) return shades;
     const scoped = (shades ?? []).filter((s) => companies.includes(s.brand));
     return scoped.length > 0 ? scoped : shades;
-  }, [shades, companies, closed, unlockedShadeCodes]);
+  }, [shades, companies, closed, savedCombos]);
 
   /**
-   * The shade codes this project's colour boards carried — what stays visible once it
-   * closes. Loaded only when it actually is closed: on a live project the whole
-   * catalogue is open and there is nothing to filter, so asking would be a request per
-   * project open for an answer nobody reads.
+   * The colour boards this project handed over — read once it locks.
+   *
+   * Cleared again when the project is bought open, so a reopen doesn't leave the studio
+   * holding a finished project's boards while the customer is repainting a live one.
    */
   useEffect(() => {
     const id = projectId ?? openProjectId;
-    if (!closed || !id || guest) return;
+    if (!projectLocked || !id || guest) {
+      setSavedCombos([]);
+      return;
+    }
     let cancelled = false;
     api
       .getProjectCombos(id)
       .then((list) => {
-        if (cancelled) return;
-        setUnlockedShadeCodes(
-          list.flatMap((c) => c.shades.map((s) => s.shadeCode).filter((x): x is string => !!x)),
-        );
+        if (!cancelled) setSavedCombos(list);
       })
       .catch(() => {
-        /* The panel falls back to the full catalogue, which is still unpaintable. */
+        /* The panel falls back to the colours still on the room, which is the same
+           selection seen from the other side. */
       });
     return () => {
       cancelled = true;
     };
-  }, [closed, projectId, openProjectId, guest]);
+  }, [projectLocked, projectId, openProjectId, guest]);
 
   // Undertone check across every painted wall: the first warm-vs-cool (or
   // white-tint) fight found becomes a quiet note in the shade panel.
@@ -2358,6 +2391,64 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       })),
     [regions],
   );
+
+  /**
+   * The saved boards, in the shape the "Your Selection" tab renders.
+   *
+   * Three things are resolved here rather than in the panel, because all three are
+   * questions about THIS studio rather than about a card:
+   *
+   *   - the shade. Prefer the live catalogue entry for the code, so the dock's tips
+   *     (LRV, finishes, fade risk) are the real ones; fall back to a shade rebuilt from
+   *     what the board recorded, so a combination still applies after a catalogue
+   *     re-import that dropped its code.
+   *   - the wall. Boards store the BACKEND region id; the canvas works in local ids, and
+   *     a wall deleted since the board was printed has neither. Unresolved is fine — the
+   *     panel falls back to main/accent/trim for those.
+   *   - the fallback. A project can lock without ever taking a board (closed from the
+   *     studio, or simply out of days), and that customer still chose colours: the ones
+   *     on the room. They become one combination so the tab is never empty on a room
+   *     that plainly has paint on it.
+   */
+  const selectionCombos = useMemo<SelectionCombo[]>(() => {
+    if (!projectLocked) return [];
+    const byCode = new Map((shades ?? []).map((s) => [s.code.toUpperCase(), s]));
+    const localRegionId = (backendId: number | null | undefined) =>
+      backendId == null ? undefined : regions.find((r) => r.backendId === backendId)?.id;
+
+    const fromBoards = savedCombos.map((combo, i) => ({
+      id: combo.id,
+      title: combo.title?.trim()
+        ? combo.title
+        : `Board ${combo.boardIndex || 1} · Option ${(combo.pageIndex ?? i) + 1}`,
+      entries: combo.shades.map((s) => ({
+        regionId: localRegionId(s.regionId),
+        regionLabel: s.regionLabel ?? undefined,
+        shade:
+          (s.shadeCode ? byCode.get(s.shadeCode.toUpperCase()) : undefined) ??
+          mapToPaintShade({
+            shadeCode: s.shadeCode ?? s.hex,
+            name: s.shadeName ?? "Custom colour",
+            hexCode: s.hex,
+          }),
+      })),
+    }));
+    if (fromBoards.length > 0) return fromBoards;
+
+    const painted = regions.filter((r) => r.applied && r.shade);
+    if (painted.length === 0) return [];
+    return [
+      {
+        id: "current",
+        title: "Colours on this room",
+        entries: painted.map((r) => ({
+          regionId: r.id,
+          regionLabel: r.label,
+          shade: r.shade!,
+        })),
+      },
+    ];
+  }, [projectLocked, savedCombos, regions, shades]);
 
   // The region the Mask Studio is refining (its current mask seeds the canvas).
   const editTarget = useMemo<ExistingMask | null>(() => {
@@ -3762,7 +3853,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             activeRegionId={activeRegion}
             regions={regionLites}
             onApplyToRegion={applyShadeTo}
-            onKeepOriginal={onKeepOriginalActive}
+            // Undefined on a locked project: applying a saved combination is a preview,
+            // and "Keep original" is the one control that would ask the customer to undo
+            // part of a room they have already finished with.
+            onKeepOriginal={projectLocked ? undefined : onKeepOriginalActive}
             hideCodes={hideRawCodes}
             hideNames={hideNames}
             showBrands={showBrands}
@@ -3771,13 +3865,17 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             // Undefined rather than disabled when the walls are fixed: these props are
             // what the panel renders its wall tools FROM, so leaving them out removes
             // the buttons instead of showing four things that refuse to work.
-            onAddWall={wallsLocked ? undefined : () => {
+            //
+            // A LOCKED project fixes them for the same reason a library room does, from
+            // the other end: cutting, refining and deleting a wall are all writes, and
+            // the backend refuses every one of them until the project is bought open.
+            onAddWall={wallsLocked || projectLocked ? undefined : () => {
               setEditingRegionId(null);
               setMaskStudioOpen(true);
             }}
-            onEditWall={wallsLocked ? undefined : editRegionMask}
-            onDeleteWall={wallsLocked ? undefined : handleDeleteWall}
-            masksRemaining={wallsLocked ? undefined : masksRemaining}
+            onEditWall={wallsLocked || projectLocked ? undefined : editRegionMask}
+            onDeleteWall={wallsLocked || projectLocked ? undefined : handleDeleteWall}
+            masksRemaining={wallsLocked || projectLocked ? undefined : masksRemaining}
             triedShades={triedByRegion[activeRegion]}
             recentShades={recentShades}
             outdoor={classification === "OUTDOOR"}
@@ -3787,6 +3885,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             // Shop picks appear once the room photo is up — before that there's
             // nothing to apply them to.
             shopCombos={imageUrl ? shopCombos : undefined}
+            // Locked: the two browsing tabs come off and "Your Selection" — this
+            // customer's own colour boards — becomes the whole panel. Buying the project
+            // open flips this back and the live tabs return with it.
+            selectionOnly={projectLocked}
+            selectionCombos={selectionCombos}
+            selectionNote={viewOnlyReason}
             // Nothing to paint until a photo is up. The panel used to be fully
             // live on the "Name your project" and "Add a photo" screens — you
             // could pick a shade and press Apply and absolutely nothing
