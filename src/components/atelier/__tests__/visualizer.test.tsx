@@ -123,13 +123,6 @@ vi.mock("@/lib/api", () => {
       })),
       // Shop picks load best-effort on mount; default to none so the effect is a no-op.
       getRetailerCombos: vi.fn(async () => []),
-      // The admin panel's model radios. Only fetched for an admin; two entries is
-      // enough to prove the radios are built from the response rather than a list
-      // baked into the client.
-      listAiModels: vi.fn(async () => [
-        { id: "google/nano-banana-pro", label: "Nano Banana Pro", family: "NANO_BANANA" },
-        { id: "black-forest-labs/flux-2-max", label: "FLUX 2 Max", family: "FLUX" },
-      ]),
       // PDF tray quota loads best-effort on mount.
       getPdfAllowance: vi.fn(async () => ({
         imagesPerPdf: 8,
@@ -327,27 +320,40 @@ const UPLOADED: UploadedImage = {
 };
 
 /**
- * What an admin's segment request carries when every knob is left alone.
+ * What ANY signed-in user's segment request carries when the two tickboxes are left as
+ * they open: the clean-up leaves the furniture and keeps the camera where it was.
+ *
+ * Every field is stated rather than omitted, and that is the thing being pinned: the
+ * backend keeps the last value it was given, so a request that left a field out would
+ * carry one run's re-framed camera into every later run of that room.
+ *
+ * analysePhoto is not here BY DESIGN. Looking at the photo properly is what a run does,
+ * so the backend does it unless told otherwise and the studio has nothing to say about
+ * it — a request that started carrying `analysePhoto: true` again would mean the
+ * question came back.
+ */
+const USER_DEFAULTS = {
+  maskMode: "AUTO",
+  cleanFurnishing: "KEEP",
+  cleanAngle: "AS_SHOT",
+} as const;
+
+/**
+ * What an ADMIN's request carries on top of that, with every testing knob left alone.
  *
  * Spread into each admin assertion below rather than written out three times, so that
  * adding a knob is one edit here instead of three near-identical ones — and so the
- * thing each test is actually about (an unchecked clean, a simulated failure, a pinned
- * model) is the only line that differs from this baseline.
+ * thing each test is actually about (an unchecked clean, a simulated failure) is the
+ * only line that differs from this baseline.
  *
- * Note what is NOT here: a non-admin's request sends `{ maskMode }` and nothing else,
- * which the two assertions above already pin. That contrast is the point — every knob
- * in this object is stripped by the endpoint for any other role.
+ * Note what is NOT here: the three extra fields are the ones the endpoint strips for
+ * any other role. The clean-up choices above are not among them any more.
  */
 const ADMIN_DEFAULTS = {
+  ...USER_DEFAULTS,
   cleanImage: true,
-  maskMode: "AUTO",
   simulateFailure: "NONE",
-  cleanModel: "",
-  maskModel: "",
-  analysePhoto: false,
   houseType: "",
-  cleanFurnishing: "KEEP",
-  cleanAngle: "AS_SHOT",
 } as const;
 
 function makeFile(name: string, type: string, size?: number): File {
@@ -501,8 +507,8 @@ describe("Visualizer — confirm before processing", () => {
       fireEvent.click(confirm);
     });
     expect(api.uploadImage).toHaveBeenCalledTimes(1);
-    // Non-admins send only the mask-mode product choice (AUTO by default).
-    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", { maskMode: "AUTO" });
+    // Non-admins send the mask mode and their three clean-up choices, nothing else.
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", USER_DEFAULTS);
   });
 
   it("keeps the confirm prompt for a retry when the upload fails", async () => {
@@ -525,8 +531,8 @@ describe("Visualizer — confirm before processing", () => {
       fireEvent.click(retry);
     });
     expect(api.uploadImage).toHaveBeenCalledTimes(2);
-    // Same contract as the first attempt: non-admins send the mask-mode choice.
-    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", { maskMode: "AUTO" });
+    // Same contract as the first attempt.
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", USER_DEFAULTS);
   });
 
   it("hides the admin clean-image toggle from non-admins and shows it to admins", async () => {
@@ -608,12 +614,12 @@ describe("Visualizer — confirm before processing", () => {
     });
   });
 
-  it("an admin can run each half of the pipeline on a chosen model", async () => {
-    // Comparing two image models used to mean editing the server config, restarting
-    // and re-uploading the photo. The two stages are picked separately because they
-    // reward different things — one holds a building still, the other fills flat
-    // colour to an edge.
-    const { container } = render(<Visualizer initialName="Test room" isAdmin />);
+  it("offers every user the two clean-up choices, and sends exactly what they ticked", async () => {
+    // These ran behind the admin panel while the clean-up was being proved out. They
+    // describe a picture the person at the screen is about to look at, so they are
+    // that person's to answer — tickboxes, not a pair of radios each, because each one
+    // is a yes/no about one thing.
+    const { container } = render(<Visualizer initialName="Test room" />);
     await screen.findByText("Add a photo of the room");
 
     await act(async () => {
@@ -623,97 +629,122 @@ describe("Visualizer — confirm before processing", () => {
     });
     const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
 
-    // The radios are built from what the backend said it will accept, not from a
-    // list baked into the studio — so the FLUX option only exists because the mocked
-    // endpoint named it.
-    await screen.findByText("Clean the photo with");
-    const radio = (group: string, value: string) => {
-      const found = container.querySelector<HTMLInputElement>(
-        `input[type="radio"][name="${group}"][value="${value}"]`,
-      );
-      if (!found) throw new Error(`No ${group} radio for ${value}`);
-      return found;
-    };
+    expect(screen.getByLabelText(/Clear the furniture out/i)).not.toBeChecked();
+    expect(screen.getByLabelText(/Straighten to a proper angle/i)).not.toBeChecked();
 
     await act(async () => {
-      fireEvent.click(radio("clean-model", "black-forest-labs/flux-2-max"));
+      fireEvent.click(screen.getByLabelText(/Clear the furniture out/i));
     });
     await act(async () => {
-      fireEvent.click(radio("mask-model", "google/nano-banana-pro"));
-    });
-    await act(async () => {
-      fireEvent.click(confirm);
+      fireEvent.click(screen.getByLabelText(/Straighten to a proper angle/i));
     });
 
-    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
-      ...ADMIN_DEFAULTS,
-      cleanModel: "black-forest-labs/flux-2-max",
-      maskModel: "google/nano-banana-pro",
-    });
-  });
-
-  it("an admin picks the models first, then what the photo is, then continues", async () => {
-    // The panel is two pages because the two halves are decided at different moments:
-    // which models run this, and then what the photo is and how it should be prompted.
-    // The models page is first because that is the choice an admin arrives with.
-    const { container } = render(<Visualizer initialName="Test room" isAdmin />);
-    await screen.findByText("Add a photo of the room");
-
-    await act(async () => {
-      fireEvent.change(fileInput(container), {
-        target: { files: [makeFile("room.jpg", "image/jpeg")] },
-      });
-    });
-    const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
-
-    // Page one: the models. The prompt knobs are not on screen yet.
-    await screen.findByText("Clean the photo with");
-    expect(screen.queryByText(/Look at the photo properly first/i)).not.toBeInTheDocument();
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Next: the photo/i }));
-    });
-
-    // Page two: what the photo is. The model radios have made way for it.
-    expect(screen.queryByText("Clean the photo with")).not.toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(screen.getByLabelText(/Look at the photo properly first/i));
-    });
-    await act(async () => {
-      fireEvent.change(screen.getByLabelText(/Treat it as/i), { target: { value: "BATHROOM" } });
-    });
-    const radio = (group: string, value: string) => {
-      const found = container.querySelector<HTMLInputElement>(
-        `input[type="radio"][name="${group}"][value="${value}"]`,
-      );
-      if (!found) throw new Error(`No ${group} radio for ${value}`);
-      return found;
-    };
-    await act(async () => {
-      fireEvent.click(radio("clean-furnishing", "EMPTY"));
-    });
-    await act(async () => {
-      fireEvent.click(radio("clean-angle", "BEST_VIEW"));
-    });
-
-    // Re-framing is the one choice here that changes something the customer can check
-    // against their own house, so the panel says so before the generation is spent.
-    expect(screen.getByText(/draws surfaces the photo\s+never showed it/i)).toBeInTheDocument();
+    // Re-framing changes something the user can check against their own house, so the
+    // panel says so before the generation is spent.
+    expect(screen.getByText(/draws surfaces your photo never\s+showed it/i)).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(confirm);
     });
 
+    // The pairs of words the prompt reads, not booleans — and no admin knob rode along.
     expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
-      ...ADMIN_DEFAULTS,
-      analysePhoto: true,
-      houseType: "BATHROOM",
+      maskMode: "AUTO",
       cleanFurnishing: "EMPTY",
       cleanAngle: "BEST_VIEW",
     });
   });
 
-  it("a non-admin is never offered the model radios, nor asks for the list", async () => {
+  it("never asks whether to look at the photo properly — the run always does", async () => {
+    // It was a tickbox for one release. A question whose right answer is always yes is
+    // not a question: the backend looks unless something explicitly says not to, and
+    // nothing here says not to, so the studio does not raise the subject at all.
+    const { container } = render(<Visualizer initialName="Test room" isAdmin />);
+    await screen.findByText("Add a photo of the room");
+
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
+
+    expect(screen.queryByText(/Look at the photo properly first/i)).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+
+    // Not `analysePhoto: false` either — saying nothing is what leaves it on.
+    expect(api.requestSegmentation).toHaveBeenCalledWith(
+      "p-1",
+      expect.not.objectContaining({ analysePhoto: expect.anything() }),
+    );
+  });
+
+  it("no longer offers to hand the walls over, so every run detects them", async () => {
+    // "I'll mark the walls myself" was a second radio beside AI detection. Both cost
+    // the same one project, the hand-marking tools are still there after the run, and
+    // a choice that only ever made the result worse is not a choice worth asking for.
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await screen.findByText("Add a photo of the room");
+
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
+
+    expect(screen.queryByText(/mark the walls myself/i)).not.toBeInTheDocument();
+    expect(container.querySelector('input[name="mask-mode"]')).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+    expect(api.requestSegmentation).toHaveBeenCalledWith(
+      "p-1",
+      expect.objectContaining({ maskMode: "AUTO" }),
+    );
+  });
+
+  it("an admin keeps the testing knobs but is no longer offered a model to pin", async () => {
+    // Picking the clean and mask models per run was how the chain was compared while
+    // it was being chosen. The chain is settled, and a pinned model is asked ALONE —
+    // no fallback — so leaving the picker on the confirm step only offered a way to
+    // make a real run worse.
+    const { container } = render(<Visualizer initialName="Test room" isAdmin />);
+    await screen.findByText("Add a photo of the room");
+
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
+
+    expect(screen.queryByText(/Clean the photo with/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Generate the wall mask with/i)).not.toBeInTheDocument();
+    // One page now, so nothing to step through to reach the rest of the panel.
+    expect(screen.queryByRole("button", { name: /Next: the photo/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Make the AI models fail/i)).toBeInTheDocument();
+
+    // The house type stayed behind: it overrides what the photo plainly is, which only
+    // serves a comparison.
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/Treat it as/i), { target: { value: "BATHROOM" } });
+    });
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
+      ...ADMIN_DEFAULTS,
+      houseType: "BATHROOM",
+    });
+  });
+
+  it("a non-admin is never offered the house-type override", async () => {
     const { container } = render(<Visualizer initialName="Test room" />);
     await screen.findByText("Add a photo of the room");
     await act(async () => {
@@ -723,9 +754,7 @@ describe("Visualizer — confirm before processing", () => {
     });
     await screen.findByRole("button", { name: /Continue with this image/i });
 
-    expect(screen.queryByText("Clean the photo with")).not.toBeInTheDocument();
-    // The endpoint is ROLE_ADMIN only — asking would just be a 403 on every load.
-    expect(api.listAiModels).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/Treat it as/i)).not.toBeInTheDocument();
   });
 
   it("keeps the failure knob away from non-admins", async () => {
@@ -780,7 +809,7 @@ describe("Visualizer — happy path (upload → segment → regions)", () => {
       roomType: undefined,
       notes: undefined,
     });
-    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", { maskMode: "AUTO" });
+    expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", USER_DEFAULTS);
     expect(api.getProjectStatus).toHaveBeenCalledTimes(2); // SEGMENTING, then SEGMENTED
 
     // Mask stage reached: notice chip + classification + the backend regions
@@ -974,7 +1003,8 @@ describe("Visualizer — segmentation give-up and retry", () => {
     });
 
     expect(api.requestSegmentation).toHaveBeenCalledTimes(2);
-    expect(api.requestSegmentation).toHaveBeenLastCalledWith("p-1", { maskMode: "AUTO" });
+    // The retry repeats the run, choices and all — not a barer version of it.
+    expect(api.requestSegmentation).toHaveBeenLastCalledWith("p-1", USER_DEFAULTS);
     expect(api.uploadImage).toHaveBeenCalledTimes(1); // unchanged
     expect(api.createProject).toHaveBeenCalledTimes(1); // unchanged
 

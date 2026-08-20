@@ -1252,17 +1252,19 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  // opts.maskMode ("AUTO" default / "MANUAL") is open to every caller — it decides
+  // Open to every caller: opts.maskMode ("AUTO" default / "MANUAL"), which decides
   // whether AI wall detection runs after the compulsory photo clean-up (MANUAL stops
-  // there; walls are then marked by hand, free on every plan). Everything else on the
-  // options object is an ADMIN-only testing knob: opts.cleanImage, opts.simulateFailure,
-  // opts.cleanModel/opts.maskModel, and the prompt knobs opts.analysePhoto,
-  // opts.houseType, opts.cleanFurnishing and opts.cleanAngle.
+  // there; walls are then marked by hand, free on every plan), and the two clean-up
+  // choices the studio asks for as tickboxes — opts.cleanFurnishing and opts.cleanAngle.
+  // opts.analysePhoto is an off switch nobody sends: omitted, the backend looks at the
+  // photo properly first. ADMIN-only testing knobs: opts.cleanImage,
+  // opts.simulateFailure and opts.houseType.
   //
-  // "Admin-only" is enforced at the endpoint by REBUILDING the request with maskMode
-  // alone for every other role, so a knob added here is admin-only by default and a
-  // crafted request from a customer cannot reach one. Sending them from a non-admin is
-  // therefore harmless rather than forbidden — they are dropped, not rejected.
+  // "Admin-only" is enforced at the endpoint by REBUILDING the request with the open
+  // fields alone for every other role, so a knob added here is admin-only until someone
+  // copies it into that list on purpose, and a crafted request from a customer cannot
+  // reach one. Sending them from a non-admin is therefore harmless rather than
+  // forbidden — they are dropped, not rejected.
   //
   // Masks are always stored raw — exactly as the model painted them.
   requestSegmentation: (projectId: string, opts?: SegmentationOptions) =>
@@ -1270,11 +1272,6 @@ export const api = {
       method: "POST",
       ...(opts ? { body: JSON.stringify(opts) } : {}),
     }),
-  // The image models a run may be pinned to, for the admin testing panel's radios.
-  // Fetched rather than hard-coded so the studio only offers what the backend will
-  // actually accept — a deployment can narrow or extend the list from config.
-  // ROLE_ADMIN only: 403 for everyone else, so only call it for an admin.
-  listAiModels: () => browserFetch<import("./types").AiModelOption[]>("api/projects/ai-models"),
   getProjectStatus: (projectId: string) =>
     browserFetch<ProjectDetail>(`api/projects/${encodeURIComponent(projectId)}/status`),
   getProject: (projectId: string) =>

@@ -51,7 +51,6 @@ import { codesAreUniversal, displayCodeOf, type ShadeCodeScheme } from "@/lib/sh
 import { resolveMediaUrl } from "@/lib/media";
 import { loadCrossOriginImage as loadImage } from "@/lib/load-image";
 import type {
-  AiModelOption,
   FailureStage,
   MaskReportIssue,
   PaintShade,
@@ -322,10 +321,10 @@ function presetIssuesFor(stage: FailureStage | "UNKNOWN" | null): MaskReportIssu
  * exteriors, then interiors. Labels rather than enum names because the panel is read by
  * a person, and "COMPOUND_WALL" is a database value.
  *
- * Listed here rather than fetched, unlike the model list: these are a fixed vocabulary
- * the backend compiles against, not deployment configuration that can change under the
- * client. A name this build offers and the backend does not know would be refused with
- * a 400 rather than silently running the default, which is the behaviour that matters.
+ * Listed here rather than fetched: these are a fixed vocabulary the backend compiles
+ * against, not deployment configuration that can change under the client. A name this
+ * build offers and the backend does not know would be refused with a 400 rather than
+ * silently running the default, which is the behaviour that matters.
  */
 const HOUSE_TYPES: ReadonlyArray<{ value: NonNullable<SegmentationOptions["houseType"]>; label: string }> = [
   { value: "INDEPENDENT_HOUSE", label: "Independent house" },
@@ -341,128 +340,100 @@ const HOUSE_TYPES: ReadonlyArray<{ value: NonNullable<SegmentationOptions["house
   { value: "OFFICE_OR_SHOP", label: "Office or shop interior" },
 ];
 
-const CLEAN_FURNISHING: ReadonlyArray<{
-  value: NonNullable<SegmentationOptions["cleanFurnishing"]>; label: string; hint: string;
+/**
+ * The clean-up choices every signed-in user is asked before the photo is sent.
+ *
+ * Tickboxes rather than the pairs of radios these started life as. A radio pair asks
+ * which of two things should happen; each of these asks whether ONE thing should —
+ * clear the room, re-frame — and the unticked state is the run everyone got before the
+ * box existed. Written out as data because the panel renders them in a row and the
+ * wording is the whole feature: what a person ticks here is the only say they have
+ * over a picture a model is about to redraw.
+ *
+ * "Look at the photo properly first" was a third box and is not one any more. It is
+ * what every run does, so a tickbox for it was a question with one right answer sitting
+ * next to two real ones — and the only thing it could do was let someone answer wrong.
+ * The backend looks unless it is explicitly told not to; nothing here tells it not to.
+ */
+const CLEAN_CHOICES: ReadonlyArray<{
+  key: "cleanFurnishing" | "cleanAngle";
+  label: string;
+  hint: string;
 }> = [
-  { value: "KEEP", label: "Leave it", hint: "exactly as photographed — today's behaviour" },
-  { value: "EMPTY", label: "Clear it", hint: "loose furniture out, built-ins stay" },
-];
-
-const CLEAN_ANGLE: ReadonlyArray<{
-  value: NonNullable<SegmentationOptions["cleanAngle"]>; label: string; hint: string;
-}> = [
-  { value: "AS_SHOT", label: "As shot", hint: "the photo's own camera — today's behaviour" },
-  { value: "BEST_VIEW", label: "Best view", hint: "let the model re-frame, within limits" },
+  {
+    key: "cleanFurnishing",
+    label: "Clear the furniture out",
+    hint: "loose furniture goes, built-ins and fittings stay",
+  },
+  {
+    key: "cleanAngle",
+    label: "Straighten to a proper angle",
+    hint: "let the camera be re-framed to face the surfaces squarely",
+  },
 ];
 
 /**
- * A row of radios for one admin prompt knob. Same shape as the render studio's
- * OptionRow, kept local because this panel's rows carry a hint per choice and the
- * studio's carry one per row — and a shared component with both would be a component
- * with a mode.
+ * What a tick MEANS, in both directions.
+ *
+ * Both choices are a pair of words on the wire rather than a boolean — KEEP/EMPTY,
+ * AS_SHOT/BEST_VIEW — because the backend prompt reads them, and "false" says nothing
+ * to a prompt. The translation lives here, once, so the panel can render identical
+ * tickboxes and no call site has to remember which way round each pair goes.
  */
-function AdminChoiceRow<T extends string>({
-  name, title, choices, value, onChange,
-}: {
-  name: string;
-  title: string;
-  choices: ReadonlyArray<{ value: T; label: string; hint: string }>;
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <fieldset style={{ border: 0, padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-      <legend style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", padding: 0 }}>
-        {title}
-      </legend>
-      {choices.map((choice) => (
-        <label
-          key={choice.value}
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 8,
-            font: "400 13px/1.4 var(--sans)",
-            color: "var(--fg-soft)",
-            cursor: "pointer",
-            padding: "2px 0",
-          }}
-        >
-          <input
-            type="radio"
-            name={name}
-            value={choice.value}
-            checked={value === choice.value}
-            onChange={() => onChange(choice.value)}
-            style={{ marginTop: 2 }}
-          />
-          <span>
-            {choice.label}
-            <span style={{ display: "block", font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
-              {choice.hint}
-            </span>
-          </span>
-        </label>
-      ))}
-    </fieldset>
-  );
+function isTicked(o: SegmentationOptions, key: (typeof CLEAN_CHOICES)[number]["key"]): boolean {
+  if (key === "cleanFurnishing") return o.cleanFurnishing === "EMPTY";
+  return o.cleanAngle === "BEST_VIEW";
 }
 
-function ModelPicker({
-  name, title, hint, models, value, onChange,
+function withChoice(
+  o: SegmentationOptions,
+  key: (typeof CLEAN_CHOICES)[number]["key"],
+  checked: boolean,
+): SegmentationOptions {
+  if (key === "cleanFurnishing") return { ...o, cleanFurnishing: checked ? "EMPTY" : "KEEP" };
+  return { ...o, cleanAngle: checked ? "BEST_VIEW" : "AS_SHOT" };
+}
+
+/**
+ * One tickbox with its own line of small print.
+ *
+ * The hint is not decoration: both of these change what the cleaned photo SHOWS, and a
+ * person who ticks a box without knowing that is the person who later asks why their
+ * sofa is missing.
+ */
+function CleanCheck({
+  checked, onChange, label, hint,
 }: {
-  name: string;
-  title: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
   hint: string;
-  models: ReadonlyArray<AiModelOption>;
-  value: string;
-  onChange: (id: string) => void;
 }) {
-  const row: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    font: "400 13px/1.4 var(--sans)",
-    color: "var(--fg-soft)",
-    cursor: "pointer",
-    padding: "2px 0",
-  };
   return (
-    <fieldset style={{ border: 0, padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-      <legend style={{ font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", padding: 0 }}>
-        {title}
+    <label
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 8,
+        font: "400 13px/1.4 var(--sans)",
+        color: "var(--fg-soft)",
+        cursor: "pointer",
+        padding: "2px 0",
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ marginTop: 2 }}
+      />
+      <span>
+        {label}
         <span style={{ display: "block", font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
           {hint}
         </span>
-      </legend>
-      <label style={row}>
-        <input
-          type="radio"
-          name={name}
-          value=""
-          checked={!value}
-          onChange={() => onChange("")}
-        />
-        The configured model
-      </label>
-      {models.map((model) => (
-        <label key={model.id} style={row}>
-          <input
-            type="radio"
-            name={name}
-            value={model.id}
-            checked={value === model.id}
-            onChange={() => onChange(model.id)}
-          />
-          <span>
-            {model.label}
-            <span style={{ display: "block", font: "400 11px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
-              {model.id}
-            </span>
-          </span>
-        </label>
-      ))}
-    </fieldset>
+      </span>
+    </label>
   );
 }
 
@@ -658,49 +629,56 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // a local preview with a Continue/Choose-different prompt; no upload, no
   // classification and no (billable) segmentation runs until the user confirms.
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  // Per-run segmentation choices sent with every request so a retry keeps them.
-  // maskMode is a real product choice (every signed-in role): AUTO = AI wall
-  // detection after the compulsory clean-up, MANUAL = stop after the clean-up and
-  // mark walls by hand. Both cost the same — one project — so this is about which
-  // result the shop wants, not which one it can afford.
-  // cleanImage is the ADMIN-only testing knob (backend strips it otherwise).
-  // Masks are always stored raw — exactly as the model painted them.
-  // simulateFailure is spelled out as "NONE" rather than left undefined on purpose.
-  // The backend keeps the last value it was given (like cleanImage), so an omitted
-  // field means "carry on as before" — and an admin who rehearsed a failure once,
-  // then reloaded the page, would have every later run on that project keep failing
-  // with nothing on screen saying why. Sending NONE makes each run state its intent.
-  // cleanModel/maskModel carry the empty string for exactly the same reason: it is
-  // this run saying "the configured model, please", so a model pinned once for a
-  // comparison cannot silently keep serving every later run of that room.
-  // analysePhoto/houseType/cleanFurnishing/cleanAngle are the ADMIN prompt knobs, and
-  // they are spelled out here for the same reason simulateFailure is: the backend keeps
-  // the last value it was given, so an omitted field means "carry on as before", and an
-  // admin who ran one photo as BEST_VIEW would have every later run of that project keep
-  // re-framing with nothing on screen saying why. Every run states its whole intent.
-  // These four defaults reproduce the prompt every run used before they existed.
+  // Per-run segmentation choices, sent with every request so a retry keeps them.
+  //
+  // cleanFurnishing/cleanAngle are the two tickboxes the studio puts in front of EVERY
+  // signed-in user before their photo is sent: what the clean-up does with the
+  // furniture, and where it stands to take the picture. Both start off, because each
+  // changes what the cleaned photo SHOWS and nobody should have their room emptied or
+  // their camera moved without asking for it. maskMode rides along as AUTO — AI wall
+  // detection after the compulsory clean-up, which is what every run does now that the
+  // panel no longer offers the alternative.
+  //
+  // Not here: analysePhoto. Looking at the photo properly is what a run DOES, and the
+  // backend does it unless something explicitly says not to — so there is nothing for
+  // this object to say about it.
+  //
+  // cleanImage, simulateFailure and houseType are the ADMIN testing knobs (the backend
+  // strips them for other roles). Masks are always stored raw — exactly as the model
+  // painted them.
+  //
+  // Every field is spelled out rather than left undefined, and that is load-bearing:
+  // the backend keeps the last value it was given, so an omitted field means "carry on
+  // as before". Someone who ticked "straighten to a proper angle" once, then reloaded,
+  // would otherwise have every later run of that project keep re-framing with nothing
+  // on screen saying why — the same trap an admin's rehearsed failure sets. Each run
+  // states its whole intent.
   const [segOptions, setSegOptions] = useState<SegmentationOptions>({
     cleanImage: true,
     maskMode: "AUTO",
     simulateFailure: "NONE",
-    cleanModel: "",
-    maskModel: "",
-    analysePhoto: false,
     houseType: "",
     cleanFurnishing: "KEEP",
     cleanAngle: "AS_SHOT",
   });
-  // Which half of the admin panel is on screen. The panel got long enough that the
-  // Continue button fell off the bottom of the popover, and the two halves are asked at
-  // different moments anyway: which models run this, and then what the photo is and how
-  // it should be prompted. Admins only — nobody else sees this panel at all.
-  const [adminStep, setAdminStep] = useState<1 | 2>(1);
-  // The image models this deployment will accept for the two knobs above. Fetched
-  // (admins only) rather than listed in the client so the radios can only offer what
-  // the backend will actually run. Empty until it arrives, and it stays empty if the
-  // call fails — the panel then just shows the configured-model default, which is
-  // what an admin who never touches these gets anyway.
-  const [aiModels, setAiModels] = useState<ReadonlyArray<AiModelOption>>([]);
+  /**
+   * The body one segment request sends: the clean-up choices this user made, plus the
+   * admin knobs when there is an admin to have set them.
+   *
+   * Split here rather than at each call site because the two are the same request made
+   * at two moments — first run and retry — and the retry that quietly sent a different
+   * body than the run it repeats is the bug this shape prevents. The backend strips the
+   * admin half for every other role anyway; sending it only for an admin is what keeps
+   * a knob added later from leaking into a customer's request by default.
+   */
+  const segmentBody = useCallback((): SegmentationOptions => {
+    const choices: SegmentationOptions = {
+      maskMode: "AUTO",
+      cleanFurnishing: segOptions.cleanFurnishing ?? "KEEP",
+      cleanAngle: segOptions.cleanAngle ?? "AS_SHOT",
+    };
+    return isAdmin ? { ...segOptions, ...choices } : choices;
+  }, [isAdmin, segOptions]);
   // The project quota, shown in the topbar so the cost is visible at the moment it's
   // spent. One project covers the whole automatic pipeline — clean-up and wall
   // detection — and everything after it (trying shades, recolouring, palettes) is
@@ -1150,26 +1128,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     refreshQuota();
   }, [refreshQuota]);
 
-  // The models the admin panel's radios offer. Admins only — the endpoint is 403 for
-  // everyone else, and a guest has no session to ask with. Best-effort like the quota
-  // above: a failure leaves the list empty and the panel falls back to naming only the
-  // configured model, which is the option every non-admin run uses regardless.
-  useEffect(() => {
-    if (!isAdmin || guest) return;
-    let live = true;
-    api
-      .listAiModels()
-      .then((models) => {
-        if (live) setAiModels(models);
-      })
-      .catch(() => {
-        if (live) setAiModels([]);
-      });
-    return () => {
-      live = false;
-    };
-  }, [isAdmin, guest]);
-
   const applyProjectDetail = useCallback(
     async (detail: ProjectDetail) => {
       const rc = recolorRef.current;
@@ -1363,14 +1321,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           }
           setMasksReady(true);
         } else {
-          // The shop's choice, full stop. This used to be overridden to MANUAL when the
-          // auto-mask allowance was spent; a project now covers both steps, so there is
-          // nothing left to fall back from.
-          const maskMode = segOptions.maskMode;
-          await api.requestSegmentation(
-            project.id,
-            isAdmin ? { ...segOptions, maskMode } : { maskMode },
-          );
+          await api.requestSegmentation(project.id, segmentBody());
           const segmented = await pollUntilSegmented(project.id);
           await applyProjectDetail(segmented);
           setMasksReady(true);
@@ -1427,7 +1378,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         refreshQuota(); // segmentation charges on success / refunds on failure
       }
     },
-    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota, isAdmin, segOptions],
+    [pollUntilSegmented, applyProjectDetail, details, guest, createProjectCall, refreshQuota, segmentBody],
   );
 
   // Pick / receive a photo (file picker, drag-drop, or phone hand-off) and show it
@@ -1550,7 +1501,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
   // "Try again" after a wall-detection timeout/failure: re-runs segmentation on
   // the ALREADY-created project, so the customer never re-uploads the photo.
-  const handleRetrySegmentation = useCallback(async (forcedMaskMode?: "AUTO" | "MANUAL") => {
+  const handleRetrySegmentation = useCallback(async () => {
     if (!projectId) return;
     setError(null);
     // A re-run is a fresh result to judge — and re-reporting it is exactly what the
@@ -1577,12 +1528,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           setGuestAiUnavailable(true);
         }
       } else {
-        const maskMode = forcedMaskMode ?? segOptions.maskMode;
-        if (forcedMaskMode) setSegOptions((o) => ({ ...o, maskMode: forcedMaskMode }));
-        await api.requestSegmentation(
-          projectId,
-          isAdmin ? { ...segOptions, maskMode } : { maskMode },
-        );
+        await api.requestSegmentation(projectId, segmentBody());
         const segmented = await pollUntilSegmented(projectId);
         await applyProjectDetail(segmented);
       }
@@ -1610,7 +1556,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setProgressNote(null);
       refreshQuota(); // retry charges on success / refunds on failure
     }
-  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, isAdmin, segOptions]);
+  }, [projectId, guest, pollUntilSegmented, applyProjectDetail, refreshQuota, segmentBody]);
 
   const handleBuyAndRetry = useCallback(async (rail: PayRail = "points") => {
     setError(null);
@@ -2628,11 +2574,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const canReport =
     Boolean(projectId) && (masksReady || runFailed) && !uploading && !segmenting;
 
-  const manualRun = !guest && segOptions.maskMode === "MANUAL";
   const overlayLabel = uploading && !segmenting
     ? "Uploading photo"
     : segmenting
-      ? manualRun ? "Cleaning up the photo" : "Detecting walls"
+      ? "Cleaning up the photo"
       : "Working";
   const overlayHint = uploading && !segmenting
     ? "Uploading the photo."
@@ -2643,14 +2588,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       // they close. It deliberately names no model; which supplier is answering is an
       // operator's fact and the backend keeps it in its logs. The static hints below are
       // the opening state, before the run has reported anything back.
+      // "About a minute" against a job the backend gives eight minutes to finish:
+      // a run is two generative model calls in sequence, and a real upload took two
+      // and a half. An estimate the wait routinely beats is worse than a wider one,
+      // because the person reading it starts wondering what broke.
       ? progressNote
-        ?? (manualRun
-          ? "Tidying up the photo. When it's done, click each wall to mark it yourself."
-          // "About a minute" against a job the backend gives eight minutes to finish:
-          // detection is two generative model calls in sequence, and a real upload
-          // took two and a half. An estimate the wait routinely beats is worse than a
-          // wider one, because the person reading it starts wondering what broke.
-          : "Finding the walls and other paintable surfaces. This usually takes one to three minutes; a busy photo can take longer.")
+        ?? "Tidying up the photo, then finding the walls and other paintable surfaces. This usually takes one to three minutes; a busy photo can take longer."
       : undefined;
 
   const showDetailsGate = !imageUrl && !details && !openProjectId;
@@ -3430,38 +3373,35 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     }}
                   >
                     <legend style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)", padding: "0 6px" }}>
-                      After the AI photo clean-up
+                      The photo clean-up
                     </legend>
-                    <label style={{ display: "flex", alignItems: "flex-start", gap: 8, font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", cursor: "pointer" }}>
-                      <input
-                        type="radio"
-                        name="mask-mode"
-                        checked={segOptions.maskMode !== "MANUAL"}
-                        onChange={() => setSegOptions((o) => ({ ...o, maskMode: "AUTO" }))}
-                        style={{ marginTop: 2 }}
+                    {/* Every run cleans the photo — clutter out, painted surfaces back to
+                        a neutral canvas, and a proper look at what the place is first —
+                        and these two say what else to do while it is there. They ran
+                        behind the admin panel first and are open to everyone now that
+                        the clean-up they shape is the one every run gets. Leaving both
+                        alone is still a complete answer. */}
+                    {CLEAN_CHOICES.map((choice) => (
+                      <CleanCheck
+                        key={choice.key}
+                        label={choice.label}
+                        hint={choice.hint}
+                        checked={isTicked(segOptions, choice.key)}
+                        onChange={(checked) =>
+                          setSegOptions((o) => withChoice(o, choice.key, checked))
+                        }
                       />
-                      <span>
-                        Let AI detect the walls
-                        <span style={{ display: "block", font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
-                          included in this project — no extra credit
-                        </span>
-                      </span>
-                    </label>
-                    <label style={{ display: "flex", alignItems: "flex-start", gap: 8, font: "400 13px/1.4 var(--sans)", color: "var(--fg-soft)", cursor: "pointer" }}>
-                      <input
-                        type="radio"
-                        name="mask-mode"
-                        checked={segOptions.maskMode === "MANUAL"}
-                        onChange={() => setSegOptions((o) => ({ ...o, maskMode: "MANUAL" }))}
-                        style={{ marginTop: 2 }}
-                      />
-                      <span>
-                        I&apos;ll mark the walls myself
-                        <span style={{ display: "block", font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
-                          same one project — click each wall after the clean-up
-                        </span>
-                      </span>
-                    </label>
+                    ))}
+                    {segOptions.cleanAngle === "BEST_VIEW" && (
+                      /* Said here rather than only in the prompt, because the person
+                         about to spend a generation on it is the one who needs to know
+                         what they are trading. */
+                      <p style={{ margin: 0, font: "400 12px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
+                        Moving the camera means the model draws surfaces your photo never
+                        showed it. The cleaned picture will match the new view, not the
+                        photo you took.
+                      </p>
+                    )}
                   </fieldset>
                 )}
                 {isAdmin && !guest && (
@@ -3478,10 +3418,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     }}
                   >
                     <legend style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--fg-mute)", padding: "0 6px" }}>
-                      Admin · testing · step {adminStep} of 2
+                      Admin · testing
                     </legend>
-                    {adminStep === 1 && (
-                      <>
                     <label
                       style={{
                         display: "inline-flex",
@@ -3538,153 +3476,45 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                         <option value="BOTH">Fail both</option>
                       </select>
                     </label>
-                    {/* Which model does each half. Two pickers rather than one because
-                        the two jobs reward different things — the clean rewards a model
-                        that holds a building still while it edits, the mask one that
-                        fills flat colour to an edge — so holding one fixed while the
-                        other changes is the only way to tell which model a bad result
-                        belongs to. Both cost a real generation: this panel runs the
-                        models, it doesn't rehearse them like the knob above. */}
-                    {aiModels.length > 0 && (
-                      <>
-                        <ModelPicker
-                          name="clean-model"
-                          title="Clean the photo with"
-                          hint="clutter removed, surfaces repainted white"
-                          models={aiModels}
-                          value={segOptions.cleanModel ?? ""}
-                          onChange={(id) => setSegOptions((o) => ({ ...o, cleanModel: id }))}
-                        />
-                        <ModelPicker
-                          name="mask-model"
-                          title="Generate the wall mask with"
-                          hint="the red/green/blue/black colour-blocked image"
-                          models={aiModels}
-                          value={segOptions.maskModel ?? ""}
-                          onChange={(id) => setSegOptions((o) => ({ ...o, maskModel: id }))}
-                        />
-                        <p style={{ margin: 0, font: "400 12px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
-                          A picked model is the only one asked — no fallback to another —
-                          so whatever comes back is that model&apos;s own work.
-                        </p>
-                      </>
-                    )}
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          style={{ alignSelf: "flex-end" }}
-                          onClick={() => setAdminStep(2)}
-                        >
-                          Next: the photo →
-                        </button>
-                      </>
-                    )}
-                    {adminStep === 2 && (
-                      <>
-                        {/* What the photo IS, and how that should change the prompt.
-                            Every control here is off or default to begin with, and with
-                            all four left alone the run is prompted exactly as it was
-                            before this panel had a second page. */}
-                        <label
-                          style={{
-                            display: "flex",
-                            alignItems: "flex-start",
-                            gap: 8,
-                            font: "400 13px/1.4 var(--sans)",
-                            color: "var(--fg-soft)",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={Boolean(segOptions.analysePhoto)}
-                            onChange={(e) =>
-                              setSegOptions((o) => ({ ...o, analysePhoto: e.target.checked }))
-                            }
-                            style={{ marginTop: 2 }}
-                          />
-                          <span>
-                            Look at the photo properly first
-                            <span style={{ display: "block", font: "400 12px/1.4 var(--mono)", color: "var(--fg-mute)" }}>
-                              one cheap call: what kind of place it is, and what colour
-                              the walls are now
-                            </span>
-                          </span>
-                        </label>
-                        {/* The override, second, because it only makes sense once you
-                            know what the analysis would have said. Blank hands the
-                            choice back to it. Two runs of the same photo under two
-                            types is the only way to see what a clause is worth. */}
-                        <label
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 6,
-                            font: "400 13px/1.4 var(--sans)",
-                            color: "var(--fg-soft)",
-                          }}
-                        >
-                          Treat it as
-                          <select
-                            value={segOptions.houseType ?? ""}
-                            onChange={(e) =>
-                              setSegOptions((o) => ({
-                                ...o,
-                                houseType: e.target.value as NonNullable<SegmentationOptions["houseType"]>,
-                              }))
-                            }
-                            style={{
-                              padding: "6px 8px",
-                              border: "1px solid var(--rule-strong)",
-                              borderRadius: 6,
-                              background: "var(--bg)",
-                              color: "var(--fg)",
-                              font: "400 13px/1.4 var(--sans)",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <option value="">Whatever the photo looks like</option>
-                            {HOUSE_TYPES.map((t) => (
-                              <option key={t.value} value={t.value}>{t.label}</option>
-                            ))}
-                          </select>
-                        </label>
-                        <AdminChoiceRow
-                          name="clean-furnishing"
-                          title="Furniture in the cleaned photo"
-                          choices={CLEAN_FURNISHING}
-                          value={segOptions.cleanFurnishing ?? "KEEP"}
-                          onChange={(cleanFurnishing) =>
-                            setSegOptions((o) => ({ ...o, cleanFurnishing }))
-                          }
-                        />
-                        <AdminChoiceRow
-                          name="clean-angle"
-                          title="Camera in the cleaned photo"
-                          choices={CLEAN_ANGLE}
-                          value={segOptions.cleanAngle ?? "AS_SHOT"}
-                          onChange={(cleanAngle) => setSegOptions((o) => ({ ...o, cleanAngle }))}
-                        />
-                        {segOptions.cleanAngle === "BEST_VIEW" && (
-                          /* Said here rather than only in the prompt, because the person
-                             about to spend a generation on it is the one who needs to
-                             know what they are trading. */
-                          <p style={{ margin: 0, font: "400 12px/1.5 var(--mono)", color: "var(--fg-mute)" }}>
-                            Moving the camera means the model draws surfaces the photo
-                            never showed it. The masks will match the new view, not the
-                            original photo.
-                          </p>
-                        )}
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          style={{ alignSelf: "flex-start" }}
-                          onClick={() => setAdminStep(1)}
-                        >
-                          ← Back to models
-                        </button>
-                      </>
-                    )}
+                    {/* The one prompt knob that stayed behind. It does not describe a
+                        photo, it contradicts one — and the only thing that buys is
+                        running the same room under two house types to see what the
+                        clause is worth. Blank hands the choice back to the look-first
+                        tickbox above, which is where it belongs on a real run. */}
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                        font: "400 13px/1.4 var(--sans)",
+                        color: "var(--fg-soft)",
+                      }}
+                    >
+                      Treat it as
+                      <select
+                        value={segOptions.houseType ?? ""}
+                        onChange={(e) =>
+                          setSegOptions((o) => ({
+                            ...o,
+                            houseType: e.target.value as NonNullable<SegmentationOptions["houseType"]>,
+                          }))
+                        }
+                        style={{
+                          padding: "6px 8px",
+                          border: "1px solid var(--rule-strong)",
+                          borderRadius: 6,
+                          background: "var(--bg)",
+                          color: "var(--fg)",
+                          font: "400 13px/1.4 var(--sans)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <option value="">Whatever the photo looks like</option>
+                        {HOUSE_TYPES.map((t) => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </select>
+                    </label>
                   </fieldset>
                 )}
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>

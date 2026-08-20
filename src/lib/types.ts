@@ -371,26 +371,14 @@ export interface SegmentationOptions {
    *  unavailable Nano Banana; "NONE" forces an honest run on a deployment where
    *  the simulation is switched on globally. */
   simulateFailure?: "NONE" | "CLEAN" | "MASK" | "BOTH";
-  /** ADMIN-only testing knobs (the backend strips them for other roles): which
-   *  Replicate model runs this run's photo clean-up, and which one generates its
-   *  wall mask, instead of the configured ones — so two models can be compared on
-   *  the same photo. The id must be one the backend offers (`listAiModels`); the
-   *  empty string is how the studio says "back to the configured model".
+  /** An OFF SWITCH, and the studio never sends it. Omitted — which is what every run
+   *  from here does — the backend looks at the photo properly before cleaning it: one
+   *  extra Claude Haiku call for what KIND of place it is and what colour its walls
+   *  are right now, which then tunes the cleaning and mask prompts. Only an explicit
+   *  false skips that.
    *
-   *  A pinned model is asked ALONE: the clean's usual fallback hierarchy is not
-   *  walked, because a comparison answered by some other model is worse than no
-   *  answer — nothing in the image says which one produced it. */
-  cleanModel?: string;
-  maskModel?: string;
-  /** ADMIN-only testing knob (the backend strips it for other roles): spend one
-   *  extra Claude Haiku call looking at the photo properly before cleaning it —
-   *  what KIND of place it is, and what colour its walls are right now — and let
-   *  the answer tune the cleaning and mask prompts.
-   *
-   *  Off by default, and deliberately not part of the upload-time classification
-   *  every photo already goes through: that call has one job, accept or reject the
-   *  upload, and nothing about it needs a house type. A run with this off is
-   *  prompted exactly as every run was before this existed. */
+   *  It was a tickbox for one release. A question whose right answer is always yes is
+   *  not a question, so it stopped being asked. */
   analysePhoto?: boolean;
   /** ADMIN-only testing knob: treat the photo as this kind of place instead of
    *  whatever `analysePhoto` decided, so the same photo can be run under two types
@@ -398,13 +386,14 @@ export interface SegmentationOptions {
    *  analysis. Must name a HouseType — the backend 400s on anything else rather
    *  than quietly running the default. */
   houseType?: HouseType | "";
-  /** ADMIN-only testing knobs: what the clean-up does with the furniture already in
-   *  the room, and which camera the cleaned canvas comes back from. Both defaults
-   *  reproduce today's prompt byte for byte.
+  /** Every signed-in caller's, the other two tickboxes: what the clean-up does with
+   *  the furniture already in the room, and which camera the cleaned canvas comes
+   *  back from. Both defaults reproduce the run someone who ticks nothing gets.
    *
-   *  BEST_VIEW is the one option here that changes something the customer can check
-   *  against their own house — moving the camera means the model draws surfaces the
-   *  photo never showed it. Bounded hard in the prompt, and off by default. */
+   *  BEST_VIEW is the one that changes something the customer can check against their
+   *  own house — moving the camera means the model draws surfaces the photo never
+   *  showed it — so the studio says so beside the tickbox. Bounded hard in the
+   *  prompt, and off unless asked for. */
   cleanFurnishing?: CleanFurnishing;
   cleanAngle?: CleanAngle;
 }
@@ -436,16 +425,6 @@ export type CleanFurnishing = "KEEP" | "EMPTY";
 
 /** AS_SHOT keeps the photograph's own camera; BEST_VIEW lets the model re-frame. */
 export type CleanAngle = "AS_SHOT" | "BEST_VIEW";
-
-/** One image model an admin may pin a run to. Served by the backend rather than
- *  listed here so the studio can only ever offer models the backend will run —
- *  the same list the segment endpoint validates against. `family` is the request
- *  schema it speaks (NANO_BANANA / FLUX / FLUX_KONTEXT / OPENAI / SEEDREAM). */
-export interface AiModelOption {
-  id: string;
-  label: string;
-  family: string;
-}
 
 export interface ProjectDetail {
   id: string;
