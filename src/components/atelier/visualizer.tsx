@@ -345,21 +345,21 @@ const HOUSE_TYPES: ReadonlyArray<{ value: NonNullable<SegmentationOptions["house
  *
  * Tickboxes rather than the pairs of radios these started life as. A radio pair asks
  * which of two things should happen; each of these asks whether ONE thing should —
- * look first, clear the room, re-frame — and the unticked state is the run everyone
- * got before the box existed. Written out as data because the panel renders them in a
- * row and the wording is the whole feature: what a person ticks here is the only say
- * they have over a picture a model is about to redraw.
+ * clear the room, re-frame — and the unticked state is the run everyone got before the
+ * box existed. Written out as data because the panel renders them in a row and the
+ * wording is the whole feature: what a person ticks here is the only say they have
+ * over a picture a model is about to redraw.
+ *
+ * "Look at the photo properly first" was a third box and is not one any more. It is
+ * what every run does, so a tickbox for it was a question with one right answer sitting
+ * next to two real ones — and the only thing it could do was let someone answer wrong.
+ * The backend looks unless it is explicitly told not to; nothing here tells it not to.
  */
 const CLEAN_CHOICES: ReadonlyArray<{
-  key: "analysePhoto" | "cleanFurnishing" | "cleanAngle";
+  key: "cleanFurnishing" | "cleanAngle";
   label: string;
   hint: string;
 }> = [
-  {
-    key: "analysePhoto",
-    label: "Look at the photo properly first",
-    hint: "what kind of room or building it is, and what colour the walls are now",
-  },
   {
     key: "cleanFurnishing",
     label: "Clear the furniture out",
@@ -375,14 +375,12 @@ const CLEAN_CHOICES: ReadonlyArray<{
 /**
  * What a tick MEANS, in both directions.
  *
- * Two of the three choices are a pair of words on the wire rather than a boolean —
- * KEEP/EMPTY, AS_SHOT/BEST_VIEW — because the backend prompt reads them, and "false"
- * says nothing to a prompt. The translation lives here, once, so the panel can render
- * three identical tickboxes and no call site has to remember which way round each pair
- * goes.
+ * Both choices are a pair of words on the wire rather than a boolean — KEEP/EMPTY,
+ * AS_SHOT/BEST_VIEW — because the backend prompt reads them, and "false" says nothing
+ * to a prompt. The translation lives here, once, so the panel can render identical
+ * tickboxes and no call site has to remember which way round each pair goes.
  */
 function isTicked(o: SegmentationOptions, key: (typeof CLEAN_CHOICES)[number]["key"]): boolean {
-  if (key === "analysePhoto") return Boolean(o.analysePhoto);
   if (key === "cleanFurnishing") return o.cleanFurnishing === "EMPTY";
   return o.cleanAngle === "BEST_VIEW";
 }
@@ -392,7 +390,6 @@ function withChoice(
   key: (typeof CLEAN_CHOICES)[number]["key"],
   checked: boolean,
 ): SegmentationOptions {
-  if (key === "analysePhoto") return { ...o, analysePhoto: checked };
   if (key === "cleanFurnishing") return { ...o, cleanFurnishing: checked ? "EMPTY" : "KEEP" };
   return { ...o, cleanAngle: checked ? "BEST_VIEW" : "AS_SHOT" };
 }
@@ -400,9 +397,9 @@ function withChoice(
 /**
  * One tickbox with its own line of small print.
  *
- * The hint is not decoration: two of these three change what the cleaned photo SHOWS,
- * and a person who ticks a box without knowing that is the person who later asks why
- * their sofa is missing.
+ * The hint is not decoration: both of these change what the cleaned photo SHOWS, and a
+ * person who ticks a box without knowing that is the person who later asks why their
+ * sofa is missing.
  */
 function CleanCheck({
   checked, onChange, label, hint,
@@ -634,11 +631,17 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   // Per-run segmentation choices, sent with every request so a retry keeps them.
   //
-  // analysePhoto/cleanFurnishing/cleanAngle are the three tickboxes the studio now puts
-  // in front of EVERY signed-in user before their photo is sent: what the clean-up
-  // looks at, what it does with the furniture, and where it stands to take the picture.
-  // maskMode rides along as AUTO — AI wall detection after the compulsory clean-up,
-  // which is what every run does now that the panel no longer offers the alternative.
+  // cleanFurnishing/cleanAngle are the two tickboxes the studio puts in front of EVERY
+  // signed-in user before their photo is sent: what the clean-up does with the
+  // furniture, and where it stands to take the picture. Both start off, because each
+  // changes what the cleaned photo SHOWS and nobody should have their room emptied or
+  // their camera moved without asking for it. maskMode rides along as AUTO — AI wall
+  // detection after the compulsory clean-up, which is what every run does now that the
+  // panel no longer offers the alternative.
+  //
+  // Not here: analysePhoto. Looking at the photo properly is what a run DOES, and the
+  // backend does it unless something explicitly says not to — so there is nothing for
+  // this object to say about it.
   //
   // cleanImage, simulateFailure and houseType are the ADMIN testing knobs (the backend
   // strips them for other roles). Masks are always stored raw — exactly as the model
@@ -654,20 +657,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     cleanImage: true,
     maskMode: "AUTO",
     simulateFailure: "NONE",
-    // Looking at the photo first is now what a run DOES, so it starts ticked: it is one
-    // cheap call, and everything downstream of it — a bathroom's tile read as a finish,
-    // a compound wall with no roofline to keep — is worth the same on a customer's photo
-    // as on a test one. The other two start unticked because each changes what the
-    // cleaned photo SHOWS, and nobody should have their room emptied or their camera
-    // moved without asking for it.
-    analysePhoto: true,
     houseType: "",
     cleanFurnishing: "KEEP",
     cleanAngle: "AS_SHOT",
   });
   /**
-   * The body one segment request sends: the three clean-up choices this user made,
-   * plus the admin knobs when there is an admin to have set them.
+   * The body one segment request sends: the clean-up choices this user made, plus the
+   * admin knobs when there is an admin to have set them.
    *
    * Split here rather than at each call site because the two are the same request made
    * at two moments — first run and retry — and the retry that quietly sent a different
@@ -678,7 +674,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const segmentBody = useCallback((): SegmentationOptions => {
     const choices: SegmentationOptions = {
       maskMode: "AUTO",
-      analysePhoto: Boolean(segOptions.analysePhoto),
       cleanFurnishing: segOptions.cleanFurnishing ?? "KEEP",
       cleanAngle: segOptions.cleanAngle ?? "AS_SHOT",
     };
@@ -3381,10 +3376,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                       The photo clean-up
                     </legend>
                     {/* Every run cleans the photo — clutter out, painted surfaces back to
-                        a neutral canvas — and these three say HOW. They ran behind the
-                        admin panel first and are open to everyone now that the clean-up
-                        they shape is the one every run gets. Leaving all three alone is
-                        still a complete answer. */}
+                        a neutral canvas, and a proper look at what the place is first —
+                        and these two say what else to do while it is there. They ran
+                        behind the admin panel first and are open to everyone now that
+                        the clean-up they shape is the one every run gets. Leaving both
+                        alone is still a complete answer. */}
                     {CLEAN_CHOICES.map((choice) => (
                       <CleanCheck
                         key={choice.key}

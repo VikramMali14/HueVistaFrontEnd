@@ -1254,9 +1254,10 @@ export const api = {
     }),
   // Open to every caller: opts.maskMode ("AUTO" default / "MANUAL"), which decides
   // whether AI wall detection runs after the compulsory photo clean-up (MANUAL stops
-  // there; walls are then marked by hand, free on every plan), and the three clean-up
-  // choices the studio asks for as tickboxes — opts.analysePhoto, opts.cleanFurnishing
-  // and opts.cleanAngle. ADMIN-only testing knobs: opts.cleanImage,
+  // there; walls are then marked by hand, free on every plan), and the two clean-up
+  // choices the studio asks for as tickboxes — opts.cleanFurnishing and opts.cleanAngle.
+  // opts.analysePhoto is an off switch nobody sends: omitted, the backend looks at the
+  // photo properly first. ADMIN-only testing knobs: opts.cleanImage,
   // opts.simulateFailure and opts.houseType.
   //
   // "Admin-only" is enforced at the endpoint by REBUILDING the request with the open

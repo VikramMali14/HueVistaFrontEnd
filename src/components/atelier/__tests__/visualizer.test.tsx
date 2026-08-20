@@ -320,17 +320,20 @@ const UPLOADED: UploadedImage = {
 };
 
 /**
- * What ANY signed-in user's segment request carries when the three tickboxes are left
- * as they open: the clean-up looks at the photo first, leaves the furniture, and keeps
- * the camera where it was.
+ * What ANY signed-in user's segment request carries when the two tickboxes are left as
+ * they open: the clean-up leaves the furniture and keeps the camera where it was.
  *
  * Every field is stated rather than omitted, and that is the thing being pinned: the
  * backend keeps the last value it was given, so a request that left a field out would
  * carry one run's re-framed camera into every later run of that room.
+ *
+ * analysePhoto is not here BY DESIGN. Looking at the photo properly is what a run does,
+ * so the backend does it unless told otherwise and the studio has nothing to say about
+ * it — a request that started carrying `analysePhoto: true` again would mean the
+ * question came back.
  */
 const USER_DEFAULTS = {
   maskMode: "AUTO",
-  analysePhoto: true,
   cleanFurnishing: "KEEP",
   cleanAngle: "AS_SHOT",
 } as const;
@@ -611,11 +614,11 @@ describe("Visualizer — confirm before processing", () => {
     });
   });
 
-  it("offers every user the three clean-up choices, and sends exactly what they ticked", async () => {
+  it("offers every user the two clean-up choices, and sends exactly what they ticked", async () => {
     // These ran behind the admin panel while the clean-up was being proved out. They
     // describe a picture the person at the screen is about to look at, so they are
-    // that person's to answer — tickboxes, not a pair of radios each, because every
-    // one of them is a yes/no about one thing.
+    // that person's to answer — tickboxes, not a pair of radios each, because each one
+    // is a yes/no about one thing.
     const { container } = render(<Visualizer initialName="Test room" />);
     await screen.findByText("Add a photo of the room");
 
@@ -626,8 +629,6 @@ describe("Visualizer — confirm before processing", () => {
     });
     const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
 
-    // Looking first is already on — it is what a run does now.
-    expect(screen.getByLabelText(/Look at the photo properly first/i)).toBeChecked();
     expect(screen.getByLabelText(/Clear the furniture out/i)).not.toBeChecked();
     expect(screen.getByLabelText(/Straighten to a proper angle/i)).not.toBeChecked();
 
@@ -638,8 +639,8 @@ describe("Visualizer — confirm before processing", () => {
       fireEvent.click(screen.getByLabelText(/Straighten to a proper angle/i));
     });
 
-    // Re-framing is the one choice that changes something the user can check against
-    // their own house, so the panel says so before the generation is spent.
+    // Re-framing changes something the user can check against their own house, so the
+    // panel says so before the generation is spent.
     expect(screen.getByText(/draws surfaces your photo never\s+showed it/i)).toBeInTheDocument();
 
     await act(async () => {
@@ -649,10 +650,36 @@ describe("Visualizer — confirm before processing", () => {
     // The pairs of words the prompt reads, not booleans — and no admin knob rode along.
     expect(api.requestSegmentation).toHaveBeenCalledWith("p-1", {
       maskMode: "AUTO",
-      analysePhoto: true,
       cleanFurnishing: "EMPTY",
       cleanAngle: "BEST_VIEW",
     });
+  });
+
+  it("never asks whether to look at the photo properly — the run always does", async () => {
+    // It was a tickbox for one release. A question whose right answer is always yes is
+    // not a question: the backend looks unless something explicitly says not to, and
+    // nothing here says not to, so the studio does not raise the subject at all.
+    const { container } = render(<Visualizer initialName="Test room" isAdmin />);
+    await screen.findByText("Add a photo of the room");
+
+    await act(async () => {
+      fireEvent.change(fileInput(container), {
+        target: { files: [makeFile("room.jpg", "image/jpeg")] },
+      });
+    });
+    const confirm = await screen.findByRole("button", { name: /Continue with this image/i });
+
+    expect(screen.queryByText(/Look at the photo properly first/i)).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+
+    // Not `analysePhoto: false` either — saying nothing is what leaves it on.
+    expect(api.requestSegmentation).toHaveBeenCalledWith(
+      "p-1",
+      expect.not.objectContaining({ analysePhoto: expect.anything() }),
+    );
   });
 
   it("no longer offers to hand the walls over, so every run detects them", async () => {

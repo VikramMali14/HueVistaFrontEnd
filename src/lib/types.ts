@@ -371,14 +371,14 @@ export interface SegmentationOptions {
    *  unavailable Nano Banana; "NONE" forces an honest run on a deployment where
    *  the simulation is switched on globally. */
   simulateFailure?: "NONE" | "CLEAN" | "MASK" | "BOTH";
-  /** Every signed-in caller's, asked as a tickbox before the photo is sent: spend
-   *  one extra Claude Haiku call looking at the photo properly before cleaning it —
-   *  what KIND of place it is, and what colour its walls are right now — and let
-   *  the answer tune the cleaning and mask prompts.
+  /** An OFF SWITCH, and the studio never sends it. Omitted — which is what every run
+   *  from here does — the backend looks at the photo properly before cleaning it: one
+   *  extra Claude Haiku call for what KIND of place it is and what colour its walls
+   *  are right now, which then tunes the cleaning and mask prompts. Only an explicit
+   *  false skips that.
    *
-   *  Ticked by default. Still not part of the upload-time classification every photo
-   *  already goes through: that call has one job, accept or reject the upload, and
-   *  nothing about it needs a house type. */
+   *  It was a tickbox for one release. A question whose right answer is always yes is
+   *  not a question, so it stopped being asked. */
   analysePhoto?: boolean;
   /** ADMIN-only testing knob: treat the photo as this kind of place instead of
    *  whatever `analysePhoto` decided, so the same photo can be run under two types
