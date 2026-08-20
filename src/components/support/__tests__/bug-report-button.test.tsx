@@ -84,6 +84,29 @@ describe("BugReportButton", () => {
     expect(await screen.findByText(/Thank you/)).toBeInTheDocument();
   });
 
+  /**
+   * The dialog must not render where the button sits.
+   *
+   * The studio bar the button lives on carries a `backdrop-filter`, and a filtered
+   * element is the containing block for its fixed-position descendants — so a dialog
+   * left in place resolved `inset: 0` against a 32px strip of chrome and centred itself
+   * inside THAT, arriving pinned to the top of the screen instead of the middle of it.
+   * The header's `translateY` slide does the same to the drawer copy of the button. No
+   * assertion on the styles can catch this, because the styles were never wrong — only
+   * the box they were measured against was. So we pin the fix itself: the dialog leaves
+   * the bar entirely and lands on <body>.
+   */
+  it("renders the dialog outside the bar it was opened from", async () => {
+    const bar = document.createElement("div");
+    document.body.appendChild(bar);
+    render(<BugReportButton />, { container: bar });
+    await userEvent.click(screen.getByRole("button", { name: /bug/i }));
+
+    const dialog = screen.getByRole("dialog", { name: "Report a bug" });
+    expect(bar.contains(dialog)).toBe(false);
+    expect(dialog.parentElement).toBe(document.body);
+  });
+
   /** A report with nothing written in it cannot be triaged, so it cannot be sent. */
   it("will not send an empty report", async () => {
     await open();

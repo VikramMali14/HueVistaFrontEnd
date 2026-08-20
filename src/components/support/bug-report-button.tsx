@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -125,7 +126,15 @@ function BugReportDialog({ onClose }: { onClose: () => void }) {
     }
   }, [note, context, sending]);
 
-  return (
+  // Rendered into <body>, not where the button sits. The studio bar this button lives
+  // on carries a `backdrop-filter`, and a filtered element becomes the containing block
+  // for its fixed-position descendants — so `inset: 0` measured itself against a 32px
+  // strip of chrome instead of the viewport, and the dialog centred itself neatly inside
+  // that strip, pinned to the very top of the screen. The same is true of the drawer copy
+  // of the button, which sits under the header's `translateY` slide. Portalling out also
+  // escapes the header's z-index: 80 stacking context, which was quietly capping this
+  // dialog's own z-index: 140 against anything the workspace stacks above the nav.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -251,7 +260,8 @@ function BugReportDialog({ onClose }: { onClose: () => void }) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
