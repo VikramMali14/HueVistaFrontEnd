@@ -65,6 +65,9 @@ import type { AiCreditSummary } from "@/lib/types";
 const api = vi.mocked(realApi);
 const buyAiCredits = vi.mocked(realBuy);
 
+/** Comfortably longer than the studio's 2.5s poll interval, so a live loop would show. */
+const POLL_QUIET_MS = 4000;
+
 /** An empty AI wallet — the state a customer arrives in. */
 const WALLET: AiCreditSummary = {
   balance: 0,
@@ -161,8 +164,8 @@ describe("RenderStudio", () => {
     await screen.findByText("Scheme 1");
     await userEvent.click(screen.getByRole("button", { name: /Scheme 3/ }));
     await userEvent.click(screen.getByRole("button", { name: "Night" }));
-    await userEvent.click(screen.getByRole("button", { name: "Suggest borders" }));
-    await userEvent.click(screen.getByRole("button", { name: /Make my image/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Let AI decide" }));
+    await userEvent.click(screen.getByRole("button", { name: /Make my picture/ }));
 
     await waitFor(() =>
       expect(api.requestRender).toHaveBeenCalledWith("p1", {
@@ -189,7 +192,7 @@ describe("RenderStudio", () => {
     render(<RenderStudio projectId="p1" />);
 
     await screen.findByText("Scheme 1");
-    await userEvent.click(screen.getByRole("button", { name: /Make my image/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Make my picture/ }));
 
     const image = await screen.findByAltText("Your room, rendered", {}, { timeout: 8000 });
     expect(image).toHaveAttribute("src", "https://cdn.test/render.jpg");
@@ -197,7 +200,7 @@ describe("RenderStudio", () => {
     // A button, not a link. `<a download href="https://…">` is same-origin-only, so on
     // the presigned URL the browser ignored the attribute and navigated to a bare JPEG
     // instead of saving anything.
-    await userEvent.click(screen.getByRole("button", { name: /Download the image/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Save the picture/ }));
     await waitFor(() =>
       expect(downloadRemoteImage).toHaveBeenCalledWith(
         "https://cdn.test/render.jpg",
@@ -206,13 +209,25 @@ describe("RenderStudio", () => {
     );
   }, 12000);
 
-  it("picks a render back up when the customer returns mid-flight", async () => {
-    // They closed the tab, not the job.
+  it("polls a render it picked back up, instead of waiting on it forever", async () => {
+    // They closed the tab, not the job. Raising the spinner was all this did: nothing
+    // ever asked the server again, so a customer returning to a picture that had
+    // finished while they were away watched "Making your picture…" for as long as they
+    // were willing to, with the finished image sitting on the server the whole time.
     api.listRenders.mockResolvedValue([{ ...READY_RENDER, status: "RUNNING", imageUrl: null }]);
+    api.getRender.mockResolvedValue(READY_RENDER);
     render(<RenderStudio projectId="p1" />);
 
-    expect(await screen.findByText(/Photographing your room/)).toBeInTheDocument();
-  });
+    // The waiting overlay's own line — "Making your picture…" alone is ambiguous,
+    // because the button under it says exactly the same thing while one is coming.
+    expect(await screen.findByText(/This takes about a minute/)).toBeInTheDocument();
+
+    // The first poll is one interval away, so this has to outlast it — and arriving at
+    // all is the whole assertion: before the fix nothing ever asked the server again.
+    const image = await screen.findByAltText("Your room, rendered", {}, { timeout: 8000 });
+    expect(image).toHaveAttribute("src", "https://cdn.test/render.jpg");
+    expect(api.getRender).toHaveBeenCalledWith("p1", "r1");
+  }, 12000);
 
   it("stops promising a minute once the server is retrying a busy model", async () => {
     // The server no longer fails a render the moment the model is out of capacity — it
@@ -221,6 +236,8 @@ describe("RenderStudio", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       api.listRenders.mockResolvedValue([{ ...READY_RENDER, status: "RUNNING", imageUrl: null }]);
+      // Still unfinished on every poll — the case the copy is about.
+      api.getRender.mockResolvedValue({ ...READY_RENDER, status: "RUNNING", imageUrl: null });
       render(<RenderStudio projectId="p1" />);
 
       expect(await screen.findByText(/This takes about a minute/)).toBeInTheDocument();
@@ -229,12 +246,92 @@ describe("RenderStudio", () => {
         await vi.advanceTimersByTimeAsync(95_000);
       });
 
-      expect(screen.getByText(/Still photographing your room/)).toBeInTheDocument();
-      expect(screen.getByText(/The AI is busy right now/)).toBeInTheDocument();
+      expect(screen.getByText(/Still making your picture/)).toBeInTheDocument();
+      expect(screen.getByText(/the AI is busy/)).toBeInTheDocument();
       expect(screen.queryByText(/This takes about a minute/)).not.toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("lets go of the screen when it gives up, and offers to look again", async () => {
+    // Giving up used to change nothing the overlay reads, so the spinner stayed on top
+    // of the page forever: every button under it disabled, and the message saying the
+    // picture might still arrive printed behind a curtain still claiming it was being
+    // made. The customer's only way out was to reload a page that never said so.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      api.listRenders.mockResolvedValue([{ ...READY_RENDER, status: "RUNNING", imageUrl: null }]);
+      api.getRender.mockResolvedValue({ ...READY_RENDER, status: "RUNNING", imageUrl: null });
+      render(<RenderStudio projectId="p1" />);
+
+      expect(await screen.findByText(/This takes about a minute/)).toBeInTheDocument();
+
+      // Past the poll deadline, which sits comfortably beyond the server's own retry
+      // budget — anything still unfinished here is genuinely stuck.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(600_000);
+      });
+
+      expect(screen.queryByText(/This takes about a minute/)).not.toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(/taking longer than usual/);
+      // And the picker is usable again rather than frozen under the overlay.
+      expect(screen.getByRole("button", { name: /Make my picture/ })).toBeEnabled();
+
+      // Looking again is offered, not described. The render may well have landed since.
+      api.getRender.mockResolvedValue(READY_RENDER);
+      const again = screen.getByRole("button", { name: "Check again" });
+      await act(async () => {
+        again.click();
+        await vi.advanceTimersByTimeAsync(4000);
+      });
+
+      expect(screen.getByAltText("Your room, rendered")).toHaveAttribute(
+        "src",
+        "https://cdn.test/render.jpg",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  }, 20000);
+
+  it("stops polling once the customer has left the page", async () => {
+    // The loop ran for up to nine minutes after unmount, asking the server every 2.5
+    // seconds and calling setState on a component that no longer existed.
+    api.listRenders.mockResolvedValue([{ ...READY_RENDER, status: "RUNNING", imageUrl: null }]);
+    api.getRender.mockResolvedValue({ ...READY_RENDER, status: "RUNNING", imageUrl: null });
+    const view = render(<RenderStudio projectId="p1" />);
+
+    await screen.findByText(/This takes about a minute/);
+    await waitFor(() => expect(api.getRender).toHaveBeenCalled(), { timeout: 8000 });
+    view.unmount();
+    const asked = api.getRender.mock.calls.length;
+
+    await new Promise((r) => setTimeout(r, POLL_QUIET_MS));
+
+    expect(api.getRender.mock.calls.length).toBe(asked);
+  }, 15000);
+
+  it("keeps one finished picture reachable after the stage is cleared", async () => {
+    // "Make one more" and a top-up both clear the stage to bring the options back, and
+    // the strip was hidden whenever there was exactly one finished picture — so either
+    // press made the customer's only image vanish with nothing on the page leading
+    // anywhere near it.
+    api.listRenders.mockResolvedValue([READY_RENDER]);
+    render(<RenderStudio projectId="p1" />);
+
+    await screen.findByAltText("Your room, rendered");
+    // Shown, not listed, while it is the picture on the stage.
+    expect(screen.queryByText("Your pictures")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Make one more/ }));
+
+    expect(screen.getByText("Your pictures")).toBeInTheDocument();
+    // Named by what it is, not by the enum values the database stores.
+    await userEvent.click(
+      screen.getByRole("button", { name: "Show the picture: Modern · Daytime · Normal light" }),
+    );
+    expect(screen.getByAltText("Your room, rendered")).toBeInTheDocument();
   });
 
   it("offers a credit top-up when the wallet is empty", async () => {
@@ -243,7 +340,7 @@ describe("RenderStudio", () => {
 
     const button = await screen.findByRole("button", { name: /Buy 1 credit · ₹99/ });
     expect(button).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Make my image/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Make my picture/ })).not.toBeInTheDocument();
 
     await userEvent.click(button);
     await waitFor(() => expect(buyAiCredits).toHaveBeenCalledWith(1));
@@ -258,9 +355,9 @@ describe("RenderStudio", () => {
   it("opens at the cheapest tier and labels every tier with its price", async () => {
     render(<RenderStudio projectId="p1" />);
 
-    const premium = await screen.findByRole("button", { name: "Premium · 1 credit" });
+    const premium = await screen.findByRole("button", { name: "Good · 1 credit" });
     expect(premium).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Luxury · 2 credits" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Best · 2 credits" })).toBeInTheDocument();
     // And nothing above it. The four-credit tier is retired, and a button for it here
     // would be a price this build can no longer be charged at.
     expect(screen.queryByRole("button", { name: /Max/ })).not.toBeInTheDocument();
@@ -276,10 +373,10 @@ describe("RenderStudio", () => {
     render(<RenderStudio projectId="p1" />);
 
     await screen.findByText("Scheme 1");
-    await userEvent.click(screen.getByRole("button", { name: "Luxury · 2 credits" }));
+    await userEvent.click(screen.getByRole("button", { name: "Best · 2 credits" }));
 
-    expect(screen.getByText(/uses 2 of your 2 AI credits/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Make my image · 2 credits/ }));
+    expect(screen.getByText(/You have 2 credits\. This picture uses 2\./)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Make my picture · 2 credits/ }));
 
     await waitFor(() =>
       expect(api.requestRender).toHaveBeenCalledWith(
@@ -296,7 +393,7 @@ describe("RenderStudio", () => {
     render(<RenderStudio projectId="p1" />);
 
     await screen.findByText("Scheme 1");
-    await userEvent.click(screen.getByRole("button", { name: "Luxury · 2 credits" }));
+    await userEvent.click(screen.getByRole("button", { name: "Best · 2 credits" }));
 
     const button = await screen.findByRole("button", { name: /Buy 2 credits · ₹198/ });
     await userEvent.click(button);
@@ -315,8 +412,8 @@ describe("RenderStudio", () => {
     render(<RenderStudio projectId="p1" />);
 
     expect(await screen.findByRole("button", { name: /Buy 1 credit · ₹99/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Make my image/ })).not.toBeInTheDocument();
-    expect(screen.getByText(/You need 1 credit for this image and have 0/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Make my picture/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/This picture needs 1 credit and you have 0/)).toBeInTheDocument();
   });
 
   it("says what the click will cost once the credit is in the wallet", async () => {
@@ -327,8 +424,8 @@ describe("RenderStudio", () => {
 
     // Named before the press, not after: this is the one click that spends something
     // without a payment sheet in front of it.
-    const button = await screen.findByRole("button", { name: /Make my image · 1 credit/ });
-    expect(screen.getByText(/uses 1 of your 2 AI credits/)).toBeInTheDocument();
+    const button = await screen.findByRole("button", { name: /Make my picture · 1 credit/ });
+    expect(screen.getByText(/You have 2 credits\. This picture uses 1\./)).toBeInTheDocument();
 
     await userEvent.click(button);
     await waitFor(() => expect(api.requestRender).toHaveBeenCalled());
@@ -345,7 +442,7 @@ describe("RenderStudio", () => {
     // so the price is unknown here and the button offers to buy rather than to spend —
     // which is the honest thing to show when the cost cannot be named.
     expect(await screen.findByText("Scheme 1")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Buy an AI image credit/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Buy a credit/ })).toBeInTheDocument();
   });
 
   it("shows the reason a failed render gives, and does not pretend it succeeded", async () => {
@@ -359,7 +456,7 @@ describe("RenderStudio", () => {
     render(<RenderStudio projectId="p1" />);
 
     await screen.findByText("Scheme 1");
-    await userEvent.click(screen.getByRole("button", { name: /Make my image/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Make my picture/ }));
 
     expect(await screen.findByRole("alert", {}, { timeout: 8000 })).toHaveTextContent(
       /Your credit is back/,
@@ -371,7 +468,7 @@ describe("RenderStudio", () => {
     render(<RenderStudio projectId="p1" />);
 
     await screen.findByText("Scheme 1");
-    await userEvent.click(screen.getByRole("button", { name: /Make my image/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Make my picture/ }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/used this project's AI image/);
   });

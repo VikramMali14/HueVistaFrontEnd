@@ -26,6 +26,7 @@ import {
   describeRender,
   FURNISHING_LABELS,
   LIGHTING_LABELS,
+  QUALITY_LABELS,
   STYLE_LABELS,
   TIME_OF_DAY_LABELS,
 } from "@/lib/render-labels";
@@ -119,49 +120,65 @@ const DEFAULT_OPTIONS: RenderOptions = {
  * never picked makes the two that are harder to read.
  */
 const QUALITY: Choice<RenderQuality>[] = [
-  { value: "PREMIUM", label: "Premium", hint: "A clear, true photograph of your room" },
+  { value: "PREMIUM", label: QUALITY_LABELS.PREMIUM, hint: "A clear photo of your room." },
   {
     value: "LUXURY",
-    label: "Luxury",
-    hint: "Our finest — sharper, larger, and truer to your building's own lines",
+    label: QUALITY_LABELS.LUXURY,
+    hint: "Sharper and bigger, with straighter lines. Costs more credits.",
   },
 ];
 
 type Choice<T extends string> = { value: T; label: string; hint: string };
 
-// The labels come from `render-labels`, which is also what the /ai-images shelf prints
-// with. Only the hints live here: they are prose about CHOOSING, which is a thing this
-// screen does and the shelf does not. Keeping the names in one place is what stops the
-// same picture being captioned "Modern" on one document and something else on another.
+/**
+ * The hints, and who they are written for.
+ *
+ * Somebody standing in a paint shop on a phone, deciding how ₹99 gets spent, often not
+ * reading in their first language. The old hints were written the way a catalogue is —
+ * "Quiet and restrained", "Crisp daylight, clean shadows", "Richer materials, deeper
+ * finishes" — which are pleasant to read and tell a person who does not already know the
+ * answer nothing they can act on. Worse, they were `title` tooltips: invisible on a
+ * touchscreen, which is where nearly all of this is used.
+ *
+ * These say the outcome in the shortest ordinary sentence there is, they end in a full
+ * stop, and they are on the screen rather than under a hover. Short enough to fit under
+ * a row on a phone without becoming a paragraph nobody reads.
+ *
+ * The labels themselves come from `render-labels`, which is also what the /ai-images
+ * shelf prints with. Only the hints live here: they are prose about CHOOSING, a thing
+ * this screen does and the shelf does not. Keeping the names in one place is what stops
+ * the same picture being captioned "Modern" on one document and something else on
+ * another.
+ */
 const TIME_OF_DAY: Choice<RenderOptions["timeOfDay"]>[] = [
-  { value: "DAY", label: TIME_OF_DAY_LABELS.DAY, hint: "Natural daylight, as the photo was taken" },
-  { value: "NIGHT", label: TIME_OF_DAY_LABELS.NIGHT, hint: "After dark, lit by the lights that are there" },
+  { value: "DAY", label: TIME_OF_DAY_LABELS.DAY, hint: "Sunlight, like in your photo." },
+  { value: "NIGHT", label: TIME_OF_DAY_LABELS.NIGHT, hint: "After dark, with the room lights on." },
 ];
 
 const BORDERS: Choice<RenderOptions["borderMode"]>[] = [
   {
     value: "KEEP_ORIGINAL",
     label: BORDER_LABELS.KEEP_ORIGINAL,
-    hint: "Paint stays exactly inside the walls and trim as they are marked",
+    hint: "Paint stays only where you marked it.",
   },
   {
     value: "AI_SUGGESTED",
     label: BORDER_LABELS.AI_SUGGESTED,
-    hint: "Let the AI propose the trim and banding, in these same colours",
+    hint: "AI adds borders and side strips, in your same colours.",
   },
 ];
 
 const LIGHTING: Choice<RenderOptions["lighting"]>[] = [
-  { value: "NATURAL", label: LIGHTING_LABELS.NATURAL, hint: "The light that is already in the room" },
-  { value: "WARM", label: LIGHTING_LABELS.WARM, hint: "Golden, softer — an evening feel" },
-  { value: "COOL", label: LIGHTING_LABELS.COOL, hint: "Crisp daylight, clean shadows" },
-  { value: "DRAMATIC", label: LIGHTING_LABELS.DRAMATIC, hint: "Strong light and deep shadow" },
+  { value: "NATURAL", label: LIGHTING_LABELS.NATURAL, hint: "The light already in the room." },
+  { value: "WARM", label: LIGHTING_LABELS.WARM, hint: "Soft yellow light, like evening." },
+  { value: "COOL", label: LIGHTING_LABELS.COOL, hint: "Bright white light, like morning." },
+  { value: "DRAMATIC", label: LIGHTING_LABELS.DRAMATIC, hint: "Bright light with dark shadows." },
 ];
 
 const FURNISHING: Choice<RenderOptions["furnishing"]>[] = [
-  { value: "KEEP", label: FURNISHING_LABELS.KEEP, hint: "Nothing moves — only the paint changes" },
-  { value: "STAGED", label: FURNISHING_LABELS.STAGED, hint: "Dressed to suit the colours" },
-  { value: "EMPTY", label: FURNISHING_LABELS.EMPTY, hint: "Cleared, so the walls are fully visible" },
+  { value: "KEEP", label: FURNISHING_LABELS.KEEP, hint: "Nothing is moved. Only the paint changes." },
+  { value: "STAGED", label: FURNISHING_LABELS.STAGED, hint: "We put in furniture that suits the colours." },
+  { value: "EMPTY", label: FURNISHING_LABELS.EMPTY, hint: "Furniture taken out, so you see the full walls." },
 ];
 
 /**
@@ -176,21 +193,21 @@ const SOURCE_IMAGE: Choice<NonNullable<RenderOptions["sourceImage"]>>[] = [
   {
     value: "CLEANED",
     label: "Cleaned photo",
-    hint: "Clutter removed and surfaces flattened, so the colour lands true — the usual choice",
+    hint: "Extra things removed, so the colour looks correct. Best for most rooms.",
   },
   {
     value: "ORIGINAL",
-    label: "Original photo",
-    hint: "The room exactly as you photographed it, if the clean-up lost something you wanted",
+    label: "My own photo",
+    hint: "Exactly as you took it, if the cleaning removed something you wanted.",
   },
 ];
 
 const STYLE: Choice<RenderOptions["style"]>[] = [
-  { value: "MODERN", label: STYLE_LABELS.MODERN, hint: "Contemporary and clean" },
-  { value: "MINIMAL", label: STYLE_LABELS.MINIMAL, hint: "Quiet and restrained" },
-  { value: "TRADITIONAL", label: STYLE_LABELS.TRADITIONAL, hint: "Classic and settled" },
-  { value: "HERITAGE", label: STYLE_LABELS.HERITAGE, hint: "An older building, well kept" },
-  { value: "LUXE", label: STYLE_LABELS.LUXE, hint: "Richer materials, deeper finishes" },
+  { value: "MODERN", label: STYLE_LABELS.MODERN, hint: "New and simple, like today's homes." },
+  { value: "MINIMAL", label: STYLE_LABELS.MINIMAL, hint: "Very simple. Nothing extra." },
+  { value: "TRADITIONAL", label: STYLE_LABELS.TRADITIONAL, hint: "Classic look, wood and warm tones." },
+  { value: "HERITAGE", label: STYLE_LABELS.HERITAGE, hint: "An old house, kept in good condition." },
+  { value: "LUXE", label: STYLE_LABELS.LUXE, hint: "Costly finishes — marble, deep colours, shine." },
 ];
 
 function comboName(combo: ProjectCombo, index: number): string {
@@ -236,15 +253,48 @@ export function RenderStudio({ projectId }: { projectId: string }) {
    */
   const [slow, setSlow] = useState(false);
 
+  /**
+   * Set when the poll loop gives up on a render that is still unfinished.
+   *
+   * <p>Without it the screen locked. `waiting` is true while the active render says
+   * QUEUED or RUNNING, and giving up changed neither the render nor its status — so the
+   * spinner overlay stayed on top of the page forever, every button under it stayed
+   * disabled, and the message telling the customer their picture might still arrive sat
+   * behind a curtain saying it was still being made. The render may genuinely still be
+   * coming, so this hides the curtain rather than throwing the render away, and the page
+   * offers to look again.
+   */
+  const [timedOut, setTimedOut] = useState(false);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<Canvas2DRecolor | null>(null);
+  /**
+   * The engine's base photo, once it has actually loaded.
+   *
+   * Shared as a PROMISE rather than a flag because two runs of the preview effect race:
+   * the first creates the engine and awaits its photo, and a customer tapping a second
+   * combination starts another run that used to find a non-null `engineRef`, skip the
+   * load it had no way to know was still in flight, and paint onto an engine with no
+   * image under it. The result was a blank preview that nothing redrew. Awaiting the
+   * same promise makes the second run wait for the first run's photo.
+   */
+  const enginePrep = useRef<{ photo: string; ready: Promise<Canvas2DRecolor | null> } | null>(null);
   /** Masks keyed by region id, loaded once and reused as the selection moves. */
   const maskCache = useRef(new Map<number, HTMLImageElement>());
+  /**
+   * Lets a poll loop be told to stop — on unmount, and when a newer one supersedes it.
+   *
+   * A loop with no way to be stopped kept asking the server every 2.5 seconds for up to
+   * nine minutes after the customer had left the page, and called setState on a
+   * component that no longer existed each time it answered.
+   */
+  const pollAbort = useRef<{ cancelled: boolean } | null>(null);
 
   // The same condition the overlay uses, computed up here because hooks cannot live
   // below the early return that the loading state makes.
   const waiting =
-    generating || active?.status === "QUEUED" || active?.status === "RUNNING";
+    !timedOut
+    && (generating || active?.status === "QUEUED" || active?.status === "RUNNING");
 
   useEffect(() => {
     if (!waiting) {
@@ -254,6 +304,69 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     const timer = setTimeout(() => setSlow(true), SLOW_AFTER_MS);
     return () => clearTimeout(timer);
   }, [waiting]);
+
+  // ── Waiting for a render ─────────────────────────────────────────────────
+
+  const poll = useCallback(
+    async (renderId: string) => {
+      // One loop at a time. A second would double the request rate and let two answers
+      // fight over `active`.
+      if (pollAbort.current) pollAbort.current.cancelled = true;
+      const token = { cancelled: false };
+      pollAbort.current = token;
+      setTimedOut(false);
+
+      const deadline = Date.now() + POLL_DEADLINE_MS;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        if (token.cancelled) return;
+        let latest: ProjectRender;
+        try {
+          latest = await api.getRender(projectId, renderId);
+        } catch {
+          continue; // a dropped poll is not a failed render
+        }
+        if (token.cancelled) return;
+        setActive(latest);
+        if (latest.status === "READY" || latest.status === "FAILED") {
+          setRenders((prev) => [latest, ...prev.filter((r) => r.id !== latest.id)]);
+          // Something moved either way — spent on success, handed back on failure — and
+          // which of the two pockets it was is the server's business, not this screen's.
+          // So both are re-read rather than guessed at.
+          void api.getProject(projectId).then(setProject).catch(() => {});
+          void api.getAiCredits().then(setWallet).catch(() => {});
+          return;
+        }
+      }
+      if (token.cancelled) return;
+      // Lift the overlay before saying so. The sentence is about what the customer can
+      // do next, and it used to be printed underneath a spinner still claiming the
+      // picture was being made.
+      setTimedOut(true);
+      setError(
+        "Your picture is taking longer than usual. It may still be on its way — check "
+        + "again in a minute, or come back later and look under \u201cMy AI images\u201d.",
+      );
+    },
+    [projectId],
+  );
+
+  /** Stop the loop when the customer leaves, rather than polling an empty page. */
+  useEffect(
+    () => () => {
+      if (pollAbort.current) pollAbort.current.cancelled = true;
+    },
+    [],
+  );
+
+  /** Look again after a give-up, for a render that may well have landed since. */
+  const recheck = useCallback(() => {
+    const id = active?.id;
+    if (!id) return;
+    setError(null);
+    setGenerating(true);
+    void poll(id).finally(() => setGenerating(false));
+  }, [active?.id, poll]);
 
   // ── Load the project, its combinations and anything already rendered ──────
 
@@ -282,10 +395,16 @@ export function RenderStudio({ projectId }: { projectId: string }) {
         setSelected(comboList[0]?.id ?? null);
         // A render still in flight from a previous visit is picked back up rather
         // than left to finish invisibly — the customer closed the tab, not the job.
+        //
+        // And it is POLLED. Setting `generating` alone only raised the spinner: nothing
+        // ever asked the server again, so a customer who came back to a render that had
+        // finished while they were away watched "Making your picture…" for as long as
+        // they were willing to, on a picture that was already sitting on the server.
         const inFlight = renderList.find((r) => r.status === "QUEUED" || r.status === "RUNNING");
         if (inFlight) {
           setActive(inFlight);
           setGenerating(true);
+          void poll(inFlight.id).finally(() => setGenerating(false));
         } else {
           setActive(renderList.find((r) => r.status === "READY") ?? null);
         }
@@ -300,7 +419,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, poll]);
 
   // ── The preview: one combination painted onto the cleaned photo ───────────
 
@@ -323,13 +442,33 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     let cancelled = false;
     (async () => {
       try {
-        let engine = engineRef.current;
-        if (!engine) {
-          engine = new Canvas2DRecolor(canvas);
-          engineRef.current = engine;
-          engine.setImage(await loadImage(photo));
+        // One shared "engine, with its photo in it" promise. See `enginePrep`: checking
+        // a non-null ref told a second run the engine was ready when the first run's
+        // photo was still loading, and it painted onto nothing.
+        let prep = enginePrep.current;
+        if (!prep || prep.photo !== photo) {
+          const created = engineRef.current ?? new Canvas2DRecolor(canvas);
+          engineRef.current = created;
+          const pending: { photo: string; ready: Promise<Canvas2DRecolor | null> } = {
+            photo,
+            ready: loadImage(photo).then(
+              (img) => {
+                created.setImage(img);
+                return created;
+              },
+              () => {
+                // Forget the failure so the next selection tries the photo again,
+                // rather than every later run awaiting the same dead promise.
+                if (enginePrep.current === pending) enginePrep.current = null;
+                return null;
+              },
+            ),
+          };
+          enginePrep.current = pending;
+          prep = pending;
         }
-        if (cancelled) return;
+        const engine = await prep.ready;
+        if (!engine || cancelled) return;
 
         const paints = [];
         for (const shade of selectedCombo.shades) {
@@ -361,34 +500,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
 
   useEffect(() => () => engineRef.current?.dispose(), []);
 
-  // ── Generating, and waiting for it ───────────────────────────────────────
-
-  const poll = useCallback(
-    async (renderId: string) => {
-      const deadline = Date.now() + POLL_DEADLINE_MS;
-      while (Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-        let latest: ProjectRender;
-        try {
-          latest = await api.getRender(projectId, renderId);
-        } catch {
-          continue; // a dropped poll is not a failed render
-        }
-        setActive(latest);
-        if (latest.status === "READY" || latest.status === "FAILED") {
-          setRenders((prev) => [latest, ...prev.filter((r) => r.id !== latest.id)]);
-          // Something moved either way — spent on success, handed back on failure — and
-          // which of the two pockets it was is the server's business, not this screen's.
-          // So both are re-read rather than guessed at.
-          void api.getProject(projectId).then(setProject).catch(() => {});
-          void api.getAiCredits().then(setWallet).catch(() => {});
-          return;
-        }
-      }
-      setError("Your image is taking longer than expected. It may still arrive — reload in a minute.");
-    },
-    [projectId],
-  );
+  // ── Generating ───────────────────────────────────────────────────────────
 
   const generate = useCallback(async () => {
     if (!selected || generating) return;
@@ -636,8 +748,8 @@ export function RenderStudio({ projectId }: { projectId: string }) {
         <Eyebrow>Your AI image</Eyebrow>
         <h1 className="display">No colour boards yet</h1>
         <Lead>
-          The AI image is made from a combination on one of your colour boards, so there has
-          to be a board first. Go back, choose your colours and download one.
+          The AI picture is made from a colour set on one of your colour boards, so you
+          need a board first. Go back, pick your colours, and download a board.
         </Lead>
         <LinkButton href={`/studio?project=${encodeURIComponent(projectId)}`} variant="brass">
           Back to the studio <span className="arr">→</span>
@@ -654,6 +766,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   const canGenerate = creditsLeft >= cost;
   const busy = waiting;
   const ready = active?.status === "READY" ? active : null;
+  const finished = renders.filter((r) => r.status === "READY");
 
   return (
     <div className="hv-render">
@@ -666,10 +779,10 @@ export function RenderStudio({ projectId }: { projectId: string }) {
         </h1>
         <Lead>
           {combos.length === 1
-            ? "This is the combination from your colour board."
-            : `These are the ${combos.length} combinations from your colour board.`}{" "}
-          Choose one and we&apos;ll photograph your room in it — the same shades, in real
-          light.
+            ? "This is the colour set from your colour board."
+            : `These are the ${combos.length} colour sets from your colour board.`}{" "}
+          Pick one, and we will show you a real photo of your room painted in it — the
+          same shades, in real light.
         </Lead>
       </header>
 
@@ -712,20 +825,21 @@ export function RenderStudio({ projectId }: { projectId: string }) {
           {busy && (
             <div className="hv-render-working" role="status">
               <Spinner />
-              <p>{slow ? "Still photographing your room…" : "Photographing your room…"}</p>
+              <p>{slow ? "Still making your picture…" : "Making your picture…"}</p>
               <p className="hv-render-working-sub">
                 {slow
-                  ? "The AI is busy right now, so this one is taking longer than usual — "
-                    + "we're still trying. You can leave this page; it will be here when "
-                    + "you come back."
-                  : "This takes about a minute. You can leave this page — it will be here "
-                    + "when you come back."}
+                  ? "This one is taking longer than usual because the AI is busy. We are "
+                    + "still trying. You can close this page — your picture will be saved "
+                    + "and waiting for you."
+                  : "This takes about a minute. You can close this page — your picture "
+                    + "will be saved and waiting for you."}
               </p>
             </div>
           )}
           {!ready && !busy && (
             <p className="hv-render-stage-note">
-              A preview of the shades. The AI image will be a photograph of this room.
+              This is only a rough preview of the colours. The AI picture will look like a
+              real photo.
             </p>
           )}
         </div>
@@ -733,28 +847,28 @@ export function RenderStudio({ projectId }: { projectId: string }) {
 
       {ready ? (
         <section className="hv-render-done">
-          <p className="hv-render-done-text">Your image is ready.</p>
+          <p className="hv-render-done-text">Your picture is ready.</p>
           {/* The board and the picture belong on one sheet — see downloadBoardWithImage.
               Offered beside the plain image download rather than instead of it, because
               somebody who only wants the picture should not have to take a PDF. */}
           <p className="hv-render-done-sub">
-            Take it on its own, on a one-page PDF with the shades printed underneath, or on
-            your whole colour board with this image as the last page. All three cost
-            nothing — the board was already paid for.
+            Save just the picture, or a one-page PDF with the paint colours printed under
+            it, or your full colour board with this picture at the end. All three are free
+            — you already paid for the board.
           </p>
           <div className="hv-render-done-actions">
             <Button variant="brass" disabled={saving} onClick={() => void downloadImage()}>
-              {saving ? "Saving…" : "Download the image"}
+              {saving ? "Saving…" : "Save the picture"}
             </Button>
             <Button variant="ghost" disabled={boardBusy} onClick={() => void downloadImagePdf()}>
-              {boardBusy ? "Building your PDF…" : "This image as a PDF"}
+              {boardBusy ? "Making your PDF…" : "PDF with the colours"}
             </Button>
             <Button variant="ghost" disabled={boardBusy} onClick={() => void downloadBoardWithImage()}>
-              {boardBusy ? "Building your PDF…" : "Colour board PDF · with this image"}
+              {boardBusy ? "Making your PDF…" : "Full colour board PDF"}
             </Button>
             {canGenerate ? (
               <Button variant="ghost" onClick={() => setActive(null)}>
-                Make another · {cost} credit{cost === 1 ? "" : "s"}
+                Make one more · {cost} credit{cost === 1 ? "" : "s"}
               </Button>
             ) : (
               <Button variant="ghost" disabled={buying} onClick={() => void topUp()}>
@@ -777,12 +891,11 @@ export function RenderStudio({ projectId }: { projectId: string }) {
           {/* First, because it is the only row that changes the price. Every other choice
               here is free to move; this one is the purchase. */}
           <OptionRow
-            label="Quality"
+            label="Picture quality"
             choices={qualityChoices(wallet)}
             value={options.quality ?? "PREMIUM"}
             onChange={(quality) => setOptions((o) => ({ ...o, quality }))}
             disabled={busy}
-            showHint
           />
           {/* Second, and only when there are two pictures to choose between. This used to
               be a decision the code made silently — always the cleaned one — and it is
@@ -790,32 +903,32 @@ export function RenderStudio({ projectId }: { projectId: string }) {
               rather than what it is asked to do with it. */}
           {project?.cleanedImageUrl && (
             <OptionRow
-              label="Paint from"
+              label="Which photo"
               choices={SOURCE_IMAGE}
               value={options.sourceImage ?? "CLEANED"}
               onChange={(sourceImage) => setOptions((o) => ({ ...o, sourceImage }))}
               disabled={busy}
             />
           )}
-          <OptionRow label="Time of day" choices={TIME_OF_DAY} value={options.timeOfDay}
+          <OptionRow label="Day or night" choices={TIME_OF_DAY} value={options.timeOfDay}
             onChange={(timeOfDay) => setOptions((o) => ({ ...o, timeOfDay }))} disabled={busy} />
-          <OptionRow label="Borders and trim" choices={BORDERS} value={options.borderMode}
+          <OptionRow label="Wall borders" choices={BORDERS} value={options.borderMode}
             onChange={(borderMode) => setOptions((o) => ({ ...o, borderMode }))} disabled={busy} />
-          <OptionRow label="Light" choices={LIGHTING} value={options.lighting}
+          <OptionRow label="Light in the room" choices={LIGHTING} value={options.lighting}
             onChange={(lighting) => setOptions((o) => ({ ...o, lighting }))} disabled={busy} />
           <OptionRow label="Furniture" choices={FURNISHING} value={options.furnishing}
             onChange={(furnishing) => setOptions((o) => ({ ...o, furnishing }))} disabled={busy} />
-          <OptionRow label="Look" choices={STYLE} value={options.style}
+          <OptionRow label="Style of the room" choices={STYLE} value={options.style}
             onChange={(style) => setOptions((o) => ({ ...o, style }))} disabled={busy} />
 
           <label className="hv-render-note">
-            <span>Anything else? (optional)</span>
+            <span>Want to tell us anything? (you can leave this empty)</span>
             <input
               type="text"
               maxLength={500}
               value={note}
               disabled={busy}
-              placeholder="e.g. show it with the curtains open"
+              placeholder="e.g. keep the curtains open"
               onChange={(e) => setNote(e.target.value)}
             />
           </label>
@@ -824,8 +937,8 @@ export function RenderStudio({ projectId }: { projectId: string }) {
             {canGenerate ? (
               <Button variant="brass" disabled={busy || !selected} onClick={() => void generate()}>
                 {busy
-                  ? "Making your image…"
-                  : `Make my image · ${cost} credit${cost === 1 ? "" : "s"}`}
+                  ? "Making your picture…"
+                  : `Make my picture · ${cost} credit${cost === 1 ? "" : "s"}`}
               </Button>
             ) : (
               <Button variant="brass" disabled={buying} onClick={() => void topUp()}>
@@ -837,27 +950,32 @@ export function RenderStudio({ projectId }: { projectId: string }) {
         </section>
       )}
 
-      {/* Anything made earlier on this project. Only shown once there is more than one,
-          because a strip with a single thumbnail of the picture already on screen is
-          noise — but a customer who bought a second image wants both side by side. */}
-      {renders.filter((r) => r.status === "READY").length > 1 && (
+      {/* Anything made earlier on this project. Hidden only when it would duplicate the
+          picture already on screen — a strip showing one thumbnail of what is directly
+          above it is noise.
+
+          It used to be hidden whenever there was exactly one finished picture, full
+          stop, and that lost it. "Make one more" and topping up both clear the stage to
+          bring the options back, so a customer with one picture who pressed either had
+          it vanish with nothing on the page leading anywhere near it. */}
+      {(finished.length > 1 || (finished.length === 1 && finished[0]!.id !== ready?.id)) && (
         <section className="hv-render-history">
-          <h2 className="hv-render-history-title">Your images</h2>
+          <h2 className="hv-render-history-title">Your pictures</h2>
           <div className="hv-render-history-strip">
-            {renders
-              .filter((r) => r.status === "READY")
-              .map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  className={`hv-render-history-item${r.id === active?.id ? " is-on" : ""}`}
-                  onClick={() => setActive(r)}
-                  aria-label={`Show the ${r.style.toLowerCase()} ${r.timeOfDay.toLowerCase()} image`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={resolveMediaUrl(r.imageUrl) ?? ""} alt="" />
-                </button>
-              ))}
+            {finished.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                className={`hv-render-history-item${r.id === active?.id ? " is-on" : ""}`}
+                onClick={() => setActive(r)}
+                /* describeRender, not the raw enums: this used to announce "Show the
+                   modern day image", which is the database's words, not a person's. */
+                aria-label={`Show the picture: ${describeRender(r)}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={resolveMediaUrl(r.imageUrl) ?? ""} alt="" />
+              </button>
+            ))}
           </div>
           <style>{`
             .hv-render-history { margin-top: 28px; }
@@ -881,6 +999,17 @@ export function RenderStudio({ projectId }: { projectId: string }) {
       {error && (
         <p className="hv-render-error" role="alert">
           {error}
+          {/* A give-up is the one error on this screen with an obvious next move, and
+              until now it named that move ("reload in a minute") instead of offering
+              it — from behind a spinner that made the page unusable anyway. */}
+          {timedOut && active && (
+            <>
+              {" "}
+              <button type="button" className="hv-render-retry" onClick={recheck}>
+                Check again
+              </button>
+            </>
+          )}
         </p>
       )}
 
@@ -922,6 +1051,10 @@ export function RenderStudio({ projectId }: { projectId: string }) {
         .hv-render-done-sub { font: 400 13px/1.5 var(--sans); color: var(--fg-soft); margin: 0; max-width: 52ch; }
         .hv-render-done-actions { display: flex; flex-wrap: wrap; gap: 12px; }
         .hv-render-error { margin-top: 16px; font: 400 14px/1.4 var(--sans); color: var(--danger, #b3261e); }
+        .hv-render-retry {
+          border: none; background: none; padding: 0; cursor: pointer; font: inherit;
+          color: inherit; text-decoration: underline; text-underline-offset: 2px;
+        }
         .hv-render-loading, .hv-render-empty {
           max-width: 640px; margin: 0 auto; padding: 96px var(--gutter); text-align: center;
           display: grid; gap: 16px; justify-items: center;
@@ -931,32 +1064,34 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   );
 }
 
+/**
+ * One row of the picker: a heading, the choices, and what the chosen one means.
+ *
+ * <p><b>Every row explains itself now.</b> The hints were `title` attributes — invisible
+ * on a touchscreen, which is where nearly all of this is used — and then visible on the
+ * quality row alone, on the reasoning that it is the row that costs money. That was the
+ * wrong row to single out. Money is not what makes a choice hard; not knowing the word
+ * is, and "Luxe", "Heritage" and "Dramatic" were unreadable to the customer this is for
+ * whether or not they were free to pick.
+ *
+ * <p>Only the CHOSEN option's hint is shown, so a row costs one line rather than five,
+ * and the whole picker reads as six short sentences describing the picture about to be
+ * made — which is also a useful summary to check before spending a credit.
+ */
 function OptionRow<T extends string>({
   label,
   choices,
   value,
   onChange,
   disabled,
-  showHint,
 }: {
   label: string;
   choices: Choice<T>[];
   value: T;
   onChange: (value: T) => void;
   disabled?: boolean;
-  /**
-   * Show the chosen option's hint under the row.
-   *
-   * The hints have always been `title` attributes, which is to say invisible on a phone —
-   * where most of this is used. Printing every hint would be six lines of prose on a
-   * screen whose job is one decision, so only the one that has actually been chosen is
-   * shown, and only on the rows that ask for it. The quality row asks: it is the one
-   * choice here that costs money, and "what am I getting for the second credit" is
-   * exactly the question a tooltip nobody can open fails to answer.
-   */
-  showHint?: boolean;
 }) {
-  const hint = showHint ? choices.find((c) => c.value === value)?.hint : undefined;
+  const hint = choices.find((c) => c.value === value)?.hint;
   return (
     // role="group" + aria-pressed rather than the radio pattern — see the combo picker
     // above: nothing here implements the arrow-key navigation a radiogroup announces.
@@ -1045,7 +1180,7 @@ function shortBy(wallet: AiCreditSummary | null, quality: RenderQuality | undefi
  * none, which is why it reads the wallet's own figure rather than a constant.
  */
 function buyCreditLabel(wallet: AiCreditSummary | null, needed: number): string {
-  if (!wallet) return "Buy an AI image credit";
+  if (!wallet) return "Buy a credit";
   const n = Math.max(1, needed);
   return `Buy ${n} credit${n === 1 ? "" : "s"} · ${formatRupees(wallet.pricePaise * n)}`;
 }
@@ -1060,10 +1195,11 @@ function buyCreditLabel(wallet: AiCreditSummary | null, needed: number): string 
  */
 function costNote(creditsLeft: number, cost: number): string {
   if (creditsLeft >= cost) {
-    return `This image uses ${cost} of your ${creditsLeft} AI credit${creditsLeft === 1 ? "" : "s"}.`;
+    return `You have ${creditsLeft} credit${creditsLeft === 1 ? "" : "s"}. This picture `
+      + `uses ${cost}.`;
   }
-  return `You need ${cost} credit${cost === 1 ? "" : "s"} for this image and have `
-    + `${creditsLeft}. Credits work on any room.`;
+  return `This picture needs ${cost} credit${cost === 1 ? "" : "s"} and you have `
+    + `${creditsLeft}. Credits can be used on any room.`;
 }
 
 function hexToRgb01(hex: string): [number, number, number] {
