@@ -120,12 +120,42 @@ describe("GET /api/media", () => {
     expect((await GET(request(S3))).status).toBe(502);
   });
 
-  it("answers 503 without fetching when no bucket is configured", async () => {
+  it("falls back to the API's own bucket when this container was not told one", async () => {
+    // The production failure this closes: S3_BUCKET_NAME is only ever read here, so
+    // nobody set it on the web container and every image got 503 from a route whose
+    // whole job was to rescue a blocked CORS load.
+    vi.resetModules();
+    vi.stubEnv("S3_BUCKET_NAME", "");
+    vi.stubEnv("S3_REGION", "ap-south-1");
+    const { GET } = await import("../route");
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ provider: "s3", bucket: BUCKET, region: "ap-south-1" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response("bytes", { status: 200, headers: { "content-type": "image/png" } }),
+      );
+
+    const res = await GET(request(S3));
+
+    expect(res.status).toBe(200);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/api/images/storage");
+    expect(new URL(fetchMock.mock.calls[1]?.[0] as string).origin).toBe(ORIGIN);
+  });
+
+  it("answers 503 without fetching the image when no bucket can be resolved", async () => {
     vi.resetModules();
     vi.stubEnv("S3_BUCKET_NAME", "");
     const { GET } = await import("../route");
+    // The API is unreachable too, so there is nothing to serve from.
+    fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
 
     expect((await GET(request(S3))).status).toBe(503);
-    expect(fetchMock).not.toHaveBeenCalled();
+    // One doomed lookup, and never a request for the image itself.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/api/images/storage");
   });
 });

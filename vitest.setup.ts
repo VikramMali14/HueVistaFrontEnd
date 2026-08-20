@@ -49,6 +49,14 @@ if (typeof document !== "undefined") {
     Element.prototype.scrollTo = () => {};
   }
 
+  // Nor scrollIntoView, which the AI-image filmstrip calls to bring the chosen card
+  // back into a strip that is wider than a phone screen. Inert for the same reason:
+  // there is no layout to scroll in jsdom, and the tests are about which card is
+  // pressed, not about where it sits.
+  if (typeof Element !== "undefined" && typeof Element.prototype.scrollIntoView !== "function") {
+    Element.prototype.scrollIntoView = () => {};
+  }
+
   // jsdom has no matchMedia, and anything that respects prefers-reduced-motion
   // (the dashboard's count-up figures, for one) calls it on mount. Report "no
   // preference" so animated components take their ordinary path in tests rather

@@ -36,6 +36,11 @@ vi.mock("@/lib/api", () => ({
 
 vi.mock("@/lib/payments", () => ({ buyAiCredits: vi.fn() }));
 
+// Saving the finished picture fetches its bytes; jsdom has neither the network nor
+// URL.createObjectURL. What the test cares about is that pressing the button asks for
+// a real save at all — the anchor it replaced only ever navigated.
+vi.mock("@/lib/download-image", () => ({ downloadRemoteImage: vi.fn(async () => true) }));
+
 // The preview engine draws onto a canvas jsdom cannot give a context for. It is a
 // convenience on this screen — the picker and the generate flow are what matter — so an
 // inert double keeps the component mountable without pretending to render anything.
@@ -54,6 +59,7 @@ vi.mock("@/lib/canvas2d-recolor", () => ({
 import { RenderStudio } from "../render-studio";
 import { api as realApi, HttpError } from "@/lib/api";
 import { buyAiCredits as realBuy } from "@/lib/payments";
+import { downloadRemoteImage } from "@/lib/download-image";
 import type { AiCreditSummary } from "@/lib/types";
 
 const api = vi.mocked(realApi);
@@ -187,7 +193,17 @@ describe("RenderStudio", () => {
 
     const image = await screen.findByAltText("Your room, rendered", {}, { timeout: 8000 });
     expect(image).toHaveAttribute("src", "https://cdn.test/render.jpg");
-    expect(screen.getByRole("link", { name: /Download the image/ })).toBeInTheDocument();
+
+    // A button, not a link. `<a download href="https://…">` is same-origin-only, so on
+    // the presigned URL the browser ignored the attribute and navigated to a bare JPEG
+    // instead of saving anything.
+    await userEvent.click(screen.getByRole("button", { name: /Download the image/ }));
+    await waitFor(() =>
+      expect(downloadRemoteImage).toHaveBeenCalledWith(
+        "https://cdn.test/render.jpg",
+        expect.stringContaining("huevista-ai-image-"),
+      ),
+    );
   }, 12000);
 
   it("picks a render back up when the customer returns mid-flight", async () => {
