@@ -215,7 +215,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           run their own numbering, because it answers a different question (what does
           MY prefix/suffix pattern make of this) that most shops never ask. */}
       {!unavailable && (user?.role === "RETAILER" || user?.role === "ADMIN") && <DashboardCodeChecker />}
-      <PlanBanner />
+      {/* Not for a customer. They hold no subscription and never will — the plan is a
+          shop's thing — so the banner could only ever render nothing, and the request
+          behind it could only ever 404. Asking anyway filled the console of every
+          customer session with failures that look exactly like the real ones, which is
+          how a genuine error hides. Their own standing is the banner below. */}
+      {user?.role !== "CUSTOMER" && <PlanBanner />}
       {user?.role === "CUSTOMER" && <CustomerAccessBanner />}
       <AccountVerification user={user} />
       {/* A customer with nothing left is told what it costs to carry on, not to

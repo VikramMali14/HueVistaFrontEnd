@@ -16,14 +16,21 @@
  * direct load works and this route is never called.
  *
  * The caller does not get to choose what this server connects to. `@/lib/media-proxy`
- * pins the origin to one bucket named by configuration and rebuilds the rest of the
- * URL out of validated parts, so the string handed to `fetch` below is assembled
- * here rather than forwarded from the request. It needs `S3_BUCKET_NAME` set to arm;
- * without it the route stays off rather than widening what it will fetch.
+ * pins the origin to one bucket — named by this container's `S3_BUCKET_NAME` or, when
+ * that is unset, by the API's own storage configuration — and rebuilds the rest of the
+ * URL out of validated parts, so the string handed to `fetch` below is assembled there
+ * rather than forwarded from the request.
+ *
+ * Asking the API is what makes this work out of the box. The variable was the only way
+ * to arm the route, and in production it was never set — nothing about the web
+ * container suggests it needs the name of the API's bucket — so every call answered 503,
+ * the canvas fallback had nothing behind it, and "Download as PDF" failed on a picture
+ * the customer could plainly see. When neither source names a bucket the route still
+ * stays off rather than widening what it will fetch.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { MEDIA_ORIGIN, MEDIA_PROXY_TIMEOUT_MS, resolveProxyTarget } from "@/lib/media-proxy";
+import { MEDIA_PROXY_TIMEOUT_MS, mediaOrigin, resolveProxyTarget } from "@/lib/media-proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,19 +39,22 @@ export const dynamic = "force-dynamic";
 let warnedUnconfigured = false;
 
 export async function GET(req: NextRequest) {
-  if (!MEDIA_ORIGIN) {
+  const origin = await mediaOrigin();
+  if (!origin) {
     if (!warnedUnconfigured) {
       warnedUnconfigured = true;
       console.warn(
-        "/api/media was called but S3_BUCKET_NAME is not set, so the image CORS fallback " +
-          "is off. Either set it (to the backend's bucket) or make sure the bucket's own " +
-          "CORS rule allows this site — see docs in the API's IMAGE_UPLOAD_FLOW.md §12.",
+        "/api/media was called but no image bucket could be resolved, so the image CORS " +
+          "fallback is off. The API's GET /api/images/storage should name one; it is " +
+          "either unreachable from here (check API_INTERNAL_ORIGIN), older than that " +
+          "endpoint, or storing images on local disk. Setting S3_BUCKET_NAME on this " +
+          "container overrides the lookup — see the API's IMAGE_UPLOAD_FLOW.md §12.",
       );
     }
     return NextResponse.json({ message: "Media proxy is not configured" }, { status: 503 });
   }
 
-  const target = resolveProxyTarget(req.nextUrl.searchParams.get("url"));
+  const target = resolveProxyTarget(req.nextUrl.searchParams.get("url"), origin);
   if (!target) {
     return NextResponse.json({ message: "Unsupported media URL" }, { status: 400 });
   }

@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import { downloadBlob } from "@/lib/download-blob";
+import { downloadRemoteImage } from "@/lib/download-image";
 import { resolveMediaUrl } from "@/lib/media";
 import { loadCrossOriginImage as loadImage } from "@/lib/load-image";
 import { formatRupees } from "@/lib/money";
@@ -222,6 +223,8 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   const [codeScheme, setCodeScheme] = useState<ShadeCodeScheme | null>(null);
   /** True while the colour board is being rebuilt for download. */
   const [boardBusy, setBoardBusy] = useState(false);
+  /** True while the picture itself is being fetched for saving. */
+  const [saving, setSaving] = useState(false);
   /**
    * Whether this wait has already outlasted the minute the copy promises.
    *
@@ -510,6 +513,40 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   }, [active, boardBusy, project, combos, regionsById, codeScheme, printableShades]);
 
   /**
+   * Save the picture itself.
+   *
+   * This used to be an anchor carrying `download` and pointing at the presigned S3 URL.
+   * The attribute is same-origin-only by specification, so on that href the browser
+   * ignored it and NAVIGATED: the render page was replaced by a bare JPEG, and a
+   * customer who then saved it by hand got a file named after the storage key. Fetching
+   * the bytes makes it a real download and lets the name say which room it is.
+   */
+  const downloadImage = useCallback(async () => {
+    const image = active?.status === "READY" ? active : null;
+    const url = image ? (resolveMediaUrl(image.imageUrl) ?? "") : "";
+    if (!url || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const saved = await downloadRemoteImage(
+        url,
+        `huevista-ai-image-${Date.now()}`,
+      );
+      // Opening it is what the old anchor did by accident, and as a last resort it is
+      // still a picture the browser's own save can reach.
+      if (!saved) {
+        window.open(url, "_blank", "noopener,noreferrer");
+        setError(
+          "Could not save the file directly, so it opened in a new tab — press and hold, "
+          + "or right-click, to save it from there.",
+        );
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [active, saving]);
+
+  /**
    * The image on a sheet of its own — picture, shades, codes, and nothing else.
    *
    * Offered beside the full board rather than instead of it, because the two answer
@@ -706,9 +743,9 @@ export function RenderStudio({ projectId }: { projectId: string }) {
             nothing — the board was already paid for.
           </p>
           <div className="hv-render-done-actions">
-            <a className="btn btn-brass" href={resolveMediaUrl(ready.imageUrl) ?? "#"} download>
-              Download the image
-            </a>
+            <Button variant="brass" disabled={saving} onClick={() => void downloadImage()}>
+              {saving ? "Saving…" : "Download the image"}
+            </Button>
             <Button variant="ghost" disabled={boardBusy} onClick={() => void downloadImagePdf()}>
               {boardBusy ? "Building your PDF…" : "This image as a PDF"}
             </Button>
