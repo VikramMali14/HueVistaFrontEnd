@@ -67,7 +67,15 @@ const STORED_TINT: Record<RegionCategory, string> = {
 const DIFF_ADDED = "#00f0ff";   // pipeline painted where the model didn't
 const DIFF_REMOVED = "#ff9f0a"; // model painted, pipeline dropped it
 
-/** Draw an image onto a fresh W×H grid and return its pixels. */
+/**
+ * Draw an image onto a fresh W×H grid and return its pixels.
+ *
+ * The RAW colour-coded mask is drawn STRETCHED to fill this grid, which is how
+ * it arrived and not where the pipeline puts it: the backend measures the
+ * generation against the canvas and stores the regions at that registration.
+ * So a raw layer sitting a few pixels off its wall while the stored layer sits
+ * on it is the correction working, not a bug in either.
+ */
 function rasterize(img: HTMLImageElement, w: number, h: number, smooth: boolean): ImageData {
   const c = document.createElement("canvas");
   c.width = w;
@@ -297,7 +305,9 @@ export function MaskViewer({ initial, searchAction, loadAction, initialProjectId
             warn.push(
               `Aspect drift: the raw mask is ${rawImg.naturalWidth}×${rawImg.naturalHeight} ` +
               `(${rawAspect.toFixed(3)}) but the canvas aspect is ${canvasAspect.toFixed(3)} — ` +
-              `regions from this generation are stretched onto the photo.`,
+              `the model rounded this generation to one of its aspect buckets. The backend ` +
+              `un-shears it before storing, so compare the stored layers, not the raw ones: ` +
+              `the raw overlay here is drawn stretched, exactly as it came back.`,
             );
           }
 
@@ -389,7 +399,8 @@ export function MaskViewer({ initial, searchAction, loadAction, initialProjectId
           ],
           canvas: diffToCanvas(added, removed, w, h),
           pct: Math.round((pctOf(added) + pctOf(removed)) * 10) / 10,
-          detail: "cyan = added by pipeline · orange = removed from model output",
+          detail: "cyan = added by pipeline · orange = removed from model output — " +
+            "mostly the alignment correction when the two are the same shape, offset",
         });
       }
 
