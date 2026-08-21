@@ -8,7 +8,10 @@
  */
 import type {
   AccessCode,
+  AiCreditSummary,
+  CartCatalogue,
   CustomerEntitlement,
+  MyRender,
   OrgResponse,
   PaintBrand,
   PaintLine,
@@ -38,6 +41,9 @@ import {
   DEMO_SUBSCRIPTION,
   DEMO_SUPPORT_CONVERSATIONS,
   DEMO_WALLET,
+  DEMO_AI_CREDITS,
+  DEMO_CART,
+  DEMO_RENDERS,
 } from "./data";
 
 export interface DemoStore {
@@ -55,6 +61,11 @@ export interface DemoStore {
   entitlement: CustomerEntitlement;
   /** Projects paid for and not yet created — the demo's ProjectCredit ledger. */
   projectCredits: number;
+  /** The customer's AI image wallet, and the counter that sells into it. */
+  aiCredits: AiCreditSummary;
+  cart: CartCatalogue;
+  /** Finished AI images across every room — what the shelf at /ai-images shows. */
+  renders: MyRender[];
   storeLinks: StoreLink[];
   wallet: WalletSummary;
   /** The shop's shade-code scheme (customer codes derive from this one pattern). */
@@ -90,7 +101,10 @@ function seed(): DemoStore {
     inbox: clone(DEMO_INBOX),
     subscription: clone(DEMO_SUBSCRIPTION),
     entitlement: clone(DEMO_ENTITLEMENT),
-    projectCredits: 0,
+    projectCredits: 2,
+    aiCredits: clone(DEMO_AI_CREDITS),
+    cart: clone(DEMO_CART),
+    renders: clone(DEMO_RENDERS),
     storeLinks: clone(DEMO_STORE_LINKS),
     wallet: clone(DEMO_WALLET),
     // Mehta Paints reads shade L124 as MPL1K24 at the counter.

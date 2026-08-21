@@ -55,7 +55,7 @@ export function AiImagesStrip() {
   const more = renders.length - shown.length;
 
   return (
-    <section aria-labelledby="ai-images-strip-heading">
+    <section className="hv-ai-strip-sec" aria-labelledby="ai-images-strip-heading">
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <h2 id="ai-images-strip-heading" style={{ font: "600 22px/1.2 var(--serif)", margin: 0 }}>
           Your AI images
@@ -91,13 +91,48 @@ export function AiImagesStrip() {
             </li>
           );
         })}
+        {/* The slot at the end of the row, when there is one.
+
+            Three pictures in a four-column shelf left a quarter of the row empty, which
+            reads as a picture that failed to load rather than as a shelf with room on it.
+            The thing that belongs in that space is the only thing somebody looking at
+            their pictures wants next, and it is one credit away: the way to make another.
+            It disappears the moment the row is full, so it never pushes a real picture
+            off the strip. */}
+        {shown.length < MAX_SHOWN && (
+          <li className="hv-ai-strip-more">
+            <Link href="/render" aria-label="Make another AI image">
+              <span className="hv-ai-strip-thumb">
+                <span className="hv-ai-strip-plus" aria-hidden>+</span>
+              </span>
+              <span className="hv-ai-strip-name">Make another</span>
+              <Mono>1 credit</Mono>
+            </Link>
+          </li>
+        )}
       </ul>
 
       <style>{`
+        /* The global rule giving every SECTION 100px of padding top and bottom is for
+           the bands on the marketing pages, and this is not one of those: unreset it
+           was adding 100px of nothing above the heading and 100px more below the last
+           thumbnail, on a strip whose whole point is to sit close under the wallet it
+           belongs to. */
+        .hv-ai-strip-sec { padding: 0; }
         .hv-ai-strip {
           list-style: none; margin: 0; padding: 0;
           display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
         }
+        /* One entrance for the row, dealt left to right. */
+        .hv-ai-strip li { animation: hv-ai-strip-in .5s var(--ease) both; }
+        .hv-ai-strip li:nth-child(2) { animation-delay: .06s; }
+        .hv-ai-strip li:nth-child(3) { animation-delay: .12s; }
+        .hv-ai-strip li:nth-child(4) { animation-delay: .18s; }
+        @keyframes hv-ai-strip-in {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: none; }
+        }
+        @media (prefers-reduced-motion: reduce) { .hv-ai-strip li { animation: none; } }
         .hv-ai-strip a {
           display: block; text-decoration: none; color: inherit;
         }
@@ -117,7 +152,24 @@ export function AiImagesStrip() {
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         .hv-ai-strip a:hover .hv-ai-strip-name { color: var(--accent); }
+
+        /* The end slot wears the same frame as a picture, dashed and empty: obviously the
+           same kind of thing as the tiles beside it, and obviously not one of them. */
+        .hv-ai-strip-more .hv-ai-strip-thumb {
+          display: grid; place-items: center;
+          border-style: dashed; background: transparent;
+        }
+        .hv-ai-strip-plus {
+          font: 300 32px/1 var(--sans); color: var(--fg-mute);
+          transition: color .25s var(--ease), transform .25s var(--ease);
+        }
+        .hv-ai-strip-more a:hover .hv-ai-strip-plus {
+          color: var(--accent-text); transform: scale(1.15);
+        }
+        .hv-ai-strip-more .hv-ai-strip-name { color: var(--fg-soft); }
+
         @media (max-width: 700px) { .hv-ai-strip { grid-template-columns: repeat(2, 1fr); } }
+        @media (prefers-reduced-motion: reduce) { .hv-ai-strip-plus { transition: none; } }
       `}</style>
     </section>
   );

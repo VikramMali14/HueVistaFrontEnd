@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CountUp } from "@/components/ui/count-up";
 import { Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
@@ -33,18 +34,89 @@ function rupees(paise: number): string {
  * The panel's shell, matching the wallet and the cart beside it.
  *
  * One card language across the customer's billing screens — a generous radius, a single
- * wash of accent from one corner — because three panels that differ in what they say and
- * not in how they are built are what make a page read as one thing rather than as three
- * bolted together.
+ * wash of accent from one corner, and a lit hairline along the top edge — because three
+ * panels that differ in what they say and not in how they are built are what make a page
+ * read as one thing rather than as three bolted together.
+ *
+ * A class rather than the inline object it used to be. The hairline is a pseudo-element
+ * and the wash wants a hover state, and an inline style can express neither: this panel
+ * was the one of the three carrying only two thirds of the language its own docstring
+ * describes, which showed as the odd card out on a page of otherwise identical ones.
  */
-const cardStyle: React.CSSProperties = {
-  border: "1px solid var(--rule)",
-  borderRadius: "calc(var(--radius) * 1.8)",
-  padding: "30px",
-  background:
-    "radial-gradient(110% 80% at 0% 0%, rgba(124,92,255,.07), transparent 60%),"
-    + " var(--surface)",
-};
+function PanelStyles() {
+  return (
+    <style>{`
+      .hv-cpp {
+        position: relative; overflow: hidden;
+        border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.8);
+        padding: 30px;
+        background:
+          radial-gradient(110% 80% at 0% 0%, rgba(124,92,255,.07), transparent 60%),
+          var(--surface);
+      }
+      .hv-cpp::before {
+        content: ""; position: absolute; inset: 0 0 auto; height: 1px;
+        background: linear-gradient(90deg, transparent, var(--rule-brass), transparent);
+      }
+      /* The headline figure, set as a figure: the number in the accent, the word under
+         it in the label style. Same treatment as the wallet's balance beside it, which
+         is the point — two counters that count different things should still look like
+         a matched pair, and one in --fg and one in --accent-text did not. */
+      .hv-cpp-figure { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; }
+      .hv-cpp-figure-n {
+        font: 300 40px/1 var(--serif); color: var(--accent-text);
+        letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+      }
+      .hv-cpp-figure-w {
+        font: 500 11px/1.5 var(--sans); letter-spacing: .14em; text-transform: uppercase;
+        color: var(--fg-mute);
+      }
+      /* One pip per project the account can spend, up to a row's worth. A number says
+         how many; a row of them says it at a glance and gives the card something that
+         is not a paragraph — which on a screen of three text cards is most of what
+         makes this one findable. Purely decorative, so the count above stays the
+         accessible answer and this is hidden from the reader. */
+      .hv-cpp-pips { display: flex; gap: 6px; margin: 0 0 16px; }
+      .hv-cpp-pip {
+        width: 26px; height: 6px; border-radius: var(--radius-pill);
+        background: var(--accent); opacity: .85;
+        animation: hv-cpp-pip .4s var(--ease) both;
+      }
+      .hv-cpp-pip.is-rest {
+        width: 6px; background: var(--fg-mute); opacity: .5;
+      }
+      @keyframes hv-cpp-pip {
+        from { opacity: 0; transform: scaleX(.2); transform-origin: left; }
+      }
+      @media (prefers-reduced-motion: reduce) { .hv-cpp-pip { animation: none; } }
+    `}</style>
+  );
+}
+
+/** How many pips a row shows before it stops counting and says "and more". */
+const MAX_PIPS = 8;
+
+/**
+ * The spendable count, drawn.
+ *
+ * Hidden from assistive tech on purpose — the figure directly above says the same thing
+ * in a word, and a screen reader hearing eight identical blank spans is being read a
+ * decoration.
+ */
+function Pips({ count }: { count: number }) {
+  if (count <= 0) return null;
+  const shown = Math.min(count, MAX_PIPS);
+  return (
+    <p className="hv-cpp-pips" aria-hidden>
+      {Array.from({ length: shown }, (_, i) => (
+        <span key={i} className="hv-cpp-pip" style={{ animationDelay: `${i * 45}ms` }} />
+      ))}
+      {count > MAX_PIPS && (
+        <span className="hv-cpp-pip is-rest" style={{ animationDelay: `${shown * 45}ms` }} />
+      )}
+    </p>
+  );
+}
 
 /**
  * What a customer holds, and how they get more.
@@ -120,11 +192,18 @@ export function CustomerProjectsPanel(
   if (ent === null) {
     const credits = options?.availableCredits ?? 0;
     return (
-      <div style={cardStyle}>
+      <div className="hv-cpp">
+        <PanelStyles />
         <Mono style={{ display: "block", marginBottom: 12 }}>Your projects</Mono>
-        <p style={{ font: "300 40px/1 var(--serif)", color: "var(--fg)", margin: "0 0 12px", letterSpacing: "-.02em" }}>
-          {credits} <span style={{ font: "500 11px/1.5 var(--sans)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-mute)" }}>ready to use</span>
+        <p className="hv-cpp-figure">
+          {/* Rolled up rather than printed. It is the answer the page was opened for,
+              and a number that counts to itself is the one thing on a billing screen
+              that can be animated without anybody having to wait for it — CountUp
+              renders the final value outright under reduced motion and on the server. */}
+          <CountUp className="hv-cpp-figure-n" value={credits} />
+          <span className="hv-cpp-figure-w">ready to use</span>
         </p>
+        <Pips count={credits} />
         <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch", margin: "0 0 16px" }}>
           {credits > 0 ? (
             <>
@@ -187,12 +266,14 @@ export function CustomerProjectsPanel(
   const shopName = "your paint shop";
 
   return (
-    <div style={cardStyle}>
+    <div className="hv-cpp">
+      <PanelStyles />
       <Mono style={{ display: "block", marginBottom: 12 }}>Your projects</Mono>
-      <p style={{ font: "300 40px/1 var(--serif)", color: "var(--fg)", margin: "0 0 12px", letterSpacing: "-.02em" }}>
-        {usable}{" "}
-        <span style={{ font: "500 11px/1.5 var(--sans)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--fg-mute)" }}>ready to use</span>
+      <p className="hv-cpp-figure">
+        <CountUp className="hv-cpp-figure-n" value={usable} />
+        <span className="hv-cpp-figure-w">ready to use</span>
       </p>
+      <Pips count={usable} />
       {/* The deduction, not just the remainder: "1 of 3 used" says the shop assigned
           three and one is gone, which a bare "2 left" doesn't. Bought projects are named
           separately rather than folded in — they came from a different place, they

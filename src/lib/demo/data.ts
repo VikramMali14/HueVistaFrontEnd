@@ -8,7 +8,10 @@
  */
 import type {
   AccessCode,
+  AiCreditSummary,
+  CartCatalogue,
   CustomerEntitlement,
+  MyRender,
   OrgResponse,
   PaintBrand,
   PaintLine,
@@ -193,6 +196,144 @@ export const DEMO_WALLET: WalletSummary = {
     { id: "sp_01", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9101", createdAt: "2026-06-14T13:00:00+05:30" },
   ],
 };
+
+// --- The customer's counter: what they hold, and what those credits produced ---
+//
+// Three fixtures that the demo had no answer for at all, so the two screens they feed —
+// Projects & credits, and the AI images shelf — came back 404 and rendered as an empty
+// page. Both are customer-facing screens with money on them, which makes them exactly
+// the ones worth being able to look at without a backend.
+
+/** The AI wallet, with a statement that reads like one: bought, spent, refunded. */
+export const DEMO_AI_CREDITS: AiCreditSummary = {
+  eligible: true,
+  balance: 4,
+  pricePaise: 7_000,
+  listPricePaise: 7_000,
+  discountPercent: 0,
+  minPurchase: 1,
+  maxPurchase: 20,
+  renderCost: 1,
+  renderTiers: [
+    { quality: "PREMIUM", credits: 1 },
+    { quality: "LUXURY", credits: 2 },
+  ],
+  soonestExpiryAt: "2027-06-22T00:00:00+05:30",
+  expiringCredits: 4,
+  currency: "INR",
+  recentActivity: [
+    { id: "aic_05", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 4, note: "Sharma residence — hall", createdAt: "2026-06-23T18:02:00+05:30" },
+    { id: "aic_04", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 5, note: "Iyer flat — master bedroom", createdAt: "2026-06-21T09:40:00+05:30" },
+    { id: "aic_03", credits: 1, type: "RENDER_REFUNDED", balanceAfter: 6, note: null, createdAt: "2026-06-20T14:12:00+05:30" },
+    { id: "aic_02", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 5, note: "Brew & Co café — facade", createdAt: "2026-06-19T11:20:00+05:30" },
+    { id: "aic_01", credits: 6, type: "PURCHASED", balanceAfter: 6, note: null, createdAt: "2026-06-18T10:05:00+05:30" },
+  ],
+};
+
+/** The counter itself, at the prices application.properties ships with. */
+export const DEMO_CART: CartCatalogue = {
+  eligible: true,
+  projectPricePaise: 14_900,
+  creditPricePaise: 7_000,
+  comboPricePaise: 19_900,
+  comboProjects: 1,
+  comboCredits: 1,
+  bundleAvailable: true,
+  bundlePricePaise: 43_800,
+  bundleListPricePaise: 65_700,
+  bundleProjects: 3,
+  bundleCredits: 3,
+  validDays: 365,
+  maxQuantity: 20,
+  offers: [
+    { code: "HUE10", minSubtotalPaise: 28_900, percentOff: 10 },
+    { code: "HUE20", minSubtotalPaise: 58_900, percentOff: 20 },
+    { code: "HUE25", minSubtotalPaise: 98_900, percentOff: 25 },
+  ],
+  // The packages carry their own saving, so the percentages do not come off them.
+  offersApplyToPackages: false,
+  availableProjects: 2,
+  creditBalance: 4,
+  creditsExpireAt: "2027-06-22T00:00:00+05:30",
+  creditsExpiring: 4,
+  currency: "INR",
+};
+
+/** Three finished pictures, one per seeded room, each with the shades it was made from —
+ *  which is what makes the shelf's detail pane, its search and its PDF demoable. */
+export const DEMO_RENDERS: MyRender[] = [
+  {
+    id: "rnd_03",
+    projectId: "prj_sharma_hall",
+    projectName: "Sharma residence — hall",
+    roomType: "Living room",
+    status: "READY",
+    imageUrl: "/demo/rooms/living-hall.svg",
+    comboId: "combo_01",
+    comboTitle: "Board 1 · Option 1",
+    boardIndex: 1,
+    timeOfDay: "DAY",
+    borderMode: "KEEP_ORIGINAL",
+    lighting: "NATURAL",
+    furnishing: "KEEP",
+    style: "MODERN",
+    quality: "LUXURY",
+    note: "The one the client picked.",
+    shades: [
+      { regionId: 101, regionLabel: "Main wall", shadeCode: "7184", shadeName: "Bone China", hex: "#E8DCC8" },
+      { regionId: 102, regionLabel: "Accent wall", shadeCode: "2727", shadeName: "Sage Shadow", hex: "#5B6C5B" },
+      { regionId: 103, regionLabel: "Trim", shadeCode: "L150", shadeName: "Chalk White", hex: "#F3EEE4" },
+    ],
+    createdAt: "2026-06-23T18:02:00+05:30",
+    completedAt: "2026-06-23T18:03:30+05:30",
+  },
+  {
+    id: "rnd_02",
+    projectId: "prj_iyer_bedroom",
+    projectName: "Iyer flat — master bedroom",
+    roomType: "Bedroom",
+    status: "READY",
+    imageUrl: "/demo/rooms/bedroom.svg",
+    comboId: "combo_02",
+    comboTitle: "Board 1 · Option 2",
+    boardIndex: 1,
+    timeOfDay: "NIGHT",
+    borderMode: "KEEP_ORIGINAL",
+    lighting: "WARM",
+    furnishing: "STAGED",
+    style: "MINIMAL",
+    quality: "PREMIUM",
+    shades: [
+      { regionId: 201, regionLabel: "Main wall", shadeCode: "4091", shadeName: "Morning Mist", hex: "#C9D2D0" },
+      { regionId: 202, regionLabel: "Accent wall", shadeCode: "10BB", shadeName: "Indigo Hour", hex: "#3B4A6B" },
+    ],
+    createdAt: "2026-06-21T09:40:00+05:30",
+    completedAt: "2026-06-21T09:41:10+05:30",
+  },
+  {
+    id: "rnd_01",
+    projectId: "prj_cafe_facade",
+    projectName: "Brew & Co café — facade",
+    roomType: "Exterior",
+    status: "READY",
+    imageUrl: "/demo/rooms/cafe-exterior.svg",
+    comboId: null,
+    comboTitle: null,
+    boardIndex: null,
+    timeOfDay: "DAY",
+    borderMode: "AI_SUGGESTED",
+    lighting: "NATURAL",
+    furnishing: "KEEP",
+    style: "TRADITIONAL",
+    quality: "PREMIUM",
+    shades: [
+      { regionId: 301, regionLabel: "Main facade", shadeCode: "7432", shadeName: "Burnt Sienna", hex: "#A4683F" },
+      { regionId: 302, regionLabel: "Trim", shadeCode: "L150", shadeName: "Chalk White", hex: "#F3EEE4" },
+    ],
+    createdAt: "2026-06-19T11:20:00+05:30",
+    completedAt: "2026-06-19T11:21:40+05:30",
+  },
+];
 
 // --- Support: the customer's own thread + the staff inbox (ADMIN) ---
 export const DEMO_SUPPORT_CONVERSATIONS: SupportConversation[] = [

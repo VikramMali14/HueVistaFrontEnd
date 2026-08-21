@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Button, LinkButton } from "@/components/ui/button";
+import { CountUp } from "@/components/ui/count-up";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { FilterBar, matchesQuery } from "@/components/ui/filter-bar";
 import { Spinner } from "@/components/ui/spinner";
@@ -324,10 +325,11 @@ export function AiImages() {
           </p>
         ) : (
           <div className="hv-imgs-grid" role="group" aria-label="Your AI images">
-            {visible.map((r) => (
+            {visible.map((r, i) => (
               <ShelfCard
                 key={r.id}
                 render={r}
+                index={i}
                 selected={r.id === selectedId}
                 broken={brokenIds.has(r.id)}
                 onSelect={() => setSelectedId(r.id)}
@@ -348,11 +350,23 @@ export function AiImages() {
             />
 
             <h2 className="hv-imgs-detail-name">{selected.projectName}</h2>
+            {/* What the picture was made with, as facts rather than as a sentence.
+                Six settings joined by middots is a line nobody reads to the end of —
+                it looks like one long grey caption, and the two people who care which
+                lighting was used have to parse the whole thing to find it. The same
+                words as chips are scanned instead of read, and the difference costs no
+                new label: they are still whatever describeRender says, split on the
+                separator it already joins them with. */}
             <p className="hv-imgs-detail-meta">
-              {describeRender(selected)}
-              {" · "}
-              {FURNISHING_LABELS[selected.furnishing] ?? selected.furnishing}
-              {selected.createdAt ? ` · ${formatDate(selected.createdAt)}` : ""}
+              {[
+                ...describeRender(selected).split(" · "),
+                FURNISHING_LABELS[selected.furnishing] ?? selected.furnishing,
+                ...(selected.createdAt ? [formatDate(selected.createdAt)] : []),
+              ].map((part, i) => (
+                <span key={i} className="hv-imgs-fact">
+                  {part}
+                </span>
+              ))}
             </p>
             {selected.note && <p className="hv-imgs-detail-note">“{selected.note}”</p>}
 
@@ -461,12 +475,17 @@ export function AiImages() {
  */
 function ShelfCard({
   render,
+  index,
   selected,
   broken,
   onSelect,
   onBroken,
 }: {
   render: MyRender;
+  /** Position in the shelf, purely so the cards deal in rather than appearing at once.
+   *  Capped where it is used: past a dozen a stagger stops reading as a deal and starts
+   *  reading as a page that is slow to load. */
+  index: number;
   selected: boolean;
   broken: boolean;
   onSelect: () => void;
@@ -487,16 +506,23 @@ function ShelfCard({
       type="button"
       aria-pressed={selected}
       className={`hv-imgs-card${selected ? " is-on" : ""}`}
+      style={{ animationDelay: `${Math.min(index, 11) * 40}ms` }}
       onClick={onSelect}
     >
-      {broken || !src ? (
-        <span className="hv-imgs-card-gone" aria-hidden>
-          <BrokenIcon />
-        </span>
-      ) : (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img src={src} alt="" loading="lazy" onError={onBroken} />
-      )}
+      {/* The picture inside its own frame rather than as a bare child, so it can be
+          scaled on hover with the frame clipping it. A thumbnail that grows past its
+          own edges shoves the card next to it, which on a strip of nine is a whole
+          row moving because a pointer crossed one of them. */}
+      <span className="hv-imgs-card-frame">
+        {broken || !src ? (
+          <span className="hv-imgs-card-gone" aria-hidden>
+            <BrokenIcon />
+          </span>
+        ) : (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={src} alt="" loading="lazy" onError={onBroken} />
+        )}
+      </span>
       <span className="hv-imgs-card-name">{render.projectName}</span>
       <span className="hv-imgs-card-meta">{describeRender(render)}</span>
     </button>
@@ -634,22 +660,36 @@ function shadeList(
 function Header({ count }: { count: number }) {
   return (
     <header className="hv-imgs-head">
-      <Eyebrow>My AI images</Eyebrow>
-      <h1 className="display">
+      {/* The page is a wall of photographs, and a wall of photographs on a flat ground
+          reads as a contact sheet. One low wash behind the words, drifting slowly, sets
+          them off without competing with a single picture — it sits above the header
+          only and never travels down over the images themselves. Inert and hidden. */}
+      <div className="hv-imgs-aura" aria-hidden />
+      <Eyebrow className="hv-imgs-rise">My AI images</Eyebrow>
+      <h1 className="display hv-imgs-rise hv-imgs-d1">
         Every room you have <i>seen for real.</i>
       </h1>
-      <Lead style={{ maxWidth: "58ch" }}>
-        {count === 0
-          ? "The photorealistic images you make from your colour boards collect here."
-          : `${count} image${count === 1 ? "" : "s"}, newest first. Download any of them on `
-            + "their own, or as a one-page PDF with the shades printed underneath."}
+      <Lead className="hv-imgs-rise hv-imgs-d2" style={{ maxWidth: "58ch" }}>
+        {count === 0 ? (
+          "The photorealistic images you make from your colour boards collect here."
+        ) : (
+          <>
+            {/* The tally counts itself up. It is the one number on the page and the
+                first thing somebody checks against what they remember buying, so it
+                is worth a beat of attention — CountUp prints the final value outright
+                on the server and under reduced motion, so nobody waits to read it. */}
+            <CountUp value={count} /> image{count === 1 ? "" : "s"}, newest first.
+            Download any of them on their own, or as a one-page PDF with the shades
+            printed underneath.
+          </>
+        )}
       </Lead>
       {/* The way to make ANOTHER one, on the page where somebody looking at the last one
           thinks of it. Every image is bought with an AI credit and no room includes one,
           so this is a purchase and not a leftover allowance — which is exactly why it
           belongs beside the pictures rather than buried in a room. */}
       {count > 0 && (
-        <div className="hv-imgs-head-go">
+        <div className="hv-imgs-head-go hv-imgs-rise hv-imgs-d3">
           <LinkButton href="/render" variant="brass">
             Make a new image <span className="arr">→</span>
           </LinkButton>
@@ -682,38 +722,114 @@ function stamp(render: MyRender): string {
 function Styles() {
   return (
     <style>{`
-      .hv-imgs { max-width: 1180px; }
-      .hv-imgs-head { margin-bottom: 28px; }
+      .hv-imgs { max-width: 1180px; position: relative; }
+
+      /* ── The header ────────────────────────────────────────────────────────
+         One drifting wash behind the words and nothing anywhere else: the rest of
+         this page is photographs, and a tinted ground under a photograph changes
+         what the photograph looks like — which on a page whose whole job is showing
+         somebody the colour they chose is a thing that must not happen. */
+      .hv-imgs-head { position: relative; margin-bottom: 28px; }
+      .hv-imgs-aura {
+        position: absolute; z-index: 0; pointer-events: none;
+        inset: -150px -20% auto -22%; height: 420px;
+        background:
+          radial-gradient(44% 54% at 20% 36%, rgba(124,92,255,.15), transparent 68%),
+          radial-gradient(36% 42% at 74% 18%, rgba(160,128,255,.09), transparent 70%);
+        filter: blur(14px); opacity: 0;
+        animation: hv-imgs-aura-in 1.3s var(--ease) .1s forwards,
+                   hv-imgs-aura-drift 24s ease-in-out 1.3s infinite alternate;
+      }
+      @keyframes hv-imgs-aura-in { to { opacity: 1; } }
+      @keyframes hv-imgs-aura-drift {
+        from { transform: translate3d(0, 0, 0) scale(1); }
+        to   { transform: translate3d(-3%, 14px, 0) scale(1.08); }
+      }
+      .hv-imgs-head > *:not(.hv-imgs-aura) { position: relative; z-index: 1; }
       .hv-imgs-head-go { margin-top: 18px; }
       .hv-imgs-head .display { font-size: clamp(30px, 4.4vw, 52px); margin: 12px 0 14px; }
+
+      /* Keyframes filling both ways rather than the project's .reveal class: that one
+         starts at opacity 0 and only reaches 1 by way of an observer the app shell does
+         not mount, so content depending on it would sit invisible here for good. */
+      .hv-imgs-rise { animation: hv-imgs-rise .6s var(--ease) both; }
+      .hv-imgs-d1 { animation-delay: .07s; }
+      .hv-imgs-d2 { animation-delay: .14s; }
+      .hv-imgs-d3 { animation-delay: .21s; }
+      @keyframes hv-imgs-rise {
+        from { opacity: 0; transform: translateY(14px); }
+        to   { opacity: 1; transform: none; }
+      }
       .hv-imgs-loading {
         display: flex; align-items: center; gap: 10px;
         padding: 80px 0; color: var(--fg-soft); font: 400 15px/1.4 var(--sans);
       }
+      /* padding: 0 undoes the global rule that gives every SECTION 100px top and bottom.
+         That is a marketing-band rule and this shelf is not a marketing band: unreset it
+         put 100px of empty screen between the header and the first thumbnail, and another
+         100px under the last shade row — a gap big enough that on a laptop the shelf
+         opened below the fold for an account holding three pictures. */
       .hv-imgs-body {
         display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 28px;
-        align-items: start;
+        align-items: start; padding: 0;
       }
       @media (max-width: 900px) { .hv-imgs-body { grid-template-columns: 1fr; } }
 
+      /* ── The shelf ─────────────────────────────────────────────────────────
+         The cards were 4px-cornered rectangles with a hairline that changed on hover
+         and an inset ring when chosen: correct, and indistinguishable from a file
+         list. They carry the same card language as the rest of the customer's
+         screens now — the generous radius, one wash of accent from a corner — and
+         the chosen one is stated by a lit rail down its edge rather than by a border
+         colour that has to be compared against its neighbours to be seen. */
       .hv-imgs-grid { display: grid; gap: 10px; align-content: start; }
       .hv-imgs-card {
-        display: grid; gap: 5px; padding: 8px; text-align: left; cursor: pointer;
-        background: var(--surface); border: 1px solid var(--rule); border-radius: 4px;
-        transition: border-color .2s var(--ease);
+        position: relative; display: grid; gap: 6px; padding: 8px; text-align: left;
+        cursor: pointer; overflow: hidden;
+        background: var(--surface); border: 1px solid var(--rule);
+        border-radius: calc(var(--radius) * 1.2);
+        transition: border-color .25s var(--ease), transform .25s var(--ease),
+                    background .25s var(--ease);
+        animation: hv-imgs-deal .5s var(--ease) both;
       }
-      .hv-imgs-card:hover { border-color: var(--rule-strong); }
-      .hv-imgs-card.is-on { border-color: var(--brass); box-shadow: inset 0 0 0 1px var(--brass); }
+      @keyframes hv-imgs-deal {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: none; }
+      }
+      .hv-imgs-card:hover { border-color: var(--rule-strong); transform: translateY(-2px); }
+      .hv-imgs-card.is-on {
+        border-color: var(--rule-brass);
+        background:
+          radial-gradient(120% 90% at 0% 0%, rgba(124,92,255,.10), transparent 62%),
+          var(--surface);
+      }
+      /* The rail. Grows from the top down when the card is chosen, so which one is open
+         is answered by the one thing on the shelf that is moving. */
+      .hv-imgs-card::after {
+        content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+        background: var(--accent); transform: scaleY(0); transform-origin: top;
+        transition: transform .3s var(--ease);
+      }
+      .hv-imgs-card.is-on::after { transform: scaleY(1); }
       .hv-imgs-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .hv-imgs-card-frame {
+        display: block; overflow: hidden; border-radius: var(--radius);
+        background: var(--surface-soft);
+      }
       .hv-imgs-card img {
         display: block; width: 100%; height: 128px; object-fit: cover;
-        border-radius: 3px; background: var(--surface-soft);
+        transition: transform .45s var(--ease);
       }
+      .hv-imgs-card:hover img { transform: scale(1.05); }
       .hv-imgs-card-gone {
-        display: grid; place-items: center; width: 100%; height: 128px; border-radius: 3px;
-        background: var(--surface-soft); color: var(--fg-mute);
+        display: grid; place-items: center; width: 100%; height: 128px;
+        color: var(--fg-mute);
       }
-      .hv-imgs-card-name { font: 500 14px/1.25 var(--sans); color: var(--fg); }
+      .hv-imgs-card-name {
+        font: 500 14px/1.25 var(--sans); color: var(--fg);
+        transition: color .25s var(--ease);
+      }
+      .hv-imgs-card.is-on .hv-imgs-card-name { color: var(--accent-text); }
       .hv-imgs-card-meta { font: 400 12px/1.25 var(--sans); color: var(--fg-soft); }
 
       /* On a phone the shelf becomes a filmstrip: one row, scrolled sideways, with the
@@ -733,13 +849,42 @@ function Styles() {
         .hv-imgs-card-meta { display: none; }
       }
 
-      .hv-imgs-detail { display: grid; gap: 12px; justify-items: start; }
+      .hv-imgs-detail {
+        display: grid; gap: 12px; justify-items: start;
+        animation: hv-imgs-rise .5s var(--ease) both;
+      }
+
+      /* ── The stage ─────────────────────────────────────────────────────────
+         The picture is what the customer paid for, so it is hung rather than
+         placed: a card in the same language as everything else, a lit hairline
+         along the top edge, and the image inset far enough from the frame to read
+         as mounted. The wash sits BEHIND the picture and never over it — a tint
+         across a photograph of a painted wall would be lying about the colour. */
       .hv-imgs-stage {
         position: relative; width: 100%; display: grid; place-items: center;
-        min-height: 200px; padding: 12px;
-        border: 1px solid var(--rule); background: var(--surface-soft); border-radius: 4px;
+        min-height: 200px; padding: 14px; overflow: hidden;
+        border: 1px solid var(--rule);
+        border-radius: calc(var(--radius) * 1.6);
+        background:
+          radial-gradient(120% 90% at 100% 0%, rgba(124,92,255,.09), transparent 62%),
+          var(--surface-soft);
       }
-      .hv-imgs-stage img { max-width: 100%; height: auto; display: block; }
+      .hv-imgs-stage::before {
+        content: ""; position: absolute; inset: 0 0 auto; height: 1px;
+        background: linear-gradient(90deg, transparent, var(--rule-brass), transparent);
+      }
+      .hv-imgs-stage img {
+        max-width: 100%; height: auto; display: block;
+        border-radius: var(--radius);
+        /* Fades up as it decodes rather than snapping in at full size, which on a
+           large JPEG over a slow line is the difference between a picture arriving
+           and a page jolting. */
+        animation: hv-imgs-develop .5s var(--ease) both;
+      }
+      @keyframes hv-imgs-develop {
+        from { opacity: 0; transform: scale(.985); }
+        to   { opacity: 1; transform: none; }
+      }
       .hv-imgs-stage.is-gone {
         gap: 12px; padding: 40px 20px; text-align: center; color: var(--fg-mute);
       }
@@ -750,8 +895,18 @@ function Styles() {
         display: flex; align-items: center; gap: 10px; padding: 60px 0;
         color: var(--fg-soft); font: 400 14px/1.4 var(--sans);
       }
-      .hv-imgs-detail-name { font: 400 24px/1.2 var(--serif); color: var(--fg); margin: 4px 0 0; }
-      .hv-imgs-detail-meta { font: 400 13px/1.4 var(--sans); color: var(--fg-soft); margin: 0; }
+      .hv-imgs-detail-name {
+        font: 600 26px/1.2 var(--serif); color: var(--fg); margin: 6px 0 0;
+        letter-spacing: -.015em;
+      }
+      .hv-imgs-detail-meta {
+        display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 0;
+      }
+      .hv-imgs-fact {
+        padding: 4px 10px; border-radius: var(--radius-pill);
+        border: 1px solid var(--rule); background: var(--surface);
+        font: 400 12.5px/1.4 var(--sans); color: var(--fg-soft);
+      }
       .hv-imgs-detail-note {
         font: 400 13px/1.5 var(--sans); color: var(--fg-soft); margin: 0; max-width: 56ch;
       }
@@ -767,13 +922,26 @@ function Styles() {
         margin: 0; font: 400 12px/1 var(--mono); letter-spacing: .2em;
         text-transform: uppercase; color: var(--fg-mute);
       }
-      .hv-imgs-shades { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; width: 100%; }
+      .hv-imgs-shades { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; width: 100%; }
+      /* Rows rather than ruled lines. The colours are the actionable half of this page —
+         they are what gets read out at a paint counter — and a row that lights under the
+         pointer says "this one" while the Copy button beside it is being aimed at. The
+         padding is what makes that highlight a band rather than a smear. */
       .hv-imgs-shades li {
         display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-        padding-bottom: 6px; border-bottom: 1px solid var(--rule);
+        padding: 8px 10px; margin: 0 -10px; border-radius: var(--radius);
+        border-bottom: 1px solid var(--rule);
+        transition: background .2s var(--ease);
       }
+      .hv-imgs-shades li:last-child { border-bottom: 0; }
+      .hv-imgs-shades li:hover { background: var(--surface); }
+      /* The swatch is the one place on the page a colour is shown at full strength, so
+         it gets a ring rather than a border — a hairline of the page showing between the
+         colour and its outline, which stops a dark shade from bleeding into a dark rule
+         and reading as a smaller swatch than it is. */
       .hv-imgs-chip {
-        width: 34px; height: 18px; border: 1px solid var(--rule-strong); border-radius: 2px; flex: none;
+        width: 36px; height: 22px; border-radius: 5px; flex: none;
+        box-shadow: 0 0 0 1px var(--bg), 0 0 0 2px var(--rule-strong);
       }
       .hv-imgs-shade-label { font: 500 13px/1.2 var(--sans); color: var(--fg); min-width: 96px; }
       .hv-imgs-shade-name { font: 400 13px/1.2 var(--sans); color: var(--fg); }
@@ -802,10 +970,26 @@ function Styles() {
         font: inherit; text-decoration: underline; text-underline-offset: 2px;
       }
 
-      .hv-imgs-empty { display: grid; gap: 14px; justify-items: start; padding: 24px 0 64px; }
-      .hv-imgs-empty-title { font: 500 16px/1.3 var(--sans); color: var(--fg); margin: 0; }
+      /* An account with no pictures gets the only screen here with nothing to look at,
+         so the empty state is given the card treatment the pictures would have had —
+         otherwise the page a new customer sees first is the flattest one we have. */
+      .hv-imgs-empty {
+        position: relative; overflow: hidden;
+        display: grid; gap: 14px; justify-items: start;
+        margin-bottom: 40px; padding: 32px;
+        border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.8);
+        background:
+          radial-gradient(110% 80% at 0% 0%, rgba(124,92,255,.07), transparent 60%),
+          var(--surface);
+        animation: hv-imgs-rise .6s var(--ease) .18s both;
+      }
+      .hv-imgs-empty::before {
+        content: ""; position: absolute; inset: 0 0 auto; height: 1px;
+        background: linear-gradient(90deg, transparent, var(--rule-brass), transparent);
+      }
+      .hv-imgs-empty-title { font: 600 19px/1.3 var(--serif); color: var(--fg); margin: 0; }
       .hv-imgs-error {
-        margin-top: 20px; padding: 12px 14px; border-radius: 6px;
+        margin-top: 20px; padding: 12px 14px; border-radius: var(--radius);
         border: 1px solid var(--danger, #b3261e); background: var(--surface);
         display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
         gap: 8px 16px;
@@ -815,6 +999,29 @@ function Styles() {
         font: 400 14px/1.5 var(--sans); color: var(--danger, #b3261e);
       }
       .hv-imgs-error-acts { display: flex; gap: 14px; font: 400 13px/1.4 var(--sans); }
+
+      /* Everything above is entrance or response. Both go, and every element sits where
+         it was going to end up — nothing here is load-bearing, which is the test a page
+         of animation has to pass before it earns any of it. */
+      @media (prefers-reduced-motion: reduce) {
+        .hv-imgs-aura,
+        .hv-imgs-rise,
+        .hv-imgs-card,
+        .hv-imgs-detail,
+        .hv-imgs-empty,
+        .hv-imgs-stage img { animation: none; }
+        .hv-imgs-aura { opacity: 1; }
+        .hv-imgs-card, .hv-imgs-card img, .hv-imgs-card::after,
+        .hv-imgs-card-name, .hv-imgs-shades li { transition: none; }
+        .hv-imgs-card:hover { transform: none; }
+        .hv-imgs-card:hover img { transform: none; }
+      }
+      /* A hover lift on a touch screen sticks after the tap: the card stays raised until
+         something else is touched, which reads as a rendering fault rather than a state. */
+      @media (hover: none) {
+        .hv-imgs-card:hover { transform: none; }
+        .hv-imgs-card:hover img { transform: none; }
+      }
     `}</style>
   );
 }
