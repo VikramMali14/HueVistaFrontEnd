@@ -8,7 +8,10 @@
  */
 import type {
   AccessCode,
+  AiCreditSummary,
+  CartCatalogue,
   CustomerEntitlement,
+  MyRender,
   OrgResponse,
   PaintBrand,
   PaintLine,
@@ -194,6 +197,144 @@ export const DEMO_WALLET: WalletSummary = {
   ],
 };
 
+// --- The customer's counter: what they hold, and what those credits produced ---
+//
+// Three fixtures that the demo had no answer for at all, so the two screens they feed —
+// Projects & credits, and the AI images shelf — came back 404 and rendered as an empty
+// page. Both are customer-facing screens with money on them, which makes them exactly
+// the ones worth being able to look at without a backend.
+
+/** The AI wallet, with a statement that reads like one: bought, spent, refunded. */
+export const DEMO_AI_CREDITS: AiCreditSummary = {
+  eligible: true,
+  balance: 4,
+  pricePaise: 7_000,
+  listPricePaise: 7_000,
+  discountPercent: 0,
+  minPurchase: 1,
+  maxPurchase: 20,
+  renderCost: 1,
+  renderTiers: [
+    { quality: "PREMIUM", credits: 1 },
+    { quality: "LUXURY", credits: 2 },
+  ],
+  soonestExpiryAt: "2027-06-22T00:00:00+05:30",
+  expiringCredits: 4,
+  currency: "INR",
+  recentActivity: [
+    { id: "aic_05", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 4, note: "Sharma residence — hall", createdAt: "2026-06-23T18:02:00+05:30" },
+    { id: "aic_04", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 5, note: "Iyer flat — master bedroom", createdAt: "2026-06-21T09:40:00+05:30" },
+    { id: "aic_03", credits: 1, type: "RENDER_REFUNDED", balanceAfter: 6, note: null, createdAt: "2026-06-20T14:12:00+05:30" },
+    { id: "aic_02", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 5, note: "Brew & Co café — facade", createdAt: "2026-06-19T11:20:00+05:30" },
+    { id: "aic_01", credits: 6, type: "PURCHASED", balanceAfter: 6, note: null, createdAt: "2026-06-18T10:05:00+05:30" },
+  ],
+};
+
+/** The counter itself, at the prices application.properties ships with. */
+export const DEMO_CART: CartCatalogue = {
+  eligible: true,
+  projectPricePaise: 14_900,
+  creditPricePaise: 7_000,
+  comboPricePaise: 19_900,
+  comboProjects: 1,
+  comboCredits: 1,
+  bundleAvailable: true,
+  bundlePricePaise: 43_800,
+  bundleListPricePaise: 65_700,
+  bundleProjects: 3,
+  bundleCredits: 3,
+  validDays: 365,
+  maxQuantity: 20,
+  offers: [
+    { code: "HUE10", minSubtotalPaise: 28_900, percentOff: 10 },
+    { code: "HUE20", minSubtotalPaise: 58_900, percentOff: 20 },
+    { code: "HUE25", minSubtotalPaise: 98_900, percentOff: 25 },
+  ],
+  // The packages carry their own saving, so the percentages do not come off them.
+  offersApplyToPackages: false,
+  availableProjects: 2,
+  creditBalance: 4,
+  creditsExpireAt: "2027-06-22T00:00:00+05:30",
+  creditsExpiring: 4,
+  currency: "INR",
+};
+
+/** Three finished pictures, one per seeded room, each with the shades it was made from —
+ *  which is what makes the shelf's detail pane, its search and its PDF demoable. */
+export const DEMO_RENDERS: MyRender[] = [
+  {
+    id: "rnd_03",
+    projectId: "9f1c4a20-5b3e-4d61-8a77-1c2e5b8f0a31",
+    projectName: "Sharma residence — hall",
+    roomType: "Living room",
+    status: "READY",
+    imageUrl: "/demo/rooms/living-hall.svg",
+    comboId: "combo_01",
+    comboTitle: "Board 1 · Option 1",
+    boardIndex: 1,
+    timeOfDay: "DAY",
+    borderMode: "KEEP_ORIGINAL",
+    lighting: "NATURAL",
+    furnishing: "KEEP",
+    style: "MODERN",
+    quality: "LUXURY",
+    note: "The one the client picked.",
+    shades: [
+      { regionId: 101, regionLabel: "Main wall", shadeCode: "7184", shadeName: "Bone China", hex: "#E8DCC8" },
+      { regionId: 102, regionLabel: "Accent wall", shadeCode: "2727", shadeName: "Sage Shadow", hex: "#5B6C5B" },
+      { regionId: 103, regionLabel: "Trim", shadeCode: "L150", shadeName: "Chalk White", hex: "#F3EEE4" },
+    ],
+    createdAt: "2026-06-23T18:02:00+05:30",
+    completedAt: "2026-06-23T18:03:30+05:30",
+  },
+  {
+    id: "rnd_02",
+    projectId: "3c7d8e14-62af-4b09-9d55-7e40a1c6b283",
+    projectName: "Iyer flat — master bedroom",
+    roomType: "Bedroom",
+    status: "READY",
+    imageUrl: "/demo/rooms/bedroom.svg",
+    comboId: "combo_02",
+    comboTitle: "Board 1 · Option 2",
+    boardIndex: 1,
+    timeOfDay: "NIGHT",
+    borderMode: "KEEP_ORIGINAL",
+    lighting: "WARM",
+    furnishing: "STAGED",
+    style: "MINIMAL",
+    quality: "PREMIUM",
+    shades: [
+      { regionId: 201, regionLabel: "Main wall", shadeCode: "4091", shadeName: "Morning Mist", hex: "#C9D2D0" },
+      { regionId: 202, regionLabel: "Accent wall", shadeCode: "10BB", shadeName: "Indigo Hour", hex: "#3B4A6B" },
+    ],
+    createdAt: "2026-06-21T09:40:00+05:30",
+    completedAt: "2026-06-21T09:41:10+05:30",
+  },
+  {
+    id: "rnd_01",
+    projectId: "b52a06f7-91d3-4c88-a1e6-0f37d95c4a10",
+    projectName: "Brew & Co café — facade",
+    roomType: "Exterior",
+    status: "READY",
+    imageUrl: "/demo/rooms/cafe-exterior.svg",
+    comboId: null,
+    comboTitle: null,
+    boardIndex: null,
+    timeOfDay: "DAY",
+    borderMode: "AI_SUGGESTED",
+    lighting: "NATURAL",
+    furnishing: "KEEP",
+    style: "TRADITIONAL",
+    quality: "PREMIUM",
+    shades: [
+      { regionId: 301, regionLabel: "Main facade", shadeCode: "7432", shadeName: "Burnt Sienna", hex: "#A4683F" },
+      { regionId: 302, regionLabel: "Trim", shadeCode: "L150", shadeName: "Chalk White", hex: "#F3EEE4" },
+    ],
+    createdAt: "2026-06-19T11:20:00+05:30",
+    completedAt: "2026-06-19T11:21:40+05:30",
+  },
+];
+
 // --- Support: the customer's own thread + the staff inbox (ADMIN) ---
 export const DEMO_SUPPORT_CONVERSATIONS: SupportConversation[] = [
   {
@@ -230,8 +371,8 @@ export const DEMO_INBOX: SupportConversationSummary[] = [
 
 // --- Projects: full details are the source of truth; summaries are derived ---
 export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
-  prj_sharma_hall: {
-    id: "prj_sharma_hall",
+  "9f1c4a20-5b3e-4d61-8a77-1c2e5b8f0a31": {
+    id: "9f1c4a20-5b3e-4d61-8a77-1c2e5b8f0a31",
     name: "Sharma residence — hall",
     roomType: "Living room",
     notes: "Client wants a warm neutral with a sage accent.",
@@ -249,8 +390,8 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
       { id: 103, label: "Trim", category: "TRIM", maskUrl: "/demo/masks/hall-trim.svg", appliedShadeCode: "L150", appliedHexCode: "#F3EEE4", displayOrder: 2 },
     ],
   },
-  prj_iyer_bedroom: {
-    id: "prj_iyer_bedroom",
+  "3c7d8e14-62af-4b09-9d55-7e40a1c6b283": {
+    id: "3c7d8e14-62af-4b09-9d55-7e40a1c6b283",
     name: "Iyer flat — master bedroom",
     roomType: "Bedroom",
     notes: null,
@@ -266,8 +407,8 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
       { id: 202, label: "Accent wall", category: "ACCENT_WALL", maskUrl: "/demo/masks/bed-accent.svg", appliedShadeCode: "10BB", appliedHexCode: "#3B4A6B", displayOrder: 1 },
     ],
   },
-  prj_cafe_facade: {
-    id: "prj_cafe_facade",
+  "b52a06f7-91d3-4c88-a1e6-0f37d95c4a10": {
+    id: "b52a06f7-91d3-4c88-a1e6-0f37d95c4a10",
     name: "Brew & Co café — facade",
     roomType: "Exterior",
     notes: null,
@@ -283,8 +424,8 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
       { id: 302, label: "Trim", category: "TRIM", maskUrl: "/demo/masks/cafe-trim.svg", appliedShadeCode: "L150", appliedHexCode: "#F3EEE4", displayOrder: 1 },
     ],
   },
-  prj_pending_kitchen: {
-    id: "prj_pending_kitchen",
+  "6e08b3d5-4417-4f2a-bc93-58a1e7602d4f": {
+    id: "6e08b3d5-4417-4f2a-bc93-58a1e7602d4f",
     name: "Mehta kitchen",
     roomType: "Kitchen",
     notes: null,
@@ -300,11 +441,20 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
 };
 
 /** Order shown on the dashboard (newest first by updatedAt). */
+/**
+ * Newest first, and the ids are real UUIDs on purpose.
+ *
+ * They used to read "prj_sharma_hall", which was friendlier in a fixture file and broke
+ * the demo the day the studio started refusing a project id that is not shaped like one
+ * (a malformed id would 400 at the backend and leave the studio to invent a message).
+ * Every seeded room 404'd the moment it was opened from the dashboard — the one flow the
+ * demo notes tell people to try first.
+ */
 export const DEMO_PROJECT_ORDER = [
-  "prj_sharma_hall",
-  "prj_iyer_bedroom",
-  "prj_cafe_facade",
-  "prj_pending_kitchen",
+  "9f1c4a20-5b3e-4d61-8a77-1c2e5b8f0a31",
+  "3c7d8e14-62af-4b09-9d55-7e40a1c6b283",
+  "b52a06f7-91d3-4c88-a1e6-0f37d95c4a10",
+  "6e08b3d5-4417-4f2a-bc93-58a1e7602d4f",
 ];
 
 export function toSummary(p: ProjectDetail): ProjectSummary {

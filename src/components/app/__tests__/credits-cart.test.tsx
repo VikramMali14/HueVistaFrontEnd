@@ -78,47 +78,48 @@ describe("CreditsCart", () => {
     // waited to be told would quote a total higher than the one it then charges.
     render(<CreditsCart />);
 
-    // Two combos: ₹398, past the ₹289 threshold and short of ₹589.
-    const more = await screen.findByRole("button", { name: "One more Room + pictures" });
+    // Two projects: ₹298, past the ₹289 threshold and short of ₹589.
+    const more = await screen.findByRole("button", { name: "One more One project" });
     await userEvent.click(more);
     await userEvent.click(more);
 
     expect(screen.getByRole("button", { name: /HUE10/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /HUE20/ })).toBeDisabled();
-    // ₹398 less 10% = ₹358.20 — a rounding the server does the same way, down to the paisa.
-    expect(screen.getByText("−₹39.80")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Pay ₹358.20" })).toBeInTheDocument();
+    // ₹298 less 10% = ₹268.20 — a rounding the server does the same way, down to the paisa.
+    expect(screen.getByText("−₹29.80")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pay ₹268.20" })).toBeInTheDocument();
   });
 
   it("lets the buyer pick between offers once more than one is earned", async () => {
-    // At ₹995 all three are unlocked, so which one applies is a genuine choice — that is
+    // At ₹1,043 all three are unlocked, so which one applies is a genuine choice — that is
     // what the chips are for. The best is on by default; tapping a chip never turns the
     // discount off, only moves it.
     render(<CreditsCart />);
 
-    const more = await screen.findByRole("button", { name: "One more Room + pictures" });
-    for (let i = 0; i < 5; i += 1) await userEvent.click(more);
+    const more = await screen.findByRole("button", { name: "One more One project" });
+    for (let i = 0; i < 7; i += 1) await userEvent.click(more);
 
     expect(screen.getByRole("button", { name: /HUE25/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Pay ₹746.25" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pay ₹782.25" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /HUE10/ }));
-    expect(screen.getByRole("button", { name: "Pay ₹895.50" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pay ₹938.70" })).toBeInTheDocument();
   });
 
   it("says what is still needed to reach the next offer", async () => {
     render(<CreditsCart />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "One more Room + pictures" }));
-    // ₹199 in the basket, ₹289 for the first offer.
-    expect(screen.getByText(/Add ₹90 more to save 10%/)).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "One more One project" }));
+    // ₹149 of single lines in the basket, ₹289 for the first offer.
+    expect(screen.getByText(/Add ₹140 more of single projects or credits to save 10%/))
+      .toBeInTheDocument();
   });
 
   it("sends quantities and the applied code, never a price", async () => {
     checkoutCart.mockResolvedValue({ ...CART, availableProjects: 2, creditBalance: 4 });
     render(<CreditsCart />);
 
-    const more = await screen.findByRole("button", { name: "One more Room + pictures" });
+    const more = await screen.findByRole("button", { name: "One more One project" });
     await userEvent.click(more);
     await userEvent.click(more);
     await userEvent.click(screen.getByRole("button", { name: /HUE10/ }));
@@ -126,9 +127,9 @@ describe("CreditsCart", () => {
 
     await waitFor(() =>
       expect(checkoutCart).toHaveBeenCalledWith({
-        projects: 0,
+        projects: 2,
         credits: 0,
-        combos: 2,
+        combos: 0,
         bundles: 0,
         discountCode: "HUE10",
       }),
@@ -172,19 +173,17 @@ describe("CreditsCart", () => {
       .toBeInTheDocument();
   });
 
-  it("sends the bundle quantity and stacks the earned percentage on top of it", async () => {
-    // The bundle is the price of the line, not a code, so a basket holding one is still
-    // big enough to have earned HUE10 — and the server would apply it whatever this screen
-    // sent, so quoting the undiscounted total here would be quoting a total we do not
-    // charge. No code travels: nobody tapped a chip, and the code is only ever a
-    // preference between offers the basket has already earned.
+  it("sends the bundle quantity and charges its ticket price, with no percentage on top", async () => {
+    // The bundle's saving is already in its price — ₹438 for what costs ₹657 line by line.
+    // A further 10% would discount the same basket twice at a rate nobody set, so the
+    // offers neither light up nor come off, and the total is the price on the ticket.
     checkoutCart.mockResolvedValue(CART);
     render(<CreditsCart />);
 
     await userEvent.click(await screen.findByRole("button", { name: "One more Special offer" }));
-    expect(screen.getByRole("button", { name: /HUE10/ })).toHaveAttribute("aria-pressed", "true");
-    // ₹438 less 10% = ₹394.20.
-    await userEvent.click(screen.getByRole("button", { name: "Pay ₹394.20" }));
+    expect(screen.getByRole("button", { name: /HUE10/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /HUE10/ })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Pay ₹438" }));
 
     await waitFor(() =>
       expect(checkoutCart).toHaveBeenCalledWith({
@@ -195,6 +194,58 @@ describe("CreditsCart", () => {
         discountCode: undefined,
       }),
     );
+  });
+
+  // ── Packages against percentages ────────────────────────────────────────
+  //
+  // The combo and the bundle carry their saving in their own price. The percentage offers
+  // are the other half of the counter: earned on the single lines, taken off the single
+  // lines. The threshold and the discount are the same number, so no basket can light up
+  // "10% applied" and then take ₹0 off.
+
+  it("keeps a package out of the offer it sits beside", async () => {
+    render(<CreditsCart />);
+
+    // Two projects (₹298 — enough for HUE10 on their own) and a combo alongside them.
+    const project = await screen.findByRole("button", { name: "One more One project" });
+    await userEvent.click(project);
+    await userEvent.click(project);
+    await userEvent.click(screen.getByRole("button", { name: "One more Room + pictures" }));
+
+    // ₹497 rung up, 10% off the ₹298 of single lines, ₹467.20 to pay.
+    expect(screen.getByText("₹497")).toBeInTheDocument();
+    expect(screen.getByText("−₹29.80")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pay ₹467.20" })).toBeInTheDocument();
+    // And the bill says which half the percentage came off, because there are two halves
+    // in this basket to tell apart.
+    expect(screen.getByText(/₹298 of single lines/)).toBeInTheDocument();
+  });
+
+  it("does not dangle an offer a basket of packages alone can never collect", async () => {
+    // ₹995 of combos is past every threshold on the board and earns none of them. Showing
+    // HUE25 as applied and then taking ₹0 off would read as a bug, and would be one.
+    render(<CreditsCart />);
+
+    const more = await screen.findByRole("button", { name: "One more Room + pictures" });
+    for (let i = 0; i < 5; i += 1) await userEvent.click(more);
+
+    expect(screen.getByRole("button", { name: /HUE25/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Pay ₹995" })).toBeInTheDocument();
+  });
+
+  it("lets the server put the packages back inside the offer", async () => {
+    // Which half the offers reach is a campaign setting, not this screen's rule. Flipped
+    // on, the whole basket earns and receives again.
+    api.getCart.mockResolvedValue({ ...CART, offersApplyToPackages: true });
+    render(<CreditsCart />);
+
+    const more = await screen.findByRole("button", { name: "One more Room + pictures" });
+    await userEvent.click(more);
+    await userEvent.click(more);
+
+    expect(screen.getByRole("button", { name: /HUE10/ })).toHaveAttribute("aria-pressed", "true");
+    // ₹398 less 10% = ₹358.20 — exactly what the counter charged before the split.
+    expect(screen.getByRole("button", { name: "Pay ₹358.20" })).toBeInTheDocument();
   });
 
   it("hides the offer entirely when it is not running", async () => {

@@ -114,6 +114,7 @@ vi.mock("@/lib/api", () => {
       // studio feeds them straight back into the gate's prices.
       pointsPayProjectCredit: vi.fn(async () => purchaseOptions),
       pointsPayProjectReopen: vi.fn(),
+      reopenWithProjectCredit: vi.fn(),
       requestMoreProjects: vi.fn(),
       getMyShadeCodeScheme: vi.fn(async () => ({
         prefix: "",
@@ -1688,6 +1689,76 @@ describe("Visualizer — a locked project shows the colours it handed over", () 
     await waitFor(() => expect(screen.getAllByText("Sun Zephyr").length).toBeGreaterThan(0));
 
     expect(screen.queryByRole("button", { name: /Keep original/i })).not.toBeInTheDocument();
+  });
+
+  /**
+   * The complaint this rail answers, on the screen it was made about: a customer holding
+   * projects they had bought and not started, looking at a locked room, offered only
+   * points they may never hold and a card.
+   */
+  it("offers the projects already on the account before either way of paying again", async () => {
+    vi.mocked(api.getProject).mockResolvedValue(
+      projectDetail({
+        status: "SEGMENTED",
+        regions: SEGMENTED_REGIONS,
+        readOnly: true,
+        readOnlyReason: "This project's validity has ended.",
+        reopenPricePaise: 900,
+        reopenCredits: 2,
+      }),
+    );
+    await openProject();
+
+    const useCredit = await screen.findByRole("button", { name: "Use 1 of your 2 projects" });
+    // It leads: of the ways out of this room it is the only one that costs nothing new,
+    // and a buyer should not have to read past a price to find it.
+    const pay = screen.getByRole("button", { name: /or pay ₹9/ });
+    expect(useCredit.compareDocumentPosition(pay))
+      .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("spends one credit and reads the unlocked room straight back", async () => {
+    const user = userEvent.setup();
+    const locked = projectDetail({
+      status: "SEGMENTED",
+      regions: SEGMENTED_REGIONS,
+      readOnly: true,
+      readOnlyReason: "This project's validity has ended.",
+      reopenCredits: 1,
+    });
+    vi.mocked(api.getProject).mockResolvedValue(locked);
+    await openProject();
+
+    // The room comes back open, and with one fewer project on the account.
+    vi.mocked(api.getProject).mockResolvedValue(
+      projectDetail({ status: "SEGMENTED", regions: SEGMENTED_REGIONS, reopenCredits: 0 }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Use 1 of your 1 project" }));
+
+    await waitFor(() =>
+      expect(api.reopenWithProjectCredit).toHaveBeenCalledWith("p-1"));
+    // No payment sheet was opened on the way — the money moved when the credit was bought.
+    expect(api.pointsPayProjectReopen).not.toHaveBeenCalled();
+    // And the studio is out of view-only: the banner and its offer are both gone.
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Use 1 of your/ })).not.toBeInTheDocument());
+  });
+
+  it("says nothing about credits to an account holding none", async () => {
+    vi.mocked(api.getProject).mockResolvedValue(
+      projectDetail({
+        status: "SEGMENTED",
+        regions: SEGMENTED_REGIONS,
+        readOnly: true,
+        readOnlyReason: "This project's validity has ended.",
+        reopenPricePaise: 900,
+        reopenCredits: 0,
+      }),
+    );
+    await openProject();
+
+    await screen.findByRole("button", { name: /or pay ₹9/ });
+    expect(screen.queryByRole("button", { name: /Use 1 of your/ })).not.toBeInTheDocument();
   });
 
   it("gives a live project both browsing tabs and no selection tab", async () => {

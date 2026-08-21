@@ -333,6 +333,30 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   if (path === "api/billing/points/project-options" && method === "GET") {
     return json(projectPurchaseOptions(user.role));
   }
+  // ── The customer's counter ──────────────────────────────────────────────
+  //
+  // Three reads with no writes behind them. Everything on these two screens that
+  // spends money opens Razorpay Checkout, which the demo has no answer for and
+  // should not pretend to — so the counter shows its prices and its offers, and
+  // the Pay button is where the demo honestly stops.
+  if (path === "api/billing/cart" && method === "GET") {
+    // A shop buys at its plan's rate from /plan; the backend answers the same way,
+    // and the whole panel hides itself rather than quoting a customer price to it.
+    if (user.role !== "CUSTOMER") return json({ ...store.cart, eligible: false });
+    return json({
+      ...store.cart,
+      // The two balances the cart footer quotes have to be the ones the panels above
+      // it show, or the demo reproduces the exact bug the wiring on that page fixed.
+      availableProjects: store.projectCredits,
+      creditBalance: store.aiCredits.balance,
+    });
+  }
+  if (path === "api/billing/ai-credits" && method === "GET") {
+    return json(store.aiCredits);
+  }
+  if (path === "api/me/renders" && method === "GET") {
+    return json(store.renders);
+  }
   if (path === "api/billing/points/pay/project-credit" && method === "POST") {
     if (store.wallet.pointsBalance < POINTS_PROJECT) {
       return json({ message: `Not enough points (${store.wallet.pointsBalance} available, ${POINTS_PROJECT} needed).` }, 402);

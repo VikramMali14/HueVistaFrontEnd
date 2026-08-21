@@ -571,7 +571,17 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const [boardsAllowed, setBoardsAllowed] = useState(0);
   const [reopenPoints, setReopenPoints] = useState(0);
   const [reopenPaiseForProject, setReopenPaiseForProject] = useState(0);
-  const [reopening, setReopening] = useState<"points" | "money" | null>(null);
+  /**
+   * Projects bought and not yet started — the third way out of a locked room.
+   *
+   * The server quotes it on the PROJECT beside the two prices, and for the same reason
+   * they are quoted there: all three answer "what would it take to work on this room
+   * again", and it is already zeroed for the rooms a credit may not be spent on (one that
+   * is already open, one a shop's code paid for). So this is read, never inferred from the
+   * account's balance — a balance says what the buyer holds, not what this room will take.
+   */
+  const [reopenCredits, setReopenCredits] = useState(0);
+  const [reopening, setReopening] = useState<"points" | "money" | "credit" | null>(null);
   const [segmenting, setSegmenting] = useState(false);
   /**
    * The run's own account of what it is doing, straight from the backend.
@@ -1173,6 +1183,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setViewOnlyReason(detail.readOnlyReason ?? null);
       setReopenPoints(detail.reopenPricePoints ?? 0);
       setReopenPaiseForProject(detail.reopenPricePaise ?? 0);
+      setReopenCredits(detail.reopenCredits ?? 0);
       setClosed(Boolean(detail.closedAt));
       setWallsLocked(Boolean(detail.fromLibrary));
       setBoardsUsed(detail.boardsUsed ?? 0);
@@ -1765,13 +1776,17 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
    * response deliberately carries only the new expiry — the studio needs the whole project
    * back to drop out of view-only.
    */
-  const handleReopen = useCallback(async (rail: "points" | "money") => {
+  const handleReopen = useCallback(async (rail: "points" | "money" | "credit") => {
     if (!projectId || reopening) return;
     setReopening(rail);
     setError(null);
     try {
       if (rail === "points") {
         await api.pointsPayProjectReopen(projectId);
+      } else if (rail === "credit") {
+        // No Checkout on this one: the money moved when the project was bought. One call
+        // that either opens the room or says why not.
+        await api.reopenWithProjectCredit(projectId);
       } else if (!(await reopenProjectWithMoney(projectId))) {
         return; // buyer closed Checkout
       }
@@ -2932,7 +2947,34 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               "This project is view-only — you can still see the colours last applied to it."}
           </span>
           <span className="hv-viewonly-actions">
-            {/* Both rails, priced from the server. Points lead when they can actually
+            {/* The rail that costs nothing new, first.
+
+                A customer who has bought projects and not started them all was, until
+                now, shown two ways out of a locked room and could take neither honestly:
+                points, which a customer account may never hold, and a card — for a room
+                they had in effect already paid for, with unstarted projects sitting on
+                the account the whole time. That is the complaint, and it is a fair one.
+
+                It leads rather than being tucked behind the prices because it is the
+                cheapest thing on the bar by a distance, and it is deliberately a BUTTON
+                and not automatic: a lapsed window is a few rupees on the card rail and a
+                credit is worth a whole project, so which to spend is the buyer's call.
+                The count comes from the project, which is already zero for the rooms a
+                credit may not be spent on. */}
+            {reopenCredits > 0 && projectId && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={reopening !== null}
+                onClick={() => void handleReopen("credit")}
+                title="Spend one of the projects you have already bought and not started yet."
+              >
+                {reopening === "credit"
+                  ? "Unlocking…"
+                  : `Use 1 of your ${reopenCredits} project${reopenCredits === 1 ? "" : "s"}`}
+              </Button>
+            )}
+            {/* Both paying rails, priced from the server. Points lead when they can actually
                 pay — they are the cheaper one — and the card button is always there.
                 A project a live plan already covers never gets here — it isn't view-only.
 

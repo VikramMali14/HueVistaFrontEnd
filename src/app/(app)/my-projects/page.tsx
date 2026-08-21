@@ -27,23 +27,21 @@ export default async function MyProjectsPage() {
   await requireRole(["CUSTOMER"]);
 
   return (
-    <div style={{ maxWidth: 780 }}>
-      <Eyebrow>Projects &amp; credits</Eyebrow>
-      <h1
-        className="display"
-        style={{
-          fontSize: "clamp(36px, 5.4vw, 60px)",
-          margin: "14px 0 16px",
-          letterSpacing: "-.02em",
-        }}
-      >
-        What you <i>have.</i>
-      </h1>
-      <Lead style={{ maxWidth: "56ch" }}>
-        A project is one room: your photo, its walls marked, every colour you try, and the
-        colour board at the end. The AI image is the one thing it doesn&rsquo;t include —
-        that comes out of the credits below.
-      </Lead>
+    <div className="hv-mp">
+      {/* See .hv-aura in globals.css — the wash every app screen's header gets. */}
+      <div className="hv-aura" aria-hidden />
+
+      <header className="hv-mp-head">
+        <Eyebrow className="hv-rise">Projects &amp; credits</Eyebrow>
+        <h1 className="display hv-mp-title hv-rise hv-rise-1">
+          What you <i>have.</i>
+        </h1>
+        <Lead className="hv-rise hv-rise-2" style={{ maxWidth: "56ch" }}>
+          A project is one room: your photo, its walls marked, every colour you try, and the
+          colour board at the end. The AI image is the one thing it doesn&rsquo;t include —
+          that comes out of the credits below.
+        </Lead>
+      </header>
 
       {/* The two counters and the counter that sells, wired together so a purchase on
           this page is reflected by the balances on it. They were three independent
@@ -54,7 +52,7 @@ export default async function MyProjectsPage() {
       {/* And what those credits actually bought. Renders nothing until there is a
           picture to show, so the page is unchanged for an account that has not made
           one yet. */}
-      <div style={{ marginTop: 44 }}>
+      <div className="hv-mp-strip">
         <AiImagesStrip />
       </div>
 
@@ -62,23 +60,39 @@ export default async function MyProjectsPage() {
           true depends on the issuing shop's numbering, and this page has no scheme
           loaded to tell them apart. The colour board itself carries the precise
           answer in its footer, where it matters. */}
-      <p
-        style={{
-          marginTop: 40,
-          paddingTop: 24,
-          borderTop: "1px solid var(--rule)",
-          font: "400 14px/1.7 var(--sans)",
-          color: "var(--fg-mute)",
-          maxWidth: "58ch",
-        }}
-      >
-        Every colour you see carries a code. Take it to the counter and they can look up
-        the exact shade, or the closest match in a company they stock —{" "}
-        <Link href="/studio" style={{ color: "var(--accent)" }}>
-          start a room
-        </Link>{" "}
-        and your board is built as you go.
-      </p>
+      <div className="hv-mp-foot">
+        <p>
+          Every colour you see carries a code. Take it to the counter and they can look up
+          the exact shade, or the closest match in a company they stock —{" "}
+          <Link href="/studio">start a room</Link> and your board is built as you go.
+        </p>
+      </div>
+
+      <style>{`
+        /* Wide enough for the till and the two balances to sit side by side, and no
+           wider: past this the till's own rows start stretching, and a price list whose
+           price is a hand's width from the thing it prices is harder to read, not
+           grander. Every column of TEXT on the page keeps its own measure below. */
+        .hv-mp { position: relative; max-width: 1120px; }
+
+        .hv-mp-head, .hv-mp-strip, .hv-mp-foot { position: relative; z-index: 1; }
+        .hv-mp-title {
+          font-size: clamp(36px, 5.4vw, 60px); margin: 14px 0 16px; letter-spacing: -.02em;
+        }
+
+        .hv-mp-strip { margin-top: 44px; }
+        /* The rule spans the page; the sentence keeps its measure. They were the same
+           element, so the rule stopped at 58ch — a line ending a third of the way across
+           reads as a border that failed rather than as one closing the page. */
+        .hv-mp-foot {
+          margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--rule);
+        }
+        .hv-mp-foot p {
+          margin: 0; font: 400 14px/1.7 var(--sans); color: var(--fg-mute); max-width: 58ch;
+        }
+        .hv-mp-foot a { color: var(--accent); }
+
+      `}</style>
     </div>
   );
 }

@@ -19,7 +19,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <>
       <AppNav user={user} access={access} libraryLive={libraryLive} hasShop={hasShop} />
-      <main id="main" style={{ maxWidth: "var(--max)", margin: "0 auto", padding: "40px var(--gutter) 96px" }}>{children}</main>
+      {/* hv-app-main is read by globals.css, which uses it to stop the marketing site's
+          band rules applying to app screens — see the note beside them. */}
+      <main
+        id="main"
+        className="hv-app-main"
+        style={{ maxWidth: "var(--max)", margin: "0 auto", padding: "40px var(--gutter) 96px" }}
+      >
+        {children}
+      </main>
       <SupportWidget />
     </>
   );

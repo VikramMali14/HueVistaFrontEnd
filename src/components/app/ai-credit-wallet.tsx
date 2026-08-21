@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CountUp } from "@/components/ui/count-up";
 import { api } from "@/lib/api";
 import { formatRupees } from "@/lib/money";
 import { buyAiCredits } from "@/lib/payments";
@@ -110,7 +111,11 @@ export function AiCreditWallet({
             rather than as a line of the paragraph — large, quiet, and with the word that
             explains it beneath rather than beside, where it would compete. */}
         <p className="hv-aiw-balance" aria-live="polite">
-          <span className="hv-aiw-balance-n">{wallet.balance.toLocaleString("en-IN")}</span>
+          {/* Rolled up rather than printed, the same way the projects counter beside it
+              is. CountUp renders the final value outright on the server and under
+              reduced motion, so the balance is never a number somebody has to wait
+              for — and aria-live still announces the value, not the count. */}
+          <CountUp className="hv-aiw-balance-n" value={wallet.balance} />
           <span className="hv-aiw-balance-w">
             credit{wallet.balance === 1 ? "" : "s"}
           </span>

@@ -520,6 +520,10 @@ export interface ProjectDetail {
    *  knows which one this is. */
   reopenPricePoints?: number;
   reopenPricePaise?: number;
+  /** Projects this account has already paid for and not yet started — the third way out of
+   *  a locked room, and the only one that costs nothing new. Zero (or absent, on an older
+   *  backend) when there is nothing to spend or nothing to spend it on. */
+  reopenCredits?: number;
 
   /** Copied off the free library shelf.
    *
@@ -1018,6 +1022,10 @@ export interface ProjectReopenResult {
   pointsSpent: number;
   amountPaise?: number;
   daysAdded: number;
+  /** Unstarted projects still on the account afterwards. Sent on every rail, so the
+   *  view-only banner can redraw its "use one of your projects" offer from this answer
+   *  rather than going back for a number that may not have moved. */
+  creditsLeft?: number;
 }
 
 /**
@@ -1588,6 +1596,17 @@ export interface CartCatalogue {
   maxQuantity: number;
   /** The offers, weakest first, so the cart can show the next one to reach for. */
   offers: Array<{ code: string; minSubtotalPaise: number; percentOff: number }>;
+  /**
+   * Whether those offers also come off the combo and the special-offer bundle.
+   *
+   * False, and read from the server rather than assumed here, because it decides which
+   * subtotal the running total is struck on. Both packages already carry their saving in
+   * their own price, and a percentage on top discounts one basket twice — but it is a
+   * commercial switch, and a screen that hard-coded the answer would quote a discount the
+   * server does not give the day it is flipped for a campaign. Absent on an older backend,
+   * where the offers did apply to everything.
+   */
+  offersApplyToPackages?: boolean;
   /** Projects already paid for and not yet started. */
   availableProjects: number;
   /** Spendable AI image credits. */

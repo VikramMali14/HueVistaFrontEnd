@@ -44,12 +44,13 @@ export function DashboardStats({ projects }: DashboardStatsProps) {
         style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, marginBottom: 64 }}
       >
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} style={{ border: "1px solid var(--rule)", padding: 28 }}>
+          <div key={i} className="hv-kpi">
             <span className="hv-skel" style={{ width: "58%", height: 12 }} />
             <span className="hv-skel" style={{ width: "40%", height: 46, marginTop: 14 }} />
             <span className="hv-skel" style={{ width: "72%", height: 12, marginTop: 14 }} />
           </div>
         ))}
+        <Styles />
       </section>
     );
   }
@@ -70,19 +71,89 @@ export function DashboardStats({ projects }: DashboardStatsProps) {
       style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, marginBottom: 64 }}
     >
       {cards.map((m, i) => (
-        <div key={m.l} className="hv-card-in" style={{ border: "1px solid var(--rule)", padding: 28, animationDelay: `${i * 60}ms` }}>
+        <div
+          key={m.l}
+          className={`hv-kpi hv-kpi-live${m.n > 0 && m.l === "Needs attention" ? " is-warn" : ""}`}
+          style={{ animationDelay: `${i * 60}ms` }}
+        >
           <Mono>{m.l}</Mono>
-          <div className="display" style={{ fontSize: 56, marginTop: 12 }}>
+          <div className="display hv-kpi-n">
             <CountUp value={m.n} />
           </div>
           <Mono style={{ marginTop: 8 }}>{m.sub}</Mono>
         </div>
       ))}
-      <style>{`
-        .hv-card-in { animation: hv-stat-in .5s var(--ease) both; }
-        @keyframes hv-stat-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-        @media (prefers-reduced-motion: reduce) { .hv-card-in { animation: none; } }
-      `}</style>
+      <Styles />
     </section>
+  );
+}
+
+/**
+ * The tiles, in the card language the rest of the customer's and shop's screens use.
+ *
+ * They were square-cornered hairline boxes on the page ground — correct, and
+ * indistinguishable from a table. What a KPI row is FOR is being read at a glance from
+ * across a counter, and four identical grey rectangles are the shape that defeats that.
+ * A generous radius, one wash of accent from a corner, and the figure itself in the
+ * accent give the row somewhere for the eye to land.
+ *
+ * "Needs attention" turns warm when it is not zero, and only then: it is the one number
+ * here that is bad news, and a red tile reading 0 would be crying wolf on every dashboard
+ * that has nothing wrong with it.
+ */
+function Styles() {
+  return (
+    <style>{`
+      /* hv-kpi, not hv-stat: that name already belongs to the marketing site's stats
+         band, which centres its text and rules between its siblings. Borrowing it here
+         centred every label in this row and hung a divider off each tile. */
+      .hv-kpi {
+        position: relative; overflow: hidden; padding: 26px 28px;
+        border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.6);
+        background:
+          radial-gradient(120% 90% at 0% 0%, rgba(124,92,255,.07), transparent 60%),
+          var(--surface);
+        transition: transform .3s var(--ease), border-color .3s var(--ease);
+      }
+      .hv-kpi::before {
+        content: ""; position: absolute; inset: 0 0 auto; height: 1px;
+        background: linear-gradient(90deg, transparent, var(--rule-brass), transparent);
+        opacity: .7; transition: opacity .3s var(--ease);
+      }
+      .hv-kpi-n {
+        font-size: 56px; line-height: 1; margin-top: 12px;
+        color: var(--accent-text); letter-spacing: -.02em;
+        font-variant-numeric: tabular-nums;
+      }
+      .hv-kpi-live { animation: hv-kpi-in .5s var(--ease) both; }
+      .hv-kpi-live:hover { transform: translateY(-2px); border-color: var(--rule-strong); }
+      .hv-kpi-live:hover::before { opacity: 1; }
+
+      /* The one tile that is bad news, and only while it is. */
+      .hv-kpi.is-warn {
+        border-color: rgba(194, 64, 42, .38);
+        background:
+          radial-gradient(120% 90% at 0% 0%, rgba(194,64,42,.10), transparent 60%),
+          var(--surface);
+      }
+      .hv-kpi.is-warn::before {
+        background: linear-gradient(90deg, transparent, rgba(194,64,42,.5), transparent);
+      }
+      .hv-kpi.is-warn .hv-kpi-n { color: var(--terracotta); }
+
+      @keyframes hv-kpi-in {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: none; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .hv-kpi-live { animation: none; transition: none; }
+        .hv-kpi-live:hover { transform: none; }
+      }
+      /* A pointer lift sticks after a tap on touch, which reads as a rendering fault. */
+      @media (hover: none) {
+        .hv-kpi-live:hover { transform: none; }
+        .hv-kpi::before { opacity: 1; }
+      }
+    `}</style>
   );
 }
