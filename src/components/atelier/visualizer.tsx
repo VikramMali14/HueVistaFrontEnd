@@ -99,6 +99,10 @@ interface RegionState {
   hex: string;
   shade?: PaintShade;
   maskUrl?: string | null;
+  /** The mask before this region was ever hand-edited, if it has been — what
+   *  "Restore original" in the Mask Studio puts back. Null when the live mask is
+   *  already the original. */
+  originalMaskUrl?: string | null;
   /** In-memory mask for a hand-drawn (polygon) region — takes precedence over
    *  maskUrl so the preview is instant and survives a failed backend save. */
   maskCanvas?: HTMLCanvasElement | null;
@@ -268,6 +272,7 @@ function mapBackendRegion(
     // Route relative backend mask URLs through the BFF so auth is attached and the canvas
     // stays untainted; S3 presigned URLs pass through unchanged.
     maskUrl: resolveMediaUrl(region.maskUrl),
+    originalMaskUrl: resolveMediaUrl(region.originalMaskUrl),
   };
 }
 
@@ -1815,7 +1820,14 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     () =>
       regions
         .filter((r) => r.maskCanvas || r.maskUrl)
-        .map((r) => ({ id: r.id, label: r.label, kind: r.kind, maskUrl: r.maskUrl, maskCanvas: r.maskCanvas })),
+        .map((r) => ({
+          id: r.id,
+          label: r.label,
+          kind: r.kind,
+          maskUrl: r.maskUrl,
+          originalMaskUrl: r.originalMaskUrl,
+          maskCanvas: r.maskCanvas,
+        })),
     [regions],
   );
 
@@ -1873,35 +1885,68 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [projectId, createCustomMaskCall],
   );
 
-  // Persist a REFINED mask back onto an EXISTING region (AI-detected or hand-drawn):
-  // the mask the studio opened for editing, now fixed, replaces the region's mask in
-  // place — no new region, no AI call. Optimistic: the composite shows the new shape
-  // immediately; the backend save is retryable via the same Retry chip.
-  const handleUpdateMask = useCallback(
-    async (regionId: string, mask: HTMLCanvasElement) => {
-      const target = regions.find((r) => r.id === regionId);
-      // Show the refined shape at once, and drop the cached region luminance so
-      // scene-light shading recomputes against the new mask.
-      setRegions((prev) =>
-        prev.map((r) => (r.id === regionId ? { ...r, maskCanvas: mask } : r)),
-      );
-      baseLumaRef.current.delete(regionId);
-      setActiveRegion(regionId);
-      setStage("recolor");
-
-      const backendId = target?.backendId;
-      if (!projectId || backendId === undefined) {
+  /**
+   * Persist a refining session: every mask the studio changed, in one pass.
+   *
+   * One region at a time on the wire — the backend replaces masks singly — but as ONE
+   * unit of work here, because that is what the user did. In particular the retry thunk
+   * covers the whole set: aligning three walls and having the second upload fail must
+   * not leave the room with one wall moved and two where they were, which is exactly
+   * what re-queuing each region separately produced.
+   *
+   * Optimistic, like the single-mask path it replaces: the composite shows the new
+   * shapes at once and the upload catches up behind it.
+   */
+  const handleUpdateMasks = useCallback(
+    async (edits: ReadonlyArray<{ regionId: string; mask: HTMLCanvasElement }>) => {
+      if (edits.length === 0) {
         setMaskStudioOpen(false);
         setEditingRegionId(null);
         return;
       }
-      const persist = async () => {
-        const detail = await updateRegionMaskCall(projectId, backendId, mask.toDataURL("image/png"));
-        setRegions((prev) =>
-          prev.map((r) =>
-            r.id === regionId ? { ...r, maskUrl: resolveMediaUrl(detail.maskUrl), maskCanvas: mask } : r,
-          ),
+      const byId = new Map(edits.map((e) => [e.regionId, e.mask]));
+      setRegions((prev) =>
+        prev.map((r) => {
+          const mask = byId.get(r.id);
+          return mask ? { ...r, maskCanvas: mask } : r;
+        }),
+      );
+      // Drop the cached region luminance so scene-light shading recomputes against the
+      // new shapes rather than the old ones.
+      for (const id of byId.keys()) baseLumaRef.current.delete(id);
+      setActiveRegion(edits[0]!.regionId);
+      setStage("recolor");
+
+      // Resolve backend ids BEFORE the async work: `regions` here is the pre-update
+      // snapshot, and that is the one that still knows every region's backendId.
+      const targets = edits
+        .map((e) => ({ ...e, backendId: regions.find((r) => r.id === e.regionId)?.backendId }))
+        .filter((e): e is { regionId: string; mask: HTMLCanvasElement; backendId: number } =>
+          e.backendId !== undefined,
         );
+
+      if (!projectId || targets.length === 0) {
+        setMaskStudioOpen(false);
+        setEditingRegionId(null);
+        return;
+      }
+
+      const persist = async () => {
+        for (const t of targets) {
+          const detail = await updateRegionMaskCall(projectId, t.backendId, t.mask.toDataURL("image/png"));
+          setRegions((prev) =>
+            prev.map((r) =>
+              r.id === t.regionId
+                ? {
+                    ...r,
+                    maskUrl: resolveMediaUrl(detail.maskUrl),
+                    originalMaskUrl: resolveMediaUrl(detail.originalMaskUrl),
+                    maskCanvas: t.mask,
+                  }
+                : r,
+            ),
+          );
+        }
       };
       const seq = ++saveSeqRef.current;
       setSavingMask(true);
@@ -2521,7 +2566,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const editTarget = useMemo<ExistingMask | null>(() => {
     if (!editingRegionId) return null;
     const r = regions.find((x) => x.id === editingRegionId);
-    return r ? { id: r.id, label: r.label, kind: r.kind, maskUrl: r.maskUrl, maskCanvas: r.maskCanvas } : null;
+    return r
+      ? {
+          id: r.id,
+          label: r.label,
+          kind: r.kind,
+          maskUrl: r.maskUrl,
+          originalMaskUrl: r.originalMaskUrl,
+          maskCanvas: r.maskCanvas,
+        }
+      : null;
   }, [editingRegionId, regions]);
 
   // Claude photo palettes: signed-in users with a saved project only. Guests
@@ -4010,11 +4064,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             setMaskStudioOpen(false);
             setEditingRegionId(null);
           }}
-          onSave={(mask, category, label) =>
-            editingRegionId
-              ? void handleUpdateMask(editingRegionId, mask)
-              : void handleSaveMask(mask, category, label)
-          }
+          // Two different acts, two handlers: onSave creates a wall that did not exist,
+          // onSaveEdits rewrites the shape of walls that already do — up to four of them
+          // in one visit.
+          onSave={(mask, category, label) => void handleSaveMask(mask, category, label)}
+          onSaveEdits={(edits) => void handleUpdateMasks(edits)}
         />
       )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
@@ -12,16 +12,38 @@ import type { RegionKind } from "@/lib/types";
 // warm room photos. Red marks "remove" actions.
 const SELECT_BLUE = "#1d4ed8";
 const REMOVE_RED = "#dc2626";
+/** The OTHER masks open in this session — violet so "live" and "also open" can never
+ *  be confused with each other, or with the red of a remove stroke. */
+const OTHER_VIOLET = "#7c3aed";
 
 /** Working-mask cap — masks don't need 12 MP fidelity, and a smaller canvas
  *  keeps undo snapshots, flood fills and overlay redraws fast. */
 const MASK_MAX = 1600;
+/** How close a right-click has to land to count as "on" a corner point, in screen px. */
+const POINT_HIT_PX = 16;
 /** Wand sampling resolution — flood fill runs on a downscaled copy. */
 const WAND_MAX = 700;
 const HISTORY_MAX = 20;
 const COACH_KEY = "hv-mask-coach-v1";
 
-/** An existing region the user can start their edit from. */
+/**
+ * Most masks one editing session may hold open at once.
+ *
+ * Four, because that is one more than detection produces: a room opens with main wall,
+ * accent wall and trim, and the fourth slot is the one a shop draws by hand. Editing all
+ * of them together is what the alignment tool needs — a mask set that is right in shape
+ * but sitting a few pixels off the photo has to move as ONE piece, and moving three
+ * walls in three separate visits guarantees they end up in three different places.
+ *
+ * It is also a ceiling on the finished room. Every mask held here is a surface that gets
+ * its own colour downstream, and past four the render stops reading as a colour scheme.
+ */
+const MAX_EDIT_LAYERS = 4;
+
+/** The scratch layer id used while marking a wall that does not exist yet. */
+const NEW_LAYER_ID = "__new__";
+
+/** An existing region the user can edit, or start a new mask from. */
 export interface ExistingMask {
   id: string;
   label: string;
@@ -30,6 +52,54 @@ export interface ExistingMask {
   maskUrl?: string | null;
   /** In-memory mask (hand-drawn regions) — used directly if present. */
   maskCanvas?: HTMLCanvasElement | null;
+  /**
+   * This region's mask BEFORE anyone hand-edited it — detection's own output.
+   *
+   * Null/absent means nobody has edited it, so the live mask is already the original
+   * and "Restore original" has nothing to offer. The studio reads it exactly that way.
+   */
+  originalMaskUrl?: string | null;
+}
+
+/** One region's re-drawn mask, at photo resolution, ready to persist. */
+export interface MaskEdit {
+  regionId: string;
+  mask: HTMLCanvasElement;
+}
+
+/**
+ * One mask open for editing.
+ *
+ * Every tool writes into `canvas` — the whole engine below still edits exactly one
+ * canvas at a time, and switching the active layer just re-points it. `dirty` is what
+ * decides whether a layer is written back on save: a mask the user opened, looked at
+ * and left alone must not be re-uploaded, or opening four masks to fix one would
+ * rewrite all four (and, on a detected wall, spend its untouched original).
+ */
+interface MaskLayer {
+  id: string;
+  label: string;
+  kind: RegionKind;
+  canvas: HTMLCanvasElement;
+  originalMaskUrl?: string | null;
+  dirty: boolean;
+}
+
+/**
+ * One undoable step: the state every layer it touched was in beforehand.
+ *
+ * A LIST of layers because moving the masks into alignment changes every open layer at
+ * once, and that has to come back as ONE undo — an alignment unpicked one wall per
+ * Ctrl+Z would leave the room in a state no single step created. Ordinary edits record
+ * one layer.
+ *
+ * `moved` rides along because the alignment readout is a claim about the pixels, and a
+ * step that puts the pixels back has to put the claim back with them. Without it, undo
+ * left the panel saying the masks were 12px right of where they now were.
+ */
+interface HistoryFrame {
+  layers: ReadonlyArray<{ id: string; alpha: Uint8Array }>;
+  moved: { x: number; y: number };
 }
 
 interface MaskStudioProps {
@@ -46,6 +116,14 @@ interface MaskStudioProps {
   editTarget?: ExistingMask | null;
   onClose: () => void;
   onSave: (mask: HTMLCanvasElement, category: RegionKind, label: string) => void;
+  /**
+   * Persist a refining session: every mask the user actually changed, in one go.
+   *
+   * Separate from {@link onSave} because it is a different act — that one creates a
+   * wall, this one rewrites walls that already exist, and a session can rewrite up to
+   * four of them. Only dirty layers appear here.
+   */
+  onSaveEdits: (edits: MaskEdit[]) => void;
 }
 
 // The same four names the studio, the dock and the backend use. "Accent /
@@ -58,7 +136,7 @@ const CATEGORY_OPTIONS: ReadonlyArray<readonly [RegionKind, string]> = [
   ["MANUAL", "Other"],
 ];
 
-type Tool = "wand" | "brush" | "poly";
+type Tool = "wand" | "brush" | "poly" | "move";
 type Mode = "add" | "remove";
 
 interface View {
@@ -90,6 +168,7 @@ export function MaskStudio({
   editTarget,
   onClose,
   onSave,
+  onSaveEdits,
 }: MaskStudioProps) {
   const isEditing = Boolean(editTarget);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -101,11 +180,33 @@ export function MaskStudio({
   /** Downscaled photo pixels the wand samples; null until loaded (or tainted). */
   const wandPixelsRef = useRef<{ data: Uint8ClampedArray; w: number; h: number } | null>(null);
 
-  // Undo/redo: alpha-plane snapshots of the working mask. Refs so painting
-  // never re-renders; a small counts state drives button enablement.
-  const historyRef = useRef<Uint8Array[]>([]);
-  const futureRef = useRef<Uint8Array[]>([]);
+  // Undo/redo: alpha-plane snapshots of the layers each step replaced. Refs so
+  // painting never re-renders; a small counts state drives button enablement.
+  const historyRef = useRef<HistoryFrame[]>([]);
+  const futureRef = useRef<HistoryFrame[]>([]);
   const [histCounts, setHistCounts] = useState({ undo: 0, redo: 0 });
+
+  // The masks open for editing, and which one the tools write into.
+  //
+  // Refs rather than state because they are the truth the drawing engine reads on every
+  // pointer move, and a stale closure over a canvas is a whole edit painted into the
+  // wrong layer. `layerTick` exists only to re-render the chips and buttons that
+  // describe them.
+  const layersRef = useRef<MaskLayer[]>([]);
+  const activeIdRef = useRef<string>(NEW_LAYER_ID);
+  const [layerTick, bumpLayers] = useReducer((n: number) => n + 1, 0);
+
+  // A live drag/nudge of the whole mask set, in mask pixels, not yet written into any
+  // canvas — the overlay draws everything shifted by it so alignment can be judged
+  // before it is committed.
+  const moveRef = useRef<{ dx: number; dy: number } | null>(null);
+  // True while the last committed step was a keyboard nudge, so a run of arrow taps
+  // collapses into one undo instead of twenty.
+  const nudgeRunRef = useRef(false);
+  /** Pre-tinted union of the OTHER open layers — drawn behind the active one. */
+  const othersRef = useRef<HTMLCanvasElement | null>(null);
+  /** Somewhere for the tools to write when a refining session has no mask left to edit. */
+  const detachedRef = useRef<HTMLCanvasElement | null>(null);
 
   // Live wand editing: the mask as it was BEFORE the current tap, plus the
   // tap's seed — dragging Reach restores + re-fills so it feels direct.
@@ -123,6 +224,8 @@ export function MaskStudio({
   const downRef = useRef<{ x: number; y: number; moved: boolean; pan: boolean; px: number; py: number } | null>(null);
   const cursorRef = useRef<{ x: number; y: number } | null>(null); // client coords
   const spaceRef = useRef(false);
+  /** Where an alignment drag started, in client coords; null when not dragging one. */
+  const moveStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const [tool, setTool] = useState<Tool>("wand");
   const [mode, setMode] = useState<Mode>("add");
@@ -148,6 +251,16 @@ export function MaskStudio({
     }
   });
   const [startFromError, setStartFromError] = useState<string | null>(null);
+  /** Total committed alignment shift, in mask pixels — shown so a nudge run is countable.
+   *  Mirrored in a ref because history frames record it from inside callbacks. */
+  const [moved, setMovedState] = useState({ x: 0, y: 0 });
+  const movedRef = useRef({ x: 0, y: 0 });
+  const setMoved = useCallback((next: { x: number; y: number }) => {
+    movedRef.current = next;
+    setMovedState(next);
+  }, []);
+  /** Why the last save attempt didn't go through; cleared by the next one. */
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const maskDims = useMemo(() => {
     const s = Math.min(1, MASK_MAX / Math.max(imageDims.w, imageDims.h));
@@ -192,62 +305,171 @@ export function MaskStudio({
     return { dispW, dispH, offX: (wrapSize.w - dispW) / 2, offY: (wrapSize.h - dispH) / 2 };
   }, [wrapSize, imageDims]);
 
-  const ensureMask = useCallback(() => {
-    if (maskRef.current) return maskRef.current;
+  // ---- layers --------------------------------------------------------------
+
+  const blankCanvas = useCallback(() => {
     const c = document.createElement("canvas");
     c.width = maskDims.w;
     c.height = maskDims.h;
-    maskRef.current = c;
     return c;
   }, [maskDims]);
 
+  /**
+   * The canvas the tools write into, creating the scratch layer on first use.
+   *
+   * Every tool below still edits ONE canvas, exactly as it did when the studio could
+   * only hold one mask — all that changed is which canvas this hands back. `maskRef` is
+   * kept pointing at it so the overlay and the outline cache stay in step.
+   *
+   * The scratch layer belongs to MARKING a wall. Refining never invents one: a layer
+   * with no region behind it would draw a mask, show a chip nobody can match to a wall,
+   * and save to an id the studio's caller cannot resolve. When every mask a refining
+   * session opened has failed to load, the honest answer is a detached canvas and an
+   * error on screen — there is genuinely nothing to edit.
+   */
+  const ensureMask = useCallback((): HTMLCanvasElement => {
+    let layer = layersRef.current.find((l) => l.id === activeIdRef.current);
+    if (!layer) {
+      if (isEditing) {
+        detachedRef.current ??= blankCanvas();
+        maskRef.current = detachedRef.current;
+        return detachedRef.current;
+      }
+      layer = { id: NEW_LAYER_ID, label: "Wall", kind: "MAIN_WALL", canvas: blankCanvas(), dirty: false };
+      layersRef.current = [...layersRef.current, layer];
+      activeIdRef.current = layer.id;
+      bumpLayers();
+    }
+    maskRef.current = layer.canvas;
+    return layer.canvas;
+  }, [blankCanvas, isEditing]);
+
+  const canvasFor = useCallback((id: string): HTMLCanvasElement | null => {
+    return layersRef.current.find((l) => l.id === id)?.canvas ?? null;
+  }, []);
+
+  /** Mark a layer as changed, so save writes it back. */
+  const markDirty = useCallback((id: string) => {
+    // Checked before mapping: this runs on every brush move, and the answer is "already
+    // dirty" for all but the first of them.
+    const current = layersRef.current.find((l) => l.id === id);
+    if (!current || current.dirty) return;
+    layersRef.current = layersRef.current.map((l) => (l.id === id ? { ...l, dirty: true } : l));
+    bumpLayers();
+  }, []);
+
+  const markActiveDirty = useCallback(() => markDirty(activeIdRef.current), [markDirty]);
+
   // ---- snapshots / history -------------------------------------------------
 
-  const snapshotAlpha = useCallback((): Uint8Array => {
-    const mask = ensureMask();
-    const ctx = mask.getContext("2d", { willReadFrequently: true })!;
-    const data = ctx.getImageData(0, 0, mask.width, mask.height).data;
-    const a = new Uint8Array(mask.width * mask.height);
+  const snapshotOf = useCallback((canvas: HTMLCanvasElement): Uint8Array => {
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const a = new Uint8Array(canvas.width * canvas.height);
     for (let i = 0; i < a.length; i++) a[i] = data[i * 4 + 3]!;
     return a;
-  }, [ensureMask]);
+  }, []);
+
+  const snapshotAlpha = useCallback((): Uint8Array => snapshotOf(ensureMask()), [ensureMask, snapshotOf]);
+
+  const restoreInto = useCallback((canvas: HTMLCanvasElement, alpha: Uint8Array) => {
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    const img = ctx.createImageData(canvas.width, canvas.height);
+    const d = img.data;
+    for (let i = 0; i < alpha.length; i++) {
+      const j = i * 4;
+      d[j] = 255;
+      d[j + 1] = 255;
+      d[j + 2] = 255;
+      d[j + 3] = alpha[i]!;
+    }
+    ctx.putImageData(img, 0, 0);
+  }, []);
 
   const restoreAlpha = useCallback(
-    (alpha: Uint8Array) => {
-      const mask = ensureMask();
-      const ctx = mask.getContext("2d", { willReadFrequently: true })!;
-      const img = ctx.createImageData(mask.width, mask.height);
-      const d = img.data;
-      for (let i = 0; i < alpha.length; i++) {
-        const j = i * 4;
-        d[j] = 255;
-        d[j + 1] = 255;
-        d[j + 2] = 255;
-        d[j + 3] = alpha[i]!;
-      }
-      ctx.putImageData(img, 0, 0);
-    },
-    [ensureMask],
+    (alpha: Uint8Array) => restoreInto(ensureMask(), alpha),
+    [ensureMask, restoreInto],
   );
 
   const syncHistCounts = useCallback(() => {
     setHistCounts({ undo: historyRef.current.length, redo: futureRef.current.length });
   }, []);
 
+  /** Snapshot the named layers, and the alignment, as one undoable step. */
+  const frameOf = useCallback(
+    (ids: ReadonlyArray<string>): HistoryFrame => ({
+      layers: ids
+        .map((id) => {
+          const canvas = canvasFor(id);
+          return canvas ? { id, alpha: snapshotOf(canvas) } : null;
+        })
+        .filter((e): e is { id: string; alpha: Uint8Array } => e !== null),
+      moved: movedRef.current,
+    }),
+    [canvasFor, snapshotOf],
+  );
+
+  const pushFrame = useCallback(
+    (frame: HistoryFrame) => {
+      if (frame.layers.length === 0) return;
+      historyRef.current.push(frame);
+      if (historyRef.current.length > HISTORY_MAX) historyRef.current.shift();
+      futureRef.current = [];
+      nudgeRunRef.current = false;
+      syncHistCounts();
+    },
+    [syncHistCounts],
+  );
+
   /** Push the CURRENT mask onto the undo stack (call before each mutation). */
   const pushHistory = useCallback(() => {
-    historyRef.current.push(snapshotAlpha());
-    if (historyRef.current.length > HISTORY_MAX) historyRef.current.shift();
-    futureRef.current = [];
-    syncHistCounts();
-  }, [snapshotAlpha, syncHistCounts]);
+    ensureMask(); // the scratch layer must exist before it can be snapshotted
+    pushFrame(frameOf([activeIdRef.current]));
+  }, [ensureMask, frameOf, pushFrame]);
 
   const anyInk = (alpha: Uint8Array): boolean => {
     for (let i = 0; i < alpha.length; i++) if (alpha[i]! > 0) return true;
     return false;
   };
 
+  const canvasHasInk = useCallback(
+    (canvas: HTMLCanvasElement | null): boolean => (canvas ? anyInk(snapshotOf(canvas)) : false),
+    [snapshotOf],
+  );
+
   // ---- overlay drawing -----------------------------------------------------
+
+  /**
+   * Bake the OTHER open layers into one violet-tinted canvas.
+   *
+   * Pre-tinted, so the per-frame cost of showing three extra masks is a single
+   * drawImage: the alternative is compositing each of them into the overlay on every
+   * pointer move, and the brush cannot afford that. Rebuilt only when the layer set,
+   * the active layer, or their pixels change — never during a stroke, because a stroke
+   * only ever touches the active layer.
+   */
+  const recomputeOthers = useCallback(() => {
+    const others = layersRef.current.filter((l) => l.id !== activeIdRef.current);
+    if (others.length === 0) {
+      othersRef.current = null;
+      return;
+    }
+    let oc = othersRef.current;
+    if (!oc || oc.width !== maskDims.w || oc.height !== maskDims.h) {
+      oc = document.createElement("canvas");
+      oc.width = maskDims.w;
+      oc.height = maskDims.h;
+      othersRef.current = oc;
+    }
+    const ctx = oc.getContext("2d")!;
+    ctx.clearRect(0, 0, oc.width, oc.height);
+    for (const l of others) ctx.drawImage(l.canvas, 0, 0, oc.width, oc.height);
+    ctx.save();
+    ctx.globalCompositeOperation = "source-in";
+    ctx.fillStyle = OTHER_VIOLET;
+    ctx.fillRect(0, 0, oc.width, oc.height);
+    ctx.restore();
+  }, [maskDims]);
 
   /** Cache the mask's edge outline at wand resolution; recomputed on commits
    *  (not per pointer-move) so the overlay redraw stays cheap. */
@@ -315,14 +537,31 @@ export function MaskStudio({
     const dw = view.s * dispW;
     const dh = view.s * dispH;
 
+    // An alignment drag that hasn't been committed yet: every mask draws shifted by it,
+    // so what you are lining up against the photo is what you will get.
+    const mv = moveRef.current;
+    const mx = mv ? (mv.dx / maskDims.w) * dw : 0;
+    const my = mv ? (mv.dy / maskDims.h) * dh : 0;
+
     const mask = maskRef.current;
     if (mask && !peek) {
-      ctx.drawImage(mask, x0, y0, dw, dh);
+      // The live mask goes down FIRST, because tinting it uses source-in — which keeps
+      // the fill only where the canvas already has pixels, and would recolour anything
+      // drawn before it.
+      ctx.drawImage(mask, x0 + mx, y0 + my, dw, dh);
       ctx.globalCompositeOperation = "source-in";
       ctx.fillStyle = `rgba(29,78,216,${overlayAlpha})`;
-      ctx.fillRect(x0, y0, dw, dh);
+      ctx.fillRect(x0 + mx, y0 + my, dw, dh);
       ctx.globalCompositeOperation = "source-over";
-      if (outlineRef.current) ctx.drawImage(outlineRef.current, x0, y0, dw, dh);
+      if (outlineRef.current) ctx.drawImage(outlineRef.current, x0 + mx, y0 + my, dw, dh);
+      // The other open masks, already tinted, at a fraction of the live one's weight:
+      // present enough to align and to avoid overlapping them, quiet enough that the
+      // mask being edited is never in doubt.
+      if (othersRef.current) {
+        ctx.globalAlpha = overlayAlpha * 0.55;
+        ctx.drawImage(othersRef.current, x0 + mx, y0 + my, dw, dh);
+        ctx.globalAlpha = 1;
+      }
     }
 
     const toScreen = (p: { x: number; y: number }) => ({
@@ -408,7 +647,10 @@ export function MaskStudio({
         ctx.fill();
       }
     }
-  }, [contained, wrapSize, view, peek, overlayAlpha, tool, mode, polygon, brushSize]);
+    // Reads the layer canvases through refs rather than state: every layer change already
+    // ends in an explicit redraw (see refreshLayers), and re-identifying this callback on
+    // each of them would rebuild the overlay listeners mid-stroke.
+  }, [contained, wrapSize, view, peek, overlayAlpha, tool, mode, polygon, brushSize, maskDims]);
 
   useEffect(() => {
     drawOverlay();
@@ -488,11 +730,12 @@ export function MaskStudio({
       mctx.imageSmoothingEnabled = true;
       mctx.drawImage(wc, 0, 0, mask.width, mask.height);
       mctx.restore();
+      markActiveDirty();
       if (seed.mode === "add") setHasInk(true);
       recomputeOutline();
       drawOverlay();
     },
-    [restoreAlpha, ensureMask, recomputeOutline, drawOverlay],
+    [restoreAlpha, ensureMask, markActiveDirty, recomputeOutline, drawOverlay],
   );
 
   const wandTap = useCallback(
@@ -502,12 +745,8 @@ export function MaskStudio({
       const x = clamp(Math.round(nx * px.w), 0, px.w - 1);
       const y = clamp(Math.round(ny * px.h), 0, px.h - 1);
       pushHistory();
-      wandSeedRef.current = {
-        x,
-        y,
-        mode,
-        preTap: historyRef.current[historyRef.current.length - 1]!,
-      };
+      const pushed = historyRef.current[historyRef.current.length - 1]!;
+      wandSeedRef.current = { x, y, mode, preTap: pushed.layers[0]!.alpha };
       applyWand(reach);
       // A remove tap may have emptied the mask — recompute once per tap (not
       // during Reach drags; handleSave double-checks anyway).
@@ -572,10 +811,11 @@ export function MaskStudio({
     mctx.imageSmoothingEnabled = true;
     mctx.drawImage(out, 0, 0, mask.width, mask.height);
     mctx.restore();
+    markActiveDirty();
     setHasInk(true);
     recomputeOutline();
     drawOverlay();
-  }, [reach, pushHistory, recomputeOutline, drawOverlay]);
+  }, [reach, pushHistory, markActiveDirty, recomputeOutline, drawOverlay]);
 
   // ---- brush ---------------------------------------------------------------
 
@@ -608,8 +848,9 @@ export function MaskStudio({
         ctx.stroke();
       }
       ctx.restore();
+      markActiveDirty();
     },
-    [ensureMask, mode, brushMaskRadius],
+    [ensureMask, mode, brushMaskRadius, markActiveDirty],
   );
 
   /** A second finger landed mid-stroke: roll the stroke back and let the pinch take over. */
@@ -617,11 +858,12 @@ export function MaskStudio({
     if (!strokeRef.current) return;
     strokeRef.current = null;
     const prev = historyRef.current.pop();
-    if (prev) restoreAlpha(prev);
+    // A stroke only ever touches the active layer, so its frame has one entry.
+    if (prev) for (const e of prev.layers) restoreInto(canvasFor(e.id) ?? ensureMask(), e.alpha);
     syncHistCounts();
     recomputeOutline();
     drawOverlay();
-  }, [restoreAlpha, syncHistCounts, recomputeOutline, drawOverlay]);
+  }, [restoreInto, canvasFor, ensureMask, syncHistCounts, recomputeOutline, drawOverlay]);
 
   // ---- polygon -------------------------------------------------------------
 
@@ -650,36 +892,54 @@ export function MaskStudio({
     ctx.fill();
     ctx.restore();
     setPolygon([]);
+    markActiveDirty();
     if (mode === "add") setHasInk(true);
     else setHasInk(anyInk(snapshotAlpha()));
     recomputeOutline();
-  }, [polygon, mode, ensureMask, pushHistory, recomputeOutline, snapshotAlpha]);
+  }, [polygon, mode, ensureMask, pushHistory, markActiveDirty, recomputeOutline, snapshotAlpha]);
 
   // ---- undo / redo / clear -------------------------------------------------
 
-  const undo = useCallback(() => {
-    const prev = historyRef.current.pop();
-    if (!prev) return;
-    futureRef.current.push(snapshotAlpha());
-    restoreAlpha(prev);
-    wandSeedRef.current = null;
-    setHasInk(anyInk(prev));
-    syncHistCounts();
-    recomputeOutline();
-    drawOverlay();
-  }, [snapshotAlpha, restoreAlpha, syncHistCounts, recomputeOutline, drawOverlay]);
+  /**
+   * Step one frame between the two stacks.
+   *
+   * A frame names every layer the step changed, so an alignment that moved four masks
+   * comes back in one go. Whatever those layers hold right now becomes the frame on the
+   * opposite stack, which is what makes undo and redo exact inverses of each other.
+   */
+  const stepHistory = useCallback(
+    (from: HistoryFrame[], to: HistoryFrame[]) => {
+      const frame = from.pop();
+      if (!frame) return;
+      to.push(frameOf(frame.layers.map((e) => e.id)));
+      setMoved(frame.moved);
+      for (const e of frame.layers) {
+        const canvas = canvasFor(e.id);
+        if (canvas) restoreInto(canvas, e.alpha);
+        // Every layer in the frame is dirty either way: it was changed to get here,
+        // and changed again to get back.
+        markDirty(e.id);
+      }
+      wandSeedRef.current = null;
+      nudgeRunRef.current = false;
+      setHasInk(canvasHasInk(canvasFor(activeIdRef.current)));
+      syncHistCounts();
+      recomputeOutline();
+      recomputeOthers();
+      drawOverlay();
+    },
+    [frameOf, setMoved, canvasFor, restoreInto, markDirty, canvasHasInk, syncHistCounts, recomputeOutline, recomputeOthers, drawOverlay],
+  );
 
-  const redo = useCallback(() => {
-    const next = futureRef.current.pop();
-    if (!next) return;
-    historyRef.current.push(snapshotAlpha());
-    restoreAlpha(next);
-    wandSeedRef.current = null;
-    setHasInk(anyInk(next));
-    syncHistCounts();
-    recomputeOutline();
-    drawOverlay();
-  }, [snapshotAlpha, restoreAlpha, syncHistCounts, recomputeOutline, drawOverlay]);
+  const undo = useCallback(
+    () => stepHistory(historyRef.current, futureRef.current),
+    [stepHistory],
+  );
+
+  const redo = useCallback(
+    () => stepHistory(futureRef.current, historyRef.current),
+    [stepHistory],
+  );
 
   const clearAll = useCallback(() => {
     const mask = ensureMask();
@@ -687,85 +947,284 @@ export function MaskStudio({
     wandSeedRef.current = null;
     lastBrushRef.current = null;
     mask.getContext("2d", { willReadFrequently: true })!.clearRect(0, 0, mask.width, mask.height);
+    markActiveDirty();
     setPolygon([]);
     setHasInk(false);
     recomputeOutline();
     drawOverlay();
-  }, [ensureMask, pushHistory, recomputeOutline, drawOverlay]);
+  }, [ensureMask, pushHistory, markActiveDirty, recomputeOutline, drawOverlay]);
 
-  // ---- start from an existing detected wall --------------------------------
+  // ---- loading stored masks ------------------------------------------------
 
-  const startFromExisting = useCallback(
-    async (src: ExistingMask) => {
-      const mask = ensureMask();
-      pushHistory();
-      wandSeedRef.current = null;
-      lastBrushRef.current = null;
-      const ctx = mask.getContext("2d", { willReadFrequently: true })!;
-      ctx.clearRect(0, 0, mask.width, mask.height);
-      setPolygon([]);
-      setCategory(src.kind);
-      setLabel(src.label || "Wall");
-      setStartFromError(null);
-      setLoadingBase(true);
-      let loaded = false;
+  /**
+   * Paint a stored mask into `target`, replacing whatever it holds.
+   *
+   * Masks arrive two ways — white-on-black PNGs from the backend and white-on-transparent
+   * canvases for walls drawn in this tab — and both come out the same here: coverage read
+   * as luminance, laid down as alpha on a white fill, which is the one shape every tool
+   * below understands. Returns false rather than throwing on an expired URL, a network
+   * failure or a tainted cross-origin canvas; the callers each have something different
+   * to do about it, and none of them should lose the user's work over it.
+   */
+  const loadMaskInto = useCallback(
+    async (target: HTMLCanvasElement, src: { maskUrl?: string | null; maskCanvas?: HTMLCanvasElement | null }) => {
       try {
         let img: CanvasImageSource | null = src.maskCanvas ?? null;
         if (!img && src.maskUrl) img = await loadImage(src.maskUrl);
-        if (img) {
-          // Sample the source mask (white-on-black or white-on-transparent),
-          // keep its coverage as alpha on a white fill.
-          const tmp = document.createElement("canvas");
-          tmp.width = mask.width;
-          tmp.height = mask.height;
-          const tctx = tmp.getContext("2d", { willReadFrequently: true });
-          if (tctx) {
-            tctx.drawImage(img, 0, 0, mask.width, mask.height);
-            // getImageData throws on tainted (cross-origin) sources.
-            const data = tctx.getImageData(0, 0, mask.width, mask.height);
-            const px = data.data;
-            for (let i = 0; i < px.length; i += 4) {
-              const cov = (0.299 * px[i]! + 0.587 * px[i + 1]! + 0.114 * px[i + 2]!) | 0;
-              px[i] = 255;
-              px[i + 1] = 255;
-              px[i + 2] = 255;
-              px[i + 3] = cov;
-            }
-            ctx.putImageData(data, 0, 0);
-            setHasInk(true);
-            loaded = true;
-          }
+        if (!img) return false;
+        const tmp = document.createElement("canvas");
+        tmp.width = target.width;
+        tmp.height = target.height;
+        const tctx = tmp.getContext("2d", { willReadFrequently: true });
+        if (!tctx) return false;
+        tctx.drawImage(img, 0, 0, target.width, target.height);
+        // getImageData throws on tainted (cross-origin) sources.
+        const data = tctx.getImageData(0, 0, target.width, target.height);
+        const px = data.data;
+        for (let i = 0; i < px.length; i += 4) {
+          const cov = (0.299 * px[i]! + 0.587 * px[i + 1]! + 0.114 * px[i + 2]!) | 0;
+          px[i] = 255;
+          px[i + 1] = 255;
+          px[i + 2] = 255;
+          px[i + 3] = cov;
         }
+        target.getContext("2d", { willReadFrequently: true })!.putImageData(data, 0, 0);
+        return true;
       } catch {
-        /* expired URL, network, or tainted canvas — restored below */
-      } finally {
-        if (!loaded) {
-          // Roll back to the snapshot we pushed — never trade the user's work
-          // for a blank canvas.
-          const prev = historyRef.current.pop();
-          if (prev) {
-            restoreAlpha(prev);
-            setHasInk(anyInk(prev));
-          }
-          syncHistCounts();
-          setStartFromError("Couldn't load that wall — mark it with the tools instead.");
-        }
-        setLoadingBase(false);
-        recomputeOutline();
-        drawOverlay();
+        return false;
       }
     },
-    [ensureMask, pushHistory, restoreAlpha, syncHistCounts, recomputeOutline, drawOverlay],
+    [],
   );
 
-  // Refining an existing region: seed the canvas from its mask once, on open,
-  // so the user starts from the AI's outline and fixes it rather than redrawing.
+  /** Everything that has to catch up after the layers or their pixels change. */
+  const refreshLayers = useCallback(() => {
+    ensureMask();
+    setHasInk(canvasHasInk(canvasFor(activeIdRef.current)));
+    recomputeOutline();
+    recomputeOthers();
+    drawOverlay();
+  }, [ensureMask, canvasHasInk, canvasFor, recomputeOutline, recomputeOthers, drawOverlay]);
+
+  // ---- start from an existing detected wall --------------------------------
+
+  /** Seed the wall being MARKED from one we already found. New-wall flow only. */
+  const startFromExisting = useCallback(
+    async (src: ExistingMask) => {
+      const mask = ensureMask();
+      const before = frameOf([activeIdRef.current]);
+      wandSeedRef.current = null;
+      lastBrushRef.current = null;
+      setPolygon([]);
+      setStartFromError(null);
+      setLoadingBase(true);
+      const loaded = await loadMaskInto(mask, src);
+      setLoadingBase(false);
+      if (loaded) {
+        pushFrame(before);
+        setCategory(src.kind);
+        setLabel(src.label || "Wall");
+        markActiveDirty();
+      } else {
+        // Never trade the user's work for a blank canvas: the mask is untouched, so
+        // there is nothing to roll back — only something to say.
+        setStartFromError("Couldn't load that wall — mark it with the tools instead.");
+      }
+      refreshLayers();
+    },
+    [ensureMask, frameOf, pushFrame, loadMaskInto, markActiveDirty, refreshLayers],
+  );
+
+  // ---- the masks open for editing ------------------------------------------
+
+  /** Point the tools at one of the open masks. */
+  const setActiveLayer = useCallback(
+    (id: string) => {
+      if (!layersRef.current.some((l) => l.id === id) || activeIdRef.current === id) return;
+      activeIdRef.current = id;
+      wandSeedRef.current = null;
+      lastBrushRef.current = null;
+      moveRef.current = null;
+      setPolygon([]);
+      const layer = layersRef.current.find((l) => l.id === id)!;
+      setCategory(layer.kind);
+      setLabel(layer.label);
+      bumpLayers();
+      refreshLayers();
+    },
+    [refreshLayers],
+  );
+
+  /**
+   * Open another mask alongside the ones already being edited.
+   *
+   * A mask that will not load is dropped again rather than left open and empty: an empty
+   * layer looks like a wall the user has just cleared, and saving it would wipe the
+   * region it came from — the exact opposite of what opening it was for.
+   */
+  const openLayer = useCallback(
+    async (src: ExistingMask) => {
+      if (layersRef.current.some((l) => l.id === src.id)) {
+        setActiveLayer(src.id);
+        return;
+      }
+      if (layersRef.current.length >= MAX_EDIT_LAYERS) return;
+      const canvas = blankCanvas();
+      layersRef.current = [
+        ...layersRef.current,
+        {
+          id: src.id,
+          label: src.label,
+          kind: src.kind,
+          canvas,
+          originalMaskUrl: src.originalMaskUrl,
+          dirty: false,
+        },
+      ];
+      const previous = activeIdRef.current;
+      activeIdRef.current = src.id;
+      setCategory(src.kind);
+      setLabel(src.label);
+      setStartFromError(null);
+      bumpLayers();
+      setLoadingBase(true);
+      const loaded = await loadMaskInto(canvas, src);
+      setLoadingBase(false);
+      if (!loaded) {
+        layersRef.current = layersRef.current.filter((l) => l.id !== src.id);
+        activeIdRef.current = layersRef.current.some((l) => l.id === previous)
+          ? previous
+          : (layersRef.current[0]?.id ?? NEW_LAYER_ID);
+        bumpLayers();
+        setStartFromError(`Couldn't load ${src.label} — try opening it on its own.`);
+      }
+      refreshLayers();
+    },
+    [blankCanvas, loadMaskInto, setActiveLayer, refreshLayers],
+  );
+
+  /** Stop editing one of the open masks. Refuses the last one — there has to be a mask. */
+  const closeLayer = useCallback(
+    (id: string) => {
+      const layer = layersRef.current.find((l) => l.id === id);
+      if (!layer || layersRef.current.length <= 1) return;
+      if (layer.dirty && !window.confirm(`Close ${layer.label} without saving the changes to it?`)) return;
+      layersRef.current = layersRef.current.filter((l) => l.id !== id);
+      // Its undo steps go with it, or a later Ctrl+Z would look like it did nothing.
+      const withoutLayer = (stack: HistoryFrame[]) =>
+        stack
+          .map((f) => ({ ...f, layers: f.layers.filter((e) => e.id !== id) }))
+          .filter((f) => f.layers.length > 0);
+      historyRef.current = withoutLayer(historyRef.current);
+      futureRef.current = withoutLayer(futureRef.current);
+      syncHistCounts();
+      if (activeIdRef.current === id) {
+        const next = layersRef.current[0]!;
+        activeIdRef.current = next.id;
+        setCategory(next.kind);
+        setLabel(next.label);
+        wandSeedRef.current = null;
+        lastBrushRef.current = null;
+        setPolygon([]);
+      }
+      bumpLayers();
+      refreshLayers();
+    },
+    [syncHistCounts, refreshLayers],
+  );
+
+  /**
+   * Put the active mask back to what wall detection drew.
+   *
+   * Undoable like any other edit, and it does NOT save on its own — the point is to see
+   * the original against the photo and decide, which means it has to be possible to
+   * change your mind without having overwritten anything.
+   */
+  const restoreOriginal = useCallback(async () => {
+    const layer = layersRef.current.find((l) => l.id === activeIdRef.current);
+    if (!layer?.originalMaskUrl) return;
+    const before = frameOf([layer.id]);
+    setStartFromError(null);
+    setLoadingBase(true);
+    const loaded = await loadMaskInto(layer.canvas, { maskUrl: layer.originalMaskUrl });
+    setLoadingBase(false);
+    if (!loaded) {
+      setStartFromError("Couldn't load the original mask — it may have expired. Reload the room and try again.");
+      return;
+    }
+    // Pushed only after the load worked, so a failed restore leaves no undo step that
+    // undoes nothing.
+    pushFrame(before);
+    wandSeedRef.current = null;
+    lastBrushRef.current = null;
+    setPolygon([]);
+    markDirty(layer.id);
+    refreshLayers();
+  }, [frameOf, pushFrame, loadMaskInto, markDirty, refreshLayers]);
+
+  // ---- aligning the masks with the photo ------------------------------------
+
+  /**
+   * Shift every open mask by the same whole number of pixels.
+   *
+   * All of them together, because that is the problem this solves: a mask set that is
+   * right in shape but sitting a few pixels off the photo is off by the SAME few pixels
+   * everywhere, and moving one wall at a time turns one misalignment into four.
+   *
+   * Whole pixels with smoothing off, so the translation is a copy rather than a resample
+   * — nudge sixty times and the edges are exactly as crisp as they started, which is not
+   * true of anything that interpolates.
+   *
+   * `coalesce` folds a run of arrow-key taps into one undo step; a mouse drag commits as
+   * its own step.
+   */
+  const commitMove = useCallback(
+    (dx: number, dy: number, coalesce: boolean) => {
+      const ix = Math.round(dx);
+      const iy = Math.round(dy);
+      if (ix === 0 && iy === 0) return;
+      const layers = layersRef.current;
+      if (layers.length === 0) return;
+      if (!coalesce || !nudgeRunRef.current) pushFrame(frameOf(layers.map((l) => l.id)));
+      for (const layer of layers) {
+        const canvas = layer.canvas;
+        const tmp = document.createElement("canvas");
+        tmp.width = canvas.width;
+        tmp.height = canvas.height;
+        tmp.getContext("2d")!.drawImage(canvas, 0, 0);
+        const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tmp, ix, iy);
+        markDirty(layer.id);
+      }
+      // pushFrame clears the run flag, so this has to be set after it.
+      nudgeRunRef.current = coalesce;
+      wandSeedRef.current = null;
+      lastBrushRef.current = null;
+      setMoved({ x: movedRef.current.x + ix, y: movedRef.current.y + iy });
+      refreshLayers();
+    },
+    [pushFrame, frameOf, markDirty, setMoved, refreshLayers],
+  );
+
+  /** Arrow-key nudge: one mask pixel, or ten with Shift held. */
+  const nudge = useCallback(
+    (dx: number, dy: number, big: boolean) => {
+      const step = big ? 10 : 1;
+      commitMove(dx * step, dy * step, true);
+    },
+    [commitMove],
+  );
+
+  // Refining existing regions: open the wall the user pressed ✎ on, once, so they start
+  // from the AI's outline and fix it rather than redrawing it.
   const seededEditRef = useRef(false);
   useEffect(() => {
     if (!editTarget || seededEditRef.current) return;
     seededEditRef.current = true;
-    void startFromExisting(editTarget);
-  }, [editTarget, startFromExisting]);
+    void openLayer(editTarget);
+  }, [editTarget, openLayer]);
 
   // ---- view (zoom / pan) ---------------------------------------------------
 
@@ -838,11 +1297,18 @@ export function MaskStudio({
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (saving) return;
+      // The right button is the corner tool's delete gesture (see onContextMenu) and
+      // must never also lay a point down or start a stroke.
+      if (e.button === 2) return;
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
       if (pointersRef.current.size === 2) {
         abortStroke();
+        // A pinch takes over from an alignment drag, and the uncommitted shift goes
+        // with it rather than being applied on a gesture that became a zoom.
+        moveStartRef.current = null;
+        moveRef.current = null;
         const [p1, p2] = Array.from(pointersRef.current.values());
         gestureRef.current = {
           dist: Math.hypot(p2!.x - p1!.x, p2!.y - p1!.y),
@@ -857,6 +1323,12 @@ export function MaskStudio({
 
       const pan = spaceRef.current || e.button === 1;
       downRef.current = { x: e.clientX, y: e.clientY, moved: false, pan, px: e.clientX, py: e.clientY };
+
+      if (!pan && tool === "move") {
+        moveStartRef.current = { x: e.clientX, y: e.clientY };
+        moveRef.current = { dx: 0, dy: 0 };
+        return;
+      }
 
       if (!pan && tool === "brush") {
         const n = clientToNorm(e.clientX, e.clientY);
@@ -913,7 +1385,10 @@ export function MaskStudio({
         const dist = Math.hypot(e.clientX - down.x, e.clientY - down.y);
         if (dist > 8) down.moved = true;
 
-        if (down.pan || (down.moved && !strokeRef.current && tool !== "brush" && view.s > 1)) {
+        if (
+          down.pan
+          || (down.moved && !strokeRef.current && !moveStartRef.current && tool !== "brush" && view.s > 1)
+        ) {
           // Single-pointer pan: explicit (space/middle-drag) or implicit drag
           // while zoomed on the tap tools.
           down.pan = true;
@@ -923,6 +1398,18 @@ export function MaskStudio({
         }
         down.px = e.clientX;
         down.py = e.clientY;
+      }
+
+      // Alignment drag: no pixels move until the pointer comes up — the overlay just
+      // draws everything offset, so the shift can be judged against the photo first.
+      const moveStart = moveStartRef.current;
+      if (moveStart && contained) {
+        moveRef.current = {
+          dx: ((e.clientX - moveStart.x) * maskDims.w) / (view.s * contained.dispW),
+          dy: ((e.clientY - moveStart.y) * maskDims.h) / (view.s * contained.dispH),
+        };
+        drawOverlay();
+        return;
       }
 
       if (strokeRef.current) {
@@ -940,7 +1427,7 @@ export function MaskStudio({
       }
       drawOverlay();
     },
-    [tool, view.s, clampView, clientToNorm, ensureMask, paintSegment, drawOverlay],
+    [tool, view.s, contained, maskDims, clampView, clientToNorm, ensureMask, paintSegment, drawOverlay],
   );
 
   const onPointerUp = useCallback(
@@ -959,6 +1446,16 @@ export function MaskStudio({
         };
       } else {
         gestureRef.current = null;
+      }
+
+      if (moveStartRef.current) {
+        const mv = moveRef.current;
+        moveStartRef.current = null;
+        moveRef.current = null;
+        downRef.current = null;
+        if (mv && !wasPinch) commitMove(mv.dx, mv.dy, false);
+        else drawOverlay();
+        return;
       }
 
       if (strokeRef.current) {
@@ -998,7 +1495,7 @@ export function MaskStudio({
         setPolygon((p) => [...p, n]);
       }
     },
-    [mode, saving, tool, wandReady, polygon, contained, view, clientToNorm, wandTap, bakePolygon, recomputeOutline, drawOverlay, snapshotAlpha],
+    [mode, saving, tool, wandReady, polygon, contained, view, clientToNorm, wandTap, bakePolygon, commitMove, recomputeOutline, drawOverlay, snapshotAlpha],
   );
 
   const onPointerLeave = useCallback(() => {
@@ -1006,34 +1503,124 @@ export function MaskStudio({
     drawOverlay();
   }, [drawOverlay]);
 
+  /**
+   * Right-click on a corner point deletes THAT point.
+   *
+   * Backspace already removes the last one, which is the wrong tool for the mistake
+   * people actually make: the bad corner is usually three or four taps back, and undoing
+   * a good run of points to reach it means tapping them all again. Hit-testing is done in
+   * screen space so the target stays a comfortable size at every zoom level.
+   *
+   * The browser menu is suppressed for the whole canvas while the corner tool is active
+   * — a context menu landing over the shape mid-outline is never what was wanted — but
+   * only then, so right-click behaves normally everywhere else.
+   */
+  const onContextMenu = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (tool !== "poly") return;
+      e.preventDefault();
+      if (polygon.length === 0 || !contained) return;
+      const wrap = wrapRef.current;
+      if (!wrap) return;
+      const rect = wrap.getBoundingClientRect();
+      const x0 = view.tx + view.s * contained.offX + rect.left;
+      const y0 = view.ty + view.s * contained.offY + rect.top;
+      const dw = view.s * contained.dispW;
+      const dh = view.s * contained.dispH;
+
+      let hit = -1;
+      let best = POINT_HIT_PX;
+      polygon.forEach((pt, i) => {
+        const d = Math.hypot(e.clientX - (x0 + pt.x * dw), e.clientY - (y0 + pt.y * dh));
+        if (d <= best) {
+          best = d;
+          hit = i;
+        }
+      });
+      if (hit === -1) return;
+      setPolygon((pts) => pts.filter((_, i) => i !== hit));
+    },
+    [tool, polygon, contained, view],
+  );
+
   // ---- save / close ----------------------------------------------------------
 
-  // Flatten to an opaque white-on-black canvas at FULL photo resolution —
-  // exactly what the recolor shader and the backend expect.
+  /** Flatten one layer to an opaque white-on-black canvas at FULL photo resolution —
+   *  exactly what the recolor shader and the backend expect. */
+  const flatten = useCallback(
+    (mask: HTMLCanvasElement): HTMLCanvasElement | null => {
+      const out = document.createElement("canvas");
+      out.width = imageDims.w;
+      out.height = imageDims.h;
+      const ctx = out.getContext("2d");
+      if (!ctx) return null;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, out.width, out.height);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(mask, 0, 0, out.width, out.height);
+      return out;
+    },
+    [imageDims],
+  );
+
+  /** The masks this session changed — the only ones save writes back. */
+  const dirtyLayers = useMemo(
+    () => layersRef.current.filter((l) => l.dirty),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- layersRef is mutable; layerTick is the signal it changed.
+    [layerTick],
+  );
+
+  /**
+   * An empty mask is never saved, in either flow.
+   *
+   * On a new wall that would create a region with nothing in it; on an existing one it
+   * would erase the wall while looking like an edit, which is what Delete is for. The
+   * check is done on the pixels rather than on `hasInk` because remove-mode edits can
+   * leave that flag behind by a stroke.
+   */
   const handleSave = useCallback(() => {
+    if (saving) return;
+
+    if (isEditing) {
+      const edits: MaskEdit[] = [];
+      for (const layer of layersRef.current) {
+        if (!layer.dirty) continue;
+        if (!canvasHasInk(layer.canvas)) {
+          setSaveError(
+            `${layer.label} has nothing selected. Mark it, undo back to a shape, or close it — an empty mask would erase the wall.`,
+          );
+          setActiveLayer(layer.id);
+          return;
+        }
+        const out = flatten(layer.canvas);
+        if (out) edits.push({ regionId: layer.id, mask: out });
+      }
+      if (edits.length === 0) return;
+      setSaveError(null);
+      onSaveEdits(edits);
+      return;
+    }
+
     const mask = maskRef.current;
     if (!mask || !hasInk) return;
-    // hasInk can be stale after remove-mode edits — never save an empty mask.
     if (!anyInk(snapshotAlpha())) {
       setHasInk(false);
       return;
     }
-    const out = document.createElement("canvas");
-    out.width = imageDims.w;
-    out.height = imageDims.h;
-    const ctx = out.getContext("2d");
-    if (!ctx) return;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, out.width, out.height);
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(mask, 0, 0, out.width, out.height);
-    onSave(out, category, label.trim() || labelForKind(category));
-  }, [hasInk, imageDims, category, label, onSave, snapshotAlpha]);
+    const out = flatten(mask);
+    if (out) onSave(out, category, label.trim() || labelForKind(category));
+  }, [
+    saving, isEditing, hasInk, category, label, flatten, canvasHasInk,
+    setActiveLayer, onSave, onSaveEdits, snapshotAlpha,
+  ]);
 
   const requestClose = useCallback(() => {
-    if ((hasInk || polygon.length > 0) && !window.confirm("Discard this wall?")) return;
+    const unsaved = isEditing
+      ? layersRef.current.some((l) => l.dirty)
+      : hasInk || polygon.length > 0;
+    if (unsaved && !window.confirm(isEditing ? "Discard these mask changes?" : "Discard this wall?")) return;
     onClose();
-  }, [hasInk, polygon.length, onClose]);
+  }, [isEditing, hasInk, polygon.length, onClose]);
 
   // ---- keyboard --------------------------------------------------------------
 
@@ -1107,6 +1694,22 @@ export function MaskStudio({
         case "c":
           setTool("poly");
           break;
+        case "m":
+          setTool("move");
+          break;
+        case "ArrowUp":
+        case "ArrowDown":
+        case "ArrowLeft":
+        case "ArrowRight": {
+          // Only while aligning: everywhere else the arrows have no business moving the
+          // masks, and a stray press during a brush edit would be a silent shift.
+          if (tool !== "move" || onControl) break;
+          e.preventDefault();
+          const dx = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+          const dy = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+          nudge(dx, dy, e.shiftKey);
+          break;
+        }
         case "g":
           if (!onControl) completeSelection();
           break;
@@ -1140,9 +1743,38 @@ export function MaskStudio({
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [polygon.length, tool, wandAvailable, undo, redo, bakePolygon, completeSelection, requestClose, zoomCentre]);
+  }, [polygon.length, tool, wandAvailable, undo, redo, bakePolygon, completeSelection, nudge, requestClose, zoomCentre]);
 
   // ---- copy ------------------------------------------------------------------
+
+  // Mutable refs read during render: `layerTick` is what makes React look again.
+  const openLayers = useMemo(
+    () => layersRef.current,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- layersRef is mutable; layerTick is the signal it changed.
+    [layerTick],
+  );
+  const activeLayer = useMemo(
+    () => openLayers.find((l) => l.id === activeIdRef.current) ?? null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activeIdRef is mutable; layerTick is the signal it changed.
+    [openLayers, layerTick],
+  );
+  const canOpenMore = openLayers.length < MAX_EDIT_LAYERS;
+
+  /**
+   * The alignment shift in PHOTO pixels.
+   *
+   * Masks are edited on a canvas capped at MASK_MAX, so on a big photo one step of the
+   * arrow keys is more than one pixel of the picture. Reporting the working canvas's own
+   * units would be a number nobody can check against anything; this one can be measured
+   * off the photo.
+   */
+  const movedInPhoto = useMemo(
+    () => ({
+      x: Math.round((moved.x * imageDims.w) / maskDims.w),
+      y: Math.round((moved.y * imageDims.h) / maskDims.h),
+    }),
+    [moved, imageDims, maskDims],
+  );
 
   const hint = coachOpen
     ? null
@@ -1156,11 +1788,15 @@ export function MaskStudio({
         ? mode === "add"
           ? "Paint over the wall. Shift-click to lay a straight line — handy for trim like copings, bands and window shades."
           : "Paint over anything selected by mistake."
-        : polygon.length === 0
-          ? "Tap corner points around the wall."
-          : polygon.length < 3
-            ? "Keep tapping corners — at least three."
-            : "Tap the first dot (or press Enter) to finish the shape.";
+        : tool === "move"
+          ? openLayers.length > 1
+            ? `Drag to line all ${openLayers.length} masks up with the photo — arrow keys nudge a pixel, Shift for ten.`
+            : "Drag to line the mask up with the photo — arrow keys nudge a pixel, Shift for ten."
+          : polygon.length === 0
+            ? "Tap corner points around the wall."
+            : polygon.length < 3
+              ? "Keep tapping corners — right-click a dot to remove it."
+              : "Tap the first dot (or press Enter) to finish. Right-click any dot to remove it.";
 
   const dismissCoach = useCallback(() => {
     setCoachOpen(false);
@@ -1193,7 +1829,7 @@ export function MaskStudio({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Mark a wall"
+      aria-label={isEditing ? "Fix a wall's shape" : "Mark a wall"}
       aria-describedby="hv-ms-kbd-help"
       onClick={requestClose}
       style={{
@@ -1227,11 +1863,13 @@ export function MaskStudio({
         {/* Screen-reader-only usage instructions (referenced by aria-describedby on the dialog). */}
         <p id="hv-ms-kbd-help" className="sr-only">
           Mark the wall on the room photo using the wand, brush, or corners tool. Keyboard
-          shortcuts: W magic wand, B brush, C corners, G completes the object by growing the
-          selection to the rest of the same colour, X switches between add and remove,
-          left and right bracket change the brush size, plus and minus zoom, 0 fits the photo,
-          Control+Z undoes, Control+Y redoes, Enter finishes a corner shape, Backspace removes
-          the last corner, and Escape closes this dialog.
+          shortcuts: W magic wand, B brush, C corners, M align, G completes the object by
+          growing the selection to the rest of the same colour, X switches between add and
+          remove, left and right bracket change the brush size, plus and minus zoom, 0 fits
+          the photo, Control+Z undoes, Control+Y redoes, Enter finishes a corner shape,
+          Backspace removes the last corner, and Escape closes this dialog. With the corners
+          tool, right-clicking a corner point removes that point. With the align tool, the
+          arrow keys move every open mask together by one pixel, or ten with Shift held.
         </p>
         {/* Header */}
         <div
@@ -1248,11 +1886,11 @@ export function MaskStudio({
         >
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
             <span style={{ font: "600 16px/1 var(--sans)", color: "var(--fg)" }}>
-              {isEditing ? "Fix this wall" : "Mark a wall"}
+              {isEditing ? (openLayers.length > 1 ? "Fix these walls" : "Fix this wall") : "Mark a wall"}
             </span>
             <Mono>
               {isEditing
-                ? `Refining ${editTarget?.label ?? "the wall"} — fix what the AI missed`
+                ? `${openLayers.length} of ${MAX_EDIT_LAYERS} open · editing ${activeLayer?.label ?? "the wall"}`
                 : remaining === 1
                   ? "Last wall you can add"
                   : `You can add ${remaining} more walls`}
@@ -1276,9 +1914,10 @@ export function MaskStudio({
           </button>
         </div>
 
-        {/* Start from a wall we already found */}
-        {existing.length > 0 && (
+        {/* Editing: which masks are open. Marking: which wall to start from. */}
+        {isEditing ? (
           <div
+            className="hv-ms-layers"
             style={{
               display: "flex",
               alignItems: "center",
@@ -1290,34 +1929,160 @@ export function MaskStudio({
               flexShrink: 0,
             }}
           >
-            <Mono>Start from</Mono>
-            {existing.map((m) => (
+            <Mono>Masks</Mono>
+            {existing.map((m) => {
+              const layer = openLayers.find((l) => l.id === m.id);
+              const isOpen = Boolean(layer);
+              const isActive = activeLayer?.id === m.id;
+              // A mask can always be closed to make room, so the cap only blocks OPENING.
+              const blocked = !isOpen && !canOpenMore;
+              return (
+                <span
+                  key={m.id}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    borderRadius: 999,
+                    border: `1px solid ${isActive ? SELECT_BLUE : isOpen ? OTHER_VIOLET : "var(--rule-strong)"}`,
+                    background: isActive ? "var(--surface-soft)" : "transparent",
+                    opacity: blocked ? 0.45 : 1,
+                    overflow: "hidden",
+                  }}
+                >
+                  <button
+                    type="button"
+                    disabled={blocked || loadingBase}
+                    onClick={() => (isOpen ? setActiveLayer(m.id) : void openLayer(m))}
+                    aria-pressed={isActive}
+                    title={
+                      blocked
+                        ? `${MAX_EDIT_LAYERS} masks are already open — close one to open ${m.label}`
+                        : isActive
+                          ? `${m.label} — the mask the tools are editing`
+                          : isOpen
+                            ? `Edit ${m.label}`
+                            : `Open ${m.label} as well`
+                    }
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 7,
+                      padding: "6px 10px",
+                      border: "none",
+                      background: "transparent",
+                      color: isActive ? "var(--fg)" : "var(--fg-soft)",
+                      cursor: blocked || loadingBase ? "not-allowed" : "pointer",
+                      font: `${isActive ? 600 : 500} 12px/1 var(--sans)`,
+                    }}
+                  >
+                    <span
+                      aria-hidden
+                      style={{
+                        width: 9,
+                        height: 9,
+                        borderRadius: 2,
+                        flexShrink: 0,
+                        background: isActive ? SELECT_BLUE : isOpen ? OTHER_VIOLET : "transparent",
+                        border: isOpen ? "none" : "1px solid var(--rule-strong)",
+                      }}
+                    />
+                    {m.label}
+                    {layer?.dirty && (
+                      <span title="Changed — will be saved" style={{ color: "var(--accent)" }}>
+                        •
+                      </span>
+                    )}
+                  </button>
+                  {isOpen && openLayers.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => closeLayer(m.id)}
+                      aria-label={`Close ${m.label}`}
+                      title={`Close ${m.label} — stop editing it`}
+                      style={{
+                        padding: "6px 8px 6px 2px",
+                        border: "none",
+                        background: "transparent",
+                        color: "var(--fg-mute)",
+                        cursor: "pointer",
+                        font: "500 12px/1 var(--sans)",
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </span>
+              );
+            })}
+            {activeLayer?.originalMaskUrl && (
               <button
-                key={m.id}
                 type="button"
-                onClick={() => void startFromExisting(m)}
+                onClick={() => void restoreOriginal()}
+                disabled={loadingBase}
+                title={`Put ${activeLayer.label} back to the mask wall detection drew. You can undo it, and nothing is saved until you press save.`}
                 style={{
-                  padding: "6px 10px",
+                  marginLeft: 4,
+                  padding: "6px 11px",
                   border: "1px solid var(--rule-strong)",
                   borderRadius: 999,
                   background: "transparent",
                   color: "var(--fg-soft)",
-                  cursor: "pointer",
+                  cursor: loadingBase ? "not-allowed" : "pointer",
                   font: "500 12px/1 var(--sans)",
                 }}
               >
-                {m.label}
+                ↺ Restore original
               </button>
-            ))}
-            <span style={{ font: "400 12px/1 var(--sans)", color: "var(--fg-mute)" }}>
-              — or just start marking below.
-            </span>
+            )}
             {startFromError && (
               <span role="alert" style={{ font: "500 12px/1.3 var(--sans)", color: REMOVE_RED }}>
                 {startFromError}
               </span>
             )}
           </div>
+        ) : (
+          existing.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flexWrap: "wrap",
+                padding: "9px 20px",
+                borderBottom: "1px solid var(--rule)",
+                background: "var(--surface)",
+                flexShrink: 0,
+              }}
+            >
+              <Mono>Start from</Mono>
+              {existing.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => void startFromExisting(m)}
+                  style={{
+                    padding: "6px 10px",
+                    border: "1px solid var(--rule-strong)",
+                    borderRadius: 999,
+                    background: "transparent",
+                    color: "var(--fg-soft)",
+                    cursor: "pointer",
+                    font: "500 12px/1 var(--sans)",
+                  }}
+                >
+                  {m.label}
+                </button>
+              ))}
+              <span style={{ font: "400 12px/1 var(--sans)", color: "var(--fg-mute)" }}>
+                — or just start marking below.
+              </span>
+              {startFromError && (
+                <span role="alert" style={{ font: "500 12px/1.3 var(--sans)", color: REMOVE_RED }}>
+                  {startFromError}
+                </span>
+              )}
+            </div>
+          )
         )}
 
         {/* Body: tool rail + canvas */}
@@ -1346,9 +2111,24 @@ export function MaskStudio({
               <BrushIcon />
               Brush
             </button>
-            <button type="button" onClick={() => setTool("poly")} aria-pressed={tool === "poly"} aria-keyshortcuts="c" title="Corners — tap around the wall (C)" style={railBtn(tool === "poly")}>
+            <button type="button" onClick={() => setTool("poly")} aria-pressed={tool === "poly"} aria-keyshortcuts="c" title="Corners — tap around the wall, right-click a dot to remove it (C)" style={railBtn(tool === "poly")}>
               <CornersIcon />
               Corners
+            </button>
+            <button
+              type="button"
+              onClick={() => setTool("move")}
+              aria-pressed={tool === "move"}
+              aria-keyshortcuts="m"
+              title={
+                openLayers.length > 1
+                  ? `Align — drag all ${openLayers.length} masks onto the photo together; arrow keys nudge (M)`
+                  : "Align — drag the mask onto the photo; arrow keys nudge (M)"
+              }
+              style={railBtn(tool === "move")}
+            >
+              <MoveIcon />
+              Align
             </button>
 
             <span aria-hidden style={{ width: 40, height: 1, background: "var(--rule)", margin: "2px 0" }} />
@@ -1482,11 +2262,12 @@ export function MaskStudio({
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
               onPointerLeave={onPointerLeave}
+              onContextMenu={onContextMenu}
               style={{
                 position: "absolute",
                 inset: 0,
                 touchAction: "none",
-                cursor: tool === "brush" ? "none" : "crosshair",
+                cursor: tool === "brush" ? "none" : tool === "move" ? "move" : "crosshair",
               }}
             />
 
@@ -1645,6 +2426,34 @@ export function MaskStudio({
               />
             </label>
           )}
+          {tool === "move" && (
+            <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <Mono>Aligned by</Mono>
+              <span style={{ font: "500 12px/1 var(--mono)", color: "var(--fg)", minWidth: 96 }}>
+                {movedInPhoto.x === 0 && movedInPhoto.y === 0
+                  ? "nothing yet"
+                  : `${movedInPhoto.x >= 0 ? "+" : ""}${movedInPhoto.x}, ${movedInPhoto.y >= 0 ? "+" : ""}${movedInPhoto.y} px`}
+              </span>
+              {(moved.x !== 0 || moved.y !== 0) && (
+                <button
+                  type="button"
+                  onClick={() => commitMove(-moved.x, -moved.y, false)}
+                  title="Put the masks back where they started"
+                  style={{
+                    padding: "5px 10px",
+                    border: "1px solid var(--rule-strong)",
+                    borderRadius: 6,
+                    background: "transparent",
+                    color: "var(--fg-soft)",
+                    cursor: "pointer",
+                    font: "500 12px/1 var(--sans)",
+                  }}
+                >
+                  Recentre
+                </button>
+              )}
+            </span>
+          )}
           {tool === "brush" && (
             <label style={sliderLabelStyle}>
               <Mono>Brush size</Mono>
@@ -1674,7 +2483,7 @@ export function MaskStudio({
             />
           </label>
           <span className="hv-ms-legend" style={{ marginLeft: "auto", font: "400 12px/1.6 var(--mono)", letterSpacing: ".08em", color: "var(--fg-mute)" }}>
-            W wand · B brush · C corners · X add/remove · Ctrl+Z undo · scroll zooms
+            W wand · B brush · C corners · M align · X add/remove · Ctrl+Z undo · scroll zooms
           </span>
         </div>
 
@@ -1691,49 +2500,67 @@ export function MaskStudio({
             flexShrink: 0,
           }}
         >
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Mono>Type</Mono>
-            <select
-              value={category}
-              onChange={(e) => {
-                const k = e.target.value as RegionKind;
-                setCategory(k);
-                setLabel(labelForKind(k));
-              }}
-              style={{
-                padding: "7px 8px",
-                border: "1px solid var(--rule-strong)",
-                borderRadius: 6,
-                background: "var(--surface)",
-                color: "var(--fg)",
-                font: "500 12px/1 var(--sans)",
-                cursor: "pointer",
-              }}
-            >
-              {CATEGORY_OPTIONS.map(([k, lbl]) => (
-                <option key={k} value={k}>
-                  {lbl}
-                </option>
-              ))}
-            </select>
-          </label>
-          <input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            aria-label="Wall name"
-            placeholder="Name"
-            style={{
-              width: 140,
-              padding: "7px 8px",
-              border: "1px solid var(--rule-strong)",
-              borderRadius: 6,
-              background: "var(--surface)",
-              color: "var(--fg)",
-              font: "500 12px/1 var(--sans)",
-            }}
-          />
+          {/* Refining changes the SHAPE of walls that already exist; their type and name
+              belong to the room and are set from the wall strip. The controls used to
+              show here in both flows and silently did nothing in this one. */}
+          {isEditing ? (
+            <Mono style={{ color: "var(--fg-soft)" }}>
+              {dirtyLayers.length === 0
+                ? "No changes yet"
+                : `Saving ${dirtyLayers.map((l) => l.label).join(", ")}`}
+            </Mono>
+          ) : (
+            <>
+              <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Mono>Type</Mono>
+                <select
+                  value={category}
+                  onChange={(e) => {
+                    const k = e.target.value as RegionKind;
+                    setCategory(k);
+                    setLabel(labelForKind(k));
+                  }}
+                  style={{
+                    padding: "7px 8px",
+                    border: "1px solid var(--rule-strong)",
+                    borderRadius: 6,
+                    background: "var(--surface)",
+                    color: "var(--fg)",
+                    font: "500 12px/1 var(--sans)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {CATEGORY_OPTIONS.map(([k, lbl]) => (
+                    <option key={k} value={k}>
+                      {lbl}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                aria-label="Wall name"
+                placeholder="Name"
+                style={{
+                  width: 140,
+                  padding: "7px 8px",
+                  border: "1px solid var(--rule-strong)",
+                  borderRadius: 6,
+                  background: "var(--surface)",
+                  color: "var(--fg)",
+                  font: "500 12px/1 var(--sans)",
+                }}
+              />
+            </>
+          )}
           <div style={{ flex: 1 }} />
-          {!hasInk && (
+          {saveError && (
+            <span role="alert" style={{ font: "500 12px/1.35 var(--sans)", color: REMOVE_RED, maxWidth: 380 }}>
+              {saveError}
+            </span>
+          )}
+          {!isEditing && !hasInk && (
             <span style={{ font: "400 12px/1 var(--sans)", color: "var(--fg-mute)" }}>
               Select the wall first
             </span>
@@ -1754,9 +2581,10 @@ export function MaskStudio({
             Cancel
           </button>
           {(() => {
-            // Editing an existing region never adds a wall, so the new-wall cap
-            // (remaining) doesn't gate the save — only having ink and not already saving.
-            const blocked = !hasInk || saving || (!isEditing && remaining <= 0);
+            // Editing existing regions never adds a wall, so the new-wall cap
+            // (remaining) doesn't gate the save. What gates it there is having actually
+            // changed something: with nothing dirty there is nothing to write back.
+            const blocked = saving || (isEditing ? dirtyLayers.length === 0 : !hasInk || remaining <= 0);
             return (
               <button
                 type="button"
@@ -1781,7 +2609,7 @@ export function MaskStudio({
                     <Spinner size={12} color="currentColor" /> Saving…
                   </>
                 ) : isEditing ? (
-                  "Update wall"
+                  dirtyLayers.length > 1 ? `Update ${dirtyLayers.length} walls` : "Update wall"
                 ) : (
                   "Save wall"
                 )}
@@ -1947,6 +2775,16 @@ function BrushIcon() {
     <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08" />
       <path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z" />
+    </svg>
+  );
+}
+
+function MoveIcon() {
+  return (
+    <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3v18M3 12h18" />
+      <path d="M12 3 9.5 5.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5" />
+      <path d="M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" />
     </svg>
   );
 }
