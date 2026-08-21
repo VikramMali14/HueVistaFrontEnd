@@ -660,16 +660,16 @@ function shadeList(
 function Header({ count }: { count: number }) {
   return (
     <header className="hv-imgs-head">
-      {/* The page is a wall of photographs, and a wall of photographs on a flat ground
-          reads as a contact sheet. One low wash behind the words, drifting slowly, sets
-          them off without competing with a single picture — it sits above the header
-          only and never travels down over the images themselves. Inert and hidden. */}
-      <div className="hv-imgs-aura" aria-hidden />
-      <Eyebrow className="hv-imgs-rise">My AI images</Eyebrow>
-      <h1 className="display hv-imgs-rise hv-imgs-d1">
+      {/* See .hv-aura in globals.css. It matters more here than anywhere: this page is
+          a wall of photographs, and the wash stays strictly behind the words so it never
+          sits under a picture of a painted wall and changes what that colour looks
+          like. */}
+      <div className="hv-aura" aria-hidden />
+      <Eyebrow className="hv-rise">My AI images</Eyebrow>
+      <h1 className="display hv-rise hv-rise-1">
         Every room you have <i>seen for real.</i>
       </h1>
-      <Lead className="hv-imgs-rise hv-imgs-d2" style={{ maxWidth: "58ch" }}>
+      <Lead className="hv-rise hv-rise-2" style={{ maxWidth: "58ch" }}>
         {count === 0 ? (
           "The photorealistic images you make from your colour boards collect here."
         ) : (
@@ -689,7 +689,7 @@ function Header({ count }: { count: number }) {
           so this is a purchase and not a leftover allowance — which is exactly why it
           belongs beside the pictures rather than buried in a room. */}
       {count > 0 && (
-        <div className="hv-imgs-head-go hv-imgs-rise hv-imgs-d3">
+        <div className="hv-imgs-head-go hv-rise hv-rise-3">
           <LinkButton href="/render" variant="brass">
             Make a new image <span className="arr">→</span>
           </LinkButton>
@@ -730,48 +730,16 @@ function Styles() {
          what the photograph looks like — which on a page whose whole job is showing
          somebody the colour they chose is a thing that must not happen. */
       .hv-imgs-head { position: relative; margin-bottom: 28px; }
-      .hv-imgs-aura {
-        position: absolute; z-index: 0; pointer-events: none;
-        inset: -150px -20% auto -22%; height: 420px;
-        background:
-          radial-gradient(44% 54% at 20% 36%, rgba(124,92,255,.15), transparent 68%),
-          radial-gradient(36% 42% at 74% 18%, rgba(160,128,255,.09), transparent 70%);
-        filter: blur(14px); opacity: 0;
-        animation: hv-imgs-aura-in 1.3s var(--ease) .1s forwards,
-                   hv-imgs-aura-drift 24s ease-in-out 1.3s infinite alternate;
-      }
-      @keyframes hv-imgs-aura-in { to { opacity: 1; } }
-      @keyframes hv-imgs-aura-drift {
-        from { transform: translate3d(0, 0, 0) scale(1); }
-        to   { transform: translate3d(-3%, 14px, 0) scale(1.08); }
-      }
-      .hv-imgs-head > *:not(.hv-imgs-aura) { position: relative; z-index: 1; }
+      .hv-imgs-head > *:not(.hv-aura) { position: relative; z-index: 1; }
       .hv-imgs-head-go { margin-top: 18px; }
       .hv-imgs-head .display { font-size: clamp(30px, 4.4vw, 52px); margin: 12px 0 14px; }
-
-      /* Keyframes filling both ways rather than the project's .reveal class: that one
-         starts at opacity 0 and only reaches 1 by way of an observer the app shell does
-         not mount, so content depending on it would sit invisible here for good. */
-      .hv-imgs-rise { animation: hv-imgs-rise .6s var(--ease) both; }
-      .hv-imgs-d1 { animation-delay: .07s; }
-      .hv-imgs-d2 { animation-delay: .14s; }
-      .hv-imgs-d3 { animation-delay: .21s; }
-      @keyframes hv-imgs-rise {
-        from { opacity: 0; transform: translateY(14px); }
-        to   { opacity: 1; transform: none; }
-      }
       .hv-imgs-loading {
         display: flex; align-items: center; gap: 10px;
         padding: 80px 0; color: var(--fg-soft); font: 400 15px/1.4 var(--sans);
       }
-      /* padding: 0 undoes the global rule that gives every SECTION 100px top and bottom.
-         That is a marketing-band rule and this shelf is not a marketing band: unreset it
-         put 100px of empty screen between the header and the first thumbnail, and another
-         100px under the last shade row — a gap big enough that on a laptop the shelf
-         opened below the fold for an account holding three pictures. */
       .hv-imgs-body {
         display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 28px;
-        align-items: start; padding: 0;
+        align-items: start;
       }
       @media (max-width: 900px) { .hv-imgs-body { grid-template-columns: 1fr; } }
 
@@ -851,7 +819,7 @@ function Styles() {
 
       .hv-imgs-detail {
         display: grid; gap: 12px; justify-items: start;
-        animation: hv-imgs-rise .5s var(--ease) both;
+        animation: hv-rise .5s var(--ease) both;
       }
 
       /* ── The stage ─────────────────────────────────────────────────────────
@@ -981,7 +949,7 @@ function Styles() {
         background:
           radial-gradient(110% 80% at 0% 0%, rgba(124,92,255,.07), transparent 60%),
           var(--surface);
-        animation: hv-imgs-rise .6s var(--ease) .18s both;
+        animation: hv-rise .6s var(--ease) .18s both;
       }
       .hv-imgs-empty::before {
         content: ""; position: absolute; inset: 0 0 auto; height: 1px;
@@ -1004,13 +972,10 @@ function Styles() {
          it was going to end up — nothing here is load-bearing, which is the test a page
          of animation has to pass before it earns any of it. */
       @media (prefers-reduced-motion: reduce) {
-        .hv-imgs-aura,
-        .hv-imgs-rise,
         .hv-imgs-card,
         .hv-imgs-detail,
         .hv-imgs-empty,
         .hv-imgs-stage img { animation: none; }
-        .hv-imgs-aura { opacity: 1; }
         .hv-imgs-card, .hv-imgs-card img, .hv-imgs-card::after,
         .hv-imgs-card-name, .hv-imgs-shades li { transition: none; }
         .hv-imgs-card:hover { transform: none; }

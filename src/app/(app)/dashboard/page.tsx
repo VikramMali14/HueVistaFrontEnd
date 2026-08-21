@@ -165,13 +165,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           try again.
         </div>
       )}
-      <header style={{ marginBottom: 32 }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
+      <header className="hv-dash-head" style={{ marginBottom: 32 }}>
+        {/* See .hv-aura in globals.css — the same wash the other app screens open with,
+            so a shop moving between its dashboard and its billing pages is moving around
+            one product rather than through three. */}
+        <div className="hv-aura" aria-hidden />
+        <div className="hv-rise" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
           <Eyebrow>Dashboard</Eyebrow>
           <Mono>{user?.role === "ADMIN" ? "Administrator" : user?.role === "DISTRIBUTOR" ? "Distributor account" : user?.role === "RETAILER" ? "Retailer account" : user?.role === "PAINTER" ? "Painter account" : unavailable ? "" : "Your account"}</Mono>
         </div>
-        <h1 className="display" style={{ fontSize: "clamp(36px, 4.5vw, 56px)" }}>{greeting}{user?.name ? <><br />{user.name.split(" ")[0]}</> : unavailable ? null : <><br />Friend</>}.</h1>
-        <Lead style={{ marginTop: 24 }}>Pick up a saved project, or start a new one.</Lead>
+        <h1 className="display hv-rise hv-rise-1" style={{ fontSize: "clamp(36px, 4.5vw, 56px)" }}>{greeting}{user?.name ? <><br />{user.name.split(" ")[0]}</> : unavailable ? null : <><br />Friend</>}.</h1>
+        <Lead className="hv-rise hv-rise-2" style={{ marginTop: 24 }}>Pick up a saved project, or start a new one.</Lead>
         {/* Role-specific CTA: the customer redeem flow is only for walk-in
             customers. Retailers/admins run shops; distributors and painters
             manage their own downline/jobs — none of them redeem shop codes. */}
@@ -226,6 +230,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       {/* A customer with nothing left is told what it costs to carry on, not to
           upload a photo the studio will refuse. */}
       <DashboardProjects isCustomer={user?.role === "CUSTOMER"} />
+
+      <style>{`
+        .hv-dash-head { position: relative; }
+        .hv-dash-head > *:not(.hv-aura) { position: relative; z-index: 1; }
+      `}</style>
     </>
   );
 }

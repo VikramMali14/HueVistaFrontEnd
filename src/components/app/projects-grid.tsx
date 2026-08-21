@@ -122,7 +122,7 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
               color: "var(--accent)",
               textDecoration: "none",
               background: "var(--surface-soft)",
-              borderRadius: "var(--radius)",
+              borderRadius: "calc(var(--radius) * 1.4)",
             }}
           >
             <span aria-hidden style={{ fontSize: 40, lineHeight: 1 }}>
@@ -140,7 +140,7 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
 
         {sorted === null &&
           [0, 1, 2].map((i) => (
-            <div key={i} className="hv-skel" aria-hidden style={{ aspectRatio: "4 / 5", border: "1px solid var(--rule)" }} />
+            <div key={i} className="hv-skel" aria-hidden style={{ aspectRatio: "4 / 5", border: "1px solid var(--rule)", borderRadius: "calc(var(--radius) * 1.4)" }} />
           ))}
 
         {error && (
@@ -170,7 +170,7 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
           </div>
         )}
 
-        {shown?.map((p) => {
+        {shown?.map((p, i) => {
           const thumb = resolveMediaUrl(p.imageUrl);
           const cleaned = p.cleanedImageUrl ? resolveMediaUrl(p.cleanedImageUrl) : null;
           const href = projectHref(p);
@@ -181,8 +181,14 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
           const render = rendersByProject?.get(p.id);
           const renderThumb = render?.imageUrl ? resolveMediaUrl(render.imageUrl) : null;
           return (
-            <article key={p.id}>
-              <div className="hv-proj-thumb" style={{ aspectRatio: "4 / 5", border: "1px solid var(--rule)", borderRadius: "var(--radius)", overflow: "hidden", background: "var(--surface)" }}>
+            <article
+              key={p.id}
+              className="hv-proj-card"
+              /* Dealt in, capped: past a dozen a stagger stops reading as cards being
+                 laid out and starts reading as a page that is slow. */
+              style={{ animationDelay: `${Math.min(i, 11) * 45}ms` }}
+            >
+              <div className="hv-proj-thumb" style={{ aspectRatio: "4 / 5", overflow: "hidden" }}>
                 {thumb && cleaned ? (
                   <ImageCompare beforeSrc={thumb} afterSrc={cleaned} alt={p.name} />
                 ) : thumb ? (
@@ -249,8 +255,31 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
           );
         })}
         <style>{`
-          .hv-proj-new { border: 1px dashed var(--rule-strong); border-radius: var(--radius); transition: border-color .2s var(--ease), background .2s var(--ease); }
+          .hv-proj-new {
+            border: 1px dashed var(--rule-strong);
+            border-radius: calc(var(--radius) * 1.4);
+            transition: border-color .2s var(--ease), background .2s var(--ease);
+          }
           .hv-proj-new:hover { border-color: var(--accent); }
+
+          /* The room, in the card language the rest of the app uses. The photograph is
+             the whole card rather than a bordered rectangle sitting on the page ground,
+             which is what a shelf of rooms should look like — and it lifts a hair under
+             the pointer so a grid of a dozen answers the one being aimed at. */
+          .hv-proj-card { animation: hv-proj-in .5s var(--ease) both; }
+          @keyframes hv-proj-in {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: none; }
+          }
+          .hv-proj-thumb {
+            border: 1px solid var(--rule);
+            border-radius: calc(var(--radius) * 1.4);
+            background: var(--surface);
+            transition: border-color .25s var(--ease), transform .25s var(--ease);
+          }
+          .hv-proj-card:hover .hv-proj-thumb {
+            border-color: var(--rule-strong); transform: translateY(-3px);
+          }
           .hv-proj-thumb a:hover img { transform: scale(1.04); }
           .hv-proj-caption { margin-top: 14px; }
           /* Fixed font + a reserved two-line clamp so every card's caption is the
@@ -281,6 +310,15 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
           .hv-proj-ai img {
             width: 26px; height: 26px; border-radius: 50%;
             object-fit: cover; display: block; flex: none;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .hv-proj-card { animation: none; }
+            .hv-proj-thumb { transition: none; }
+            .hv-proj-card:hover .hv-proj-thumb { transform: none; }
+          }
+          /* A lift sticks after a tap on touch, and reads as a rendering fault. */
+          @media (hover: none) {
+            .hv-proj-card:hover .hv-proj-thumb { transform: none; }
           }
         `}</style>
       </section>

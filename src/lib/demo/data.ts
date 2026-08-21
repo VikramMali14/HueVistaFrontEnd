@@ -264,7 +264,7 @@ export const DEMO_CART: CartCatalogue = {
 export const DEMO_RENDERS: MyRender[] = [
   {
     id: "rnd_03",
-    projectId: "prj_sharma_hall",
+    projectId: "9f1c4a20-5b3e-4d61-8a77-1c2e5b8f0a31",
     projectName: "Sharma residence — hall",
     roomType: "Living room",
     status: "READY",
@@ -289,7 +289,7 @@ export const DEMO_RENDERS: MyRender[] = [
   },
   {
     id: "rnd_02",
-    projectId: "prj_iyer_bedroom",
+    projectId: "3c7d8e14-62af-4b09-9d55-7e40a1c6b283",
     projectName: "Iyer flat — master bedroom",
     roomType: "Bedroom",
     status: "READY",
@@ -312,7 +312,7 @@ export const DEMO_RENDERS: MyRender[] = [
   },
   {
     id: "rnd_01",
-    projectId: "prj_cafe_facade",
+    projectId: "b52a06f7-91d3-4c88-a1e6-0f37d95c4a10",
     projectName: "Brew & Co café — facade",
     roomType: "Exterior",
     status: "READY",
@@ -371,8 +371,8 @@ export const DEMO_INBOX: SupportConversationSummary[] = [
 
 // --- Projects: full details are the source of truth; summaries are derived ---
 export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
-  prj_sharma_hall: {
-    id: "prj_sharma_hall",
+  "9f1c4a20-5b3e-4d61-8a77-1c2e5b8f0a31": {
+    id: "9f1c4a20-5b3e-4d61-8a77-1c2e5b8f0a31",
     name: "Sharma residence — hall",
     roomType: "Living room",
     notes: "Client wants a warm neutral with a sage accent.",
@@ -390,8 +390,8 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
       { id: 103, label: "Trim", category: "TRIM", maskUrl: "/demo/masks/hall-trim.svg", appliedShadeCode: "L150", appliedHexCode: "#F3EEE4", displayOrder: 2 },
     ],
   },
-  prj_iyer_bedroom: {
-    id: "prj_iyer_bedroom",
+  "3c7d8e14-62af-4b09-9d55-7e40a1c6b283": {
+    id: "3c7d8e14-62af-4b09-9d55-7e40a1c6b283",
     name: "Iyer flat — master bedroom",
     roomType: "Bedroom",
     notes: null,
@@ -407,8 +407,8 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
       { id: 202, label: "Accent wall", category: "ACCENT_WALL", maskUrl: "/demo/masks/bed-accent.svg", appliedShadeCode: "10BB", appliedHexCode: "#3B4A6B", displayOrder: 1 },
     ],
   },
-  prj_cafe_facade: {
-    id: "prj_cafe_facade",
+  "b52a06f7-91d3-4c88-a1e6-0f37d95c4a10": {
+    id: "b52a06f7-91d3-4c88-a1e6-0f37d95c4a10",
     name: "Brew & Co café — facade",
     roomType: "Exterior",
     notes: null,
@@ -424,8 +424,8 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
       { id: 302, label: "Trim", category: "TRIM", maskUrl: "/demo/masks/cafe-trim.svg", appliedShadeCode: "L150", appliedHexCode: "#F3EEE4", displayOrder: 1 },
     ],
   },
-  prj_pending_kitchen: {
-    id: "prj_pending_kitchen",
+  "6e08b3d5-4417-4f2a-bc93-58a1e7602d4f": {
+    id: "6e08b3d5-4417-4f2a-bc93-58a1e7602d4f",
     name: "Mehta kitchen",
     roomType: "Kitchen",
     notes: null,
@@ -441,11 +441,20 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
 };
 
 /** Order shown on the dashboard (newest first by updatedAt). */
+/**
+ * Newest first, and the ids are real UUIDs on purpose.
+ *
+ * They used to read "prj_sharma_hall", which was friendlier in a fixture file and broke
+ * the demo the day the studio started refusing a project id that is not shaped like one
+ * (a malformed id would 400 at the backend and leave the studio to invent a message).
+ * Every seeded room 404'd the moment it was opened from the dashboard — the one flow the
+ * demo notes tell people to try first.
+ */
 export const DEMO_PROJECT_ORDER = [
-  "prj_sharma_hall",
-  "prj_iyer_bedroom",
-  "prj_cafe_facade",
-  "prj_pending_kitchen",
+  "9f1c4a20-5b3e-4d61-8a77-1c2e5b8f0a31",
+  "3c7d8e14-62af-4b09-9d55-7e40a1c6b283",
+  "b52a06f7-91d3-4c88-a1e6-0f37d95c4a10",
+  "6e08b3d5-4417-4f2a-bc93-58a1e7602d4f",
 ];
 
 export function toSummary(p: ProjectDetail): ProjectSummary {

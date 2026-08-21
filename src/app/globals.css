@@ -308,6 +308,68 @@ button { font-family: inherit; }
 main { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
 section { padding: 100px 0; position: relative; }
 section + section { border-top: var(--hairline) solid var(--rule); }
+
+/* ...but only on the marketing site, which is what those two rules are for: a band
+   of a landing page, 100px of air either side of it, a hairline between bands.
+
+   Inside the signed-in app a SECTION is not a band — it is a panel, a stats row, a
+   grid of projects — and every one of them was silently inheriting 200px of vertical
+   padding and a rule across the page. On the dashboard that came to roughly 600px of
+   nothing between the greeting and the last project, which is what made a screen with
+   four KPIs, a code tool and five rooms on it read as mostly empty. Components that
+   noticed patched it one at a time; this is the same fix once, where the rule that
+   causes it lives.
+
+   :where() so this contributes NO specificity. That is the whole trick: at (0,0,1) it
+   still beats the bare `section` rule by order, and still loses to any panel that sets
+   its own padding through a class — .hv-cart, .hv-aiw and the rest keep theirs. */
+:where(.hv-app-main) section { padding: 0; }
+:where(.hv-app-main) section + section { border-top: 0; }
+
+/* ====== APP SCREEN ENTRANCES ======
+   The marketing pages fade their bands in on scroll, through .reveal and an
+   IntersectionObserver mounted per page. App screens cannot use that: half of what
+   is on them only exists once a fetch has resolved, which is after the observer has
+   swept the page — and .reveal starts at opacity 0 and only ever leaves it by gaining
+   .in, so anything the observer misses stays invisible for good.
+
+   These do the same job with no observer and no JavaScript. The fill is BOTH ways, so
+   the worst case is an element that is already where it belongs. */
+.hv-rise { animation: hv-rise .6s var(--ease) both; }
+.hv-rise-1 { animation-delay: .07s; }
+.hv-rise-2 { animation-delay: .14s; }
+.hv-rise-3 { animation-delay: .21s; }
+@keyframes hv-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The one piece of atmosphere an app screen gets: two very low accent washes drifting
+   against each other behind the HEADER, and nowhere else on the page. Behind the words
+   rather than around them on purpose — an app screen is a column of panels, and a wash
+   that followed them down would tint a price, or a photograph of a painted wall, which
+   are the two things this product must never do. Decorative and inert: give it
+   aria-hidden, put nothing on it, and let the header sit above it on z-index. */
+.hv-aura {
+  position: absolute; z-index: 0; pointer-events: none;
+  inset: -150px -22% auto -22%; height: 440px;
+  background:
+    radial-gradient(45% 53% at 21% 35%, rgba(124, 92, 255, .15), transparent 68%),
+    radial-gradient(37% 43% at 75% 19%, rgba(160, 128, 255, .09), transparent 70%);
+  filter: blur(14px);
+  opacity: 0;
+  animation: hv-aura-in 1.3s var(--ease) .1s forwards,
+             hv-aura-drift 24s ease-in-out 1.3s infinite alternate;
+}
+@keyframes hv-aura-in { to { opacity: 1; } }
+@keyframes hv-aura-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(-3%, 14px, 0) scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hv-rise { animation: none; }
+  .hv-aura { animation: none; opacity: 1; }
+}
 .full-bleed {
   margin-left: calc(-1 * ((100vw - var(--max)) / 2 + var(--gutter)));
   margin-right: calc(-1 * ((100vw - var(--max)) / 2 + var(--gutter)));
@@ -4279,16 +4341,31 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   max-height: 900px;
   grid-template-rows: minmax(0, 1fr);
 }
+/* The room hangs on a wall rather than floating in a box.
+
+   The canvas is object-fit: contain, so a photo almost never fills this area — there is
+   a band of ground above and below a wide room, or either side of a tall one, and that
+   ground was one flat fill of --surface. At the size this runs (most of a laptop screen)
+   a flat fill reads as a hole in the page, and the photograph reads as though it fell
+   into it.
+
+   A single wash, brightest behind the middle where the picture sits, gives the ground a
+   direction and seats the image on it. It is BEHIND the canvas and can never be over it:
+   the photograph is what somebody is choosing a paint colour from, and nothing may be
+   laid across it — no vignette, no tint, no inner shadow — because all three change what
+   the colour looks like. */
 .hv-studio-canvas-wrap {
   position: relative;
   min-height: 0;
   overflow: hidden;
-  background: var(--surface);
+  background:
+    radial-gradient(120% 90% at 50% 42%, rgba(var(--fg-rgb), .05), transparent 70%),
+    var(--surface);
 }
 .hv-studio-canvas {
   position: relative;
   height: 100%;
-  background: var(--surface);
+  background: transparent;
   overflow: hidden;
 }
 .hv-studio-canvas canvas {

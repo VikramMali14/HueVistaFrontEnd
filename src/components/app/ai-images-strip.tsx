@@ -55,7 +55,7 @@ export function AiImagesStrip() {
   const more = renders.length - shown.length;
 
   return (
-    <section className="hv-ai-strip-sec" aria-labelledby="ai-images-strip-heading">
+    <section aria-labelledby="ai-images-strip-heading">
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <h2 id="ai-images-strip-heading" style={{ font: "600 22px/1.2 var(--serif)", margin: 0 }}>
           Your AI images
@@ -113,12 +113,6 @@ export function AiImagesStrip() {
       </ul>
 
       <style>{`
-        /* The global rule giving every SECTION 100px of padding top and bottom is for
-           the bands on the marketing pages, and this is not one of those: unreset it
-           was adding 100px of nothing above the heading and 100px more below the last
-           thumbnail, on a strip whose whole point is to sit close under the wallet it
-           belongs to. */
-        .hv-ai-strip-sec { padding: 0; }
         .hv-ai-strip {
           list-style: none; margin: 0; padding: 0;
           display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
