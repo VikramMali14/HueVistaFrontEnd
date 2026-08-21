@@ -17,12 +17,22 @@ import type { CartCatalogue } from "@/lib/types";
  * while taking no notice of the fact that they had. A basket puts the size of the order in
  * front of both sides, which is the only reason an offer at ₹289 can exist.
  *
- * <b>The special offer stands apart from the price list, on purpose.</b> Three rooms and
- * three pictures for the price of two of each is not another line to be scanned and
- * compared — it is the one thing on this screen somebody can decide in a second, and a
- * saving stated as "the third is on us" is worked out in the head in a way "33% off" never
- * is. It is a LINE, not a code: the percentage offers below still apply on top of a basket
- * holding one, because a basket big enough to have earned HUE10 has earned it.
+ * <b>The counter has two halves, and they discount differently.</b> The PACKAGES — the
+ * special offer, and the combo — carry their saving in the price on the ticket: "three for
+ * the price of two", "cheaper than buying the two on their own". The SINGLES below them are
+ * a plain price list, and they are what the percentage offers are for. A basket earns an
+ * offer on its singles and the offer comes off its singles; the packages are rung up at the
+ * price they are advertised at, on both sides of the wire.
+ *
+ * <b>Why they were separated.</b> Stacking HUE25 on "the third is on us" discounts one
+ * basket twice at a rate nobody set — the package price stops meaning anything, and the
+ * screen ends up quoting a saving against a list price that was itself a saving. Which half
+ * the offers reach is the server's decision, not this screen's ({@code offersApplyToPackages}
+ * on the catalogue), so a campaign that deliberately stacks them needs no change here.
+ *
+ * <b>The threshold moves with the discount, deliberately.</b> A basket of packages alone
+ * does not creep past ₹289 and then take nothing off — "you have earned 10%, here is ₹0"
+ * reads as a bug, and it would be one. One number earns the offer and receives it.
  *
  * <b>The arithmetic here is a courtesy, not the price.</b> Every figure on this screen is
  * the server's own rate multiplied by a quantity, and the server prices the order again
@@ -44,8 +54,6 @@ interface Line {
   name: string;
   blurb: string;
   pricePaise: number;
-  /** The badge over the recommended line. Only the combo has one. */
-  tag?: string;
 }
 
 export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
@@ -97,21 +105,39 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
     return { price, list, projects, credits, saving: list - price };
   }, [cart]);
 
+  /**
+   * The combo — the other package, and the one most people take.
+   *
+   * It sits with the special offer rather than at the head of the price list, because that
+   * is what it is: a saving already taken off the ticket, not a line to be compared against
+   * the two it is made of. Leaving it in the list also meant the list had to explain, line
+   * by line, which of its rows the offers below did and did not reach — and a price list
+   * that needs a footnote per row is a price list in the wrong order.
+   */
+  const combo = useMemo(() => {
+    if (!cart || cart.comboPricePaise <= 0) return null;
+    const projects = cart.comboProjects;
+    const credits = cart.comboCredits;
+    if (projects + credits === 0) return null;
+    return {
+      name: projects === 1 ? "Room + pictures" : `${projects} rooms + pictures`,
+      blurb:
+        `${projects} project and ${credits} AI image credit${credits === 1 ? "" : "s"} — `
+        + "a room to paint, and the photographs of it at the end. Cheaper than buying the "
+        + "two on their own.",
+      price: cart.comboPricePaise,
+      /** What the same contents cost line by line, so the saving is stated and not implied.
+       *  Both figures are the server's own rates; only the multiplication is done here. */
+      list: projects * cart.projectPricePaise + credits * cart.creditPricePaise,
+      projects,
+      credits,
+    };
+  }, [cart]);
+
+  /** The plain price list: one of each thing, at the price of one of each thing. */
   const lines: Line[] = useMemo(() => {
     if (!cart) return [];
-    const credits = cart.comboCredits;
-    const projects = cart.comboProjects;
     return [
-      {
-        id: "combo",
-        name: projects === 1 ? "Room + pictures" : `${projects} rooms + pictures`,
-        blurb:
-          `${projects} project and ${credits} AI image credit${credits === 1 ? "" : "s"} — `
-          + "a room to paint, and the photographs of it at the end. Cheaper than buying the "
-          + "two on their own.",
-        pricePaise: cart.comboPricePaise,
-        tag: "Most people start here",
-      },
       {
         id: "project",
         name: "One project",
@@ -131,19 +157,33 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
     ];
   }, [cart]);
 
-  const subtotal = useMemo(
-    () =>
-      lines.reduce((sum, line) => sum + line.pricePaise * qty[line.id], 0)
-      + (bundle?.price ?? 0) * qty.bundle,
-    [lines, qty, bundle],
+  /** The two halves of the basket, kept apart because they discount differently. */
+  const singlesSubtotal = useMemo(
+    () => lines.reduce((sum, line) => sum + line.pricePaise * qty[line.id], 0),
+    [lines, qty],
   );
+  const packagesSubtotal = useMemo(
+    () => (combo?.price ?? 0) * qty.combo + (bundle?.price ?? 0) * qty.bundle,
+    [combo, bundle, qty],
+  );
+  const subtotal = singlesSubtotal + packagesSubtotal;
+
+  /**
+   * What the percentage is measured against AND taken off — one number for both.
+   *
+   * The packages are outside it unless the server says otherwise, and the server saying
+   * otherwise is a campaign setting rather than anything this screen decides. Using one
+   * number for the threshold and the discount is what stops a basket of packages alone
+   * lighting up "10% applied" and then taking ₹0 off it.
+   */
+  const discountBase = cart?.offersApplyToPackages ? subtotal : singlesSubtotal;
 
   /**
    * The offer this basket has earned, and the one it is next reaching for.
    *
    * Deliberately mirrors the server's rule — the best PERCENTAGE among the offers whose
-   * threshold the subtotal has passed, with the tapped code preferred when it also
-   * qualifies. If the two ever disagree the server wins; this is the number the buyer reads
+   * threshold the DISCOUNT BASE has passed, with the tapped code preferred when it also
+   * qualifies. The base is the singles half of the basket, not its total; see above. If the two ever disagree the server wins; this is the number the buyer reads
    * before pressing Pay, so being wrong here is worse than being absent.
    *
    * <b>The best one is already on before anything is tapped.</b> The server applies it
@@ -156,19 +196,19 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
    */
   const { applied, next } = useMemo(() => {
     const offers = cart?.offers ?? [];
-    const earned = offers.filter((o) => subtotal >= o.minSubtotalPaise);
+    const earned = offers.filter((o) => discountBase >= o.minSubtotalPaise);
     const chosen = earned.find((o) => o.code === code)
       ?? earned.reduce<(typeof earned)[number] | null>(
         (best, o) => (best === null || o.percentOff > best.percentOff ? o : best),
         null,
       );
     const upcoming = offers
-      .filter((o) => subtotal < o.minSubtotalPaise)
+      .filter((o) => discountBase < o.minSubtotalPaise)
       .sort((a, b) => a.minSubtotalPaise - b.minSubtotalPaise)[0] ?? null;
     return { applied: chosen ?? null, next: upcoming };
-  }, [cart, subtotal, code]);
+  }, [cart, discountBase, code]);
 
-  const discount = applied ? Math.floor((subtotal * applied.percentOff) / 100) : 0;
+  const discount = applied ? Math.floor((discountBase * applied.percentOff) / 100) : 0;
   const total = subtotal - discount;
   const itemCount = qty.bundle + qty.combo + qty.project + qty.credit;
 
@@ -238,9 +278,26 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
         </p>
       </header>
 
-      {/* The special offer, above the price list and looking nothing like it. It is not a
-          fourth thing to compare — it is the same two things in the quantity somebody doing
-          up a whole flat actually needs, with the third of each thrown in. */}
+      {/* ── Packages ──────────────────────────────────────────────────────────
+          The two lines whose saving is already in their price, gathered under one heading
+          and above the plain list. They are not things to compare against the price list —
+          they are the price list, in the quantities people actually buy, with the discount
+          taken off before it reaches the ticket. Which is exactly why the percentage offers
+          further down do not touch them, and why that is said here rather than left to be
+          discovered on the bill. */}
+      {(bundle || combo) && (
+        <p className="hv-cart-group">
+          Packages
+          <span className="hv-cart-group-note">
+            {cart.offersApplyToPackages
+              ? "Saving already included."
+              : "Saving already included — the offers below apply to the single lines."}
+          </span>
+        </p>
+      )}
+
+      {/* The special offer, first among them and looking nothing like anything else on the
+          screen. It is the one thing here somebody can decide in a second. */}
       {bundle && (
         <div className="hv-cart-special">
           <div className="hv-cart-special-text">
@@ -270,11 +327,51 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
         </div>
       )}
 
+      {/* The combo, in the same family as the offer above it and quieter than it: one is a
+          whole flat, the other is the room most people start with. Its own saving is stated
+          the same way the offer's is — a price, what it replaces, and the difference — so
+          the two read as one shelf rather than as an offer and an odd line out. */}
+      {combo && (
+        <div className="hv-cart-special is-combo">
+          <div className="hv-cart-special-text">
+            <span className="hv-cart-tag">Most people start here</span>
+            <p className="hv-cart-special-name">{combo.name}</p>
+            <p className="hv-cart-special-blurb">{combo.blurb}</p>
+            <p className="hv-cart-special-price">
+              <span className="hv-cart-special-now">{formatRupees(combo.price)}</span>
+              {combo.list > combo.price && (
+                <>
+                  <s className="hv-cart-special-was">{formatRupees(combo.list)}</s>
+                  <span className="hv-cart-special-save">
+                    Save {formatRupees(combo.list - combo.price)}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+          <Stepper
+            label={combo.name}
+            value={qty.combo}
+            max={cart.maxQuantity}
+            disabled={paying || stuck}
+            onStep={(by) => step("combo", by)}
+          />
+        </div>
+      )}
+
+      {/* ── On their own ──────────────────────────────────────────────────────
+          The plain price list, and the half the percentage offers are for. */}
+      <p className="hv-cart-group">
+        On their own
+        {!cart.offersApplyToPackages && cart.offers.length > 0 && (
+          <span className="hv-cart-group-note">What the offers below come off.</span>
+        )}
+      </p>
+
       <ul className="hv-cart-lines">
         {lines.map((line) => (
-          <li key={line.id} className={`hv-cart-line${line.tag ? " is-picked" : ""}`}>
+          <li key={line.id} className="hv-cart-line">
             <div className="hv-cart-line-text">
-              {line.tag && <span className="hv-cart-tag">{line.tag}</span>}
               <p className="hv-cart-line-name">{line.name}</p>
               <p className="hv-cart-line-blurb">{line.blurb}</p>
               <p className="hv-cart-line-price">{formatRupees(line.pricePaise)}</p>
@@ -296,10 +393,12 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
           earned, because "spend ₹52 more and save ₹59" is the useful half. */}
       {cart.offers.length > 0 && (
         <div className="hv-cart-offers">
-          <p className="hv-cart-offers-title">Offers</p>
+          <p className="hv-cart-offers-title">
+            {cart.offersApplyToPackages ? "Offers" : "Offers on the single lines"}
+          </p>
           <div className="hv-cart-offers-row">
             {cart.offers.map((offer) => {
-              const earned = subtotal >= offer.minSubtotalPaise;
+              const earned = discountBase >= offer.minSubtotalPaise;
               const on = applied?.code === offer.code;
               return (
                 <button
@@ -319,7 +418,7 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
                       ? "Applied"
                       : earned
                         ? "Tap to use this one"
-                        : `Add ${formatRupees(offer.minSubtotalPaise - subtotal)} more`}
+                        : `Add ${formatRupees(offer.minSubtotalPaise - discountBase)} more`}
                   </span>
                 </button>
               );
@@ -327,8 +426,12 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
           </div>
           {next && itemCount > 0 && (
             <p className="hv-cart-nudge" aria-live="polite">
-              Add {formatRupees(next.minSubtotalPaise - subtotal)} more to save{" "}
-              {next.percentOff}% on the whole basket.
+              Add {formatRupees(next.minSubtotalPaise - discountBase)} more
+              {cart.offersApplyToPackages
+                ? " to save "
+                : " of single projects or credits to save "}
+              {next.percentOff}%
+              {cart.offersApplyToPackages ? " on the whole basket." : " on them."}
             </p>
           )}
         </div>
@@ -346,6 +449,12 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
             <p className="hv-cart-bill-row is-off">
               <span>
                 {applied.code} · {applied.percentOff}% off
+                {/* Named when it matters and silent when it does not. A basket with no
+                    package in it has nothing to explain, and "off the single lines" on a
+                    bill where every line is single is noise. */}
+                {!cart.offersApplyToPackages && packagesSubtotal > 0
+                  ? ` ${formatRupees(discountBase)} of single lines`
+                  : ""}
               </span>
               <span>−{formatRupees(discount)}</span>
             </p>
@@ -418,7 +527,7 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
            It is one decision, and the layout says so: no comparison, no small print,
            a price with what it replaces struck through beside it. */
         .hv-cart-special {
-          position: relative; margin-top: 24px; padding: 20px;
+          position: relative; margin-top: 12px; padding: 20px;
           display: flex; gap: 18px; align-items: center; justify-content: space-between;
           flex-wrap: wrap;
           border: 1px solid var(--rule-brass); border-radius: calc(var(--radius) * 1.5);
@@ -450,7 +559,27 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
           border: 1px solid var(--rule-brass);
         }
 
-        .hv-cart-lines { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 12px; }
+        /* The two shelf headings. Small caps and a rule's worth of space, so the counter
+           reads as two halves rather than as one list with an odd row at the top. */
+        .hv-cart-group {
+          display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+          margin: 26px 0 0;
+          font: 500 11px/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase;
+          color: var(--fg-mute);
+        }
+        .hv-cart-group-note {
+          font: 400 12.5px/1.5 var(--sans); letter-spacing: 0; text-transform: none;
+          color: var(--fg-mute);
+        }
+        /* The combo wears the offer's shape at a lower volume: same card, no gradient, the
+           quieter rule. Same family, different weight. */
+        .hv-cart-special.is-combo {
+          margin-top: 12px;
+          border-color: var(--rule);
+          background: var(--surface-soft);
+        }
+
+        .hv-cart-lines { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
         .hv-cart-line {
           display: flex; gap: 16px; align-items: center; justify-content: space-between;
           padding: 18px; border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.4);
@@ -458,7 +587,6 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
           transition: border-color .25s var(--ease), transform .25s var(--ease);
         }
         .hv-cart-line:hover { border-color: var(--rule-strong); }
-        .hv-cart-line.is-picked { border-color: var(--rule-brass); }
         .hv-cart-line-text { flex: 1 1 260px; min-width: 0; }
         .hv-cart-tag {
           display: inline-block; margin-bottom: 8px; padding: 2px 9px; border-radius: var(--radius-pill);

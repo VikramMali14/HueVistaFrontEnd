@@ -1501,6 +1501,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  /**
+   * Reopen a locked room by spending one of the projects the account already holds.
+   *
+   * No Checkout, no order, no verify — the money moved when the credit was bought, so this
+   * is one call that either opens the room or says why not. 402 when the account holds
+   * none; 409 on the same terms the two paying rails are refused on.
+   */
+  reopenWithProjectCredit: (projectId: string) =>
+    browserFetch<import("./types").ProjectReopenResult>(
+      `api/billing/projects/${encodeURIComponent(projectId)}/reopen/credit`,
+      { method: "POST" },
+    ),
   // --- AI image credits: the wallet. One credit is one AI image, spendable on any room.
   // Unlike points, a CUSTOMER can hold these — and has to, because a project their shop
   // gave them includes no AI image. Shops can hold them too, to keep images on hand

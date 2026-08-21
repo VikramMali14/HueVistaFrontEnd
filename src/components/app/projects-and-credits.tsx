@@ -36,17 +36,29 @@ export function ProjectsAndCredits() {
     // at the same rhythm; a page whose spacing wanders reads as unfinished however good
     // the panels on it are.
     <div className="hv-pac">
-      {/* What is already on the account, first. Somebody arriving here is answering "what
-          do I have" before "what do I want", and a counter shown above the answer is a
-          shop assistant talking over the question. Both panels count and neither sells:
-          the cart below is the one place on this page anything is bought, so a customer
-          is never shown the same project at two prices through two buttons. */}
+      {/* The counter first. Quantities, the special offer, one payment for the lot — and
+          everything on it good for a year.
+
+          It used to sit third, under the two balances, on the reasoning that somebody
+          arriving here is answering "what do I have" before "what do I want". That is
+          true of the first visit and of almost no other: this page is reached from a
+          "buy another project" link, from an empty balance, from a room that has run out
+          — every route in is somebody who has already answered the first question and
+          come here for the second. Two full-width cards of counting above the thing they
+          came to do is a shop that makes you walk past the stockroom to reach the till.
+
+          The balances have not been demoted, only moved to where they answer something:
+          directly below, where "you hold 2 projects and 4 credits" reads as the receipt
+          for what was just bought rather than as a preamble to buying it. The cart's own
+          footer already carries the live figures for anyone deciding quantities, so
+          nothing needed to reach the till is now below it. */}
+      <CreditsCart onPurchased={onPurchased} />
+
+      {/* What is on the account. Both panels count and neither sells: the cart above is
+          the one place on this page anything is bought, so a customer is never shown the
+          same project at two prices through two buttons. */}
       <CustomerProjectsPanel showBuy={false} reloadKey={reloadKey} />
       <AiCreditWallet showBuy={false} reloadKey={reloadKey} />
-
-      {/* The counter. Quantities, the special offer, one payment for the lot — and
-          everything on it good for a year. */}
-      <CreditsCart onPurchased={onPurchased} />
 
       <style>{`
         .hv-pac { display: grid; gap: 22px; margin-top: 36px; }
