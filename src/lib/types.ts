@@ -337,6 +337,13 @@ export interface RegionDetail {
   category: RegionCategory;
   maskData?: string | null;
   maskUrl?: string | null;
+  /**
+   * This region's mask BEFORE it was ever hand-edited — wall detection's own output.
+   *
+   * Null (or absent) means nobody has edited it, so the live mask IS the original and
+   * there is nothing to restore. Owner-only: the shared-link projection omits it.
+   */
+  originalMaskUrl?: string | null;
   appliedShadeCode?: string | null;
   /**
    * The platform-wide code for the applied shade — "HV0348".
