@@ -400,6 +400,91 @@ export async function signInWithPhoneAction(input: {
 }
 
 /**
+ * Which way of proving a mobile number this deployment can offer.
+ *
+ * <p>Asked of the backend rather than read from this app's own environment, because the
+ * two would otherwise be able to disagree — and the failure that produces is a sign-in
+ * button that is offered and then answers 503.
+ *
+ * <p>Never throws: if the backend is unreachable while a page is rendering, the honest
+ * answer is "we can't offer this right now", not a crashed sign-in page.
+ */
+export async function getPhoneAuthMethod(): Promise<"FIREBASE" | "SMS" | "NONE"> {
+  "use server";
+  try {
+    const { method } = await authApi.phoneMethods();
+    return method === "FIREBASE" || method === "SMS" ? method : "NONE";
+  } catch {
+    return "NONE";
+  }
+}
+
+/**
+ * Mobile sign-in over our OWN SMS (MSG91), step one: text a code to the number.
+ *
+ * <p>Unlike the Firebase path, the message here is sent by our backend and paid for by
+ * us, so 429 is a normal answer rather than an exceptional one — a cooldown between
+ * codes and a daily cap per number are what keep this endpoint from being used to run up
+ * a bill on a stranger's handset. Its message says which limit was hit, so it is passed
+ * through unchanged.
+ */
+export async function sendPhoneOtpAction(input: {
+  phone: string;
+  name?: string;
+}): Promise<{ destination: string; cooldownSeconds: number } | { error: string }> {
+  "use server";
+  const clientIp = clientIpFromHeaders(await headers());
+  try {
+    const status = await authApi.phoneOtpSend(
+      { phone: input.phone.trim(), name: input.name?.trim() || undefined },
+      clientIp,
+    );
+    return { destination: status.destination, cooldownSeconds: status.cooldownSeconds };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      if (err.status === 503) {
+        return { error: "Signing in by mobile isn't available right now. Please use your email." };
+      }
+      return { error: err.message };
+    }
+    return { error: "The server is starting up — please try again in a few seconds." };
+  }
+}
+
+/**
+ * Step two: hand the code back and sign in.
+ *
+ * <p>RETURNS the destination rather than redirecting, for the same reason
+ * `signInWithPhoneAction` does — see the note there.
+ */
+export async function verifyPhoneOtpAction(input: {
+  phone: string;
+  code: string;
+  next?: string;
+}): Promise<{ next: string } | { error: string }> {
+  "use server";
+  const clientIp = clientIpFromHeaders(await headers());
+  try {
+    const auth = await authApi.phoneOtpVerify(
+      { phone: input.phone.trim(), code: input.code.trim() },
+      clientIp,
+    );
+    await persistSession(auth);
+    // Parity with every other sign-in path: fold in a kiosk purchase this browser is
+    // still holding. Best-effort — it never blocks the sign-in.
+    await maybeMergeKioskAccount(auth.accessToken);
+  } catch (err) {
+    if (err instanceof HttpError) {
+      // 400 carries the reason the code was refused (wrong, expired, out of attempts)
+      // and 403 says an admin must use email — both are worth showing verbatim.
+      return { error: err.message };
+    }
+    return { error: "The server is starting up — please try again in a few seconds." };
+  }
+  return { next: safeNext(input.next ?? null) };
+}
+
+/**
  * Completes Google sign-in. The backend OAuth success handler redirects to
  * /sign-in/callback with the tokens (URL fragment or query string); the callback
  * page reads them client-side and calls this action to persist the same HttpOnly

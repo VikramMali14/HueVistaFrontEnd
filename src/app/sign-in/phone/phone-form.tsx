@@ -5,18 +5,25 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { signInWithPhoneAction } from "@/lib/auth";
+import { sendPhoneOtpAction, signInWithPhoneAction, verifyPhoneOtpAction } from "@/lib/auth";
 import type { SmsConfirmation } from "@/lib/firebase";
 
 /**
  * Sign in with a mobile number, in two steps: ask for the number, then the code
  * Firebase texts to it.
  *
- * <p>Everything to do with the SMS happens in the browser, against Firebase directly
- * (see `lib/firebase.ts` for why). Only the very last step touches our own servers:
- * the Firebase ID token goes to a server action, which trades it for a HueVista
- * session. The number itself is never what our backend trusts — it reads that out of
- * the signed token.
+ * <p>There are two ways the code can get there, and this form works the same either
+ * way — the difference is which one the BACKEND is configured for, which it is asked
+ * (see `getPhoneAuthMethod`) rather than told a second time here:
+ *
+ * - `FIREBASE`: the whole exchange happens in the browser against Firebase, and only the
+ *   resulting ID token goes to our server. Needs no DLT registration; costs about ₹6 a
+ *   message.
+ * - `SMS`: our own backend sends the code through MSG91 and checks it. Needs a DLT
+ *   registration; costs about 20 paise.
+ *
+ * <p>Under both, the number is never what the backend trusts — it reads that from the
+ * signed token, or from the row it issued the code against.
  */
 
 /** Dial codes offered in the picker. India first: it is where the customers are. */
@@ -38,15 +45,16 @@ const RESEND_SECONDS = 45;
 interface PhoneFormProps {
   next: string;
   /**
-   * False when this build has no Firebase configuration, in which case the page
-   * says so instead of rendering a button that cannot work.
+   * Which way this deployment proves a number, straight from the backend.
+   * `NONE` means the page says so instead of rendering a button that cannot work.
    */
-  enabled: boolean;
+  method: "FIREBASE" | "SMS" | "NONE";
 }
 
 type Step = "number" | "code";
 
-export function PhoneSignInForm({ next, enabled }: PhoneFormProps) {
+export function PhoneSignInForm({ next, method }: PhoneFormProps) {
+  const viaFirebase = method === "FIREBASE";
   const router = useRouter();
   const [step, setStep] = useState<Step>("number");
   const [dial, setDial] = useState<string>(DIAL_CODES[0].code);
@@ -73,14 +81,16 @@ export function PhoneSignInForm({ next, enabled }: PhoneFormProps) {
   }, [cooldown]);
 
   // Drop the reCAPTCHA widget when the user navigates away mid-flow, so coming back
-  // does not find a spent one still mounted.
+  // does not find a spent one still mounted. Firebase path only — importing the module
+  // on the SMS path would pull the SDK in for nothing.
   useEffect(() => {
+    if (!viaFirebase) return;
     return () => {
       void import("@/lib/firebase").then((m) => m.clearRecaptcha());
     };
-  }, []);
+  }, [viaFirebase]);
 
-  if (!enabled) {
+  if (method === "NONE") {
     return (
       <div className="field-error" role="alert" style={{ marginTop: 40 }}>
         Signing in by mobile isn&apos;t switched on for this site yet.{" "}
@@ -98,16 +108,29 @@ export function PhoneSignInForm({ next, enabled }: PhoneFormProps) {
     setBusy(true);
     setError(null);
     try {
-      const { sendSmsCode, phoneAuthErrorMessage } = await import("@/lib/firebase");
-      try {
-        confirmation.current = await sendSmsCode(e164, RECAPTCHA_ID);
-        setStep("code");
-        setCooldown(RESEND_SECONDS);
-        // The code field is only rendered from this point, so focus after paint.
-        setTimeout(() => codeInput.current?.focus(), 0);
-      } catch (err) {
-        setError(phoneAuthErrorMessage(err));
+      if (viaFirebase) {
+        // Only this branch pulls in the Firebase SDK, so an SMS-configured deployment
+        // never downloads it at all.
+        const { sendSmsCode, phoneAuthErrorMessage } = await import("@/lib/firebase");
+        try {
+          confirmation.current = await sendSmsCode(e164, RECAPTCHA_ID);
+        } catch (err) {
+          setError(phoneAuthErrorMessage(err));
+          return;
+        }
+      } else {
+        const result = await sendPhoneOtpAction({ phone: e164, name });
+        if ("error" in result) {
+          // Includes the per-number cooldown and daily cap, whose messages say which
+          // limit was reached and what to do instead.
+          setError(result.error);
+          return;
+        }
       }
+      setStep("code");
+      setCooldown(RESEND_SECONDS);
+      // The code field is only rendered from this point, so focus after paint.
+      setTimeout(() => codeInput.current?.focus(), 0);
     } finally {
       setBusy(false);
     }
@@ -120,7 +143,7 @@ export function PhoneSignInForm({ next, enabled }: PhoneFormProps) {
   };
 
   const verify = async () => {
-    if (!confirmation.current) {
+    if (viaFirebase && !confirmation.current) {
       setError("That code has expired. Please request a new one.");
       setStep("number");
       return;
@@ -132,18 +155,27 @@ export function PhoneSignInForm({ next, enabled }: PhoneFormProps) {
     setBusy(true);
     setError(null);
     try {
-      const { confirmSmsCode, phoneAuthErrorMessage } = await import("@/lib/firebase");
-      let idToken: string;
-      try {
-        idToken = await confirmSmsCode(confirmation.current, code);
-      } catch (err) {
-        setError(phoneAuthErrorMessage(err));
-        setBusy(false);
-        return;
+      let result: { next: string } | { error: string };
+
+      if (viaFirebase) {
+        const { confirmSmsCode, phoneAuthErrorMessage } = await import("@/lib/firebase");
+        let idToken: string;
+        try {
+          idToken = await confirmSmsCode(confirmation.current!, code);
+        } catch (err) {
+          setError(phoneAuthErrorMessage(err));
+          setBusy(false);
+          return;
+        }
+        // From here on it is our own backend. A failure now is NOT a wrong code —
+        // saying so would send the customer back to re-read a text that was fine.
+        result = await signInWithPhoneAction({ idToken, name, next });
+      } else {
+        // One call: our backend checks the code and issues the session together, so
+        // there is no in-between state where the code is spent and nothing was gained.
+        result = await verifyPhoneOtpAction({ phone: e164, code, next });
       }
-      // From here on it is our own backend. A failure now is NOT a wrong code —
-      // saying so would send the customer back to re-read a text that was fine.
-      const result = await signInWithPhoneAction({ idToken, name, next });
+
       if ("error" in result) {
         setError(result.error);
         setBusy(false);
@@ -264,8 +296,9 @@ export function PhoneSignInForm({ next, enabled }: PhoneFormProps) {
       )}
 
       {/* Firebase mounts the invisible reCAPTCHA here. It must stay in the DOM for
-          both steps: a resend needs somewhere to render a fresh one. */}
-      <div id={RECAPTCHA_ID} />
+          both steps: a resend needs somewhere to render a fresh one. Absent entirely
+          on the SMS path, which has no reCAPTCHA and never loads Firebase. */}
+      {viaFirebase && <div id={RECAPTCHA_ID} />}
     </div>
   );
 }

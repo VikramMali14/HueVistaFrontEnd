@@ -177,6 +177,28 @@ export const authApi = {
       body: JSON.stringify(body),
       headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
     }),
+  // Which mobile sign-in this backend offers: FIREBASE, SMS or NONE. Asked rather than
+  // configured a second time in this app's own environment — a second copy of the same
+  // setting is how a site ends up offering a sign-in its backend answers 503 to.
+  phoneMethods: () =>
+    serverFetch<{ method: "FIREBASE" | "SMS" | "NONE"; enabled: boolean }>("/api/auth/phone/methods"),
+  // Our own SMS path (MSG91), used when the backend reports SMS. Step one: text a code.
+  phoneOtpSend: (body: { phone: string; name?: string }, clientIp?: string) =>
+    serverFetch<{ destination: string; expiresInSeconds: number; cooldownSeconds: number }>(
+      "/api/auth/phone/otp/send",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+      },
+    ),
+  // Step two: hand the code back and sign in.
+  phoneOtpVerify: (body: { phone: string; code: string }, clientIp?: string) =>
+    serverFetch<AuthResponse>("/api/auth/phone/otp/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
   refresh: (refreshToken: string) =>
     serverFetch<AuthResponse>("/api/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   // Trade the one-time code from the Google callback for the real token pair.

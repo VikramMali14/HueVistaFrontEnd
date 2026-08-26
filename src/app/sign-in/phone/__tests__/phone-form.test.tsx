@@ -40,8 +40,12 @@ vi.mock("@/lib/firebase", () => ({
 }));
 
 const signInWithPhoneAction = vi.fn();
+const sendPhoneOtpAction = vi.fn();
+const verifyPhoneOtpAction = vi.fn();
 vi.mock("@/lib/auth", () => ({
   signInWithPhoneAction: (...args: unknown[]) => signInWithPhoneAction(...args),
+  sendPhoneOtpAction: (...args: unknown[]) => sendPhoneOtpAction(...args),
+  verifyPhoneOtpAction: (...args: unknown[]) => verifyPhoneOtpAction(...args),
 }));
 
 const confirmation = { confirm: vi.fn() };
@@ -51,6 +55,8 @@ beforeEach(() => {
   sendSmsCode.mockResolvedValue(confirmation);
   confirmSmsCode.mockResolvedValue("firebase-id-token");
   signInWithPhoneAction.mockResolvedValue({ next: "/dashboard" });
+  sendPhoneOtpAction.mockResolvedValue({ destination: "**********210", cooldownSeconds: 45 });
+  verifyPhoneOtpAction.mockResolvedValue({ next: "/dashboard" });
 });
 
 /** Walk the first step: type a number and ask for a code. */
@@ -63,7 +69,7 @@ async function requestCode(user: ReturnType<typeof userEvent.setup>, digits = "9
 describe("PhoneSignInForm — asking for the code", () => {
   it("composes the dial code and the number into E.164 before sending", async () => {
     const user = userEvent.setup();
-    render(<PhoneSignInForm next="/dashboard" enabled />);
+    render(<PhoneSignInForm next="/dashboard" method="FIREBASE" />);
 
     await requestCode(user);
 
@@ -74,7 +80,7 @@ describe("PhoneSignInForm — asking for the code", () => {
 
   it("strips punctuation out of a pasted number instead of refusing it", async () => {
     const user = userEvent.setup();
-    render(<PhoneSignInForm next="/dashboard" enabled />);
+    render(<PhoneSignInForm next="/dashboard" method="FIREBASE" />);
 
     await requestCode(user, "(98765) 43-210");
 
@@ -83,7 +89,7 @@ describe("PhoneSignInForm — asking for the code", () => {
 
   it("uses the chosen country's dial code", async () => {
     const user = userEvent.setup();
-    render(<PhoneSignInForm next="/dashboard" enabled />);
+    render(<PhoneSignInForm next="/dashboard" method="FIREBASE" />);
 
     await user.selectOptions(screen.getByLabelText("Country dialling code"), "+971");
     await requestCode(user, "501234567");
@@ -93,7 +99,7 @@ describe("PhoneSignInForm — asking for the code", () => {
 
   it("does not spend an SMS on an obviously incomplete number", async () => {
     const user = userEvent.setup();
-    render(<PhoneSignInForm next="/dashboard" enabled />);
+    render(<PhoneSignInForm next="/dashboard" method="FIREBASE" />);
 
     await user.type(screen.getByLabelText("Mobile number"), "98");
     await user.click(screen.getByRole("button", { name: /Text me a code/ }));
@@ -105,7 +111,7 @@ describe("PhoneSignInForm — asking for the code", () => {
   it("reports a Firebase failure and stays on the number step", async () => {
     const user = userEvent.setup();
     sendSmsCode.mockRejectedValue({ code: "auth/too-many-requests" });
-    render(<PhoneSignInForm next="/dashboard" enabled />);
+    render(<PhoneSignInForm next="/dashboard" method="FIREBASE" />);
 
     await user.type(screen.getByLabelText("Mobile number"), "9876543210");
     await user.click(screen.getByRole("button", { name: /Text me a code/ }));
@@ -119,7 +125,7 @@ describe("PhoneSignInForm — asking for the code", () => {
 describe("PhoneSignInForm — entering the code", () => {
   it("signs in and navigates on a correct code", async () => {
     const user = userEvent.setup();
-    render(<PhoneSignInForm next="/my-projects" enabled />);
+    render(<PhoneSignInForm next="/my-projects" method="FIREBASE" />);
 
     const codeField = await requestCode(user);
     await user.type(codeField, "123456");
@@ -134,7 +140,7 @@ describe("PhoneSignInForm — entering the code", () => {
 
   it("passes the typed name through, for a number we have never seen", async () => {
     const user = userEvent.setup();
-    render(<PhoneSignInForm next="/dashboard" enabled />);
+    render(<PhoneSignInForm next="/dashboard" method="FIREBASE" />);
 
     await user.type(screen.getByLabelText("Mobile number"), "9876543210");
     await user.type(screen.getByLabelText(/Your name/), "Asha Patel");
@@ -152,7 +158,7 @@ describe("PhoneSignInForm — entering the code", () => {
 
   it("does not call the backend for a code that is not six digits", async () => {
     const user = userEvent.setup();
-    render(<PhoneSignInForm next="/dashboard" enabled />);
+    render(<PhoneSignInForm next="/dashboard" method="FIREBASE" />);
 
     const codeField = await requestCode(user);
     await user.type(codeField, "123");
@@ -165,7 +171,7 @@ describe("PhoneSignInForm — entering the code", () => {
   it("says the code is wrong when Firebase rejects it", async () => {
     const user = userEvent.setup();
     confirmSmsCode.mockRejectedValue({ code: "auth/invalid-verification-code" });
-    render(<PhoneSignInForm next="/dashboard" enabled />);
+    render(<PhoneSignInForm next="/dashboard" method="FIREBASE" />);
 
     const codeField = await requestCode(user);
     await user.type(codeField, "000000");
@@ -183,7 +189,7 @@ describe("PhoneSignInForm — entering the code", () => {
     signInWithPhoneAction.mockResolvedValue({
       error: "Admin accounts sign in with an email address and password.",
     });
-    render(<PhoneSignInForm next="/dashboard" enabled />);
+    render(<PhoneSignInForm next="/dashboard" method="FIREBASE" />);
 
     const codeField = await requestCode(user);
     await user.type(codeField, "123456");
@@ -195,7 +201,7 @@ describe("PhoneSignInForm — entering the code", () => {
 
   it("offers a way back when the number was typed wrong", async () => {
     const user = userEvent.setup();
-    render(<PhoneSignInForm next="/dashboard" enabled />);
+    render(<PhoneSignInForm next="/dashboard" method="FIREBASE" />);
 
     await requestCode(user);
     await user.click(screen.getByRole("button", { name: /Wrong number/ }));
@@ -206,7 +212,7 @@ describe("PhoneSignInForm — entering the code", () => {
 
   it("holds the resend button shut until the cooldown has run", async () => {
     const user = userEvent.setup();
-    render(<PhoneSignInForm next="/dashboard" enabled />);
+    render(<PhoneSignInForm next="/dashboard" method="FIREBASE" />);
 
     await requestCode(user);
 
@@ -216,9 +222,77 @@ describe("PhoneSignInForm — entering the code", () => {
   });
 });
 
+describe("PhoneSignInForm — the MSG91 path", () => {
+  it("asks OUR backend for the code, and never loads Firebase", async () => {
+    const user = userEvent.setup();
+    render(<PhoneSignInForm next="/dashboard" method="SMS" />);
+
+    await user.type(screen.getByLabelText("Mobile number"), "9876543210");
+    await user.type(screen.getByLabelText(/Your name/), "Asha Patel");
+    await user.click(screen.getByRole("button", { name: /Text me a code/ }));
+
+    await waitFor(() =>
+      expect(sendPhoneOtpAction).toHaveBeenCalledWith({ phone: "+919876543210", name: "Asha Patel" }),
+    );
+    // The whole point of the seam: an SMS deployment pays none of the Firebase bundle.
+    expect(sendSmsCode).not.toHaveBeenCalled();
+  });
+
+  it("verifies through our backend, which signs in in the same call", async () => {
+    const user = userEvent.setup();
+    render(<PhoneSignInForm next="/my-projects" method="SMS" />);
+
+    await user.type(screen.getByLabelText("Mobile number"), "9876543210");
+    await user.click(screen.getByRole("button", { name: /Text me a code/ }));
+    await user.type(await screen.findByLabelText("Your 6-digit code"), "482913");
+    await user.click(screen.getByRole("button", { name: /^Sign in/ }));
+
+    await waitFor(() =>
+      expect(verifyPhoneOtpAction).toHaveBeenCalledWith({
+        phone: "+919876543210",
+        code: "482913",
+        next: "/my-projects",
+      }),
+    );
+    expect(confirmSmsCode).not.toHaveBeenCalled();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+  });
+
+  it("shows the per-number limit message instead of advancing to the code step", async () => {
+    // The cooldown and the daily cap are what stop this endpoint running up a bill on
+    // somebody else's handset, so their messages have to reach the person reading them.
+    const user = userEvent.setup();
+    sendPhoneOtpAction.mockResolvedValue({
+      error: "That number has been sent too many codes today. Please try again tomorrow, or sign in with your email.",
+    });
+    render(<PhoneSignInForm next="/dashboard" method="SMS" />);
+
+    await user.type(screen.getByLabelText("Mobile number"), "9876543210");
+    await user.click(screen.getByRole("button", { name: /Text me a code/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("too many codes today");
+    expect(screen.queryByLabelText("Your 6-digit code")).not.toBeInTheDocument();
+  });
+
+  it("passes a refused code through verbatim rather than guessing at it", async () => {
+    const user = userEvent.setup();
+    verifyPhoneOtpAction.mockResolvedValue({ error: "Incorrect code. 3 attempts left." });
+    render(<PhoneSignInForm next="/dashboard" method="SMS" />);
+
+    await user.type(screen.getByLabelText("Mobile number"), "9876543210");
+    await user.click(screen.getByRole("button", { name: /Text me a code/ }));
+    await user.type(await screen.findByLabelText("Your 6-digit code"), "000000");
+    await user.click(screen.getByRole("button", { name: /^Sign in/ }));
+
+    // The backend counts the attempts, so it is the one that knows how many are left.
+    expect(await screen.findByRole("alert")).toHaveTextContent("3 attempts left");
+    expect(replace).not.toHaveBeenCalled();
+  });
+});
+
 describe("PhoneSignInForm — when the feature is off", () => {
   it("says so instead of showing a button that cannot work", () => {
-    render(<PhoneSignInForm next="/dashboard" enabled={false} />);
+    render(<PhoneSignInForm next="/dashboard" method="NONE" />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("isn't switched on");
     expect(screen.queryByLabelText("Mobile number")).not.toBeInTheDocument();

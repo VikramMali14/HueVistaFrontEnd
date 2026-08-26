@@ -4,7 +4,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Logo } from "@/components/ui/logo";
 import { AuthArt } from "@/components/auth/auth-art";
-import { phoneSignInEnabled } from "@/lib/firebase";
+import { getPhoneAuthMethod } from "@/lib/auth";
 import { PhoneSignInForm } from "./phone-form";
 
 export const metadata: Metadata = {
@@ -31,6 +31,10 @@ interface PageProps {
  */
 export default async function PhoneSignInPage({ searchParams }: PageProps) {
   const { next } = await searchParams;
+  // Asked of the backend, not read from this app's own environment: the two could
+  // otherwise disagree, and the failure that produces is a button that is offered and
+  // then answers 503.
+  const method = await getPhoneAuthMethod();
   return (
     <>
       <SiteHeader showSignIn={false} />
@@ -52,7 +56,7 @@ export default async function PhoneSignInPage({ searchParams }: PageProps) {
             projects; if not, we&apos;ll set you up in a moment.
           </Lead>
 
-          <PhoneSignInForm next={next ?? "/dashboard"} enabled={phoneSignInEnabled} />
+          <PhoneSignInForm next={next ?? "/dashboard"} method={method} />
 
           <p className="auth-foot">
             Prefer a password? <Link href={`/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in with your email.</Link>

@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { loginAction, loginWithOtpAction, registerAction } from "@/lib/auth";
+import { getPhoneAuthMethod, loginAction, loginWithOtpAction, registerAction } from "@/lib/auth";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Logo } from "@/components/ui/logo";
 import { AuthArt } from "@/components/auth/auth-art";
 import { DemoCredentials } from "@/components/auth/demo-credentials";
 import { DEMO_MODE } from "@/lib/demo/flag";
-import { phoneSignInEnabled } from "@/lib/firebase";
 import { SignInForm } from "./form";
 
 export const metadata: Metadata = {
@@ -24,6 +23,9 @@ export default async function SignInPage({ searchParams }: PageProps) {
   // /sign-in?mode=register — the free, no-shop account (e.g. a walk-in customer
   // keeping their guest work). registerAction treats the shop fields as optional.
   const register = mode === "register";
+  // Whether to offer the mobile option at all — the backend's answer, whichever
+  // provider it is configured for.
+  const phoneEnabled = (await getPhoneAuthMethod()) !== "NONE";
   return (
     <>
       <SiteHeader showSignIn={false} />
@@ -57,7 +59,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
             // offering it there would hand a shop owner the wrong kind of account.
             // A customer with no account needs no separate signup here anyway: the
             // mobile flow opens one for a number it does not recognise.
-            showPhone={!register && phoneSignInEnabled}
+            showPhone={!register && phoneEnabled}
           />
           <p className="auth-foot">
             {register ? (
