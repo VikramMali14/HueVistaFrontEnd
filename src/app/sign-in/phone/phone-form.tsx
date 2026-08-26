@@ -182,7 +182,7 @@ export function PhoneSignInForm({ next, enabled }: PhoneFormProps) {
                 inputMode="numeric"
                 autoComplete="tel-national"
                 autoFocus
-                placeholder={"0".repeat(expectedDigits).replace(/0/g, "9")}
+                placeholder={"9".repeat(expectedDigits)}
                 value={national}
                 // Strip as they type: a pasted "+91 98765 43210" or "(98765) 43210"
                 // should just work rather than be rejected for its punctuation.

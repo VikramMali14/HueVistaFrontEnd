@@ -53,6 +53,12 @@ const RAZORPAY_CONNECT = "https://*.razorpay.com https://lumberjack.razorpay.com
 //   www.google.com / www.gstatic.com — the invisible reCAPTCHA Firebase requires
 //     before it will spend an SMS: its script, and the iframe it runs in.
 //   the project's own authDomain — where Firebase's auth handler is hosted.
+//
+// Deliberately NOT listed: https://apis.google.com. The string is in the shipped
+// Firebase chunk, but it belongs to signInWithPopup / signInWithRedirect — the gapi
+// iframe loader — which phone sign-in never calls. Anyone adding a popup-based
+// provider here will need it; adding it now would only widen the policy for a flow
+// that does not exist.
 const FIREBASE_AUTH_DOMAIN = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim();
 const FIREBASE_HOST = FIREBASE_AUTH_DOMAIN ? `https://${FIREBASE_AUTH_DOMAIN}` : "";
 const FIREBASE_SCRIPT = "https://www.google.com https://www.gstatic.com";
