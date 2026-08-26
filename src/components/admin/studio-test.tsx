@@ -807,6 +807,17 @@ function Metrics({ surfaces, metrics, measuring, onMeasure, canvasSource, disabl
 
 /** A spread at or under this is a plane with no light left in it. */
 const FLAT_SPREAD = 1.5;
+/**
+ * The albedo anchored mode divides by: REF_WHITE = 0.94 in both engines, the sRGB
+ * value of fresh white paint at LRV ~85.
+ *
+ * Anchored mode reads the cleaned canvas as an illumination map by computing
+ * `form = blur(photo) / REF_WHITE`, which is only true if the clean-up actually
+ * delivered a wall at that level. Every point the delivered white falls short is a
+ * point of gain the paint loses across the WHOLE surface — a systematic darkening
+ * that no colour choice can escape and that reads, wrongly, as the swatch being off.
+ */
+const REF_WHITE_255 = 0.94 * 255;
 /** Below this, the texture on screen has nothing to do with the photograph's. */
 const SYNTHETIC_R = 0.3;
 
@@ -864,6 +875,16 @@ function SurfaceReport({ label, m, canvasSource }: { label: string; m: SurfaceMe
       label: "Painted result, luminance spread",
       value: `${m.painted.p5} → ${m.painted.p95} · ${m.painted.spread}×`,
     },
+    ...(cleaned ? [{
+      label: "Delivered white vs REF_WHITE",
+      value: `${m.base.mean} vs ${Math.round(REF_WHITE_255)} · gain ${round2(m.base.mean / REF_WHITE_255)}×`,
+      verdict: m.base.mean < REF_WHITE_255 * 0.9
+        ? {
+            tone: "bad" as const,
+            text: `every anchored colour is ${Math.round((1 - m.base.mean / REF_WHITE_255) * 100)}% dark on this surface`,
+          }
+        : { tone: "ok" as const, text: "the canvas matches the albedo the engine assumes" },
+    }] : []),
     {
       label: "Blend fit (output vs canvas)",
       value: `slope ${m.fit.r.slope}/${m.fit.g.slope}/${m.fit.b.slope} · intercept ${m.fit.r.intercept} · R² ${m.fit.meanR2}`,
@@ -1282,6 +1303,8 @@ function Knob({
     </div>
   );
 }
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const NOTE_STYLE: React.CSSProperties = {
   marginTop: 14,
