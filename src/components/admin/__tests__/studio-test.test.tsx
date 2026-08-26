@@ -304,3 +304,31 @@ describe("StudioTest — putting the two canvases against each other", () => {
     expect(handle).toHaveAttribute("aria-valuenow", "52");
   });
 });
+
+describe("StudioTest — the measurement panel", () => {
+  it("offers nothing to measure until a frame has been", async () => {
+    const user = userEvent.setup();
+    renderBench();
+    await open(user);
+    expect(screen.getByText(/Nothing measured yet/)).toBeInTheDocument();
+  });
+
+  it("refuses to measure Canvas only, where nothing is painted", async () => {
+    const user = userEvent.setup();
+    renderBench();
+    await open(user);
+    await user.click(screen.getByLabelText("Canvas only"));
+    expect(screen.getByRole("button", { name: /Measure this frame/ })).toBeDisabled();
+    expect(screen.getByText(/no render to measure/)).toBeInTheDocument();
+  });
+
+  it("has nothing to measure when every surface is left unpainted", async () => {
+    const user = userEvent.setup();
+    renderBench();
+    await open(user);
+    await user.click(screen.getByLabelText("Paint Main wall"));
+    await user.click(screen.getByLabelText("Paint Trim"));
+    expect(screen.getByRole("button", { name: /Measure this frame/ })).toBeDisabled();
+    expect(screen.getByText(/no surface is painted/)).toBeInTheDocument();
+  });
+});

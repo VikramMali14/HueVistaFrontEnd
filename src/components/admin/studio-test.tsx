@@ -7,6 +7,7 @@ import { hexToRgb01, Recolor, regionMeanLuma, type RecolorEngine, type RegionPai
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import { SOFT_EDGE_FEATHER_PX } from "@/lib/recolor-engine";
 import { lrvCorrectedRgb01 } from "@/lib/color-science";
+import { measureSurface, metricsSize, type SurfaceMetrics } from "@/lib/render-metrics";
 import type { AdminProjectRow, PaintShade, ProjectDetail, RegionCategory } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -137,6 +138,9 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
 
   const [compare, setCompare] = useState<CompareMode>("slider");
   const [sliderPos, setSliderPos] = useState(50);
+
+  const [metrics, setMetrics] = useState<Record<string, SurfaceMetrics | null>>({});
+  const [measuring, setMeasuring] = useState(false);
 
   const [preserve, setPreserve] = useState(STUDIO_SHADOW_STRENGTH);
   const [edgeNudge, setEdgeNudge] = useState(STUDIO_EDGE_NUDGE_PX);
@@ -376,6 +380,48 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
   const patch = useCallback((id: string, next: Partial<Surface>) => {
     setSurfaces((prev) => prev.map((s) => (s.id === id ? { ...s, ...next } : s)));
   }, []);
+
+  // Every figure below describes ONE frame. Anything that changes the frame — a
+  // colour, a knob, the canvas underneath — retires the numbers rather than leaving
+  // them on screen next to a render they no longer describe.
+  useEffect(() => {
+    setMetrics({});
+  }, [surfaces, canvasSource, preserve, edgeNudge, softEdges]);
+
+  /**
+   * Read the frame back and measure each painted surface on it.
+   *
+   * Deliberately on a button. It rasterizes four layers per surface and walks them
+   * pixel by pixel, which is far too much to do on every colour change — and the
+   * numbers are only worth taking once the frame is the one being judged.
+   */
+  const measure = useCallback(async () => {
+    const canvas = canvasRef.current;
+    const photo = originalRef.current;
+    const base = canvasSource === "cleaned" ? cleanedRef.current : originalRef.current;
+    if (!canvas || !photo || !base) return;
+    setMeasuring(true);
+    try {
+      // Two frames, so the render kicked off by the last state change has actually
+      // been painted into the buffer being read. One is not always enough.
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+      const size = metricsSize(base.naturalWidth, base.naturalHeight);
+      const next: Record<string, SurfaceMetrics | null> = {};
+      for (const surface of surfaces.filter((x) => x.applied)) {
+        try {
+          const mask = await loadMask(surface.maskUrl);
+          next[surface.id] = measureSurface({
+            photo, base, painted: canvas, mask, canvasWidth: canvas.width, size,
+          });
+        } catch {
+          next[surface.id] = null;
+        }
+      }
+      setMetrics(next);
+    } finally {
+      setMeasuring(false);
+    }
+  }, [surfaces, canvasSource, loadMask]);
 
   const painted = surfaces.filter((s) => s.applied).length;
   const opened = Boolean(baseUrl);
@@ -678,6 +724,218 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
             </Knob>
           </div>
         </div>
+      </div>
+
+      {opened && (
+        <Metrics
+          surfaces={surfaces}
+          metrics={metrics}
+          measuring={measuring}
+          onMeasure={measure}
+          canvasSource={canvasSource}
+          disabled={compare === "clean"}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------- metrics */
+
+interface MetricsProps {
+  surfaces: Surface[];
+  metrics: Record<string, SurfaceMetrics | null>;
+  measuring: boolean;
+  onMeasure: () => void;
+  canvasSource: CanvasSource;
+  disabled: boolean;
+}
+
+/**
+ * The numbers behind "the walls look flat".
+ *
+ * Each row carries a verdict as well as a figure, because the figure alone does not
+ * say which STAGE to go and fix — and that is the only thing a reader wants from this
+ * table. The headline above the rows answers exactly that: a flat render on a canvas
+ * that arrived flat is the clean-up's fault and no amount of shader work will touch
+ * it, while a flat render on a canvas with light still in it is the engine's.
+ */
+function Metrics({ surfaces, metrics, measuring, onMeasure, canvasSource, disabled }: MetricsProps) {
+  const applied = surfaces.filter((s) => s.applied);
+  const measured = applied.filter((s) => metrics[s.id] !== undefined);
+
+  return (
+    <section style={{ marginTop: 40, borderTop: "1px solid var(--rule)", paddingTop: 28 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 16 }}>
+        <h2 className="display" style={{ fontSize: "clamp(22px, 3vw, 30px)", margin: 0 }}>
+          Measurements
+        </h2>
+        <Button type="button" variant="ghost" size="sm" onClick={onMeasure}
+          disabled={measuring || disabled || applied.length === 0}
+          title={disabled ? "Nothing is painted in Canvas only — switch to another compare mode first." : undefined}>
+          {measuring
+            ? <><Spinner size={14} color="currentColor" decorative /> Measuring…</>
+            : <>Measure this frame</>}
+        </Button>
+      </div>
+      <p style={{ ...HINT_STYLE, maxWidth: "68ch" }}>
+        Read back off the canvas on screen and taken over one mask at a time, so every
+        figure is about a wall rather than about a photo that happens to contain sky and
+        furniture. Nothing is sampled until you ask: it is four layers per surface, walked
+        pixel by pixel.
+      </p>
+
+      {disabled && (
+        <div role="note" style={NOTE_STYLE}>
+          <strong>Canvas only</strong> paints nothing, so there is no render to measure.
+          Switch to Slider, Side by side or Painted only.
+        </div>
+      )}
+
+      {measured.length === 0 ? (
+        <p style={{ ...HINT_STYLE, marginTop: 14 }}>
+          Nothing measured yet{applied.length === 0 ? " — no surface is painted." : "."}
+        </p>
+      ) : (
+        measured.map((s) => (
+          <SurfaceReport key={s.id} label={s.label} m={metrics[s.id]!} canvasSource={canvasSource} />
+        ))
+      )}
+    </section>
+  );
+}
+
+/** A spread at or under this is a plane with no light left in it. */
+const FLAT_SPREAD = 1.5;
+/** Below this, the texture on screen has nothing to do with the photograph's. */
+const SYNTHETIC_R = 0.3;
+
+function SurfaceReport({ label, m, canvasSource }: { label: string; m: SurfaceMetrics; canvasSource: CanvasSource }) {
+  const cleaned = canvasSource === "cleaned";
+  const baseFlat = m.base.spread < FLAT_SPREAD;
+  const photoHasLight = m.photo.spread >= FLAT_SPREAD;
+
+  // Which stage to go and fix. The two cases look identical on screen and have
+  // nothing in common underneath, which is the whole reason for measuring.
+  const headline = baseFlat && photoHasLight && cleaned
+    ? {
+        tone: "bad" as const,
+        text: `The canvas arrived flat. The photograph spans ${m.photo.spread}× across this
+               surface; the cleaned canvas the engine paints spans ${m.base.spread}×. The
+               shading was removed BEFORE the paint, so the engine has nothing to modulate
+               and multiplies by a near-constant. This is the clean-up to fix, not the shader.`,
+      }
+    : baseFlat
+      ? {
+          tone: "bad" as const,
+          text: `This surface has almost no light in it to begin with (${m.base.spread}×) —
+                 flat photograph, deep shade, or a mask covering more than one plane. Judge
+                 the engine on a surface that has some light on it.`,
+        }
+      : m.painted.spread < FLAT_SPREAD
+        ? {
+            tone: "bad" as const,
+            text: `The engine flattened it. The canvas underneath spans ${m.base.spread}×
+                   and the render comes out at ${m.painted.spread}× — the light was there
+                   and the recolour lost it.`,
+          }
+        : {
+            tone: "ok" as const,
+            text: `Shading survives the recolour: ${m.base.spread}× underneath,
+                   ${m.painted.spread}× on screen.`,
+          };
+
+  const rows: Array<{ label: string; value: string; verdict?: { tone: "ok" | "bad" | "warn"; text: string } }> = [
+    {
+      label: "Photograph, luminance spread",
+      value: `${m.photo.p5} → ${m.photo.p95} · ${m.photo.spread}×`,
+      verdict: photoHasLight
+        ? { tone: "ok", text: "real light to work from" }
+        : { tone: "warn", text: "the photo itself is flat here" },
+    },
+    {
+      label: cleaned ? "Cleaned canvas, luminance spread" : "Canvas (the photo), luminance spread",
+      value: `${m.base.p5} → ${m.base.p95} · ${m.base.spread}×`,
+      verdict: baseFlat
+        ? { tone: "bad", text: "flattened — nothing for the engine to modulate" }
+        : { tone: "ok", text: "light preserved" },
+    },
+    {
+      label: "Painted result, luminance spread",
+      value: `${m.painted.p5} → ${m.painted.p95} · ${m.painted.spread}×`,
+    },
+    {
+      label: "Blend fit (output vs canvas)",
+      value: `slope ${m.fit.r.slope}/${m.fit.g.slope}/${m.fit.b.slope} · intercept ${m.fit.r.intercept} · R² ${m.fit.meanR2}`,
+      verdict: m.fit.meanR2 > 0.99 && baseFlat
+        ? { tone: "bad", text: "a pure multiply, by something that does not vary" }
+        : m.fit.meanR2 > 0.99
+          ? { tone: "ok", text: "clean multiplicative shading" }
+          : undefined,
+    },
+    {
+      label: "Texture carried through",
+      value: `r = ${m.texture.correlation}`,
+      verdict: Math.abs(m.texture.correlation) < SYNTHETIC_R
+        ? { tone: "bad", text: "the render's grain is not the photo's" }
+        : { tone: "ok", text: "the photo's own surface survives" },
+    },
+    {
+      label: "High-frequency energy, canvas → render",
+      value: `${m.texture.baseEnergy} → ${m.texture.paintedEnergy} · ${m.texture.ratio}×`,
+      verdict: m.texture.ratio > 2
+        ? { tone: "warn", text: "texture added on top, not carried through" }
+        : undefined,
+    },
+    ...(m.edge ? [{
+      label: "Mask edge, 10→90%",
+      value: `${m.edge.medianMaskPx} mask px · ${m.edge.medianCanvasPx} canvas px`,
+      verdict: m.edge.medianCanvasPx < 1
+        ? { tone: "warn" as const, text: "razor-sharp — reads as pasted on" }
+        : { tone: "ok" as const, text: "photographic softness" },
+    }] : []),
+  ];
+
+  return (
+    <div style={{ marginTop: 22, border: "1px solid var(--rule-strong)", borderRadius: "var(--radius)", padding: "16px 18px" }}>
+      <div style={{ font: "500 15px/1.3 var(--sans)", marginBottom: 4 }}>{label}</div>
+      <div style={{ font: "400 11px/1.4 var(--mono)", color: "var(--fg-mute)", marginBottom: 12 }}>
+        {m.samples.toLocaleString()} sampled pixels
+      </div>
+
+      <p style={{
+        margin: "0 0 14px",
+        padding: "10px 12px",
+        borderLeft: `2px solid ${headline.tone === "ok" ? "var(--accent-soft)" : "var(--accent)"}`,
+        background: "var(--surface-soft)",
+        font: "300 14px/1.6 var(--serif)",
+        color: "var(--fg-soft)",
+      }}>
+        {headline.text.replace(/\s+/g, " ")}
+      </p>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", font: "400 13px/1.5 var(--sans)" }}>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.label} style={{ borderTop: "1px solid var(--rule)" }}>
+                <th scope="row" style={{ textAlign: "left", fontWeight: 400, color: "var(--fg-soft)", padding: "7px 12px 7px 0", whiteSpace: "nowrap" }}>
+                  {r.label}
+                </th>
+                <td style={{ font: "400 13px/1.5 var(--mono)", padding: "7px 12px 7px 0", whiteSpace: "nowrap" }}>
+                  {r.value}
+                </td>
+                <td style={{
+                  padding: "7px 0",
+                  font: "400 12px/1.5 var(--sans)",
+                  color: r.verdict?.tone === "bad" ? "var(--accent)" : "var(--fg-mute)",
+                }}>
+                  {r.verdict?.text ?? ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
