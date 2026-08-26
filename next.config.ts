@@ -40,13 +40,33 @@ const RAZORPAY_SCRIPT = "https://checkout.razorpay.com";
 const RAZORPAY_FRAME = "https://api.razorpay.com https://checkout.razorpay.com";
 const RAZORPAY_CONNECT = "https://*.razorpay.com https://lumberjack.razorpay.com";
 
+// Firebase Phone Auth (sign in with a mobile number). Unlike every other backend call,
+// this one does NOT go through the same-origin BFF: the Firebase SDK talks to Google
+// from the browser, because the whole point is that Google — not us — sends the SMS and
+// checks the code. Only the resulting ID token comes back through our own server.
+//
+// So these hosts have to be named explicitly, and the failure when they are not is
+// quiet and total: the browser blocks the request, Firebase reports an opaque
+// `auth/network-request-failed`, and the sign-in looks broken rather than blocked.
+//
+//   identitytoolkit / securetoken — sending the code, and the token exchange.
+//   www.google.com / www.gstatic.com — the invisible reCAPTCHA Firebase requires
+//     before it will spend an SMS: its script, and the iframe it runs in.
+//   the project's own authDomain — where Firebase's auth handler is hosted.
+const FIREBASE_AUTH_DOMAIN = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim();
+const FIREBASE_HOST = FIREBASE_AUTH_DOMAIN ? `https://${FIREBASE_AUTH_DOMAIN}` : "";
+const FIREBASE_SCRIPT = "https://www.google.com https://www.gstatic.com";
+const FIREBASE_FRAME = `https://www.google.com ${FIREBASE_HOST}`.trim();
+const FIREBASE_CONNECT =
+  `https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com ${FIREBASE_HOST}`.trim();
+
 const scriptSrc = isDev
-  ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${RAZORPAY_SCRIPT}`
-  : `script-src 'self' 'unsafe-inline' ${RAZORPAY_SCRIPT}`;
+  ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${RAZORPAY_SCRIPT} ${FIREBASE_SCRIPT}`
+  : `script-src 'self' 'unsafe-inline' ${RAZORPAY_SCRIPT} ${FIREBASE_SCRIPT}`;
 
 const connectSrc = isDev
-  ? `connect-src 'self' ${apiOrigin} ${RAZORPAY_CONNECT} ws: wss:`
-  : `connect-src 'self' ${RAZORPAY_CONNECT}`;
+  ? `connect-src 'self' ${apiOrigin} ${RAZORPAY_CONNECT} ${FIREBASE_CONNECT} ws: wss:`
+  : `connect-src 'self' ${RAZORPAY_CONNECT} ${FIREBASE_CONNECT}`;
 
 // img-src: same-origin + data/blob for uploads + backend host for served images.
 const apiHost = (() => {
@@ -67,7 +87,7 @@ const cspDirectives = [
   imgSrc,
   connectSrc,
   "frame-ancestors 'none'",
-  `frame-src ${RAZORPAY_FRAME}`,
+  `frame-src ${RAZORPAY_FRAME} ${FIREBASE_FRAME}`.trim(),
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",

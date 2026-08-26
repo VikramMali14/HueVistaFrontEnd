@@ -167,6 +167,16 @@ export const authApi = {
       body: JSON.stringify(body),
       headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
     }),
+  // Sign in with a mobile number. The body carries the Firebase ID token the browser
+  // got after Firebase texted a code and the customer entered it — NOT the number
+  // itself, which the backend reads out of the signed token. `name` is used only if
+  // the number turns out to have no account yet.
+  phoneSignIn: (body: { idToken: string; name?: string }, clientIp?: string) =>
+    serverFetch<AuthResponse>("/api/auth/phone/firebase", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
+    }),
   refresh: (refreshToken: string) =>
     serverFetch<AuthResponse>("/api/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }),
   // Trade the one-time code from the Google callback for the real token pair.

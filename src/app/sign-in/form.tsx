@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GoogleButton } from "@/components/auth/google-button";
+import { PhoneButton } from "@/components/auth/phone-button";
 
 interface SignInFormProps {
   action: (formData: FormData) => Promise<{ error?: string; otpRequired?: boolean } | void>;
@@ -18,9 +19,16 @@ interface SignInFormProps {
   accountType?: string;
   /** Hide the Google button (the customer signup omits it so the account stays CUSTOMER). */
   showGoogle?: boolean;
+  /**
+   * Show "Continue with mobile number". Off wherever this form provisions something
+   * other than a plain customer account (a shop signup, an admin-created user):
+   * mobile sign-in always lands on a CUSTOMER account, so offering it there would
+   * quietly hand people the wrong kind of account.
+   */
+  showPhone?: boolean;
 }
 
-export function SignInForm({ action, otpAction, next, mode = "signin", initialError, accountType, showGoogle = true }: SignInFormProps) {
+export function SignInForm({ action, otpAction, next, mode = "signin", initialError, accountType, showGoogle = true, showPhone = false }: SignInFormProps) {
   const [error, setError] = useState<string | null>(initialError ?? null);
   const [pending, startTransition] = useTransition();
   const [showPassword, setShowPassword] = useState(false);
@@ -55,9 +63,10 @@ export function SignInForm({ action, otpAction, next, mode = "signin", initialEr
       <input type="hidden" name="next" value={next} />
       {accountType && <input type="hidden" name="accountType" value={accountType} />}
 
-      {showGoogle && (
+      {(showGoogle || showPhone) && (
         <>
-          <GoogleButton next={next} />
+          {showGoogle && <GoogleButton next={next} />}
+          {showPhone && <PhoneButton next={next} />}
           <div
             aria-hidden
             style={{

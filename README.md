@@ -49,6 +49,18 @@ support button.
 - **CSRF:** form actions go through Next.js server actions which require a same-origin request.
 - **Input validation:** all forms validated before hitting the backend.
 - **Route protection:** `middleware.ts` gates `/atelier`, `/dashboard`, `/portal` and redirects to `/sign-in`.
+- **Mobile sign-in** (`/sign-in/phone`) uses Firebase Phone Auth: Firebase sends the SMS
+  code on Google's own registered routes, so it needs no DLT registration and no SMS
+  gateway. The browser runs the code exchange with Firebase directly — the one place the
+  app talks to a third party rather than through the same-origin BFF, which is why the
+  CSP names `identitytoolkit`, `securetoken` and the reCAPTCHA hosts explicitly. Only the
+  resulting Firebase ID token reaches our backend, which verifies it against Google's
+  public keys **and** against our own project id before issuing a session.
+
+  The `NEXT_PUBLIC_FIREBASE_*` values are not secrets (a Firebase web API key names a
+  project; it authorises nothing) but they ARE build-time inputs, and the auth domain
+  also feeds the CSP at server start — see `.env.example`. Leave them blank and the
+  option is not offered at all.
 
 ## Performance
 
@@ -56,7 +68,10 @@ support button.
 - **App pages are streaming SSR** with React Suspense.
 - **WebGL recolor** is browser-side, ~60 fps on mid-range mobile.
 - **Fonts** are preconnected and `font-display: swap`.
-- **Code splitting** is route-based.
+- **Code splitting** is route-based. The Firebase auth SDK (~130 kB) is the one
+  deliberate exception: it is dynamically imported inside the handlers of
+  `/sign-in/phone`, so it loads when someone asks for a code and never touches the
+  bundle of anyone signing in with a password.
 
 ## API contract
 

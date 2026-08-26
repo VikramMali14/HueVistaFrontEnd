@@ -1,29 +1,36 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { loginAction, loginWithOtpAction, registerAction } from "@/lib/auth";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Logo } from "@/components/ui/logo";
 import { AuthArt } from "@/components/auth/auth-art";
-import { DemoCredentials } from "@/components/auth/demo-credentials";
-import { DEMO_MODE } from "@/lib/demo/flag";
 import { phoneSignInEnabled } from "@/lib/firebase";
-import { SignInForm } from "./form";
+import { PhoneSignInForm } from "./phone-form";
 
 export const metadata: Metadata = {
-  title: "Sign in",
-  description: "Sign in to your HueVista studio.",
+  title: "Sign in with your mobile",
+  description: "Sign in to HueVista with your mobile number — no password needed.",
 };
 
 interface PageProps {
-  searchParams: Promise<{ next?: string; mode?: string; error?: string }>;
+  searchParams: Promise<{ next?: string }>;
 }
 
-export default async function SignInPage({ searchParams }: PageProps) {
-  const { next, mode, error } = await searchParams;
-  // /sign-in?mode=register — the free, no-shop account (e.g. a walk-in customer
-  // keeping their guest work). registerAction treats the shop fields as optional.
-  const register = mode === "register";
+/**
+ * Sign in with a mobile number.
+ *
+ * <p>Its own page rather than a third field on /sign-in, because it is a different
+ * conversation: two steps, a countdown, and no password anywhere in it. Squeezing that
+ * into the email form would make the common case — someone who has a password —
+ * busier for the sake of the other one.
+ *
+ * <p>There is no separate "create an account" version. The number IS the identity: if
+ * it has an account the customer lands on it, and if it does not, one is opened. Asking
+ * somebody to know in advance which of those they are would be asking them something
+ * only we can answer.
+ */
+export default async function PhoneSignInPage({ searchParams }: PageProps) {
+  const { next } = await searchParams;
   return (
     <>
       <SiteHeader showSignIn={false} />
@@ -32,45 +39,23 @@ export default async function SignInPage({ searchParams }: PageProps) {
           <div style={{ display: "flex", flexDirection: "column", gap: "clamp(20px, 4vw, 36px)", padding: "28px 0" }}>
             <Logo size="lg" />
             <p style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(21px, 4.5vw, 30px)", lineHeight: 1.15, color: "var(--ivory)", maxWidth: "18ch", letterSpacing: "-.02em", margin: 0 }}>
-              See the colour on the wall before the can opens.
+              Your number is your key. No password to forget.
             </p>
           </div>
         </AuthArt>
 
         <section className="auth-form-wrap">
-          <Eyebrow>{register ? "Create account" : "Sign in"}</Eyebrow>
-          <h1>{register ? <>Create your <i>account.</i></> : <>Welcome <i>back.</i></>}</h1>
+          <Eyebrow>Mobile sign-in</Eyebrow>
+          <h1>Sign in with your <i>mobile.</i></h1>
           <Lead style={{ maxWidth: "42ch" }}>
-            {register
-              ? "Free, no card — your projects, colours and saved previews stay with you for good."
-              : "Your projects, colours and saved previews — right where you left them."}
+            We&apos;ll text you a code. If you&apos;ve been here before you&apos;ll land right back in your
+            projects; if not, we&apos;ll set you up in a moment.
           </Lead>
-          {DEMO_MODE && !register && <DemoCredentials />}
-          <SignInForm
-            action={register ? registerAction : loginAction}
-            otpAction={register ? undefined : loginWithOtpAction}
-            mode={register ? "register" : "signin"}
-            next={next ?? "/dashboard"}
-            initialError={error === "google" ? "Google sign-in didn’t complete. Please try again, or use your email below." : undefined}
-            // Only on the sign-in side. The register variant of this form is where a
-            // SHOP account is created, and mobile sign-in always opens a CUSTOMER —
-            // offering it there would hand a shop owner the wrong kind of account.
-            // A customer with no account needs no separate signup here anyway: the
-            // mobile flow opens one for a number it does not recognise.
-            showPhone={!register && phoneSignInEnabled}
-          />
+
+          <PhoneSignInForm next={next ?? "/dashboard"} enabled={phoneSignInEnabled} />
+
           <p className="auth-foot">
-            {register ? (
-              <>Already have an account? <Link href={`/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in.</Link></>
-            ) : (
-              <>New to HueVista? <Link href="/join">Create a free account.</Link></>
-            )}
-          </p>
-          {/* Customers who redeemed a shop code have no password — this form can
-              never let them back in. Anything that bounces them here (an expired
-              access cookie, a dead phone) would strand them without this way out. */}
-          <p className="auth-foot" style={{ marginTop: 12 }}>
-            Have a code from your paint shop? <Link href="/unlock">Unlock your projects — no password needed.</Link>
+            Prefer a password? <Link href={`/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in with your email.</Link>
           </p>
         </section>
       </div>

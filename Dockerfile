@@ -22,6 +22,24 @@ ARG S3_REGION
 ENV S3_REGION=${S3_REGION}
 ARG IMAGE_REMOTE_HOSTS
 ENV IMAGE_REMOTE_HOSTS=${IMAGE_REMOTE_HOSTS}
+# Firebase Phone Auth — "sign in with your mobile number". Needed at BUILD time twice
+# over: NEXT_PUBLIC_* is inlined into the bundle (so the SDK knows which project to
+# talk to), and NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN also feeds the CSP that `next build`
+# bakes into the routes manifest. Miss it here and the sign-in page renders, the
+# button works, and the browser silently blocks the call to Google.
+#
+# None of these is a secret — a Firebase web API key identifies a project, it does not
+# authorise anything. What guards the project is the authorised-domains list in the
+# Firebase console and the backend's own project-id check. Leave them ALL unset and the
+# feature is simply off: the mobile option is not offered at all.
+ARG NEXT_PUBLIC_FIREBASE_API_KEY
+ENV NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY}
+ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
+ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+ARG NEXT_PUBLIC_FIREBASE_APP_ID
+ENV NEXT_PUBLIC_FIREBASE_APP_ID=${NEXT_PUBLIC_FIREBASE_APP_ID}
 RUN npm run build
 
 # ---- Runtime ----
@@ -50,6 +68,12 @@ ENV S3_REGION=${S3_REGION}
 # exactly why it went unset in production and every image got a 503.
 ARG S3_BUCKET_NAME
 ENV S3_BUCKET_NAME=${S3_BUCKET_NAME}
+# next.config.ts is loaded again by Node at server start and rebuilds the CSP from the
+# auth domain, so it must be set in BOTH stages — the same trap the API origin above
+# documents. Set only in the build stage, the served policy would omit the Firebase
+# hosts the bundles were built to call.
+ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
 COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 # chown so the runtime user can write .next/cache (image optimizer, ISR).

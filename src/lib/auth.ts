@@ -346,6 +346,60 @@ export async function registerAction(formData: FormData) {
 }
 
 /**
+ * Completes a mobile-number sign-in: trades the Firebase ID token for a HueVista
+ * session and reports where to go next.
+ *
+ * <p>Firebase has already sent the SMS and checked the code in the browser (see
+ * `lib/firebase.ts`); the backend verifies the resulting token against Google's public
+ * keys and against our own project id before it issues anything. The number is read
+ * from the SIGNED TOKEN there, never from anything this action sends, so nothing the
+ * browser can edit decides which account is opened.
+ *
+ * <p>RETURNS the destination instead of redirecting, for the same reason
+ * `completeGoogleSignIn` does: this is called imperatively from a client component,
+ * where `redirect()` throws NEXT_REDIRECT and surfaces as a rejected promise — the
+ * caller's error branch would then report a failure on a sign-in that had already set
+ * the cookies. That exact shape was the old login bug.
+ */
+export async function signInWithPhoneAction(input: {
+  idToken: string;
+  /** Only used when this number has no account yet. */
+  name?: string;
+  next?: string;
+}): Promise<{ next: string } | { error: string }> {
+  "use server";
+  if (!input.idToken) {
+    return { error: "That sign-in didn't complete. Please try again." };
+  }
+  // Forward the real visitor IP so the backend's per-IP limiter buckets by the actual
+  // client rather than by the single frontend-server IP — mirrors loginAction.
+  const clientIp = clientIpFromHeaders(await headers());
+  try {
+    const auth = await authApi.phoneSignIn(
+      { idToken: input.idToken, name: input.name?.trim() || undefined },
+      clientIp,
+    );
+    await persistSession(auth);
+    // Parity with every other sign-in path: fold in a kiosk purchase this browser is
+    // still holding. Best-effort — it never blocks the sign-in.
+    await maybeMergeKioskAccount(auth.accessToken);
+  } catch (err) {
+    if (err instanceof HttpError) {
+      // 401 here means the token was rejected — expired, or minted for another
+      // Firebase project. Either way the fix is to start the code over.
+      if (err.status === 401) {
+        return { error: "That sign-in has expired. Please request a new code." };
+      }
+      // 403 (an admin account) and 503 (not configured) both carry a message that
+      // tells the customer what to do instead, so pass it through.
+      return { error: err.message };
+    }
+    return { error: "The server is starting up — please try again in a few seconds." };
+  }
+  return { next: safeNext(input.next ?? null) };
+}
+
+/**
  * Completes Google sign-in. The backend OAuth success handler redirects to
  * /sign-in/callback with the tokens (URL fragment or query string); the callback
  * page reads them client-side and calls this action to persist the same HttpOnly
