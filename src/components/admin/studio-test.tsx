@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveMediaUrl } from "@/lib/media";
 import { loadCrossOriginImage as loadImage } from "@/lib/load-image";
 import { hexToRgb01, Recolor, regionMeanLuma, type RecolorEngine, type RegionPaint } from "@/lib/webgl-recolor";
+import {
+  anchorDivisor, buildReliefMap, REF_WHITE, reliefFor, SceneLight, type RegionLight,
+} from "@/lib/canvas-light";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import { SOFT_EDGE_FEATHER_PX } from "@/lib/recolor-engine";
 import { lrvCorrectedRgb01 } from "@/lib/color-science";
@@ -41,6 +44,16 @@ import { Spinner } from "@/components/ui/spinner";
 
 /** The studio's own defaults, so a knob moved off one is visibly off the product. */
 const STUDIO_SHADOW_STRENGTH = 0.85;
+/**
+ * The studio does NOT calibrate against the delivered canvas — it assumes fresh white
+ * and modulates only the light the canvas kept. So the bench's default is off, like
+ * every other knob here: what you see on arrival is what a customer sees.
+ *
+ * Turning it on is the proposed fix, running on a real room. The engines carry it and
+ * nothing in the product asks for it, deliberately — it is evaluated here before it
+ * goes anywhere near a customer or a retailer.
+ */
+const STUDIO_CALIBRATE = false;
 const STUDIO_EDGE_NUDGE_PX = 1;
 const STUDIO_SOFT_EDGE = false;
 
@@ -145,6 +158,7 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
   const [preserve, setPreserve] = useState(STUDIO_SHADOW_STRENGTH);
   const [edgeNudge, setEdgeNudge] = useState(STUDIO_EDGE_NUDGE_PX);
   const [softEdges, setSoftEdges] = useState(STUDIO_SOFT_EDGE);
+  const [calibrate, setCalibrate] = useState(STUDIO_CALIBRATE);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<RecolorEngine | null>(null);
@@ -158,6 +172,11 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
   /** Region mean luminance, per surface AND per canvas — the two differ, which is
    *  the whole reason the canvas is switchable here. */
   const lumaRef = useRef<Map<string, number>>(new Map());
+  // The canvas's measured light and the shading recovered from the photograph — the
+  // two inputs the studio calibrates anchored shading with. Both describe the canvas
+  // currently in play, so both are dropped when it switches.
+  const sceneLightRef = useRef<SceneLight | null>(null);
+  const regionLightRef = useRef<Map<string, RegionLight | null>>(new Map());
 
   const active = surfaces.find((s) => s.id === activeId) ?? null;
 
@@ -193,8 +212,17 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
     setDims({ w: img.naturalWidth, h: img.naturalHeight });
     setBaseUrl(img.src);
     // Luminance is measured against the canvas in play, so it does not survive
-    // the switch.
+    // the switch — nor does what that canvas delivered.
     lumaRef.current.clear();
+    sceneLightRef.current = null;
+    regionLightRef.current.clear();
+    // setImage cleared the engine's relief source. The bench can rebuild it on the
+    // spot, unlike the studio, because it already holds both images in memory —
+    // and only for the cleaned canvas: on the original the recovered shading would
+    // be the photo's own, applied to itself.
+    const original = originalRef.current;
+    const relief = canvasSource === "cleaned" && original ? buildReliefMap(original) : null;
+    if (relief) rc.setReliefSource?.(relief);
   }, [canvasSource, engineEpoch, generation]);
 
   const loadMask = useCallback((url: string) => {
@@ -253,6 +281,21 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
             lumaRef.current.set(key, baseL);
           }
         }
+        // What this surface actually arrived at: the white the clean-up delivered,
+        // and whether it kept any light. Same measurement the studio makes, and the
+        // calibration knob is the only way to see the render without it.
+        let light: RegionLight | null = null;
+        if (calibrate && preserve > 0 && canvasSource === "cleaned") {
+          const key = `${canvasSource}:${s.id}`;
+          const cached = regionLightRef.current.get(key);
+          if (cached !== undefined) {
+            light = cached;
+          } else {
+            sceneLightRef.current ??= SceneLight.from(base);
+            light = sceneLightRef.current?.region(mask) ?? null;
+            regionLightRef.current.set(key, light);
+          }
+        }
         paints.push({
           // Catalogue shades paint at their MEASURED brightness (hue with the
           // luminance corrected to the shade's LRV); a raw hex paints unchanged.
@@ -264,6 +307,8 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
           // were the walls repainted white, which is what makes the photo an
           // illumination map. On the original it would double-count the old paint.
           anchor: canvasSource === "cleaned",
+          whitePoint: light?.whitePoint,
+          relief: light?.relief,
         });
       }
       if (cancelled) return;
@@ -273,7 +318,7 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
     return () => {
       cancelled = true;
     };
-  }, [surfaces, compare, canvasSource, preserve, edgeNudge, softEdges, loadMask, engineEpoch, generation]);
+  }, [surfaces, compare, canvasSource, preserve, edgeNudge, softEdges, calibrate, loadMask, engineEpoch, generation]);
 
   // ---- picker ---------------------------------------------------------------
   const search = useCallback(async (q: string) => {
@@ -386,7 +431,7 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
   // them on screen next to a render they no longer describe.
   useEffect(() => {
     setMetrics({});
-  }, [surfaces, canvasSource, preserve, edgeNudge, softEdges]);
+  }, [surfaces, canvasSource, preserve, edgeNudge, softEdges, calibrate]);
 
   /**
    * Read the frame back and measure each painted surface on it.
@@ -707,6 +752,37 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
               </p>
             </Knob>
 
+            <Knob
+              id="st-calibrate"
+              label="Light calibration"
+              value={calibrate ? "on" : "off"}
+              off={calibrate !== STUDIO_CALIBRATE}
+            >
+              <label style={RADIO_STYLE}>
+                <input
+                  id="st-calibrate"
+                  type="checkbox"
+                  checked={calibrate}
+                  onChange={(e) => setCalibrate(e.target.checked)}
+                />
+                <span>Measure what the canvas delivered</span>
+              </label>
+              <p style={HINT_STYLE}>
+                <b>Off is what ships.</b> Anchored shading assumes the clean-up delivered
+                fresh white and modulates only the light the canvas kept &mdash; so a
+                surface that came back grey renders every colour dark, and one that came
+                back flat renders a sticker.
+              </p>
+              <p style={HINT_STYLE}>
+                On, it divides by the white the clean-up ACTUALLY put down on each
+                surface and borrows back the shading it ironed out, from the original
+                photograph. This is the proposed fix, not the product: no customer or
+                retailer sees it. Judge it here, on real rooms, before it goes anywhere.
+                Cleaned canvas only &mdash; there is nothing to calibrate against on the
+                original.
+              </p>
+            </Knob>
+
             <Knob id="st-soft" label="Soft edges" value={softEdges ? "on" : "off"} off={softEdges !== STUDIO_SOFT_EDGE}>
               <label style={RADIO_STYLE}>
                 <input
@@ -808,16 +884,16 @@ function Metrics({ surfaces, metrics, measuring, onMeasure, canvasSource, disabl
 /** A spread at or under this is a plane with no light left in it. */
 const FLAT_SPREAD = 1.5;
 /**
- * The albedo anchored mode divides by: REF_WHITE = 0.94 in both engines, the sRGB
- * value of fresh white paint at LRV ~85.
+ * The albedo anchored shading was ASSUMED to divide by: fresh white paint at LRV ~85.
  *
- * Anchored mode reads the cleaned canvas as an illumination map by computing
- * `form = blur(photo) / REF_WHITE`, which is only true if the clean-up actually
- * delivered a wall at that level. Every point the delivered white falls short is a
- * point of gain the paint loses across the WHOLE surface — a systematic darkening
- * that no colour choice can escape and that reads, wrongly, as the swatch being off.
+ * Anchored mode reads the cleaned canvas as an illumination map, and every point the
+ * delivered white falls short of the assumed one is a point of gain the paint loses
+ * across the WHOLE surface — a systematic darkening no colour choice can escape,
+ * which reads wrongly as the swatch being off. The engine no longer assumes it: it
+ * divides by `anchorDivisor(measured white)` instead. This row is what that is worth
+ * on this surface.
  */
-const REF_WHITE_255 = 0.94 * 255;
+const REF_WHITE_255 = REF_WHITE * 255;
 /** Below this, the texture on screen has nothing to do with the photograph's. */
 const SYNTHETIC_R = 0.3;
 
@@ -876,14 +952,29 @@ function SurfaceReport({ label, m, canvasSource }: { label: string; m: SurfaceMe
       value: `${m.painted.p5} → ${m.painted.p95} · ${m.painted.spread}×`,
     },
     ...(cleaned ? [{
-      label: "Delivered white vs REF_WHITE",
-      value: `${m.base.mean} vs ${Math.round(REF_WHITE_255)} · gain ${round2(m.base.mean / REF_WHITE_255)}×`,
-      verdict: m.base.mean < REF_WHITE_255 * 0.9
+      label: "Delivered white, and what it is divided by",
+      value: `${m.base.p95} delivered vs ${Math.round(REF_WHITE_255)} assumed · dividing by `
+        + `${Math.round(anchorDivisor(m.base.p95 / 255) * 255)}`,
+      verdict: m.base.p95 < REF_WHITE_255 * 0.9
         ? {
-            tone: "bad" as const,
-            text: `every anchored colour is ${Math.round((1 - m.base.mean / REF_WHITE_255) * 100)}% dark on this surface`,
+            tone: "warn" as const,
+            text: `the clean-up came back ${Math.round((1 - m.base.p95 / REF_WHITE_255) * 100)}% short of `
+              + `white here; calibration hands back `
+              + `${Math.round((REF_WHITE_255 / (anchorDivisor(m.base.p95 / 255) * 255) - 1) * 100)}% of the `
+              + `brightness assuming white would have cost`,
           }
-        : { tone: "ok" as const, text: "the canvas matches the albedo the engine assumes" },
+        : { tone: "ok" as const, text: "the canvas matches the albedo the engine assumed anyway" },
+    }] : []),
+    ...(cleaned ? [{
+      label: "Shading recovered from the photograph",
+      value: `${Math.round(reliefFor(m.base.spread) * 100)}% of it borrowed back`,
+      verdict: reliefFor(m.base.spread) > 0.5
+        ? {
+            tone: "warn" as const,
+            text: "this surface arrived too flat to modulate; most of its shading is the "
+              + "photograph's, put back",
+          }
+        : { tone: "ok" as const, text: "the canvas kept enough of its own light" },
     }] : []),
     {
       label: "Blend fit (output vs canvas)",
@@ -1304,7 +1395,6 @@ function Knob({
   );
 }
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const NOTE_STYLE: React.CSSProperties = {
   marginTop: 14,

@@ -22,6 +22,7 @@
  */
 
 import type { RecolorEngine, RecolorSource, RegionPaint } from "./recolor-engine";
+import { anchorDivisor, REF_WHITE } from "./canvas-light";
 import { featherMaskInward, featherRadiusInMaskPx, offsetMaskCanvas } from "./mask-feather";
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
@@ -32,12 +33,12 @@ const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
  *  ceiling, not the shadow gamma or the soft-kneed texture transfer.) */
 const MAX_GAIN = 2.4;
 
-/** sRGB value of fresh white paint (LRV ~85) — mirrors the GL shader's
- *  REF_WHITE. In anchored mode (cleaned canvas, surfaces known white) the
- *  multiply pass is gained back by 1/REF_WHITE instead of 1/baseL, so the
- *  paint keeps the photo's own light level rather than averaging to the
- *  full-brightness swatch. */
-const REF_WHITE_L = 0.94;
+/* Anchored mode (cleaned canvas, paintable surfaces repainted to a known albedo)
+ * gains the multiply pass back by 1/albedo instead of 1/baseL, so the paint keeps
+ * the photo's own light level rather than averaging to the full-brightness swatch.
+ * The albedo comes from anchorDivisor() in canvas-light.ts — the SAME function the
+ * GL shader's u_anchorDiv is computed with, so the two engines cannot drift apart
+ * on it the way a hand-copied constant here once could. */
 
 /** Subtle surface grain tile so a flat fill reads as painted plaster, mirroring
  *  the GL shader's u_grain. Built once and tiled over each region layer. */
@@ -77,6 +78,8 @@ function cssColor(target: [number, number, number]): string {
 export class Canvas2DRecolor implements RecolorEngine {
   private ctx: CanvasRenderingContext2D;
   private source: RecolorSource | null = null;
+  /** Shading recovered from the original photograph; see setReliefSource. */
+  private reliefSource: RecolorSource | null = null;
   /** Mask source → alpha-converted mask (alpha = red channel × mask alpha), built once.
    *  `null` marks a mask we could not read (tainted) so we don't retry every frame. */
   private alphaMaskCache = new Map<RecolorSource, HTMLCanvasElement | null>();
@@ -116,8 +119,18 @@ export class Canvas2DRecolor implements RecolorEngine {
     this.canvas.width = Math.round((w || this.canvas.width) * dpr);
     this.canvas.height = Math.round((h || this.canvas.height) * dpr);
     // A new photo means the old project's masks are gone — drop their alpha
-    // masks.
+    // masks — and so is the photograph the relief map was built from.
     this.alphaMaskCache.clear();
+    this.reliefSource = null;
+  }
+
+  /**
+   * Supply the original photograph's relief map, or null to clear it. Mirrors the
+   * GL engine: inert until a region asks for it via `RegionPaint.relief`, and
+   * cleared by {@link setImage}, so call this after it.
+   */
+  setReliefSource(source: RecolorSource | null) {
+    this.reliefSource = source;
   }
 
   /**
@@ -204,6 +217,7 @@ export class Canvas2DRecolor implements RecolorEngine {
 
   dispose() {
     this.source = null;
+    this.reliefSource = null;
     this.alphaMaskCache.clear();
     // Free the scratch bitmaps.
     this.layer.width = this.layer.height = 0;
@@ -232,6 +246,7 @@ export class Canvas2DRecolor implements RecolorEngine {
     const preserve = clamp01(r.preserve ?? 0);
     const baseL = Math.max(0, r.baseL ?? 0);
     const anchored = r.anchor === true;
+    const relief = this.reliefSource ? clamp01(r.relief ?? 0) : 0;
     if (preserve > 0.001 && (baseL > 0.001 || anchored) && this.source) {
       const shade = this.shadeLayer;
       if (shade.width !== w || shade.height !== h) {
@@ -255,7 +270,12 @@ export class Canvas2DRecolor implements RecolorEngine {
       // light level. Legacy: the neutral is the region's mean luminance, so the
       // region's AVERAGE still lands on the swatch.
       sctx.globalCompositeOperation = "lighter";
-      const neutral = anchored ? REF_WHITE_L : baseL;
+      // Unmeasured takes the constant directly rather than routing it through
+      // anchorDivisor, which returns it unchanged anyway: the point is that a caller
+      // passing nothing cannot be moved by a change to the calibration.
+      const neutral = anchored
+        ? (r.whitePoint === undefined ? REF_WHITE : anchorDivisor(r.whitePoint))
+        : baseL;
       let remaining = Math.min(MAX_GAIN, 1 / Math.max(neutral, 1 / MAX_GAIN));
       while (remaining > 1.01) {
         const a = Math.min(1, remaining - 1);
@@ -265,6 +285,19 @@ export class Canvas2DRecolor implements RecolorEngine {
       }
       sctx.globalAlpha = 1;
       sctx.globalCompositeOperation = "source-over";
+      // Shading recovered from the original photograph, for a canvas that arrived
+      // with its own light flattened. 'overlay' against a map centred on mid-grey
+      // is the 2D stand-in for the shader's multiply by the ratio: mid-grey leaves
+      // the pixel alone, darker relief darkens it, lighter lifts it. The strength
+      // of the effect varies with the base here in a way the shader's multiply does
+      // not — this engine is the approximate one, and the shape is right.
+      if (relief > 0 && this.reliefSource) {
+        sctx.globalCompositeOperation = "overlay";
+        sctx.globalAlpha = relief;
+        sctx.drawImage(this.reliefSource, 0, 0, w, h);
+        sctx.globalAlpha = 1;
+        sctx.globalCompositeOperation = "source-over";
+      }
       // Blend the relief over the flat fill by `preserve` — the 2D stand-in for
       // the shader's mix(1.0, ratio, u_preserve).
       lctx.globalAlpha = preserve;
