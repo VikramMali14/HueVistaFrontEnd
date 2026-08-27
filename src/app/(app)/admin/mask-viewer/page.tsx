@@ -49,9 +49,14 @@ export default async function AdminMaskViewerPage({
         and a raw-vs-stored diff. Toggle layers to judge what fits and what needs to go.
       </Lead>
 
-      <p style={{ marginTop: 16 }}>
+      <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
         <Link href="/admin/mask-reports" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Reported runs →
+        </Link>
+        {/* The next question along: this screen judges the mask's shape, the bench
+            judges how paint lands inside it. */}
+        <Link href="/admin/studio-test" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          Studio bench — paint these masks →
         </Link>
       </p>
 

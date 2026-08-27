@@ -151,6 +151,17 @@ export function MaskReports({ initial, updateAction }: MaskReportsProps) {
                   Open the masks →
                 </Link>
               )}
+              {r.projectId && (
+                // And into the paint, for the half of these complaints the mask shape
+                // cannot answer: "the colour looks wrong" is a report about how paint
+                // LANDED, which is the bench's question, not the viewer's.
+                <Link
+                  href={`/admin/studio-test?project=${encodeURIComponent(r.projectId)}`}
+                  style={{ font: "500 12px/1 var(--mono)", color: "var(--accent-soft)", marginLeft: 16 }}
+                >
+                  Paint it →
+                </Link>
+              )}
             </div>
 
             <h3 style={{ font: "400 20px/1.3 var(--serif)", margin: "10px 0 4px" }}>
