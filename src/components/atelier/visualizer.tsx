@@ -3999,6 +3999,18 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             activeRegionLabel={active.label}
             activeApplied={active.applied}
             shades={panelShades}
+            // The unscoped catalogue, for search only. A customer's code often names a
+            // company this panel is not showing — the picker scoped it out, or a closed
+            // project narrowed it to its own boards — and answering "no shades match"
+            // to a code we can plainly read is the failure this exists to avoid. What
+            // gets DISPLAYED is still `panelShades` and nothing else.
+            allShades={shades}
+            // …and the public catalogue for the codes even that cannot read. A shop
+            // holds only the companies it may sell, so a customer's card from another
+            // company is unreadable to it — which is the one lookup a counter needs
+            // most. Only the colour is taken from the answer; what gets offered back
+            // is still a shade out of `panelShades`.
+            onLookupCode={api.findShadesByCode}
             baseHex={active.applied ? active.hex : undefined}
             activeRegionId={activeRegion}
             regions={regionLites}

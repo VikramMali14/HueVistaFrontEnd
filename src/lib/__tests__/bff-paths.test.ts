@@ -19,8 +19,10 @@ function browserFetchPaths(): string[] {
   // the path itself.
   for (const match of source.matchAll(/browserFetch<[^>]*>\(\s*(["'`])((?:(?!\1).)*)\1/gs)) {
     // Keep the literal head; a `${...}` interpolation can only appear after the
-    // prefix that decides whether the path is allowed.
-    const head = match[2]!.split("${")[0]!.replace(/^\/+/, "");
+    // prefix that decides whether the path is allowed. The query string goes too:
+    // the proxy matches on the joined path SEGMENTS and reads `?...` separately
+    // from the URL, so leaving it on reports an allowed path as blocked.
+    const head = match[2]!.split("${")[0]!.split("?")[0]!.replace(/^\/+/, "");
     if (head.startsWith("api/")) paths.add(head);
   }
   return [...paths];

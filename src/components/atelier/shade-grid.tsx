@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Mono, Note } from "@/components/ui/eyebrow";
 import { SHADES } from "@/lib/shades";
 import {
+  closenessRating,
   DARK_ROOM_LRV,
   fadeSaferAlternatives,
   fanDeckNeighbors,
@@ -19,6 +20,7 @@ import { UndertoneTag } from "@/components/catalogue/undertone-tag";
 import { SHADE_ACCURACY_TEXT } from "@/components/shared/accuracy-note";
 import { generatePalettes } from "@/lib/palettes";
 import { mapToPaintShade } from "@/lib/shade-mapping";
+import { crossBrandLookup, type CrossBrandLookup } from "@/lib/cross-brand";
 import { HttpError } from "@/lib/http-error";
 import { CoordinateSuggestions, type RegionLite } from "./coordinate-suggestions";
 import type {
@@ -80,6 +82,10 @@ const toneOf = (lrv: number): Exclude<Tone, "All"> =>
 const COMPANY_INITIAL = 48;
 const COMPANY_STEP = 240;
 
+// Long enough that a code being typed doesn't fire a lookup per keystroke — the same
+// pause the counter's code converter waits for.
+const LOOKUP_DEBOUNCE_MS = 350;
+
 /**
  * One combination the customer was handed on a colour board, in the shape this panel
  * renders. The studio maps the backend's `ProjectCombo` into it, so the panel never has
@@ -113,6 +119,32 @@ interface ShadeGridProps {
   onKeepOriginal?: () => void;
   /** Shades fetched from the backend; falls back to the bundled sample. */
   shades?: ReadonlyArray<PaintShade>;
+  /**
+   * EVERY shade the caller may see, before the studio's company picker narrowed
+   * {@link shades} down to what is on screen.
+   *
+   * Only search reads it, and only to answer a code the panel is not showing: a
+   * customer arrives with an Asian Paints number, the shop is showing HueVista, and
+   * "no shades match" is a true statement about the wrong catalogue. Nothing from
+   * here is ever rendered as a swatch — the grid stays exactly what the picker
+   * chose — so scoping the panel still means what it says.
+   *
+   * Absent = the same list as {@link shades}, which simply makes the cross-reference
+   * find nothing rather than misbehave.
+   */
+  allShades?: ReadonlyArray<PaintShade>;
+  /**
+   * Ask the public catalogue what colour a code names, when {@link allShades} cannot
+   * say — the shop is set up for one company and the customer's card is another's.
+   *
+   * That is the ordinary case, not the edge one: a shop's catalogue is narrowed to
+   * what it may sell, so the codes it CANNOT read are exactly the ones customers walk
+   * in holding. The reply is used for its colour alone; what gets offered back is
+   * still only shades from this panel's own catalogue.
+   *
+   * Absent (or failing) simply means the search answers from what is already loaded.
+   */
+  onLookupCode?: (code: string) => Promise<ReadonlyArray<PaintShade>>;
   // --- Coordinate suggestions ("complete the look") ---
   /** Applied colour of the active region; drives the pairing suggestions. */
   baseHex?: string;
@@ -236,6 +268,8 @@ export function ShadeGrid({
   activeApplied = false,
   onKeepOriginal,
   shades,
+  allShades,
+  onLookupCode,
   baseHex,
   activeRegionId,
   regions,
@@ -331,6 +365,75 @@ export function ShadeGrid({
     });
   }, [catalogue, family, tone, deferredQuery, encodeCode, hideCodes, hideNames]);
 
+  /**
+   * A code from a company that isn't on screen, answered in the companies that are.
+   *
+   * Read against the WHOLE catalogue rather than the filtered grid, on purpose: the
+   * search box's own filters (company, family, depth) are precisely what hid the
+   * shade the customer's code names, so re-applying them here would hide the answer
+   * too. It is scored against `catalogue` — the picker's scope — because what the
+   * band offers has to be something this shop can actually sell.
+   */
+  const [pickedCandidate, setPickedCandidate] = useState<string | null>(null);
+  const localRef = useMemo<CrossBrandLookup | null>(
+    () => crossBrandLookup(deferredQuery, catalogue, allShades ?? catalogue),
+    [deferredQuery, catalogue, allShades],
+  );
+
+  /**
+   * The same question asked of the public catalogue, for the codes this caller's own
+   * catalogue cannot read.
+   *
+   * A shop is served only the companies it may sell, so the codes it holds no answer
+   * for are precisely the ones customers arrive with — a card from the company down
+   * the road. Only the COLOUR comes back; what gets offered is still worked out
+   * against `catalogue`, so the panel can never suggest paint this shop cannot mix.
+   *
+   * Deliberately last: the local catalogue is authoritative and free, so the network
+   * is touched only once it has drawn a blank.
+   */
+  const [remote, setRemote] = useState<{ code: string; shades: ReadonlyArray<PaintShade> } | null>(null);
+  const remoteSeq = useRef(0);
+  useEffect(() => {
+    const code = deferredQuery.trim().toUpperCase();
+    // A code is one token. Anything with a space in it is someone searching by name,
+    // and asking the server to look it up as a code would be a request per pause.
+    if (!onLookupCode || localRef || code.length < 2 || code.length > 24 || /\s/.test(code)) return;
+    const mine = ++remoteSeq.current;
+    const t = setTimeout(() => {
+      onLookupCode(code)
+        .then((hits) => {
+          // A slower earlier lookup must not overwrite a newer answer: on this panel a
+          // stale result is the wrong colour, not merely a stale screen.
+          if (remoteSeq.current === mine) setRemote({ code, shades: hits });
+        })
+        // Silent: search still answers from the loaded catalogue, and a failed
+        // background lookup is not something to interrupt someone browsing with.
+        .catch(() => {});
+    }, LOOKUP_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [deferredQuery, onLookupCode, localRef]);
+
+  const crossRef = useMemo<CrossBrandLookup | null>(() => {
+    if (localRef) return localRef;
+    if (!remote || remote.code !== deferredQuery.trim().toUpperCase()) return null;
+    return crossBrandLookup(remote.code, catalogue, remote.shades);
+  }, [localRef, remote, deferredQuery, catalogue]);
+
+  // A company chosen out of an ambiguous code doesn't survive the next query.
+  useEffect(() => setPickedCandidate(null), [deferredQuery]);
+  /**
+   * The ambiguous case, once the user has said which company they meant: re-run the
+   * lookup against that one company's copy of the code, so the answer below is scored
+   * from the right colour rather than from whichever company sorted first.
+   */
+  const resolvedRef = useMemo<CrossBrandLookup | null>(() => {
+    if (!crossRef || crossRef.kind !== "ambiguous" || !pickedCandidate) return crossRef;
+    const picked = crossRef.candidates.find((c) => c.brand === pickedCandidate);
+    if (!picked) return crossRef;
+    return crossBrandLookup(picked.code, catalogue, [picked]);
+  }, [crossRef, pickedCandidate, catalogue]);
+
   // Stable identity so the memoised CompanySection isn't re-rendered by a new callback.
   const showMoreOfCompany = useCallback((brand: string, next: number) => {
     setCompanyVisible((prev) => ({ ...prev, [brand]: next }));
@@ -408,8 +511,8 @@ export function ShadeGrid({
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name or code"
-                aria-label="Search by name or code"
+                placeholder="Search by name, or any company's code"
+                aria-label="Search by name, or a code from any company"
               />
             </div>
             <button
@@ -495,8 +598,26 @@ export function ShadeGrid({
       <div className="hv-studio-scroll" ref={scrollRef} inert={awaitingPhoto || undefined}>
         {tab === "Catalogue" && (
           <>
+            {resolvedRef && (
+              <CrossBrandBand
+                lookup={resolvedRef}
+                onSelect={onSelect}
+                onPickCandidate={setPickedCandidate}
+                hideCodes={hideCodes}
+                hideNames={hideNames}
+                showBrands={showBrands}
+                encodeCode={encodeCode}
+              />
+            )}
             {shown.length === 0 ? (
-              <p className="hv-studio-empty">No shades match. Clear the search, family or depth filter.</p>
+              <p className="hv-studio-empty">
+                {/* The cross-reference is the answer in this case, so saying "no shades
+                    match" over the top of it would be telling the user their search
+                    failed while its result sits directly above. */}
+                {resolvedRef
+                  ? "Nothing on screen carries that code itself — the closest colours are above."
+                  : "No shades match. Clear the search, family or depth filter."}
+              </p>
             ) : (
               <div className="hv-studio-by-company">
                 {byCompany.map(({ brand, list }) => (
@@ -706,6 +827,134 @@ const CompanySection = memo(function CompanySection({
     </div>
   );
 });
+
+/**
+ * "You typed a code we don't stock — here is what we do."
+ *
+ * Sits at the head of the Colours tab whenever the search box holds a code belonging
+ * to a company the panel isn't showing. The customer designed their room against
+ * whatever card was to hand; the shop in front of them sells something else. Without
+ * this the search says "no shades match", which is true of the catalogue on screen and
+ * useless to the person holding the code.
+ *
+ * Each row is a real swatch: tapping it paints the wall, exactly like tapping one in
+ * the grid below. The point is not to report a lookup, it is to get the colour onto
+ * the photo.
+ *
+ * Two things it will not do. It never quotes a near miss as if it were the colour —
+ * "the same colour" and "close" are printed apart, because a wall painted on the
+ * strength of a confusion between them is the wrong wall. And it obeys the panel's own
+ * disclosure rules: with `showBrands` off no company is named here either, since a
+ * band that attributes the very shades the grid deliberately leaves unattributed would
+ * simply be the leak moved up the page.
+ */
+function CrossBrandBand({
+  lookup,
+  onSelect,
+  onPickCandidate,
+  hideCodes = false,
+  hideNames = false,
+  showBrands = true,
+  encodeCode,
+}: {
+  lookup: CrossBrandLookup;
+  onSelect: (shade: PaintShade) => void;
+  /** Answer to "which company's code is this?" when several share it. */
+  onPickCandidate: (brand: string) => void;
+  hideCodes?: boolean;
+  hideNames?: boolean;
+  showBrands?: boolean;
+  encodeCode?: (code: string) => string;
+}) {
+  const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
+  const nameLabel = (s: { name: string; code: string }) =>
+    hideNames ? (codeLabel(s.code) ?? "") : s.name;
+
+  if (lookup.kind === "ambiguous") {
+    return (
+      <section className="hv-studio-xref" aria-label={`More than one match for ${lookup.query}`}>
+        <Mono>Which one?</Mono>
+        <p className="hv-studio-xref-lead">
+          {/* A guess here would name a real shade from the wrong company, which reads
+              exactly like a right answer. With companies hidden the same question is
+              asked about the colours themselves, which the customer can see. */}
+          {showBrands
+            ? `More than one company uses “${lookup.query}”. Which one is on the colour board?`
+            : `More than one colour carries “${lookup.query}”. Which one is on the colour board?`}
+        </p>
+        <div className="hv-studio-xref-choices">
+          {lookup.candidates.map((c) => (
+            <button
+              key={c.brand}
+              type="button"
+              className="hv-studio-xref-choice"
+              onClick={() => onPickCandidate(c.brand)}
+            >
+              <span aria-hidden className="hv-studio-xref-dot" style={{ background: c.hex }} />
+              {showBrands ? c.brand : nameLabel(c) || c.hex}
+            </button>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  const { source, matches, query, viaHvCode } = lookup;
+  // What the user typed, not what we resolved: the box shows their input, and two
+  // disagreeing reads of the same code look like a bug rather than a translation.
+  const typed = viaHvCode ? query : showBrands ? `${source.brand} ${query}` : query;
+  const sourceName = hideNames ? null : source.name;
+
+  return (
+    <section className="hv-studio-xref" aria-label={`Colours similar to ${typed}`}>
+      <Mono>Similar to {typed}</Mono>
+      <div className="hv-studio-xref-source">
+        <span aria-hidden className="hv-studio-xref-dot" style={{ background: source.hex }} />
+        <span className="hv-studio-xref-source-text">
+          {typed}
+          {sourceName ? ` · ${sourceName}` : ""}
+        </span>
+      </div>
+      <p className="hv-studio-xref-lead">
+        {matches.length === 1
+          ? "The nearest colour on screen:"
+          : "The nearest colour in each company on screen:"}
+      </p>
+      <div className="hv-studio-xref-matches">
+        {matches.map(({ shade, deltaE, exact }) => {
+          const code = codeLabel(shade.code);
+          const closeness = exact ? "The same colour" : closenessRating(deltaE);
+          return (
+            <button
+              key={`${shade.brand}-${shade.code}`}
+              type="button"
+              className="hv-studio-xref-match"
+              onClick={() => onSelect(shade)}
+              aria-label={`Apply ${nameLabel(shade) || "colour"}${code ? `, code ${code}` : ""}${
+                showBrands ? `, ${shade.brand}` : ""
+              } — ${closeness.toLowerCase()} to ${typed}`}
+            >
+              <span aria-hidden className="hv-studio-xref-chip" style={{ background: shade.hex }} />
+              <span className="hv-studio-xref-match-text">
+                <span className="hv-studio-xref-match-name">
+                  {nameLabel(shade) || "Colour"}
+                  {code && !hideNames ? ` · ${code}` : ""}
+                </span>
+                <span className="hv-studio-xref-match-note">
+                  {showBrands ? `${shade.brand} · ` : ""}
+                  {closeness}
+                  {/* ΔE only where it qualifies a near miss. Printed beside "the same
+                      colour" it would read as a hedge on an answer that has none. */}
+                  {exact ? "" : ` · ΔE ${deltaE}`}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 /**
  * Pinned footer of the panel. Three constant-height rows — tips (collapsible),

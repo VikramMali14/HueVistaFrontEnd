@@ -13,6 +13,7 @@
 import { config } from "./config";
 import { HttpError } from "./http-error";
 import { isDemoMode } from "./demo/flag";
+import { mapToPaintShade } from "./shade-mapping";
 import type { SiteAsset } from "./site-assets";
 import type {
   AccessCode,
@@ -1605,6 +1606,33 @@ export const api = {
       `api/shades/decode?code=${encodeURIComponent(code)}`
       + (brand ? `&brand=${encodeURIComponent(brand)}` : ""),
     ),
+  /**
+   * Every shade in the PUBLIC catalogue carrying exactly this manufacturer code.
+   *
+   * The studio is served the caller's own catalogue — a shop set up for one company
+   * never holds another's shades — which is right for browsing and wrong for the one
+   * question a customer actually arrives with: "here is a code from the card I was
+   * given, what do you sell that matches?" Without this, that code is unreadable to
+   * the very shop being asked to fill the order.
+   *
+   * Nothing found here is ever offered as stock. It resolves a code to a COLOUR, and
+   * the nearest shade the caller can genuinely sell is then worked out against their
+   * own catalogue, in the browser.
+   *
+   * `/api/shades?search=` also matches names partially, so exact-code rows are kept
+   * and the rest discarded: a search for "L124" must not answer with a shade merely
+   * called "L1240 Blue".
+   */
+  findShadesByCode: async (code: string) => {
+    const wanted = code.trim().toUpperCase();
+    if (!wanted) return [] as import("./types").PaintShade[];
+    const rows = await browserFetch<import("./shade-mapping").BackendShade[]>(
+      `api/shades?search=${encodeURIComponent(wanted)}`,
+    );
+    return rows
+      .filter((r) => (r.shadeCode ?? "").trim().toUpperCase() === wanted)
+      .map(mapToPaintShade);
+  },
   // The shop's OWN companies — what its distributor assigned it, not the whole
   // catalogue. Anywhere a shop is choosing what to hand a customer must use this:
   // offering a company it cannot sell from is a promise it cannot keep.
