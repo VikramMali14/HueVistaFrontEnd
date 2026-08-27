@@ -264,9 +264,9 @@ const DEFAULT_GRAIN = 0.03;
 
 export class Recolor implements RecolorEngine {
   private gl: WebGL2RenderingContext;
-  private program: WebGLProgram;
-  private vbo: WebGLBuffer;
-  private vao: WebGLVertexArrayObject;
+  private program!: WebGLProgram;
+  private vbo!: WebGLBuffer;
+  private vao!: WebGLVertexArrayObject;
   private imgTex: WebGLTexture | null = null;
   // Blurred copy of the photo (the "form" layer for the form/detail texture
   // split). Rebuilt once per setImage, sampled every frame as u_blur on unit 2.
@@ -280,17 +280,17 @@ export class Recolor implements RecolorEngine {
   // for a given source object, so we upload each one ONCE and just rebind it on
   // subsequent renders (no per-frame texImage2D when only colour/shadow change).
   private maskTexCache = new Map<TexImageSource, WebGLTexture>();
-  private locTarget: WebGLUniformLocation | null;
-  private locStrength: WebGLUniformLocation | null;
-  private locUseMask: WebGLUniformLocation | null;
-  private locPreserve: WebGLUniformLocation | null;
-  private locBaseL: WebGLUniformLocation | null;
-  private locAnchor: WebGLUniformLocation | null;
-  private locGrain: WebGLUniformLocation | null;
-  private locBright: WebGLUniformLocation | null;
-  private locEdgeAA: WebGLUniformLocation | null;
-  private locAnchorDiv: WebGLUniformLocation | null;
-  private locReliefMix: WebGLUniformLocation | null;
+  private locTarget!: WebGLUniformLocation | null;
+  private locStrength!: WebGLUniformLocation | null;
+  private locUseMask!: WebGLUniformLocation | null;
+  private locPreserve!: WebGLUniformLocation | null;
+  private locBaseL!: WebGLUniformLocation | null;
+  private locAnchor!: WebGLUniformLocation | null;
+  private locGrain!: WebGLUniformLocation | null;
+  private locBright!: WebGLUniformLocation | null;
+  private locEdgeAA!: WebGLUniformLocation | null;
+  private locAnchorDiv!: WebGLUniformLocation | null;
+  private locReliefMix!: WebGLUniformLocation | null;
   private width = 0;
   private height = 0;
   /** Mask-edge feather radius in px; 0 (default) keeps edges crisp. */
@@ -300,11 +300,65 @@ export class Recolor implements RecolorEngine {
   /** Uniform edge nudge in photo px (the studio's "Edge nudge" control):
    *  positive grows every painted region outward, negative shrinks it. 0 off. */
   private edgeOffsetPx = 0;
+  /**
+   * True between `webglcontextlost` and `webglcontextrestored`. Every GL object this
+   * class holds — program, buffers, textures — dies with the context, so each render
+   * entry point returns early while this is set rather than issuing calls against a
+   * dead context (which are silent no-ops at best, and console noise at worst).
+   */
+  private contextLost = false;
+
+  /**
+   * Called once the GPU hands the context back and this engine has rebuilt its
+   * program and buffers. Its textures are NOT restored — the pixels died with the
+   * context — so the owner must re-supply the photo (`setImage`) and repaint, which
+   * is exactly what the studio does with it.
+   */
+  onContextRestored: (() => void) | null = null;
+
+  /** Called when the GPU takes the context away, so the owner can say so on screen. */
+  onContextLost: (() => void) | null = null;
+
+  private readonly handleContextLost = (e: Event) => {
+    // Without preventDefault the browser never follows up with `webglcontextrestored`
+    // — that is the spec's opt-in, and skipping it is why a phone that reclaimed the
+    // GPU used to leave the studio showing a permanently blank canvas with the
+    // customer's paint gone and no way back but a reload.
+    e.preventDefault();
+    this.contextLost = true;
+    // Every handle is dangling now. Drop them so nothing is deleted or rebound later
+    // on the assumption it still exists.
+    this.imgTex = null;
+    this.blurTex = null;
+    this.reliefTex = null;
+    this.hasRelief = false;
+    this.maskTexCache.clear();
+    this.onContextLost?.();
+  };
+
+  private readonly handleContextRestored = () => {
+    this.contextLost = false;
+    this.initGL();
+    this.onContextRestored?.();
+  };
 
   constructor(public readonly canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
     if (!gl) throw new Error("WebGL2 is not supported in this browser.");
     this.gl = gl;
+    canvas.addEventListener("webglcontextlost", this.handleContextLost);
+    canvas.addEventListener("webglcontextrestored", this.handleContextRestored);
+    this.initGL();
+  }
+
+  /**
+   * Build everything that lives inside the GL context: the program, the fullscreen
+   * triangle and the uniform locations. Split out of the constructor because a
+   * restored context comes back EMPTY — the same canvas and the same context object,
+   * but every object made against it is gone — so this has to be able to run twice.
+   */
+  private initGL() {
+    const gl = this.gl;
     const vs = compile(gl, gl.VERTEX_SHADER, VERT);
     const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
     const program = gl.createProgram()!;
@@ -355,6 +409,9 @@ export class Recolor implements RecolorEngine {
   }
 
   setImage(source: TexImageSource & { width?: number; height?: number }) {
+    // Nothing to draw into while the GPU has the context: every handle below is
+    // dangling until `webglcontextrestored` rebuilds them.
+    if (this.contextLost) return;
     const gl = this.gl;
     if (!this.imgTex) this.imgTex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
@@ -402,6 +459,9 @@ export class Recolor implements RecolorEngine {
    * light ask for nothing. Cleared by {@link setImage}, so call this after it.
    */
   setReliefSource(source: TexImageSource | null) {
+    // Nothing to draw into while the GPU has the context: every handle below is
+    // dangling until `webglcontextrestored` rebuilds them.
+    if (this.contextLost) return;
     const gl = this.gl;
     if (!this.reliefTex) this.reliefTex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE3);
@@ -510,6 +570,9 @@ export class Recolor implements RecolorEngine {
 
   /** Paint the photo through 0..N region masks, compositing them all in one frame. */
   renderRegions(regions: ReadonlyArray<RegionPaint>) {
+    // Nothing to draw into while the GPU has the context: every handle below is
+    // dangling until `webglcontextrestored` rebuilds them.
+    if (this.contextLost) return;
     const gl = this.gl;
     if (!this.imgTex) return;
     gl.useProgram(this.program);
@@ -586,9 +649,22 @@ export class Recolor implements RecolorEngine {
     this.renderRegions([]);
   }
 
-  exportPng(): string { return this.canvas.toDataURL("image/png"); }
+  exportPng(): string {
+    // A lost context reads back as a fully transparent canvas. Returning that would
+    // put a blank page on the customer's colour board, so refuse instead — every
+    // caller already treats "" as "could not capture this image".
+    if (this.contextLost) return "";
+    return this.canvas.toDataURL("image/png");
+  }
 
   dispose() {
+    this.canvas.removeEventListener("webglcontextlost", this.handleContextLost);
+    this.canvas.removeEventListener("webglcontextrestored", this.handleContextRestored);
+    this.onContextLost = null;
+    this.onContextRestored = null;
+    // Deleting objects that died with the context is not just pointless, it is calls
+    // against a dead context — and the handles were dropped when it was lost.
+    if (this.contextLost) return;
     const gl = this.gl;
     if (this.imgTex) gl.deleteTexture(this.imgTex);
     if (this.blurTex) gl.deleteTexture(this.blurTex);

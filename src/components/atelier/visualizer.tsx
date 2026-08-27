@@ -478,6 +478,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const recolorRef = useRef<RecolorEngine | null>(null);
   const srcImgRef = useRef<HTMLImageElement | null>(null);
+  /**
+   * Bumped when the GPU hands back a context it had taken away. The engine rebuilds
+   * its own program and buffers, but its TEXTURES died with the old context — so the
+   * photo has to be uploaded again and every painted region redrawn, which is what
+   * the two effects below key off.
+   */
+  const [engineGeneration, setEngineGeneration] = useState(0);
+  /** True while the GPU has the context, so the canvas can say why it went blank. */
+  const [contextLost, setContextLost] = useState(false);
   const maskCacheRef = useRef<Map<string, Promise<HTMLImageElement>>>(new Map());
   const baseLumaRef = useRef<Map<string, number>>(new Map());
   const pollAbortRef = useRef<{ cancelled: boolean } | null>(null);
@@ -1017,7 +1026,17 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     if (!canvas) return;
     try {
       if (engineEpoch === 0) {
-        recolorRef.current = new Recolor(canvas);
+        const engine = new Recolor(canvas);
+        // A phone that backgrounds the tab, or any device under GPU memory pressure,
+        // loses the context — and used to leave the room blank for good. Recovering
+        // costs one re-upload and one repaint, both of which the studio already knows
+        // how to do from state it still holds.
+        engine.onContextLost = () => setContextLost(true);
+        engine.onContextRestored = () => {
+          setContextLost(false);
+          setEngineGeneration((g) => g + 1);
+        };
+        recolorRef.current = engine;
       } else {
         recolorRef.current = new Canvas2DRecolor(canvas);
         setBasicPreview(true);
@@ -1038,6 +1057,24 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       recolorRef.current = null;
     };
   }, [engineEpoch]);
+
+  /**
+   * Put the photo back on a restored context.
+   *
+   * Declared BEFORE the compositing effect below so that when a restore bumps the
+   * generation both run in this order: the photo is uploaded first, then the regions
+   * are painted over it. The other way round paints onto an engine with no image and
+   * renderRegions bails on the missing texture, leaving the canvas blank exactly as
+   * it was before the recovery.
+   */
+  useEffect(() => {
+    if (engineGeneration === 0) return; // first mount: setImage already ran the normal way
+    const rc = recolorRef.current;
+    const img = srcImgRef.current;
+    if (!rc || !img) return;
+    rc.setImage(img);
+    rc.renderBase();
+  }, [engineGeneration]);
 
   const loadMask = useCallback((url: string) => {
     const cache = maskCacheRef.current;
@@ -1127,7 +1164,28 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => {
       cancelled = true;
     };
-  }, [regions, imageUrl, compare, canvasCleaned, loadMask]);
+  }, [regions, imageUrl, compare, canvasCleaned, loadMask, engineGeneration]);
+
+  /**
+   * Retire the last preview blob when the studio goes away.
+   *
+   * Choosing a photo revokes the PREVIOUS one, which keeps at most one alive while
+   * the studio is open — but the final one had nobody to retire it, so navigating
+   * out of the studio (or picking a photo and leaving) left a full-size image pinned
+   * for the life of the tab. A ref, not the state value, because this has to run on
+   * unmount only: listing `imageUrl` as a dependency would revoke each URL the moment
+   * it was replaced by the next one, while the canvas was still showing it.
+   */
+  const imageUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    imageUrlRef.current = imageUrl;
+  }, [imageUrl]);
+  useEffect(() => {
+    return () => {
+      const url = imageUrlRef.current;
+      if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -1452,8 +1510,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           return;
         }
       }
+      // Created OUTSIDE the try so the failure path can still reach it: when the
+      // decode below throws, this URL never becomes `imageUrl`, so the revoke that
+      // normally retires it (on the next photo) never runs and the blob is pinned in
+      // memory for the life of the tab — on the exact path where the customer is
+      // most likely to try again with another photo, and pin another.
+      const localUrl = URL.createObjectURL(file);
       try {
-        const localUrl = URL.createObjectURL(file);
         const img = await loadImage(localUrl);
         srcImgRef.current = img;
         recolorRef.current?.setImage(img);
@@ -1468,6 +1531,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         // Still on the upload step — nothing created on the backend yet.
         setStage("upload");
       } catch (err) {
+        URL.revokeObjectURL(localUrl);
         setError(err instanceof Error ? err.message : "Could not open the image.");
       }
     },
@@ -3163,6 +3227,32 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 display: imageUrl ? "block" : "none",
               }}
             />
+            {/* The canvas is genuinely blank while the GPU has the context back, and a
+                blank room with no explanation reads as "the studio lost my work".
+                Nothing IS lost — the colours live in React state and the photo in a
+                ref — so this says so and gets out of the way the moment the browser
+                returns the context and the repaint lands. */}
+            {contextLost && imageUrl && (
+              <div className="hv-studio-ctxlost" role="status">
+                <Spinner />
+                <p>
+                  Your device paused the preview to free up memory. Bringing your room
+                  back — your colours are safe.
+                </p>
+                <style>{`
+                  .hv-studio-ctxlost {
+                    position: absolute; inset: 0; z-index: 3;
+                    display: flex; flex-direction: column; gap: 12px;
+                    align-items: center; justify-content: center; text-align: center;
+                    padding: 24px; background: var(--surface);
+                  }
+                  .hv-studio-ctxlost p {
+                    font: 400 15px/1.5 var(--sans); color: var(--fg);
+                    max-width: 34ch; margin: 0;
+                  }
+                `}</style>
+              </div>
+            )}
             {showDetailsGate && (
               <ProjectDetailsGate
                 initial={details ?? undefined}
