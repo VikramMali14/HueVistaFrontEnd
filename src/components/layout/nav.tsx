@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { gsap } from "gsap";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { APK_URL, hasApk } from "@/components/shared/app-download";
@@ -35,7 +34,15 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
   const openRef = useRef(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLElement | null>(null);
-  const tlRef = useRef<gsap.core.Timeline | null>(null);
+  // Typed structurally rather than as gsap.core.Timeline: the library is no longer
+  // imported at the top of this file, and importing it purely for a type would put it
+  // straight back into the bundle on some toolchains. Only these four are used.
+  const tlRef = useRef<{
+    play: (from?: number) => void;
+    reverse: () => void;
+    progress: (v: number) => void;
+    kill: () => void;
+  } | null>(null);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
@@ -45,26 +52,52 @@ export function Nav({ showCta = true, showSignIn = true, authed = false }: NavPr
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const dur = reduce ? 0 : 0.32;
 
-    const ctx = gsap.context(() => {
-      gsap.set(panel, { height: 0, overflow: "hidden" });
-      const tl = gsap.timeline({
-        paused: true,
-        defaults: { ease: "power3.out" },
-        onReverseComplete: () => setPanelVisible(false),
+    // gsap is ~73 KB and this menu is the only thing on the site that uses it, so it
+    // is fetched after the page is interactive instead of before it can paint. The
+    // panel starts collapsed from CSS (.cnav-panel { height: 0 }), not from the
+    // gsap.set this used to do, so nothing flashes open while the chunk is in flight
+    // — and `setMenu` can still open the menu instantly if someone beats it there.
+    let cancelled = false;
+    let revert: (() => void) | null = null;
+    void import("gsap").then(({ gsap }) => {
+      if (cancelled) return;
+      const ctx = gsap.context(() => {
+        const tl = gsap.timeline({
+          paused: true,
+          defaults: { ease: "power3.out" },
+          onReverseComplete: () => setPanelVisible(false),
+        });
+        tl.to(panel, { height: () => panel.scrollHeight, duration: dur });
+        tlRef.current = tl;
+        // Someone opened the menu before this arrived and got the instant fallback.
+        // Hand the timeline over already at its end, or its first reverse would
+        // animate from a state it never played.
+        if (openRef.current) tl.progress(1);
       });
-      tl.to(panel, { height: () => panel.scrollHeight, duration: dur });
-      tlRef.current = tl;
+      revert = () => ctx.revert();
     });
-    return () => ctx.revert();
+    return () => {
+      cancelled = true;
+      tlRef.current = null;
+      revert?.();
+    };
     // The panel is measured to its content, so anything that adds or removes a
     // row in it has to rebuild the timeline — the Gallery link included.
   }, [authed]);
 
   const setMenu = (next: boolean) => {
-    const tl = tlRef.current;
-    if (!tl) return;
     openRef.current = next;
     setOpen(next);
+    const tl = tlRef.current;
+    if (!tl) {
+      // Tapped before gsap landed. Go straight to the end state by hand — the same
+      // place the animation would finish, and the same thing anyone on
+      // prefers-reduced-motion gets anyway (duration 0).
+      const panel = panelRef.current;
+      if (panel) panel.style.height = next ? `${panel.scrollHeight}px` : "0px";
+      setPanelVisible(next);
+      return;
+    }
     if (next) { setPanelVisible(true); tl.play(0); }
     else { tl.reverse(); }
   };
