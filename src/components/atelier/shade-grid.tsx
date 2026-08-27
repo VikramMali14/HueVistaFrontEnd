@@ -375,9 +375,29 @@ export function ShadeGrid({
    * band offers has to be something this shop can actually sell.
    */
   const [pickedCandidate, setPickedCandidate] = useState<string | null>(null);
+  /**
+   * Reading one company's code into another's is a SHOP's capability, and it stops at
+   * the same line every other code question stops at.
+   *
+   * A viewer who may not read manufacturer codes may not read them sideways either.
+   * Left ungated, this band handed a customer the one answer the whole HV-code scheme
+   * exists to withhold: type manufacturer codes until one comes back "the same colour"
+   * as the HV code on your board, and you have decoded it — which is precisely what
+   * `/api/shades/decode` refuses to anyone who is not a shop. The grid's own search has
+   * always drawn this line (`matchesQuery` stops matching the manufacturer's code the
+   * moment the shop replaces it); a band that answered anyway would simply be the same
+   * leak one element up the page.
+   *
+   * `hideCodes` is the studio's existing answer to "may this viewer read real codes" —
+   * false only for shop staff, and false for everyone while it is still unknown.
+   */
+  const mayCrossReference = !hideCodes;
   const localRef = useMemo<CrossBrandLookup | null>(
-    () => crossBrandLookup(deferredQuery, catalogue, allShades ?? catalogue),
-    [deferredQuery, catalogue, allShades],
+    () =>
+      mayCrossReference
+        ? crossBrandLookup(deferredQuery, catalogue, allShades ?? catalogue)
+        : null,
+    [mayCrossReference, deferredQuery, catalogue, allShades],
   );
 
   /**
@@ -398,7 +418,8 @@ export function ShadeGrid({
     const code = deferredQuery.trim().toUpperCase();
     // A code is one token. Anything with a space in it is someone searching by name,
     // and asking the server to look it up as a code would be a request per pause.
-    if (!onLookupCode || localRef || code.length < 2 || code.length > 24 || /\s/.test(code)) return;
+    if (!mayCrossReference || !onLookupCode || localRef) return;
+    if (code.length < 2 || code.length > 24 || /\s/.test(code)) return;
     const mine = ++remoteSeq.current;
     const t = setTimeout(() => {
       onLookupCode(code)
@@ -412,7 +433,7 @@ export function ShadeGrid({
         .catch(() => {});
     }, LOOKUP_DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [deferredQuery, onLookupCode, localRef]);
+  }, [mayCrossReference, deferredQuery, onLookupCode, localRef]);
 
   const crossRef = useMemo<CrossBrandLookup | null>(() => {
     if (localRef) return localRef;
@@ -511,8 +532,14 @@ export function ShadeGrid({
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name, or any company's code"
-                aria-label="Search by name, or a code from any company"
+                placeholder={
+                  mayCrossReference ? "Search by name, or any company's code" : "Search by name or code"
+                }
+                aria-label={
+                  mayCrossReference
+                    ? "Search by name, or a code from any company"
+                    : "Search by name or code"
+                }
               />
             </div>
             <button

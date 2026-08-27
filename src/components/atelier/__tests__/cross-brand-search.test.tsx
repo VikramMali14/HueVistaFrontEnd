@@ -34,7 +34,7 @@ const renderPanel = (props: Partial<React.ComponentProps<typeof ShadeGrid>> = {}
   return { onSelect };
 };
 
-const search = () => screen.getByLabelText(/Search by name, or a code from any company/i);
+const search = () => screen.getByLabelText(/^Search by name/i);
 
 describe("searching another company's code in the studio", () => {
   it("answers with the nearest shade in the companies on screen", async () => {
@@ -150,5 +150,61 @@ describe("searching another company's code in the studio", () => {
     await userEvent.type(search(), "Ivory");
     expect(screen.queryByText(/Similar to/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ivory White, code H101/i })).toBeInTheDocument();
+  });
+});
+
+
+/**
+ * The other half of the bargain. An HV code is safe to print because reading one
+ * requires a shop account — `/api/shades/decode` refuses everyone else. Reading a
+ * code SIDEWAYS, one company's number into another's, is the same capability, so it
+ * stops at the same line.
+ */
+describe("what a customer may not do with it", () => {
+  // Exactly how the studio configures a customer or guest: real codes withheld, the
+  // company not attributed, the HV code standing in for the manufacturer's.
+  const asCustomer = {
+    hideCodes: true,
+    showBrands: false,
+    encodeCode: (c: string) => (c === "H101" ? "HV0999" : c),
+  };
+
+  it("never turns a manufacturer's code into the HV code on the board", async () => {
+    const onLookupCode = vi.fn().mockResolvedValue([ASIAN]);
+    render(
+      <ShadeGrid
+        onSelect={vi.fn()}
+        shades={HUEVISTA}
+        allShades={HUEVISTA}
+        onLookupCode={onLookupCode}
+        {...asCustomer}
+      />,
+    );
+    await userEvent.type(search(), "L124");
+    await new Promise((r) => setTimeout(r, 600));
+
+    // Answering would hand over the decode the whole scheme exists to withhold:
+    // type codes until one comes back "the same colour" as the code on your board.
+    expect(screen.queryByText(/Similar to/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/HV0999/)).not.toBeInTheDocument();
+    // …and it does not ask the network on their behalf either.
+    expect(onLookupCode).not.toHaveBeenCalled();
+  });
+
+  it("is refused from the loaded catalogue too, not just over the network", async () => {
+    // A shop stocking both companies: the answer is sitting in memory, and is still
+    // not given — withholding cannot depend on what happens to be loaded.
+    render(<ShadeGrid onSelect={vi.fn()} shades={HUEVISTA} allShades={ALL} {...asCustomer} />);
+    await userEvent.type(search(), "L124");
+    await new Promise((r) => setTimeout(r, 600));
+    expect(screen.queryByText(/Similar to/i)).not.toBeInTheDocument();
+  });
+
+  it("does not offer a search it will not perform", async () => {
+    const { rerender } = render(<ShadeGrid onSelect={vi.fn()} shades={HUEVISTA} {...asCustomer} />);
+    expect(screen.getByLabelText("Search by name or code")).toBeInTheDocument();
+    // Shop staff, who may read real codes, get the wider promise.
+    rerender(<ShadeGrid onSelect={vi.fn()} shades={HUEVISTA} />);
+    expect(screen.getByLabelText(/a code from any company/i)).toBeInTheDocument();
   });
 });
