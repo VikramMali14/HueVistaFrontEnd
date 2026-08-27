@@ -21,11 +21,22 @@
  * a lit face is rescaled by its peak channel instead of being clipped at white,
  * so sunlight makes the colour brighter rather than washing it out.
  *
+ * None of that can invent light the canvas never had, which is the one failure the
+ * shader cannot answer on its own. The cleaned canvas it usually paints is a
+ * generative pass, and when that pass drifts it hands back a surface painted the
+ * wrong white, or one with its shadows ironed out, or both — and a multiply over a
+ * near-constant is a sticker however carefully the multiply is done. So two of the
+ * numbers here are measured from the canvas rather than assumed about it
+ * (canvas-light.ts): `u_anchorDiv`, the albedo actually delivered, and `u_relief`,
+ * shading taken back off the original photograph. Both are inert on a canvas the
+ * clean-up got right — that case renders exactly as it did before they existed.
+ *
  * 60 fps on mid-range mobile, zero backend round-trip per swatch change. The
  * mask's soft (anti-aliased) edge is the only place colour blends.
  */
 
 import type { RecolorEngine, RegionPaint } from "./recolor-engine";
+import { anchorDivisor, REF_WHITE } from "./canvas-light";
 import { featherMaskInward, featherRadiusInMaskPx, offsetMaskCanvas } from "./mask-feather";
 
 // Shared with the Canvas 2D fallback engine (canvas2d-recolor.ts); re-exported
@@ -67,6 +78,22 @@ uniform float u_baseL;
 // instead of normalising the region mean UP to the swatch. An evening photo
 // keeps its dim warm evening light instead of snapping to flat noon daylight.
 uniform float u_anchor;
+// The albedo anchored mode divides the canvas by to recover the scene's light.
+// Computed on the CPU (anchorDivisor in canvas-light.ts) from the white this surface
+// was actually DELIVERED at, rather than assumed to be fresh white: when the
+// clean-up drifts and paints grey, assuming white divides by the wrong number and
+// every colour on that surface renders dark by the size of the drift. Nobody reads
+// that as a dark render — they read it as the swatch being wrong. Defaults to
+// REF_WHITE, which is what a canvas the clean-up got right measures at anyway.
+uniform float u_anchorDiv;
+// Shading recovered from the ORIGINAL photograph, for a cleaned canvas that came
+// back with its own light flattened out: the multiply then has nothing to modulate,
+// and no shader can put back light it was never given. u_relief is a band-pass ratio
+// map (buildReliefMap in canvas-light.ts) encoded so mid-grey means "no shading";
+// u_reliefMix is 0 wherever the canvas still has light of its own — the usual case,
+// costing one multiply by 1.0.
+uniform sampler2D u_relief;
+uniform float u_reliefMix;
 // Surface grain: a hair of per-pixel noise, a floor of texture for perfectly
 // smooth walls where the photo itself carries almost no detail. 0 disables it.
 uniform float u_grain;
@@ -109,11 +136,6 @@ vec3 brighten(vec3 c) {
   return pow(max(c, 0.0), vec3(1.0 / u_bright));
 }
 
-// sRGB value of fresh white paint (LRV ~85): the albedo the cleaned canvas
-// paints its walls and trim with. Dividing an anchored region's photo by this
-// recovers the scene's illumination for that surface.
-const float REF_WHITE = 0.94;
-
 // Cheap hash -> pseudo-random 0..1 from a screen-space position, for grain.
 float hash(vec2 p) {
   p = fract(p * vec2(123.34, 345.45));
@@ -141,16 +163,20 @@ void main() {
     // modes differ in what "neutral" means:
     vec3 form;
     if (u_anchor > 0.5) {
-      // ANCHORED: the canvas is the cleaned image, whose paintable surfaces
-      // are known fresh white — so the smooth photo IS the illumination.
+      // ANCHORED: the canvas is the cleaned image, whose paintable surfaces were
+      // repainted a known albedo — so the smooth photo IS the illumination.
       // Per-channel, so the scene's warm or cool cast tints the paint too:
       // a dusk wall renders the swatch in dusk light, not showroom light.
-      form = Brgb / REF_WHITE;
+      form = Brgb / u_anchorDiv;
     } else {
       // LEGACY: normalise by the region's own mean luminance so the wall
       // still averages to the true swatch colour (the can's colour).
       form = vec3(B / u_baseL);
     }
+    // Fold in whatever shading was recovered from the photograph before the clamp,
+    // so borrowed relief is bounded and deepened on exactly the same terms as the
+    // canvas's own. A mix at 0 is a multiply by 1.0: the normal path is untouched.
+    form *= mix(1.0, 0.5 + texture(u_relief, v_uv).r, u_reliefMix);
     form = clamp(form, FORM_FLOOR, FORM_CEIL);
     form = mix(vec3(1.0), form, u_preserve);
     // Shading is MULTIPLICATIVE, split at 1.0 so each half can be treated on
@@ -225,6 +251,11 @@ export class Recolor implements RecolorEngine {
   // Blurred copy of the photo (the "form" layer for the form/detail texture
   // split). Rebuilt once per setImage, sampled every frame as u_blur on unit 2.
   private blurTex: WebGLTexture | null = null;
+  // Recovered-shading map (the original photograph's band-passed relief), sampled as
+  // u_relief on unit 3. Always bound to something valid — a 1x1 neutral tile until a
+  // real map is supplied — so no region can sample undefined texture memory.
+  private reliefTex: WebGLTexture | null = null;
+  private hasRelief = false;
   // GPU mask textures cached by source identity — a mask's pixels never change
   // for a given source object, so we upload each one ONCE and just rebind it on
   // subsequent renders (no per-frame texImage2D when only colour/shadow change).
@@ -238,6 +269,8 @@ export class Recolor implements RecolorEngine {
   private locGrain: WebGLUniformLocation | null;
   private locBright: WebGLUniformLocation | null;
   private locEdgeAA: WebGLUniformLocation | null;
+  private locAnchorDiv: WebGLUniformLocation | null;
+  private locReliefMix: WebGLUniformLocation | null;
   private width = 0;
   private height = 0;
   /** Mask-edge feather radius in px; 0 (default) keeps edges crisp. */
@@ -274,6 +307,7 @@ export class Recolor implements RecolorEngine {
     gl.uniform1i(gl.getUniformLocation(program, "u_image"), 0);
     gl.uniform1i(gl.getUniformLocation(program, "u_mask"), 1);
     gl.uniform1i(gl.getUniformLocation(program, "u_blur"), 2);
+    gl.uniform1i(gl.getUniformLocation(program, "u_relief"), 3);
     this.locTarget = gl.getUniformLocation(program, "u_target");
     this.locStrength = gl.getUniformLocation(program, "u_strength");
     this.locUseMask = gl.getUniformLocation(program, "u_useMask");
@@ -283,6 +317,12 @@ export class Recolor implements RecolorEngine {
     this.locGrain = gl.getUniformLocation(program, "u_grain");
     this.locBright = gl.getUniformLocation(program, "u_bright");
     this.locEdgeAA = gl.getUniformLocation(program, "u_edgeAA");
+    this.locAnchorDiv = gl.getUniformLocation(program, "u_anchorDiv");
+    this.locReliefMix = gl.getUniformLocation(program, "u_reliefMix");
+    // Unit 3 must always sample as "no shading", so a region that asks for relief
+    // before a source has been set gets a flat 1.0 rather than whatever texture
+    // memory happened to hold.
+    this.setReliefSource(null);
   }
 
   /**
@@ -326,6 +366,38 @@ export class Recolor implements RecolorEngine {
     this.canvas.height = Math.round(this.height * dpr);
     // A new photo means the old project's masks are gone — drop their textures.
     this.clearMaskCache();
+    // ...and so is the photograph the old relief map was built from. A map from the
+    // previous project would be geometry from another house: worse than no relief.
+    // Callers that want it re-supply it after setImage, which is the documented order.
+    this.setReliefSource(null);
+  }
+
+  /**
+   * Supply the ORIGINAL photograph's relief map — the shading the clean-up dropped,
+   * recovered from the photo it started from (see buildReliefMap in canvas-light.ts)
+   * — or null to clear it.
+   *
+   * Uploading a map does NOT change any render on its own: a region only draws on it
+   * when it asks, via `RegionPaint.relief`, and regions on a canvas that kept its own
+   * light ask for nothing. Cleared by {@link setImage}, so call this after it.
+   */
+  setReliefSource(source: TexImageSource | null) {
+    const gl = this.gl;
+    if (!this.reliefTex) this.reliefTex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this.reliefTex);
+    if (source) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    } else {
+      // 1x1 mid-grey: the encoding's "no shading" value.
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+        new Uint8Array([128, 128, 128, 255]));
+    }
+    this.hasRelief = source !== null;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   }
 
   /**
@@ -440,6 +512,11 @@ export class Recolor implements RecolorEngine {
       gl.activeTexture(gl.TEXTURE2);
       gl.bindTexture(gl.TEXTURE_2D, this.blurTex);
     }
+    // Same for the recovered-shading map on unit 3 (neutral until one is supplied).
+    if (this.reliefTex) {
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, this.reliefTex);
+    }
 
     // Base pass: the untouched photograph.
     gl.activeTexture(gl.TEXTURE0);
@@ -450,6 +527,8 @@ export class Recolor implements RecolorEngine {
     gl.uniform1f(this.locBaseL, 0);
     gl.uniform1f(this.locAnchor, 0);
     gl.uniform1f(this.locGrain, 0);
+    gl.uniform1f(this.locAnchorDiv, REF_WHITE);
+    gl.uniform1f(this.locReliefMix, 0);
     gl.uniform3fv(this.locTarget, [0, 0, 0]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -470,6 +549,13 @@ export class Recolor implements RecolorEngine {
       gl.uniform1f(this.locBaseL, Math.max(0, r.baseL ?? 0));
       gl.uniform1f(this.locAnchor, r.anchor ? 1 : 0);
       gl.uniform1f(this.locGrain, Math.max(0, r.grain ?? DEFAULT_GRAIN));
+      // An unmeasured white falls back to REF_WHITE, and anchorDivisor returns
+      // REF_WHITE unchanged for it — so a caller that passes nothing renders exactly
+      // as it did before this existed.
+      gl.uniform1f(this.locAnchorDiv, anchorDivisor(r.whitePoint ?? REF_WHITE));
+      // Relief is ignored outright with no map loaded, rather than sampling the
+      // neutral tile and trusting the multiply to come out at 1.
+      gl.uniform1f(this.locReliefMix, this.hasRelief ? clamp01(r.relief ?? 0) : 0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
     gl.disable(gl.BLEND);
@@ -486,6 +572,7 @@ export class Recolor implements RecolorEngine {
     const gl = this.gl;
     if (this.imgTex) gl.deleteTexture(this.imgTex);
     if (this.blurTex) gl.deleteTexture(this.blurTex);
+    if (this.reliefTex) gl.deleteTexture(this.reliefTex);
     this.clearMaskCache();
     gl.deleteBuffer(this.vbo);
     gl.deleteVertexArray(this.vao);

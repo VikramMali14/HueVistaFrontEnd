@@ -17,6 +17,7 @@ import { PhoneHandoff } from "@/components/shared/phone-handoff";
 import { buyOneProject, reopenProjectWithMoney } from "@/lib/payments";
 import { PROJECT_VALID_DAYS, validityNote } from "@/lib/project-validity";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
+import { buildReliefMap, SceneLight, type RegionLight } from "@/lib/canvas-light";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import {
   SOFT_EDGE_FEATHER_PX,
@@ -461,6 +462,21 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const srcImgRef = useRef<HTMLImageElement | null>(null);
   const maskCacheRef = useRef<Map<string, Promise<HTMLImageElement>>>(new Map());
   const baseLumaRef = useRef<Map<string, number>>(new Map());
+  // What the canvas being painted actually delivered — the albedo the clean-up put
+  // down on each surface, and whether it kept that surface's light. Anchored shading
+  // has to divide by the real albedo rather than the one the clean-up was asked for,
+  // and has to know when there is no light left to modulate. Rebuilt lazily and
+  // dropped alongside srcImgRef, so it can never describe a photo that is no longer
+  // on screen; per region, dropped alongside baseLumaRef when a mask's shape changes.
+  const sceneLightRef = useRef<SceneLight | null>(null);
+  // Guards the relief map against arriving late: a map is only installed if the photo
+  // it was built from is still the one on the canvas.
+  const reliefSeqRef = useRef(0);
+  const regionLightRef = useRef<Map<string, RegionLight | null>>(new Map());
+  // Bumped once the original photograph's relief map has been handed to the engine,
+  // to repaint with the recovered shading in place. The map arrives after the first
+  // frame by design: a flat wall on screen beats a blank one while it is built.
+  const [reliefVersion, setReliefVersion] = useState(0);
   const pollAbortRef = useRef<{ cancelled: boolean } | null>(null);
   // Monotonic id so only the LATEST in-flight auto-save may write saveStatus —
   // out-of-order responses from rapid edits can't clobber a newer one's status.
@@ -1074,6 +1090,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         }),
       );
       if (cancelled) return;
+      // Measure the canvas once per frame and let every region ask it about its own
+      // pixels. Only for the CLEANED canvas: the raw photo is not an illumination
+      // map, nothing is anchored to it, and neither number would mean anything.
+      if (SHADOW_ON && canvasCleaned && !sceneLightRef.current && srcImgRef.current) {
+        sceneLightRef.current = SceneLight.from(srcImgRef.current);
+      }
       const paints: RegionPaint[] = [];
       for (let i = 0; i < applied.length; i++) {
         const r = applied[i]!;
@@ -1089,6 +1111,16 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             baseLumaRef.current.set(r.id, baseL);
           }
         }
+        let light: RegionLight | null = null;
+        if (SHADOW_ON && canvasCleaned) {
+          const cached = regionLightRef.current.get(r.id);
+          if (cached !== undefined) {
+            light = cached;
+          } else {
+            light = sceneLightRef.current?.region(mask) ?? null;
+            regionLightRef.current.set(r.id, light);
+          }
+        }
         paints.push({
           mask,
           // Catalogue shades paint at their MEASURED brightness: the hex's hue
@@ -1099,6 +1131,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           preserve: SHADOW_ON ? SHADOW_STRENGTH : 0,
           baseL,
           anchor: canvasCleaned,
+          // Both undefined where nothing could be measured, which is the same render
+          // this made before either existed.
+          whitePoint: light?.whitePoint,
+          relief: light?.relief,
         });
       }
       if (cancelled) return;
@@ -1108,7 +1144,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     return () => {
       cancelled = true;
     };
-  }, [regions, imageUrl, compare, canvasCleaned, loadMask]);
+  }, [regions, imageUrl, compare, canvasCleaned, reliefVersion, loadMask]);
 
   useEffect(() => {
     return () => {
@@ -1143,6 +1179,31 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     refreshQuota();
   }, [refreshQuota]);
 
+  /**
+   * Build the recovered-shading map from the ORIGINAL photograph and hand it to the
+   * engine, then repaint so the regions that measured flat pick it up.
+   *
+   * Best-effort from end to end: a download that fails, a canvas that can't be read,
+   * or an engine that has moved on all leave the engine without a relief source,
+   * which is exactly the render it produced before any of this existed.
+   */
+  const loadReliefMap = useCallback(async (rc: RecolorEngine, originalUrl: string | null) => {
+    if (!originalUrl || !rc.setReliefSource) return;
+    const seq = ++reliefSeqRef.current;
+    try {
+      const original = await loadImage(originalUrl);
+      const map = buildReliefMap(original);
+      // A newer photo landed while this was building: its setImage already cleared
+      // the relief source, and re-setting it now would put another house's shadows
+      // on the canvas.
+      if (!map || seq !== reliefSeqRef.current || recolorRef.current !== rc) return;
+      rc.setReliefSource(map);
+      setReliefVersion((v) => v + 1);
+    } catch {
+      // No relief rather than the wrong relief.
+    }
+  }, []);
+
   const applyProjectDetail = useCallback(
     async (detail: ProjectDetail) => {
       const rc = recolorRef.current;
@@ -1152,10 +1213,20 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           const img = await loadImage(canvasUrl);
           srcImgRef.current = img;
           baseLumaRef.current.clear();
+          sceneLightRef.current = null;
+          regionLightRef.current.clear();
           rc.setImage(img);
           setImageUrl(canvasUrl);
           setCanvasCleaned(Boolean(detail.cleanedImageUrl));
           setImageDims({ w: img.naturalWidth, h: img.naturalHeight });
+          // The clean-up sometimes hands back a surface with its shading ironed out,
+          // and no shader can modulate light it was never given — but the photograph
+          // the clean-up started from still has every shadow it dropped. Fetch it and
+          // build the map in the background: a painted canvas should not wait on a
+          // second download, and only the surfaces that measured flat will use it.
+          if (detail.cleanedImageUrl && detail.imageUrl) {
+            void loadReliefMap(rc, resolveMediaUrl(detail.imageUrl));
+          }
         } catch (err) {
           if (process.env.NODE_ENV !== "production") {
             console.warn("Failed to load cleaned image, keeping local preview:", err);
@@ -1212,7 +1283,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         setActiveRegion(mapped[0]!.id);
       }
     },
-    [shades],
+    [shades, loadReliefMap],
   );
 
   // Open an existing project: fetch it and render its SAVED cleaned image + masks from
@@ -1437,6 +1508,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         const localUrl = URL.createObjectURL(file);
         const img = await loadImage(localUrl);
         srcImgRef.current = img;
+        // A raw local photo: nothing measured against the old canvas still applies,
+        // and any relief map still in flight belongs to a different photograph.
+        sceneLightRef.current = null;
+        regionLightRef.current.clear();
+        reliefSeqRef.current++;
         recolorRef.current?.setImage(img);
         recolorRef.current?.renderBase();
         setCanvasCleaned(false); // raw local photo — not the cleaned canvas
@@ -1467,6 +1543,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setSaveStatus("idle");
     maskCacheRef.current.clear();
     baseLumaRef.current.clear();
+    sceneLightRef.current = null;
+    regionLightRef.current.clear();
     try {
       setStage("clean");
       const uploaded = await uploadImageCall(file);
@@ -1506,6 +1584,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     setPendingFile(null);
     setError(null);
     srcImgRef.current = null;
+    sceneLightRef.current = null;
+    regionLightRef.current.clear();
+    reliefSeqRef.current++;
     setImageDims(null);
     setStage("upload");
     setCanvasCleaned(false);
@@ -1912,8 +1993,12 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         }),
       );
       // Drop the cached region luminance so scene-light shading recomputes against the
-      // new shapes rather than the old ones.
-      for (const id of byId.keys()) baseLumaRef.current.delete(id);
+      // new shapes rather than the old ones — and with it what the canvas delivered
+      // inside each, which is measured through the very masks that just moved.
+      for (const id of byId.keys()) {
+        baseLumaRef.current.delete(id);
+        regionLightRef.current.delete(id);
+      }
       setActiveRegion(edits[0]!.regionId);
       setStage("recolor");
 

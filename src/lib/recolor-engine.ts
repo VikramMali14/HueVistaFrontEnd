@@ -32,6 +32,34 @@ export interface RegionPaint {
    *  swatch reads as painted plaster instead of a CGI fill. Undefined = engine
    *  default (see DEFAULT_GRAIN in each engine). */
   grain?: number;
+  /**
+   * The white this surface was actually DELIVERED at on the canvas, 0..1 (its lit
+   * face, measured — see `SceneLight.region` in canvas-light.ts). Anchored shading
+   * divides the canvas by an albedo to recover the scene's light, and it used to
+   * assume that albedo was always fresh white; when the clean-up drifts and paints
+   * grey instead, the division is by the wrong number and every colour on the
+   * surface renders dark by the size of the drift. Passing the measured value makes
+   * the division self-calibrating.
+   *
+   * Undefined means unmeasured, and both engines then fall back to REF_WHITE —
+   * which is also exactly what this value produces on a canvas the clean-up got
+   * right, so a correct canvas renders identically either way. No effect unless
+   * `anchor` is set.
+   */
+  whitePoint?: number;
+  /**
+   * How much of this surface's shading to take from the engine's relief source (the
+   * original photograph) rather than from the canvas being painted, 0..1.
+   *
+   * For a cleaned canvas that came back with its light flattened out: the multiply
+   * then has nothing to modulate and the result is a sticker no matter how good the
+   * shader is, but the photograph the clean-up started from still has every shadow
+   * it dropped. 0 (the default) leaves the render exactly as it was, and is the
+   * right value whenever the canvas has light of its own.
+   *
+   * Ignored unless a relief source has been set on the engine.
+   */
+  relief?: number;
 }
 
 /**
@@ -102,6 +130,17 @@ export interface RecolorEngine {
    *  see {@link BRIGHTEN_LEVELS}. Applies to the NEXT render — callers
    *  re-render after changing it. Optional for lightweight test doubles. */
   setBrightness?(gamma: number): void;
+  /**
+   * Supply the ORIGINAL photograph as the source of recovered shading, or null to
+   * clear it. Only consulted for regions that ask for it via `RegionPaint.relief`,
+   * so setting it never changes an existing render on its own.
+   *
+   * Call it AFTER `setImage`: replacing the photo drops the relief source with it,
+   * on the grounds that a relief map left over from the previous project is worse
+   * than none at all. Optional so lightweight test doubles don't have to implement
+   * it.
+   */
+  setReliefSource?(source: RecolorSource | null): void;
   /** Draw just the untouched photo (e.g. the "before" compare view). */
   renderBase(): void;
   /** PNG data URL of the current canvas contents. */
