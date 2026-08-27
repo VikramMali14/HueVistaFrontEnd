@@ -3024,6 +3024,17 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   margin: 8px auto 0;
   display: flex;
   justify-content: center;
+  /* Every other control layered over the room — maximise, hold-to-compare, the
+     legend, the disclaimer, the PDF button — is positioned, so it sits above the
+     canvas and takes its own clicks. This row was left static, which left it painting
+     over the canvas but NOT hit-testing above it: the button was plainly visible and
+     completely dead, every click landing on the canvas behind it.
+     That matters more here than it would anywhere else on the page. A run that puts
+     the walls in the wrong places still comes back SEGMENTED and passes every check
+     the backend makes, so this button is the only way anyone finds out. It was made
+     un-hideable once already; being on screen is not enough if it cannot be pressed. */
+  position: relative;
+  z-index: 2;
 }
 .hv-studio-report-btn {
   display: inline-flex;
