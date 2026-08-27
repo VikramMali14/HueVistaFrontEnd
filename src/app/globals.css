@@ -3546,6 +3546,17 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: var(--fg);
   font: 400 12.5px/1 var(--sans);
   padding: 0;
+  /* The bare input box was 15px tall — under the 24px WCAG 2.5.8 asks of a target,
+     even though the bordered field around it looks bigger (that box is a div, so its
+     padding does not focus anything). */
+  min-height: 24px;
+}
+/* iOS Safari zooms the whole page in when a focused input's text is under 16px, and
+   does not zoom back out afterwards — so tapping "search colours" on an iPhone left
+   the customer looking at a magnified studio they had to pinch their way out of.
+   16px is the threshold, and it only has to hold where a touch keyboard opens. */
+@media (max-width: 640px) {
+  .hv-studio-search input { font-size: 16px; }
 }
 .hv-studio-pills {
   display: flex;
@@ -3689,6 +3700,11 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* WCAG 2.5.8 wants 24x24 CSS px of target. The padding alone left this 23px wide
+     and its sibling 17px — small enough to miss on a phone, on the two controls that
+     remove a wall and reshape one. Tall enough already (44px); this is the width. */
+  min-width: 24px;
+  flex-shrink: 0;
   padding: 6px 10px 6px 2px;
   margin-left: -4px;
   background: transparent;
@@ -3704,6 +3720,8 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 24px;
+  flex-shrink: 0;
   padding: 6px 4px 6px 2px;
   margin-left: -4px;
   background: transparent;
@@ -3873,7 +3891,11 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   flex-shrink: 0;
 }
 .hv-studio-step {
+  /* A plain `width` here is only a starting size: these sit in a flex row and were
+     being shrunk to 19px on a narrow phone, under the 24px WCAG 2.5.8 asks for. */
   width: 34px; height: 26px;
+  min-width: 24px;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4460,6 +4482,13 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   }
   .hv-studio-tool { padding: 6px 8px; }
   .hv-studio-compare { top: 12px; right: 12px; padding: 7px 10px; font-size: 12px; }
+  /* "Hold to compare" floats absolutely at the top-right of the canvas, while the
+     report button is centred in the full width underneath it. On a phone there is not
+     room for both on one line, so the compare button was sitting ON TOP of the report
+     button — covering the last third of its label and stealing the taps that landed
+     there. Reserve the floating button's footprint so the centred one centres in what
+     is actually free. */
+  .hv-studio-report { padding-right: 156px; }
   .hv-studio-region-shade { display: none; }
   .hv-studio-region { padding: 7px 10px; }
 }
