@@ -45,6 +45,10 @@ export interface RegionPaint {
    * which is also exactly what this value produces on a canvas the clean-up got
    * right, so a correct canvas renders identically either way. No effect unless
    * `anchor` is set.
+   *
+   * Currently supplied ONLY by the admin bench (/admin/studio-test). The studio, the
+   * share view and the render studio leave it undefined on purpose: the calibration
+   * is being judged on real rooms before any customer render changes.
    */
   whitePoint?: number;
   /**

@@ -7,7 +7,6 @@ import { Eyebrow, Lead } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
-import { buildReliefMap, SceneLight, type RegionLight } from "@/lib/canvas-light";
 import { downloadBlob } from "@/lib/download-blob";
 import { downloadRemoteImage } from "@/lib/download-image";
 import { resolveMediaUrl } from "@/lib/media";
@@ -198,27 +197,6 @@ function comboName(combo: ProjectCombo, index: number): string {
   return combo.title?.trim() || `Combination ${index + 1}`;
 }
 
-/** A cleaned canvas's measured light, cached per photo URL across both paint paths. */
-interface CanvasLight {
-  url: string;
-  scene: SceneLight | null;
-  byRegion: Map<number, RegionLight | null>;
-}
-
-/** What one region's mask covers on the measured canvas, memoised per region. */
-function regionLightFor(
-  light: CanvasLight | null,
-  regionId: number,
-  mask: HTMLImageElement,
-): RegionLight | null {
-  if (!light) return null;
-  const cached = light.byRegion.get(regionId);
-  if (cached !== undefined) return cached;
-  const measured = light.scene?.region(mask) ?? null;
-  light.byRegion.set(regionId, measured);
-  return measured;
-}
-
 export function RenderStudio({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [combos, setCombos] = useState<ProjectCombo[]>([]);
@@ -262,49 +240,6 @@ export function RenderStudio({ projectId }: { projectId: string }) {
   const engineRef = useRef<Canvas2DRecolor | null>(null);
   /** Masks keyed by region id, loaded once and reused as the selection moves. */
   const maskCache = useRef(new Map<number, HTMLImageElement>());
-  // What the cleaned canvas delivered, and the shading recovered from the photograph
-  // behind it. Measured once per photo and shared by the live combo preview and the
-  // PDF board: both paint the same image through the same masks, so both want the
-  // same answer, and the board should print what the preview showed.
-  const lightCache = useRef<CanvasLight | null>(null);
-  const reliefCache = useRef<{ url: string; map: HTMLCanvasElement | null } | null>(null);
-
-  /**
-   * Measure what the cleaned canvas delivered, once per photo. Null for a project
-   * with no cleaned image: nothing there was repainted to a known albedo, so there
-   * is nothing meaningful to measure against.
-   */
-  const canvasLight = useCallback(async (photoUrl: string, cleaned: boolean): Promise<CanvasLight | null> => {
-    if (!cleaned) return null;
-    if (lightCache.current?.url === photoUrl) return lightCache.current;
-    try {
-      const entry: CanvasLight = {
-        url: photoUrl,
-        scene: SceneLight.from(await loadImage(photoUrl)),
-        byRegion: new Map(),
-      };
-      lightCache.current = entry;
-      return entry;
-    } catch {
-      return null; // unmeasured paints exactly as it did before this existed
-    }
-  }, []);
-
-  /** The original photograph's recovered shading, built once and reused. */
-  const reliefMap = useCallback(async (originalUrl: string | null): Promise<HTMLCanvasElement | null> => {
-    if (!originalUrl) return null;
-    if (reliefCache.current?.url === originalUrl) return reliefCache.current.map;
-    let map: HTMLCanvasElement | null = null;
-    try {
-      map = buildReliefMap(await loadImage(originalUrl));
-    } catch {
-      map = null;
-    }
-    // Cached either way, so a photo that cannot yield relief is not re-fetched for
-    // every combination on the board.
-    reliefCache.current = { url: originalUrl, map };
-    return map;
-  }, []);
 
   // The same condition the overlay uses, computed up here because hooks cannot live
   // below the early return that the loading state makes.
@@ -396,18 +331,6 @@ export function RenderStudio({ projectId }: { projectId: string }) {
         }
         if (cancelled) return;
 
-        // Anchored shading divides the canvas by the albedo the clean-up delivered,
-        // and hands back shading the clean-up flattened. Both are measured, both are
-        // no-ops on a project that has no cleaned canvas to measure.
-        const cleaned = Boolean(project?.cleanedImageUrl);
-        const light = await canvasLight(photo, cleaned);
-        if (cancelled) return;
-        if (cleaned && engine.setReliefSource) {
-          const map = await reliefMap(resolveMediaUrl(project?.imageUrl) ?? null);
-          if (cancelled) return;
-          if (map) engine.setReliefSource(map);
-        }
-
         const paints = [];
         for (const shade of selectedCombo.shades) {
           const region = shade.regionId != null ? regionsById.get(shade.regionId) : undefined;
@@ -423,15 +346,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
             }
           }
           if (cancelled) return;
-          const rl = regionLightFor(light, region.id, mask);
-          paints.push({
-            mask,
-            target: hexToRgb01(shade.hex),
-            preserve: 0.85,
-            anchor: true,
-            whitePoint: rl?.whitePoint,
-            relief: rl?.relief,
-          });
+          paints.push({ mask, target: hexToRgb01(shade.hex), preserve: 0.85, anchor: true });
         }
         if (cancelled) return;
         engine.renderRegions(paints);
@@ -442,7 +357,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [selectedCombo, project, regionsById, canvasLight, reliefMap]);
+  }, [selectedCombo, project, regionsById]);
 
   useEffect(() => () => engineRef.current?.dispose(), []);
 
@@ -543,14 +458,6 @@ export function RenderStudio({ projectId }: { projectId: string }) {
         const engine = new Canvas2DRecolor(surface);
         try {
           engine.setImage(await loadImage(photo));
-          // The board should print what the preview showed, so it paints through the
-          // same measured light — usually already cached by the preview above.
-          const cleaned = Boolean(project?.cleanedImageUrl);
-          const light = await canvasLight(photo, cleaned);
-          if (cleaned && engine.setReliefSource) {
-            const map = await reliefMap(resolveMediaUrl(project?.imageUrl) ?? null);
-            if (map) engine.setReliefSource(map);
-          }
           for (const combo of combos) {
             const paints = [];
             for (const shade of combo.shades) {
@@ -566,15 +473,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
                   continue;
                 }
               }
-              const rl = regionLightFor(light, region.id, mask);
-              paints.push({
-                mask,
-                target: hexToRgb01(shade.hex),
-                preserve: 0.85,
-                anchor: true,
-                whitePoint: rl?.whitePoint,
-                relief: rl?.relief,
-              });
+              paints.push({ mask, target: hexToRgb01(shade.hex), preserve: 0.85, anchor: true });
             }
             // A combination whose regions have all been deleted cannot be repainted.
             // Skipping it beats printing the bare photograph as if it were an option.
@@ -611,7 +510,7 @@ export function RenderStudio({ projectId }: { projectId: string }) {
     } finally {
       setBoardBusy(false);
     }
-  }, [active, boardBusy, project, combos, regionsById, codeScheme, printableShades, canvasLight, reliefMap]);
+  }, [active, boardBusy, project, combos, regionsById, codeScheme, printableShades]);
 
   /**
    * Save the picture itself.

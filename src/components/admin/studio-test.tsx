@@ -44,9 +44,16 @@ import { Spinner } from "@/components/ui/spinner";
 
 /** The studio's own defaults, so a knob moved off one is visibly off the product. */
 const STUDIO_SHADOW_STRENGTH = 0.85;
-/** The studio measures what the canvas delivered rather than assuming it; turning
- *  this off is the only way to see the render the engine produced before it did. */
-const STUDIO_CALIBRATE = true;
+/**
+ * The studio does NOT calibrate against the delivered canvas — it assumes fresh white
+ * and modulates only the light the canvas kept. So the bench's default is off, like
+ * every other knob here: what you see on arrival is what a customer sees.
+ *
+ * Turning it on is the proposed fix, running on a real room. The engines carry it and
+ * nothing in the product asks for it, deliberately — it is evaluated here before it
+ * goes anywhere near a customer or a retailer.
+ */
+const STUDIO_CALIBRATE = false;
 const STUDIO_EDGE_NUDGE_PX = 1;
 const STUDIO_SOFT_EDGE = false;
 
@@ -761,12 +768,18 @@ export function StudioTest({ initial, searchAction, loadAction, shades, initialP
                 <span>Measure what the canvas delivered</span>
               </label>
               <p style={HINT_STYLE}>
-                On, anchored shading divides by the white the clean-up ACTUALLY put down
-                on each surface and borrows back any shading it ironed out, from the
-                original photograph. Off, it assumes fresh white and modulates only what
-                the canvas kept — the render before either fix, and the way to see what
-                they are worth on this room. Cleaned canvas only; there is nothing to
-                calibrate against on the original.
+                <b>Off is what ships.</b> Anchored shading assumes the clean-up delivered
+                fresh white and modulates only the light the canvas kept &mdash; so a
+                surface that came back grey renders every colour dark, and one that came
+                back flat renders a sticker.
+              </p>
+              <p style={HINT_STYLE}>
+                On, it divides by the white the clean-up ACTUALLY put down on each
+                surface and borrows back the shading it ironed out, from the original
+                photograph. This is the proposed fix, not the product: no customer or
+                retailer sees it. Judge it here, on real rooms, before it goes anywhere.
+                Cleaned canvas only &mdash; there is nothing to calibrate against on the
+                original.
               </p>
             </Knob>
 

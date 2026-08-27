@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { codesAreUniversal, displayCodeOf, type ShadeCodeScheme } from "@/lib/shade-codes";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
-import { buildReliefMap, SceneLight, type RegionLight } from "@/lib/canvas-light";
 import type { RecolorEngine } from "@/lib/recolor-engine";
 import { loadCrossOriginImage as loadImage } from "@/lib/load-image";
 
@@ -30,12 +29,6 @@ interface ShareRepaintProps {
   regions: ReadonlyArray<RepaintRegion>;
   /** True when imageUrl is the CLEANED image — enables scene-light anchoring. */
   anchored: boolean;
-  /**
-   * The ORIGINAL photograph, where imageUrl is the cleaned canvas. Used only to
-   * recover shading the clean-up flattened out — see buildReliefMap. Absent means
-   * the repaint simply paints with whatever light the canvas arrived with.
-   */
-  originalImageUrl?: string | null;
   /** Paint companies the retailer opened up for this share (already filtered). */
   brands: ReadonlyArray<RepaintBrand>;
   /** Public backend origin the browser can fetch the shade catalogue from. */
@@ -92,7 +85,7 @@ const chipStyle = (active: boolean): React.CSSProperties => ({
  * image or every mask fails, the plain photo (with the retailer's colours when
  * renderable) remains, and the picker hides.
  */
-export function ShareRepaint({ imageUrl, alt, regions, anchored, originalImageUrl, brands, apiOrigin, scheme }: ShareRepaintProps) {
+export function ShareRepaint({ imageUrl, alt, regions, anchored, brands, apiOrigin, scheme }: ShareRepaintProps) {
   // The shop's presentation, carried in with the project. A shop that hides paint
   // names hides them here too — this page is a link forwarded to whoever the
   // customer likes, so it is the last screen that should still be naming the
@@ -128,10 +121,7 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, originalImageUr
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<RecolorEngine | null>(null);
   const baseRef = useRef<HTMLImageElement | null>(null);
-  const masksRef = useRef<Map<number, { mask: HTMLImageElement; baseL: number; light: RegionLight | null }>>(new Map());
-  // What renderAll last painted, so the recovered-shading map can repaint exactly that
-  // when it lands a moment after the first frame.
-  const lastPaintsRef = useRef<Record<number, AppliedPaint | null>>({});
+  const masksRef = useRef<Map<number, { mask: HTMLImageElement; baseL: number }>>(new Map());
 
   const [ready, setReady] = useState(false); // engine + ≥1 mask loaded → interactive
   const [showOriginal, setShowOriginal] = useState(false);
@@ -167,7 +157,6 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, originalImageUr
     const engine = engineRef.current;
     const base = baseRef.current;
     if (!engine || !base) return;
-    lastPaintsRef.current = state;
     const paintList: RegionPaint[] = [];
     for (const [idStr, loaded] of masksRef.current) {
       const paint = state[Number(idStr)];
@@ -178,10 +167,6 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, originalImageUr
         preserve: SHADOW_STRENGTH,
         baseL: loaded.baseL,
         anchor: anchored,
-        // What the clean-up actually delivered on this surface, measured. Undefined
-        // where it could not be read, which paints it the way this always did.
-        whitePoint: loaded.light?.whitePoint,
-        relief: loaded.light?.relief,
       });
     }
     engine.renderRegions(paintList);
@@ -210,22 +195,13 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, originalImageUr
         engineRef.current = engine;
         engine.setImage(base);
 
-        // Measured once and asked about each mask below: the cleaned canvas is a
-        // generative pass, and anchored shading has to divide by the albedo it really
-        // delivered rather than the one it was asked for.
-        const light = anchored ? SceneLight.from(base) : null;
-
         const loadedIds: number[] = [];
         await Promise.all(
           withMasks.map(async (r) => {
             try {
               const mask = await loadImage(r.maskUrl!);
               if (cancelled) return;
-              masksRef.current.set(r.id, {
-                mask,
-                baseL: regionMeanLuma(base, mask),
-                light: light?.region(mask) ?? null,
-              });
+              masksRef.current.set(r.id, { mask, baseL: regionMeanLuma(base, mask) });
               loadedIds.push(r.id);
             } catch {
               /* this mask didn't load — the region just isn't repaintable */
@@ -243,23 +219,6 @@ export function ShareRepaint({ imageUrl, alt, regions, anchored, originalImageUr
         setPaintableIds(loadedIds);
         setSelectedId(loadedIds[0] ?? null);
         setReady(true);
-
-        // Shading the clean-up ironed out, recovered from the photograph it started
-        // from. Deliberately after the first paint and never awaited by it: the
-        // viewer should see their room painted rather than a spinner, and only the
-        // surfaces that measured flat change when this lands.
-        if (anchored && originalImageUrl && engine.setReliefSource) {
-          void (async () => {
-            try {
-              const map = buildReliefMap(await loadImage(originalImageUrl));
-              if (cancelled || !map || engineRef.current !== engine) return;
-              engine.setReliefSource!(map);
-              renderAll(lastPaintsRef.current);
-            } catch {
-              // No relief rather than the wrong relief.
-            }
-          })();
-        }
       } catch {
         /* fall back to the plain <img> below */
       }

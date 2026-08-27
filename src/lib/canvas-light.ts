@@ -26,6 +26,14 @@
  * Everything in this module is pure measurement over already-rasterized pixels, at a
  * small working resolution, and degrades to null (never a wrong number) wherever the
  * DOM, a 2D context or a readable source is missing.
+ *
+ * <p><b>Nothing a customer or a retailer uses calls this yet.</b> The engines accept
+ * what it measures, and the only caller is the admin bench at /admin/studio-test,
+ * behind its "Light calibration" knob — which itself defaults OFF, so the bench shows
+ * the shipping render until someone asks for the other one. The studio, the share view
+ * and the render studio pass none of it and are byte-for-byte unchanged. This is a fix
+ * being evaluated on real rooms before it reaches anyone paying for paint; wiring it
+ * into the product is a separate, deliberate decision.
  */
 
 import { lumaStats, maskBits, rasterize } from "./render-metrics";

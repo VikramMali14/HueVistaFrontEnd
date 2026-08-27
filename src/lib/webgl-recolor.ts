@@ -26,10 +26,17 @@
  * generative pass, and when that pass drifts it hands back a surface painted the
  * wrong white, or one with its shadows ironed out, or both — and a multiply over a
  * near-constant is a sticker however carefully the multiply is done. So two of the
- * numbers here are measured from the canvas rather than assumed about it
+ * numbers here CAN be measured from the canvas rather than assumed about it
  * (canvas-light.ts): `u_anchorDiv`, the albedo actually delivered, and `u_relief`,
- * shading taken back off the original photograph. Both are inert on a canvas the
- * clean-up got right — that case renders exactly as it did before they existed.
+ * shading taken back off the original photograph.
+ *
+ * Both are opt-in and, for now, only /admin/studio-test opts in. The studio, the
+ * share view and the render studio pass neither, which leaves `u_anchorDiv` at
+ * REF_WHITE and `u_reliefMix` at 0 — arithmetic identical to before either existed,
+ * so no customer or retailer render moves until someone decides it should. That is
+ * also true of a canvas the clean-up got right, whoever is painting it: the measured
+ * white of such a canvas IS REF_WHITE, and a surface with its light intact asks for
+ * no relief.
  *
  * 60 fps on mid-range mobile, zero backend round-trip per swatch change. The
  * mask's soft (anti-aliased) edge is the only place colour blends.
@@ -136,6 +143,16 @@ vec3 brighten(vec3 c) {
   return pow(max(c, 0.0), vec3(1.0 / u_bright));
 }
 
+// The albedo to assume when nothing was measured — fresh white paint at LRV ~85.
+// Kept as a compile-time constant, not folded into u_anchorDiv's default, so the
+// unmeasured path below compiles to the exact expression it did before u_anchorDiv
+// existed. Dividing by a uniform holding 0.94 is not bit-identical to dividing by the
+// literal: the compiler folds the literal to a reciprocal multiply and the last bit
+// differs, which was enough to move one subpixel of a 400x300 render. That is
+// invisible, but "no customer render moves" is worth being exactly true rather than
+// nearly true.
+const float REF_WHITE = ${REF_WHITE.toFixed(2)};
+
 // Cheap hash -> pseudo-random 0..1 from a screen-space position, for grain.
 float hash(vec2 p) {
   p = fract(p * vec2(123.34, 345.45));
@@ -167,7 +184,10 @@ void main() {
       // repainted a known albedo — so the smooth photo IS the illumination.
       // Per-channel, so the scene's warm or cool cast tints the paint too:
       // a dusk wall renders the swatch in dusk light, not showroom light.
-      form = Brgb / u_anchorDiv;
+      // 0 means the canvas was never measured: take the constant, by the same
+      // expression as before this was measurable at all.
+      if (u_anchorDiv > 0.0) form = Brgb / u_anchorDiv;
+      else form = Brgb / REF_WHITE;
     } else {
       // LEGACY: normalise by the region's own mean luminance so the wall
       // still averages to the true swatch colour (the can's colour).
@@ -527,7 +547,7 @@ export class Recolor implements RecolorEngine {
     gl.uniform1f(this.locBaseL, 0);
     gl.uniform1f(this.locAnchor, 0);
     gl.uniform1f(this.locGrain, 0);
-    gl.uniform1f(this.locAnchorDiv, REF_WHITE);
+    gl.uniform1f(this.locAnchorDiv, 0);
     gl.uniform1f(this.locReliefMix, 0);
     gl.uniform3fv(this.locTarget, [0, 0, 0]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -549,10 +569,10 @@ export class Recolor implements RecolorEngine {
       gl.uniform1f(this.locBaseL, Math.max(0, r.baseL ?? 0));
       gl.uniform1f(this.locAnchor, r.anchor ? 1 : 0);
       gl.uniform1f(this.locGrain, Math.max(0, r.grain ?? DEFAULT_GRAIN));
-      // An unmeasured white falls back to REF_WHITE, and anchorDivisor returns
-      // REF_WHITE unchanged for it — so a caller that passes nothing renders exactly
-      // as it did before this existed.
-      gl.uniform1f(this.locAnchorDiv, anchorDivisor(r.whitePoint ?? REF_WHITE));
+      // 0 = unmeasured, which the shader reads as "use the built-in REF_WHITE".
+      // A caller that passes no whitePoint therefore renders bit-for-bit as it did
+      // before any of this existed — see the constant's note in the shader.
+      gl.uniform1f(this.locAnchorDiv, r.whitePoint === undefined ? 0 : anchorDivisor(r.whitePoint));
       // Relief is ignored outright with no map loaded, rather than sampling the
       // neutral tile and trusting the multiply to come out at 1.
       gl.uniform1f(this.locReliefMix, this.hasRelief ? clamp01(r.relief ?? 0) : 0);

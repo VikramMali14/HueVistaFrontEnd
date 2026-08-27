@@ -133,7 +133,6 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             alt={project.name}
             regions={repaintRegions}
             anchored={Boolean(project.cleanedImageUrl)}
-            originalImageUrl={project.cleanedImageUrl ? absUrl(project.imageUrl) : null}
             brands={brands}
             apiOrigin={config.apiOrigin}
             scheme={project.shadeCodeScheme}

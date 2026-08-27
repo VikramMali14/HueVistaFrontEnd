@@ -270,7 +270,12 @@ export class Canvas2DRecolor implements RecolorEngine {
       // light level. Legacy: the neutral is the region's mean luminance, so the
       // region's AVERAGE still lands on the swatch.
       sctx.globalCompositeOperation = "lighter";
-      const neutral = anchored ? anchorDivisor(r.whitePoint ?? REF_WHITE) : baseL;
+      // Unmeasured takes the constant directly rather than routing it through
+      // anchorDivisor, which returns it unchanged anyway: the point is that a caller
+      // passing nothing cannot be moved by a change to the calibration.
+      const neutral = anchored
+        ? (r.whitePoint === undefined ? REF_WHITE : anchorDivisor(r.whitePoint))
+        : baseL;
       let remaining = Math.min(MAX_GAIN, 1 / Math.max(neutral, 1 / MAX_GAIN));
       while (remaining > 1.01) {
         const a = Math.min(1, remaining - 1);
