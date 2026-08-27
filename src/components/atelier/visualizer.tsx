@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Eyebrow, Mono } from "@/components/ui/eyebrow";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -10,11 +11,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { type PipelineStage } from "./pipeline-bar";
 import { ShadeGrid, type SelectionCombo } from "./shade-grid";
 import { CompanyPicker } from "./company-picker";
-import { MaskStudio, type ExistingMask } from "./mask-studio";
+import type { ExistingMask } from "./mask-studio";
 import { ProjectDetailsGate, type ProjectDetails } from "./project-details-gate";
 import type { RegionLite } from "./coordinate-suggestions";
 import { PhoneHandoff } from "@/components/shared/phone-handoff";
-import { buyOneProject, reopenProjectWithMoney } from "@/lib/payments";
 import { PROJECT_VALID_DAYS, validityNote } from "@/lib/project-validity";
 import { hexToRgb01, Recolor, regionMeanLuma, type RegionPaint } from "@/lib/webgl-recolor";
 import { Canvas2DRecolor } from "@/lib/canvas2d-recolor";
@@ -29,19 +29,15 @@ import {
   pollUntilSegmented as pollSegmentationStatus,
 } from "@/lib/segmentation-polling";
 import { api, guestApi, HttpError } from "@/lib/api";
-import {
-  buildColourBoardPdf,
-  canvasToJpegDataUrl,
-  imageUrlToJpegDataUrl,
-  type PdfImageEntry,
-  type PdfShade,
-} from "@/lib/pdf-export";
+// The canvas snapshot helpers are needed synchronously (maximise, the share sheet's
+// capture, "download this image") so they stay static — they are a few dozen lines.
+// The PDF GENERATOR they used to sit beside does not: it is fetched by `downloadPdf`
+// on the click that needs it, which is the only time a board is ever built.
+import { canvasToJpegDataUrl, imageUrlToJpegDataUrl } from "@/lib/canvas-jpeg";
+import type { PdfImageEntry, PdfShade } from "@/lib/pdf-export";
 import { downloadBlob } from "@/lib/download-blob";
 import { comboAlreadyOnBoard } from "@/lib/combo-fingerprint";
 import { runColourBoardDownload } from "@/lib/colour-board-download";
-import { ShareDialog } from "./share-dialog";
-import { ReportDialog } from "./report-dialog";
-import { BoardDownloadConfirm } from "./board-download-confirm";
 import { IMAGE_ACCEPT, cropAndEncode, imageFileError, loadImageFromFile } from "@/lib/image-upload";
 import { lrvCorrectedRgb01, undertoneClash } from "@/lib/color-science";
 import { nearestShade } from "@/lib/color";
@@ -63,6 +59,29 @@ import type {
   RetailerCombo,
   SegmentationOptions,
 } from "@/lib/types";
+
+/**
+ * The four screens you only reach by asking for them.
+ *
+ * Each is already gated behind a boolean below (`maskStudioOpen`, `reportOpen`,
+ * `shareOpen`, `pdfConfirmOpen`), so none of them renders on the way in — yet all four
+ * were being downloaded before the first photo could be dropped, MaskStudio's wall
+ * editor most of all. Fetched on the state flip instead: the click that opens one is
+ * what pays for it, and a customer who never hand-draws a wall or shares a link never
+ * pays at all.
+ *
+ * `ssr: false` because none of them can render on the server anyway — every one is
+ * canvas-, clipboard- or download-driven — and it keeps them out of the server payload
+ * as well. No `loading` fallback: each already appears on a user action, and a flash of
+ * placeholder chrome would be a worse answer than the frame it costs to arrive.
+ */
+const MaskStudio = dynamic(() => import("./mask-studio").then((m) => m.MaskStudio), { ssr: false });
+const ShareDialog = dynamic(() => import("./share-dialog").then((m) => m.ShareDialog), { ssr: false });
+const ReportDialog = dynamic(() => import("./report-dialog").then((m) => m.ReportDialog), { ssr: false });
+const BoardDownloadConfirm = dynamic(
+  () => import("./board-download-confirm").then((m) => m.BoardDownloadConfirm),
+  { ssr: false },
+);
 
 interface VisualizerProps {
   /** When set, open this existing project: loads its SAVED masks + cleaned image from
@@ -1586,6 +1605,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       if (rail === "points") {
         setPurchaseOptions(await api.pointsPayProjectCredit());
       } else {
+        // Fetched on the click. Razorpay Checkout is only ever opened by a buyer who
+        // got this far, so the studio no longer ships the payment code to everyone who
+        // just wants to paint a wall. A failed fetch lands in the catch below and reads
+        // as a payment that could not be completed — nothing has been charged.
+        const { buyOneProject } = await import("@/lib/payments");
         const paid = await buyOneProject();
         if (!paid) return;
         setPurchaseOptions(paid);
@@ -1627,6 +1651,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       if (rail === "points") {
         setPurchaseOptions(await api.pointsPayProjectCredit());
       } else {
+        const { buyOneProject } = await import("@/lib/payments");
         const paid = await buyOneProject();
         if (!paid) return; // buyer closed Checkout
         setPurchaseOptions(paid);
@@ -1792,8 +1817,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         // No Checkout on this one: the money moved when the project was bought. One call
         // that either opens the room or says why not.
         await api.reopenWithProjectCredit(projectId);
-      } else if (!(await reopenProjectWithMoney(projectId))) {
-        return; // buyer closed Checkout
+      } else {
+        const { reopenProjectWithMoney } = await import("@/lib/payments");
+        if (!(await reopenProjectWithMoney(projectId))) {
+          return; // buyer closed Checkout
+        }
       }
       const refreshed = await getProjectCall(projectId);
       await applyProjectDetail(refreshed);
@@ -2290,6 +2318,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           hex: s.hex,
         })),
       }));
+      // The generator is fetched here rather than imported with the studio: it is only
+      // ever run on this click, and every visit that never asks for a board was paying
+      // to download it. Awaited BEFORE runColourBoardDownload so `build` stays
+      // synchronous and the build-then-charge order below is untouched. A failed fetch
+      // (offline, a stale chunk after a deploy) is the same outcome as a failed build —
+      // nothing has been charged yet, so the customer keeps their allowance.
+      let buildColourBoardPdf: typeof import("@/lib/pdf-export").buildColourBoardPdf;
+      try {
+        ({ buildColourBoardPdf } = await import("@/lib/pdf-export"));
+      } catch {
+        setPdfNotice("Could not make the PDF on this device — check your connection and try again.");
+        return;
+      }
       const outcome = await runColourBoardDownload({
         // The board is printed and carried out of the shop, so its footer has to name
         // who can read the codes on it — any HueVista counter for an HV code, only the

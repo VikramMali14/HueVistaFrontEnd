@@ -1101,8 +1101,11 @@ describe("Visualizer — a run that cleaned the photo but found no walls", () =>
     await act(async () => {
       fireEvent.click(await screen.findByRole("button", { name: /Report a problem/i }));
     });
+    // The report dialog is fetched on the click that opens it, so wait for it to
+    // arrive rather than assuming it mounted in the same tick as the click.
+    const issue = await screen.findByLabelText(/The walls weren't detected properly/i);
     await act(async () => {
-      fireEvent.click(screen.getByLabelText(/The walls weren't detected properly/i));
+      fireEvent.click(issue);
     });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Send report" }));
@@ -1202,8 +1205,11 @@ describe("Visualizer — reporting a bad run", () => {
     await act(async () => {
       fireEvent.click(await screen.findByRole("button", { name: /Report a problem/i }));
     });
+    // The report dialog is fetched on the click that opens it, so wait for it to
+    // arrive rather than assuming it mounted in the same tick as the click.
+    const issue = await screen.findByLabelText(/The walls weren't detected properly/i);
     await act(async () => {
-      fireEvent.click(screen.getByLabelText(/The walls weren't detected properly/i));
+      fireEvent.click(issue);
     });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Send report" }));
@@ -1312,8 +1318,11 @@ describe("Visualizer — reporting a bad run", () => {
     await act(async () => {
       fireEvent.click(await screen.findByRole("button", { name: /Report a problem/i }));
     });
+    // The report dialog is fetched on the click that opens it, so wait for it to
+    // arrive rather than assuming it mounted in the same tick as the click.
+    const issue = await screen.findByLabelText(/The walls weren't detected properly/i);
     await act(async () => {
-      fireEvent.click(screen.getByLabelText(/The walls weren't detected properly/i));
+      fireEvent.click(issue);
     });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Send report" }));
