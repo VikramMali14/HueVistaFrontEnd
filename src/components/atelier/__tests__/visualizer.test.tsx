@@ -174,17 +174,34 @@ vi.mock("@/lib/api", () => {
 const engineState = vi.hoisted(() => ({
   webglShouldThrow: false,
   canvas2dShouldThrow: false,
+  /** Every WebGL engine the studio has constructed this test, newest last. */
+  webglInstances: [] as Array<{
+    setImageCalls: number;
+    renderRegionsCalls: number;
+    onContextLost: (() => void) | null;
+    onContextRestored: (() => void) | null;
+  }>,
 }));
 
 vi.mock("@/lib/webgl-recolor", () => {
   class Recolor {
+    setImageCalls = 0;
+    renderRegionsCalls = 0;
+    // The studio assigns these; a lost/restored context is delivered by calling them.
+    onContextLost: (() => void) | null = null;
+    onContextRestored: (() => void) | null = null;
     constructor(public readonly canvas: HTMLCanvasElement) {
       if (engineState.webglShouldThrow) {
         throw new Error("WebGL2 is not supported in this browser.");
       }
+      engineState.webglInstances.push(this);
     }
-    setImage() {}
-    renderRegions() {}
+    setImage() {
+      this.setImageCalls++;
+    }
+    renderRegions() {
+      this.renderRegionsCalls++;
+    }
     renderBase() {}
     exportPng() {
       return "data:image/png;base64,";
@@ -390,6 +407,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   engineState.webglShouldThrow = false;
   engineState.canvas2dShouldThrow = false;
+  engineState.webglInstances.length = 0;
   vi.stubGlobal("Image", FakeImage);
 
   vi.mocked(api.uploadImage).mockResolvedValue(UPLOADED);
@@ -1101,8 +1119,11 @@ describe("Visualizer — a run that cleaned the photo but found no walls", () =>
     await act(async () => {
       fireEvent.click(await screen.findByRole("button", { name: /Report a problem/i }));
     });
+    // The report dialog is fetched on the click that opens it, so wait for it to
+    // arrive rather than assuming it mounted in the same tick as the click.
+    const issue = await screen.findByLabelText(/The walls weren't detected properly/i);
     await act(async () => {
-      fireEvent.click(screen.getByLabelText(/The walls weren't detected properly/i));
+      fireEvent.click(issue);
     });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Send report" }));
@@ -1121,6 +1142,47 @@ describe("Visualizer — a run that cleaned the photo but found no walls", () =>
  * was gated on the pipeline reaching the "recolor" stage, which only happens when a
  * colour is applied or a saved project is reopened, never when a run finishes.
  */
+/**
+ * A phone that backgrounds the tab, or any device short on GPU memory, has the
+ * browser take the WebGL context away. Everything the engine holds dies with it, so
+ * the canvas goes blank — and before the studio handled this, it stayed blank: the
+ * spec only offers a restore to a page that called preventDefault on the loss event,
+ * which nothing did. The customer saw an empty room with their colours gone.
+ *
+ * Nothing is actually lost at that point — the photo is in a ref and the colours are
+ * in React state — so recovery is a re-upload and a repaint.
+ */
+describe("Visualizer — losing and regaining the GPU", () => {
+  it("says what happened, then puts the room back when the context returns", async () => {
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+
+    const engine = engineState.webglInstances.at(-1);
+    expect(engine).toBeDefined();
+    expect(engine!.onContextLost).toBeTypeOf("function");
+    expect(engine!.onContextRestored).toBeTypeOf("function");
+
+    const paintsBefore = engine!.renderRegionsCalls;
+    const uploadsBefore = engine!.setImageCalls;
+
+    // The GPU takes the context away.
+    await act(async () => {
+      engine!.onContextLost!();
+    });
+    expect(screen.getByText(/Bringing your room back/i)).toBeInTheDocument();
+
+    // ...and hands it back.
+    await act(async () => {
+      engine!.onContextRestored!();
+    });
+    expect(screen.queryByText(/Bringing your room back/i)).not.toBeInTheDocument();
+    // The photo is re-uploaded (its texture died) and the regions are repainted over
+    // it. Without both, the canvas stays exactly as blank as the loss left it.
+    expect(engine!.setImageCalls).toBeGreaterThan(uploadsBefore);
+    expect(engine!.renderRegionsCalls).toBeGreaterThan(paintsBefore);
+  });
+});
+
 describe("Visualizer — reporting a bad run", () => {
   it("offers the report as soon as a run finishes, before any colour is applied", async () => {
     const { container } = render(<Visualizer initialName="Test room" />);
@@ -1202,8 +1264,11 @@ describe("Visualizer — reporting a bad run", () => {
     await act(async () => {
       fireEvent.click(await screen.findByRole("button", { name: /Report a problem/i }));
     });
+    // The report dialog is fetched on the click that opens it, so wait for it to
+    // arrive rather than assuming it mounted in the same tick as the click.
+    const issue = await screen.findByLabelText(/The walls weren't detected properly/i);
     await act(async () => {
-      fireEvent.click(screen.getByLabelText(/The walls weren't detected properly/i));
+      fireEvent.click(issue);
     });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Send report" }));
@@ -1312,8 +1377,11 @@ describe("Visualizer — reporting a bad run", () => {
     await act(async () => {
       fireEvent.click(await screen.findByRole("button", { name: /Report a problem/i }));
     });
+    // The report dialog is fetched on the click that opens it, so wait for it to
+    // arrive rather than assuming it mounted in the same tick as the click.
+    const issue = await screen.findByLabelText(/The walls weren't detected properly/i);
     await act(async () => {
-      fireEvent.click(screen.getByLabelText(/The walls weren't detected properly/i));
+      fireEvent.click(issue);
     });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Send report" }));

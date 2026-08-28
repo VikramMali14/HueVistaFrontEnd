@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import QRCode from "qrcode";
 import { Mono } from "@/components/ui/eyebrow";
 
 type Phase = "idle" | "waiting" | "received" | "error";
@@ -56,7 +55,11 @@ export function PhoneHandoff({ onImage }: { onImage: (file: File) => void }) {
       const { sessionId } = (await res.json()) as { sessionId: string };
       const url = `${window.location.origin}/m/${sessionId}`;
       setMobileUrl(url);
-      setQr(await QRCode.toDataURL(url, { width: 240, margin: 1 }));
+      // Loaded on demand, the same way `buildKioskPoster` takes it: the encoder only
+      // matters once someone actually opens the hand-off, and it was riding along on
+      // every studio visit — including the many that upload straight from the desktop.
+      const { toDataURL } = await import("qrcode");
+      setQr(await toDataURL(url, { width: 240, margin: 1 }));
 
       const token = { cancelled: false };
       pollRef.current = token;
