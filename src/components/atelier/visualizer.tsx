@@ -3021,6 +3021,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               onChange={setCompanies}
             />
           )}
+          {/* Everything below is the SECOND rank of this screen: ways of taking the
+              room somewhere else once the colours are chosen. On a wide screen they
+              sit out in the open, where there is room for them. On a phone they fold
+              into the one button after this block — see StudioMoreMenu, which offers
+              exactly the same list. A phone's topbar showed three or four of these
+              across a 360px row, which is how the company picker ended up underneath
+              the Share button, and none of them is what somebody opened the studio to
+              do. Choosing a colour is. */}
+          <div className="hv-studio-actions-full">
           {/* Putting a room in the public gallery starts with a finished room, and
               this is where a finished room is. The publishing itself still lives in
               the admin console — it copies files and picks a shelf — but nothing
@@ -3094,6 +3103,54 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               {closing ? "Closing…" : "Close project"}
             </Button>
           )}
+          </div>
+
+          {/* The same list, in one button, for a phone. Report-a-problem joins it here
+              because its own quiet line under the photo is one of the things that comes
+              off a small screen — it must stay reachable, since a wrongly-masked run
+              passes every check the backend makes and this is the only way anyone
+              hears about it. */}
+          <StudioMoreMenu
+            items={[
+              ...(isAdmin && !guest && projectId && masksReady
+                ? [{
+                    key: "gallery",
+                    label: "Add to gallery",
+                    href: `/admin/free-projects?project=${encodeURIComponent(projectId)}&title=${encodeURIComponent(projectName || "")}`,
+                  }]
+                : []),
+              ...(guest
+                ? [{
+                    key: "send",
+                    label: sentToShop ? "Sent to shop ✓" : sendingToShop ? "Sending…" : "Send to my shop",
+                    disabled: !projectId || sendingToShop || sentToShop,
+                    onClick: () => void handleSendToShop(),
+                  }]
+                : [{
+                    key: "share",
+                    label: "Share",
+                    disabled: !projectId,
+                    onClick: () => void handleShare(),
+                  }]),
+              {
+                key: "download",
+                label: "Download image",
+                disabled: !imageUrl,
+                onClick: downloadCurrentImage,
+              },
+              ...(canReport && !reported
+                ? [{ key: "report", label: "Report a problem", onClick: () => setReportOpen(true) }]
+                : []),
+              ...(!guest && !closed && boardsUsed > 0
+                ? [{
+                    key: "close",
+                    label: closing ? "Closing…" : "Close project",
+                    disabled: closing,
+                    onClick: () => void closeProject(),
+                  }]
+                : []),
+            ]}
+          />
         </div>
       </div>
 
@@ -4296,6 +4353,111 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         </div>
       )}
     </div>
+  );
+}
+
+/** One entry in the phone topbar's overflow menu. */
+type MoreItem = {
+  key: string;
+  label: string;
+  /** A link entry (Add to gallery); mutually exclusive with onClick. */
+  href?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+};
+
+/**
+ * The studio's second-rank actions, folded into one button for a phone.
+ *
+ * It renders at every width and the stylesheet decides who sees it: above 900px the
+ * actions are out in the open and this is hidden, below it the reverse. That way there
+ * is one list of actions in the source rather than a phone copy drifting from a desktop
+ * one — and nothing on this screen becomes unreachable on a small display, which is the
+ * failure mode of simply hiding buttons.
+ */
+function StudioMoreMenu({ items }: { items: ReadonlyArray<MoreItem> }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+
+  // Same manners as the company picker beside it: an outside tap or Escape closes it,
+  // because a panel left open over the room is in the way of the room.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="hv-studio-more" ref={root}>
+      <button
+        type="button"
+        className="hv-studio-more-btn"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        /* Just "More actions": the menu names its own entries, and spelling them
+           out here made this button answer to every one of them — a search for the
+           report button found two. */
+        aria-label="More actions"
+        title="More actions"
+      >
+        <MoreIcon />
+      </button>
+      {open && (
+        <div className="hv-studio-more-menu" role="menu" aria-label="More actions">
+          {items.map((it) =>
+            it.href ? (
+              <Link
+                key={it.key}
+                role="menuitem"
+                className="hv-studio-more-item"
+                href={it.href}
+                onClick={() => setOpen(false)}
+              >
+                {it.label}
+              </Link>
+            ) : (
+              <button
+                key={it.key}
+                type="button"
+                role="menuitem"
+                className="hv-studio-more-item"
+                disabled={it.disabled}
+                onClick={() => {
+                  setOpen(false);
+                  it.onClick?.();
+                }}
+              >
+                {it.label}
+              </button>
+            ),
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MoreIcon() {
+  // Three dots — "there is more here", the one icon nobody has to be taught.
+  return (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
+    </svg>
   );
 }
 

@@ -1849,3 +1849,38 @@ describe("Visualizer — a locked project shows the colours it handed over", () 
     expect(screen.getAllByRole("button", { name: /^Remove /i }).length).toBeGreaterThan(0);
   });
 });
+
+describe("Visualizer — the phone's overflow menu", () => {
+  /**
+   * A narrow screen shows one "⋯" button where a wide one shows Share, Download,
+   * Report a problem and Close project in a row. Which of the two is on screen is a
+   * stylesheet's decision, so what this can check is the part that matters either
+   * way: the menu carries the same actions, and nothing on this screen has been made
+   * unreachable by taking the buttons off a phone.
+   */
+  it("carries the actions a narrow topbar hides, the report among them", async () => {
+    const { container } = render(<Visualizer initialName="Test room" />);
+    await chooseFile(container, makeFile("room.jpg", "image/jpeg"));
+    expect((await screen.findAllByText("Walls detected")).length).toBeGreaterThan(0);
+
+    // Closed it is one button: no second copy of any action sitting in the markup.
+    expect(screen.queryByRole("menuitem", { name: "Share" })).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    });
+
+    expect(screen.getByRole("menuitem", { name: "Share" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Download image" })).toBeInTheDocument();
+
+    // The one that would otherwise be lost. Its own quiet line under the photo is not
+    // shown on a phone, and a wrongly-masked run passes every check the backend makes
+    // — so this entry is the only way the team hears about one.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("menuitem", { name: "Report a problem" }));
+    });
+    expect(
+      await screen.findByLabelText(/The walls weren't detected properly/i),
+    ).toBeInTheDocument();
+  });
+});
