@@ -4809,24 +4809,63 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .hv-studio-region { padding: 7px 10px; }
 }
 /* ===== A PHONE ON ITS SIDE =====
-   Everything above already applies; what changes is the share of a 390px-tall screen
-   the room may take. Two columns were the obvious idea and the measurements killed
-   it: room beside colours leaves the colour column about 38px of grid once the tabs,
-   the search box, the wall chips and the dock have taken their fixed rows — a pane
-   with no colours in it. Pinned-and-stacked works because the panel's chrome scrolls
-   away under the picture and only the dock keeps its place.
+   Turned sideways a phone has a desktop's proportions — wide and short — so it gets
+   the desktop's shape: the room down the left, the colours down the right, both on
+   screen at once.
 
-   So the room takes a little over a third and the rest is colours, on tiles cut down
-   to suit: three to a row, shallower, one line of name. */
-@media (max-width: 900px) and (max-height: 560px) and (orientation: landscape) {
-  .hv-studio-canvas.is-preview { min-height: 120px; max-height: 38dvh; }
-  .hv-studio-canvas:not(.is-preview) { min-height: min(80dvh, 320px); }
+   Two columns were tried once as a fixed-height row with the panel scrolling inside
+   it, and the measurements killed it: the tabs, the search box, the wall chips and
+   the dock take their fixed rows out of 260px and leave the grid about 38px. The
+   difference here is that the panel scrolls with the PAGE, so all of that chrome
+   scrolls away and the grid gets the height the dock is not using — around 300px
+   instead of 38.
+
+   The room column is sticky rather than a fixed row for the same reason it is in
+   portrait: a wall you are choosing a colour for has to still be there when you pick
+   one. Sticky works on a flex item because its containing block is the flex CONTAINER,
+   which is as tall as the colour panel beside it — the travel a grid area never had.
+
+   min-width guards the phones this is for: a genuinely narrow window that happens to
+   be landscape keeps the stack, where two columns would leave neither one usable. */
+@media (max-width: 900px) and (min-width: 620px) and (orientation: landscape) {
+  .hv-studio-body {
+    display: flex !important;
+    align-items: flex-start;
+  }
+  .hv-studio-canvas-wrap {
+    flex: 0 0 46%;
+    /* The full short axis, so a room photo is a room and not a stamp in the middle of
+       an empty band — 46% of the width against the whole height is close to the shape
+       of the photograph itself, which is what stops the canvas paying for the
+       difference in dead space. */
+    height: 100dvh;
+    border-bottom: 0;
+    border-right: 1px solid var(--rule);
+  }
+  .hv-studio-canvas.is-preview,
+  .hv-studio-canvas:not(.is-preview) {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+  .hv-studio-sidebar {
+    flex: 1 1 auto;
+    min-width: 0;
+    border-top: 0;
+  }
+  /* Panel chrome, trimmed. Height is still the scarce axis: every row that keeps its
+     place — the dock, mainly — is a row the colours do not get. */
   .hv-studio-tab { padding: 8px 0; }
   .hv-studio-filter-bar { padding: 6px 8px; gap: 4px; }
   /* The "N colours across M companies" count — a number, not a control. */
   .hv-studio-filter-bar > .hv-studio-filter-row:last-child { display: none; }
   .hv-studio-region-strip-scroll { padding: 6px 8px; }
   .hv-studio-scroll { padding: 8px; gap: 10px; }
+  /* Three to a row in a half-width column, on shallower tiles with a single-line
+     name: the swatch is the thing being judged, and a 130px tile would mean the
+     column shows one row and the top of the next. */
   .hv-studio-swatches { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; }
   .hv-studio-swatch-color { aspect-ratio: 2 / 1; }
   .hv-studio-swatch-name {
