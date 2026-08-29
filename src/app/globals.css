@@ -2927,7 +2927,10 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-legend {
   position: absolute;
   left: 14px;
-  bottom: 14px;
+  /* Anchored to the top of the notes block, i.e. the bottom edge of the photo —
+     so it clears the report row underneath instead of sitting on it. */
+  bottom: 100%;
+  margin-bottom: 14px;
   z-index: 8;
   display: flex;
   flex-direction: column;
@@ -2976,27 +2979,23 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   letter-spacing: .08em;
   color: rgba(247,247,245,.72);
 }
-/* Clear the bottom-centre PDF tray on narrow screens. */
-@media (max-width: 760px) {
-  .hv-studio-legend { bottom: 92px; max-width: min(72%, 340px); }
-}
 
 /* Indicative-colour disclaimer. Mirrors the line printed on the colour-board PDF
    so the expectation is set on-screen too.
-   It renders inside `.hv-studio-canvas` — a full-height `overflow: hidden` box
-   whose <canvas> is absolutely positioned — so as a static block it laid out
+   It used to render as a static block inside `.hv-studio-canvas` — a full-height
+   `overflow: hidden` box whose <canvas> is absolutely positioned — so it laid out
    from the TOP of that box rather than under the preview: across the photo,
    beneath the Maximise and Hold-to-compare buttons, and cut off mid-sentence at
    "...may look different on your". The one line that sets expectations about
    screens versus real paint was the one line nobody could finish reading.
    Anchored opposite the legend now, sharing its backdrop so it stays legible
-   over any photo, and clearing the same PDF tray on narrow screens. */
+   over any photo — and on a phone it leaves the photo altogether. */
 .hv-studio-disclaimer {
   position: absolute;
   right: 14px;
-  bottom: 14px;
+  bottom: 100%;
   z-index: 8;
-  margin: 0;
+  margin: 0 0 14px;
   max-width: min(46%, 340px);
   padding: 10px 12px;
   text-align: right;
@@ -3010,10 +3009,6 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   box-shadow: 0 16px 40px -22px rgba(0,0,0,.6);
   pointer-events: none;
 }
-@media (max-width: 760px) {
-  /* Above the legend, which has itself moved up to clear the PDF tray. */
-  .hv-studio-disclaimer { bottom: 170px; max-width: min(72%, 340px); }
-}
 
 /* "Not right? Report a problem" — the channel for an AI run that came out wrong.
    Quiet on purpose: it sits under every finished preview, so it must not compete
@@ -3021,14 +3016,13 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
    invisible to every check the backend makes, which makes this button the only
    way the team ever finds out a run failed. */
 .hv-studio-report {
-  margin: 8px auto 0;
   display: flex;
   justify-content: center;
-  /* Every other control layered over the room — maximise, hold-to-compare, the
-     legend, the disclaimer, the PDF button — is positioned, so it sits above the
-     canvas and takes its own clicks. This row was left static, which left it painting
-     over the canvas but NOT hit-testing above it: the button was plainly visible and
-     completely dead, every click landing on the canvas behind it.
+  padding: 6px 12px 8px;
+  /* It is no longer layered over the room at all — it has its own row under the
+     photo, in .hv-studio-canvas-notes. Inside the canvas it painted over the picture
+     but did NOT hit-test above it: the button was plainly visible and completely
+     dead, every click landing on the canvas behind it.
      That matters more here than it would anywhere else on the page. A run that puts
      the walls in the wrong places still comes back SEGMENTED and passes every check
      the backend makes, so this button is the only way anyone finds out. It was made
@@ -4451,6 +4445,14 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-region-card.is-active { background: var(--surface-soft); border-color: var(--rule-strong); }
 
 /* "← Edit project details": the way back from the photo step to the name step. */
+/* "Use this photo?" — bottom-anchored inside the canvas, and on a phone (or a short
+   laptop) its clean-up options can be taller than the box they hang in, which clipped
+   the question itself off the top. It scrolls instead. */
+.hv-studio-confirm {
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .hv-studio-back {
   position: absolute;
   left: 50%;
@@ -4497,6 +4499,11 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
    the colour looks like. */
 .hv-studio-canvas-wrap {
   position: relative;
+  /* A column of two: the picture, and the notes that go with it. The notes were
+     children of the canvas box until they earned their own — see
+     .hv-studio-canvas-notes below. */
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   overflow: hidden;
   background:
@@ -4505,9 +4512,30 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-canvas {
   position: relative;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   background: transparent;
   overflow: hidden;
+}
+
+/* The legend, the indicative-colour note and "Report a problem" — everything that
+   belongs WITH the room without belonging ON it.
+
+   On a desktop this block has no height of its own beyond the report row: the legend
+   and the disclaimer are absolute and anchored to its TOP EDGE (bottom: 100%), which
+   is the bottom edge of the photo, so they read exactly as they always have — glass
+   cards over the picture — and the report row is guaranteed to sit clear of them.
+
+   That row is the point of the block. It was a static child of the canvas, whose own
+   <canvas> is absolutely positioned; with nothing in normal flow ahead of it, "under
+   the preview" laid out at the TOP of the picture instead, straight through Maximise
+   and Hold-to-compare. A phone got the worst of it — the two glass buttons and the
+   report link all in the same 40px of a 250px-tall photo.
+
+   On a phone the whole block comes off the picture (see the 900px rule below). */
+.hv-studio-canvas-notes {
+  position: relative;
+  flex: 0 0 auto;
 }
 .hv-studio-canvas canvas {
   position: absolute;
@@ -4559,6 +4587,36 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .hv-studio-body { grid-template-columns: minmax(0, 1fr) 440px; }
 }
 @media (max-width: 900px) {
+  /* A phone gets the workspace edge to edge, exactly as a desktop does above 901px.
+     The rounded, shadowed card was costing 28px of width on the narrowest screen there
+     is — width that the colour grid and the photo both wanted — and reading as a page
+     ABOUT a studio rather than the studio.
+
+     `overflow: visible` is the load-bearing half. .hv-visualizer clipped to its rounded
+     corners, and an ancestor with a hidden overflow is the scroll box a `position:
+     sticky` descendant sticks inside — so the dock below could not stick to the screen
+     no matter what it asked for. Nothing needs clipping here once the corners are
+     square: the canvas keeps its own overflow, and the company menu is free to open
+     past the topbar's edge instead of being cut off by it. */
+  .hv-atelier-page {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-top: -20px;               /* claw back most of the app <main> top padding */
+    margin-bottom: -96px;            /* and all of the bottom, so the dock can sit on it */
+  }
+  /* The guest studio is a bare <main> holding the same workspace, so it goes
+     edge to edge the same way rather than keeping side gutters around a slab
+     with square corners. */
+  .hv-studio-page { padding-left: 0; padding-right: 0; }
+  .hv-atelier-page .hv-visualizer,
+  .hv-studio-page .hv-visualizer {
+    overflow: visible;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    box-shadow: none;
+  }
   .hv-studio-body {
     /* minmax(0, 1fr), not a bare 1fr: a plain 1fr is minmax(auto,1fr), whose
        'auto' floor lets the canvas + shade grid push the column past the
@@ -4566,22 +4624,104 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
        swatch column. minmax(0,…) lets the track shrink to fit, like the
        desktop rule above. */
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: minmax(320px, 50vh) auto !important;
+    /* Both rows size to their content now. The picture takes a measured slice of
+       the viewport (below) and the notes under it take what they need; pinning the
+       row to 50vh instead made the notes fight the photo for the same pixels. */
+    grid-template-rows: auto auto !important;
     height: auto !important;
     max-height: none;
     min-height: auto;
   }
-  .hv-studio-canvas-wrap {
-    min-height: 320px;
+  .hv-studio-canvas-wrap { min-height: 0; }
+  /* THE PICTURE GETS A FIXED SLICE OF THE PHONE, and only the picture is in it.
+     Roughly two fifths of the screen: enough to judge a wall colour, little enough
+     that the colours you are choosing from are one thumb-scroll away. Everything
+     that used to be stacked on top of it is underneath it now. */
+  .hv-studio-canvas {
+    position: relative;
+    min-height: 0;
   }
-  .hv-studio-canvas { position: relative; min-height: 320px; }
+  .hv-studio-canvas.is-preview {
+    flex: 0 0 auto;
+    /* The photo's OWN shape, not a fixed slice of the screen. The canvas is
+       object-fit: contain, so a box shaped differently from the photo pays for the
+       difference in dead bands — and on a phone those bands come out of the only
+       height there is. --hv-photo-ar is set from the loaded image (see Visualizer).
+       Between the two clamps: never taller than about two fifths of the screen, so
+       the colours stay a thumb-flick away, and never so short there is nothing to
+       judge. A photo shaped outside those bounds letterboxes, as it must. */
+    aspect-ratio: var(--hv-photo-ar, 4 / 3);
+    height: auto;
+    min-height: 170px;
+    max-height: clamp(210px, 42vh, 420px);
+  }
+  /* Before there is a room to look at, this box carries a form — name the project,
+     drop a photo, confirm it. Those get the room they need rather than 42vh. */
+  .hv-studio-canvas:not(.is-preview) { min-height: min(72vh, 520px); }
+  /* …and here is where it all went. A plain block under the photo: the legend as a
+     list, the indicative-colour note as fine print, the report link at the end.
+     They drop their glass backdrops with their absolute positioning — over the page
+     surface the light-on-dark palette they used over a photo would be unreadable in
+     the light theme. */
+  .hv-studio-canvas-notes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px var(--gutter) 12px;
+    border-top: 1px solid var(--rule);
+    background: var(--surface);
+  }
+  .hv-studio-canvas-notes:empty { display: none; }
+  .hv-studio-legend,
+  .hv-studio-disclaimer {
+    position: static;
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    text-align: left;
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .hv-studio-legend { gap: 7px; }
+  .hv-studio-legend-row { font-size: 12.5px; color: var(--fg); }
+  .hv-studio-legend-region { color: var(--fg-mute); }
+  .hv-studio-legend-code { color: var(--fg-soft); }
+  .hv-studio-disclaimer { font-size: 11.5px; line-height: 1.5; color: var(--fg-mute); }
+  .hv-studio-report { justify-content: flex-start; padding: 0; }
+  .hv-studio-report-btn { padding: 7px 10px; margin-left: -10px; }
   .hv-studio-sidebar {
     border-left: none;
     border-top: 1px solid var(--rule);
-    max-height: 60vh;
+    /* No inner scroll on a phone. The page already scrolls; a 60vh box with its own
+       scrollbar inside it meant two scrollers fighting over one flick, and the colour
+       grid — the thing somebody came here to look at — got a 200px window to show
+       twelve thousand shades through. The panel is as tall as its contents and the
+       page carries it; the dock below stays pinned so "Apply" is never scrolled away. */
+    max-height: none;
   }
+  .hv-studio-scroll { overflow: visible; }
+  /* Sticky rather than the panel-bottom it is on a desktop: the selected colour and
+     its Apply button ride along the bottom of the SCREEN while the grid scrolls past. */
+  .hv-studio-dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 12;
+    box-shadow: 0 -14px 30px -22px rgba(0,0,0,.55);
+  }
+  /* An empty "Recent" is a heading and a sentence explaining that there is nothing
+     to show — three lines of a pinned dock spent saying nothing, on the screen with
+     the least room for it. It comes back the moment there is a colour in it. */
+  .hv-studio-dock-recent:not(:has(.hv-studio-dock-recent-list)) { display: none; }
+  /* The gate sticks to the top of the panel's own scroller on a desktop. With no
+     scroller here it would stick to the VIEWPORT instead and follow the reader down
+     the page, over the nav. */
+  .hv-studio-gate { position: static; }
   .hv-studio-topbar {
-    padding: 12px 16px;
+    padding: 12px var(--gutter);
     gap: 12px;
   }
   .hv-studio-status {
@@ -4601,15 +4741,49 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   }
   .hv-studio-tool { padding: 6px 8px; }
   .hv-studio-compare { top: 12px; right: 12px; padding: 7px 10px; font-size: 12px; }
-  /* "Hold to compare" floats absolutely at the top-right of the canvas, while the
-     report button is centred in the full width underneath it. On a phone there is not
-     room for both on one line, so the compare button was sitting ON TOP of the report
-     button — covering the last third of its label and stealing the taps that landed
-     there. Reserve the floating button's footprint so the centred one centres in what
-     is actually free. */
-  .hv-studio-report { padding-right: 156px; }
   .hv-studio-region-shade { display: none; }
   .hv-studio-region { padding: 7px 10px; }
+}
+/* A phone on its side has almost no height to spend. Two fifths of it is ~160px —
+   under the floor below the picture panel, so the panel takes the floor and a wide
+   photo ends up a stamp in the middle of a wide empty band. Give the short axis
+   over to the room instead; the colours are one scroll away either way. */
+@media (max-width: 900px) and (max-height: 520px) {
+  .hv-studio-canvas.is-preview { min-height: 150px; max-height: 68vh; }
+}
+@media (max-width: 640px) {
+  /* The actions were ONE nowrap group held at its intrinsic width (flex-shrink: 0)
+     and pushed right by margin-left: auto. On a phone that width is wider than the
+     bar, and a right-pushed overflow spills to the LEFT: the company picker slid out
+     under the Share button, half of it off the screen and the rest unreadable.
+     Wrap instead. The scope picker takes the first row across the full width — it is
+     a menu button whose label is a list of company names, so it is the one that
+     needs the room — and Share/Download share the row below, splitting it evenly
+     into two targets a thumb can actually hit. */
+  .hv-studio-actions {
+    flex-wrap: wrap;
+    width: 100%;
+    margin-left: 0;
+    gap: 8px;
+  }
+  .hv-studio-company { flex: 1 1 100%; }
+  .hv-studio-company-btn {
+    width: 100%;
+    justify-content: space-between;
+    padding: 10px 12px;
+    font-size: 13.5px;
+  }
+  /* width: auto walks back the site-wide `.btn { width: 100% }` for phones. That rule
+     is right for a marketing page's stacked calls to action and wrong here: it turned
+     Share and Download into two full-width rows, ~110px of a topbar on the screen with
+     the least room to spare. They share one row and split it evenly instead. */
+  .hv-studio-actions > .btn {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 auto;
+    justify-content: center;
+    text-align: center;
+  }
 }
 @media (max-width: 480px) {
   .hv-studio-project { border-left: none; padding-left: 0; width: 100%; }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -3209,7 +3210,20 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
       <div className="hv-studio-body">
         <div className="hv-studio-canvas-wrap" ref={canvasWrapRef}>
-          <div className="hv-studio-canvas">
+          {/* `is-preview` = this box is showing the ROOM. On a phone that earns it a
+              measured slice of the screen (see globals.css) so the colours below stay
+              within a thumb's reach. The same box also carries the forms that come
+              before a room exists — name the project, choose a photo, confirm it — and
+              those size to their content instead of being squeezed into 42vh. */}
+          <div
+            className={`hv-studio-canvas${imageUrl && !pendingFile && !showDetailsGate ? " is-preview" : ""}`}
+            /* The room's own shape, handed to CSS. On a phone the picture panel takes
+               this ratio instead of a fixed slice of the screen, so a wide photo is the
+               picture and nothing else — no dead letterbox bands above and below it
+               eating the little height there is. Absent (no photo yet), the stylesheet
+               falls back to 4:3. */
+            style={imageDims ? ({ "--hv-photo-ar": `${imageDims.w} / ${imageDims.h}` } as CSSProperties) : undefined}
+          >
             {/* The one thing on the page a screen reader most needs named, and the
                 only canvas here that had no name at all — the little colour wheel
                 beside it has carried one all along. `img` because that is what it
@@ -3350,67 +3364,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   </span>
                 </button>
               </>
-            )}
-            {/* On-canvas legend: every painted surface with its shade name and
-                code, so the colours in the preview are never anonymous — the
-                counter (or a screenshot) reads them straight off the image.
-                Labelled by the SAME rules as the share sheet and the PDF: this
-                branched on `guest` alone, so a signed-in customer of a shop
-                running its own numbering was shown the manufacturer's real code
-                right under a picker that had just shown them the coded one. The
-                customer uses this exact screen, so that one label undid the
-                scheme everywhere else it was honoured. */}
-            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
-              <div className="hv-studio-legend" role="list" aria-label="Colours in this preview">
-                {regions.filter((r) => r.applied).map((r) => {
-                  // A custom-picked colour is nobody's catalogue shade, so its hex
-                  // is all there is to name it by and nothing is being protected.
-                  const code = r.shade
-                    ? hideRawCodes
-                      ? encodeCode
-                        ? encodeCode(r.shade.code)
-                        : undefined
-                      : r.shade.code
-                    : r.hex.toUpperCase();
-                  const name = hideNames ? "" : (r.shade?.name ?? "Custom colour");
-                  return (
-                    <div key={r.id} className="hv-studio-legend-row" role="listitem">
-                      <span aria-hidden className="hv-studio-legend-chip" style={{ background: r.hex }} />
-                      <span className="hv-studio-legend-region">{r.label}</span>
-                      {name && <span className="hv-studio-legend-name">{name}</span>}
-                      {/* No code to show and no name either → the swatch itself is
-                          the only handle, and the hex is a worse leak than none. */}
-                      {code && <span className="hv-studio-legend-code">{code}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {/* Screens and real paint never match exactly, and the preview is a
-                lighting-aware approximation — set that expectation on the page
-                itself so a colour is chosen by its shade name/code, not the pixels. */}
-            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
-              <p className="hv-studio-disclaimer" role="note">
-                Colours shown are indicative. The final painted shade may look different on your
-                wall — confirm the exact colour by its shade name and number before buying.
-              </p>
-            )}
-            {/* "The AI got this wrong." Deliberately quiet and deliberately
-                ALWAYS THERE once a run has finished — a bad mask is invisible to
-                every check the backend makes, so this button is the only way the
-                team ever learns a run failed. Hiding it behind a menu would lose
-                exactly the reports worth having. */}
-            {canReport && (
-              <div className="hv-studio-report">
-                {reported ? (
-                  <Mono>Reported — thank you. Our team will take a look.</Mono>
-                ) : (
-                  <button type="button" className="hv-studio-report-btn" onClick={() => setReportOpen(true)}>
-                    <FlagIcon />
-                    Not right? Report a problem
-                  </button>
-                )}
-              </div>
             )}
             {/* The colour board, collapsed to its icon until it is wanted. The count
                 rides on the icon because it is the one fact that has to survive the
@@ -3565,6 +3518,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               <div
                 role="group"
                 aria-label="Confirm your photo"
+                className="hv-studio-confirm"
                 style={{
                   position: "absolute",
                   left: "50%",
@@ -4117,6 +4071,82 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+          </div>
+          {/* Everything that BELONGS WITH the room but does not belong ON it.
+
+              On a desktop the legend and the disclaimer are glass cards floating over
+              the bottom of the photo, which is where they read best — a screenshot of
+              the preview carries its own shade names. They are anchored to the TOP of
+              this block (bottom: 100%) rather than to the canvas, so the report row
+              below can never end up underneath them.
+
+              On a phone the same three things stack UNDER the photo instead. A canvas
+              that is 250px tall cannot carry a three-row legend, a five-line
+              disclaimer and two glass buttons and still show anybody a wall — which
+              is exactly what it was doing. Same content, same order, off the picture. */}
+          <div className="hv-studio-canvas-notes">
+            {/* The legend: every painted surface with its shade name and code, so
+                the colours in the preview are never anonymous — the counter (or a
+                screenshot) reads them straight off the image on a wide screen, and
+                straight off the line under it on a phone.
+                Labelled by the SAME rules as the share sheet and the PDF: this
+                branched on `guest` alone, so a signed-in customer of a shop
+                running its own numbering was shown the manufacturer's real code
+                right under a picker that had just shown them the coded one. The
+                customer uses this exact screen, so that one label undid the
+                scheme everywhere else it was honoured. */}
+            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
+              <div className="hv-studio-legend" role="list" aria-label="Colours in this preview">
+                {regions.filter((r) => r.applied).map((r) => {
+                  // A custom-picked colour is nobody's catalogue shade, so its hex
+                  // is all there is to name it by and nothing is being protected.
+                  const code = r.shade
+                    ? hideRawCodes
+                      ? encodeCode
+                        ? encodeCode(r.shade.code)
+                        : undefined
+                      : r.shade.code
+                    : r.hex.toUpperCase();
+                  const name = hideNames ? "" : (r.shade?.name ?? "Custom colour");
+                  return (
+                    <div key={r.id} className="hv-studio-legend-row" role="listitem">
+                      <span aria-hidden className="hv-studio-legend-chip" style={{ background: r.hex }} />
+                      <span className="hv-studio-legend-region">{r.label}</span>
+                      {name && <span className="hv-studio-legend-name">{name}</span>}
+                      {/* No code to show and no name either → the swatch itself is
+                          the only handle, and the hex is a worse leak than none. */}
+                      {code && <span className="hv-studio-legend-code">{code}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {/* Screens and real paint never match exactly, and the preview is a
+                lighting-aware approximation — set that expectation on the page
+                itself so a colour is chosen by its shade name/code, not the pixels. */}
+            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
+              <p className="hv-studio-disclaimer" role="note">
+                Colours shown are indicative. The final painted shade may look different on your
+                wall — confirm the exact colour by its shade name and number before buying.
+              </p>
+            )}
+            {/* "The AI got this wrong." Deliberately quiet and deliberately
+                ALWAYS THERE once a run has finished — a bad mask is invisible to
+                every check the backend makes, so this button is the only way the
+                team ever learns a run failed. Hiding it behind a menu would lose
+                exactly the reports worth having. */}
+            {canReport && (
+              <div className="hv-studio-report">
+                {reported ? (
+                  <Mono>Reported — thank you. Our team will take a look.</Mono>
+                ) : (
+                  <button type="button" className="hv-studio-report-btn" onClick={() => setReportOpen(true)}>
+                    <FlagIcon />
+                    Not right? Report a problem
+                  </button>
+                )}
               </div>
             )}
           </div>

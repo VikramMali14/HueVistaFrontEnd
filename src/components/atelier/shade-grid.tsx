@@ -333,8 +333,22 @@ export function ShadeGrid({
   // Each tab starts at the top of the browse area instead of wherever the
   // previous tab left the scrollbar.
   const scrollRef = useRef<HTMLDivElement>(null);
+  // The first run is the mount, where there is no previous tab to have left a
+  // scrollbar anywhere — and where scrolling the page would yank a freshly opened
+  // studio down to its colour panel.
+  const tabHasChanged = useRef(false);
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    const el = scrollRef.current;
+    if (!el) return;
+    if (!tabHasChanged.current) {
+      tabHasChanged.current = true;
+      return;
+    }
+    // On a phone this box is not its own scroller (see globals.css) — the page carries
+    // the whole panel, so there is no scrollTop here to reset. Put its top on screen
+    // instead: same promise, kept by the only scroller there is.
+    if (el.scrollHeight > el.clientHeight + 1) el.scrollTop = 0;
+    else el.scrollIntoView({ block: "start" });
   }, [tab]);
 
   const catalogue = useMemo<ReadonlyArray<PaintShade>>(
