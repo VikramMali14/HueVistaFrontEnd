@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -3020,6 +3021,15 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               onChange={setCompanies}
             />
           )}
+          {/* Everything below is the SECOND rank of this screen: ways of taking the
+              room somewhere else once the colours are chosen. On a wide screen they
+              sit out in the open, where there is room for them. On a phone they fold
+              into the one button after this block — see StudioMoreMenu, which offers
+              exactly the same list. A phone's topbar showed three or four of these
+              across a 360px row, which is how the company picker ended up underneath
+              the Share button, and none of them is what somebody opened the studio to
+              do. Choosing a colour is. */}
+          <div className="hv-studio-actions-full">
           {/* Putting a room in the public gallery starts with a finished room, and
               this is where a finished room is. The publishing itself still lives in
               the admin console — it copies files and picks a shelf — but nothing
@@ -3093,6 +3103,54 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               {closing ? "Closing…" : "Close project"}
             </Button>
           )}
+          </div>
+
+          {/* The same list, in one button, for a phone. Report-a-problem joins it here
+              because its own quiet line under the photo is one of the things that comes
+              off a small screen — it must stay reachable, since a wrongly-masked run
+              passes every check the backend makes and this is the only way anyone
+              hears about it. */}
+          <StudioMoreMenu
+            items={[
+              ...(isAdmin && !guest && projectId && masksReady
+                ? [{
+                    key: "gallery",
+                    label: "Add to gallery",
+                    href: `/admin/free-projects?project=${encodeURIComponent(projectId)}&title=${encodeURIComponent(projectName || "")}`,
+                  }]
+                : []),
+              ...(guest
+                ? [{
+                    key: "send",
+                    label: sentToShop ? "Sent to shop ✓" : sendingToShop ? "Sending…" : "Send to my shop",
+                    disabled: !projectId || sendingToShop || sentToShop,
+                    onClick: () => void handleSendToShop(),
+                  }]
+                : [{
+                    key: "share",
+                    label: "Share",
+                    disabled: !projectId,
+                    onClick: () => void handleShare(),
+                  }]),
+              {
+                key: "download",
+                label: "Download image",
+                disabled: !imageUrl,
+                onClick: downloadCurrentImage,
+              },
+              ...(canReport && !reported
+                ? [{ key: "report", label: "Report a problem", onClick: () => setReportOpen(true) }]
+                : []),
+              ...(!guest && !closed && boardsUsed > 0
+                ? [{
+                    key: "close",
+                    label: closing ? "Closing…" : "Close project",
+                    disabled: closing,
+                    onClick: () => void closeProject(),
+                  }]
+                : []),
+            ]}
+          />
         </div>
       </div>
 
@@ -3209,7 +3267,20 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
 
       <div className="hv-studio-body">
         <div className="hv-studio-canvas-wrap" ref={canvasWrapRef}>
-          <div className="hv-studio-canvas">
+          {/* `is-preview` = this box is showing the ROOM. On a phone that earns it a
+              measured slice of the screen (see globals.css) so the colours below stay
+              within a thumb's reach. The same box also carries the forms that come
+              before a room exists — name the project, choose a photo, confirm it — and
+              those size to their content instead of being squeezed into 42vh. */}
+          <div
+            className={`hv-studio-canvas${imageUrl && !pendingFile && !showDetailsGate ? " is-preview" : ""}`}
+            /* The room's own shape, handed to CSS. On a phone the picture panel takes
+               this ratio instead of a fixed slice of the screen, so a wide photo is the
+               picture and nothing else — no dead letterbox bands above and below it
+               eating the little height there is. Absent (no photo yet), the stylesheet
+               falls back to 4:3. */
+            style={imageDims ? ({ "--hv-photo-ar": `${imageDims.w} / ${imageDims.h}` } as CSSProperties) : undefined}
+          >
             {/* The one thing on the page a screen reader most needs named, and the
                 only canvas here that had no name at all — the little colour wheel
                 beside it has carried one all along. `img` because that is what it
@@ -3350,67 +3421,6 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                   </span>
                 </button>
               </>
-            )}
-            {/* On-canvas legend: every painted surface with its shade name and
-                code, so the colours in the preview are never anonymous — the
-                counter (or a screenshot) reads them straight off the image.
-                Labelled by the SAME rules as the share sheet and the PDF: this
-                branched on `guest` alone, so a signed-in customer of a shop
-                running its own numbering was shown the manufacturer's real code
-                right under a picker that had just shown them the coded one. The
-                customer uses this exact screen, so that one label undid the
-                scheme everywhere else it was honoured. */}
-            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
-              <div className="hv-studio-legend" role="list" aria-label="Colours in this preview">
-                {regions.filter((r) => r.applied).map((r) => {
-                  // A custom-picked colour is nobody's catalogue shade, so its hex
-                  // is all there is to name it by and nothing is being protected.
-                  const code = r.shade
-                    ? hideRawCodes
-                      ? encodeCode
-                        ? encodeCode(r.shade.code)
-                        : undefined
-                      : r.shade.code
-                    : r.hex.toUpperCase();
-                  const name = hideNames ? "" : (r.shade?.name ?? "Custom colour");
-                  return (
-                    <div key={r.id} className="hv-studio-legend-row" role="listitem">
-                      <span aria-hidden className="hv-studio-legend-chip" style={{ background: r.hex }} />
-                      <span className="hv-studio-legend-region">{r.label}</span>
-                      {name && <span className="hv-studio-legend-name">{name}</span>}
-                      {/* No code to show and no name either → the swatch itself is
-                          the only handle, and the hex is a worse leak than none. */}
-                      {code && <span className="hv-studio-legend-code">{code}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {/* Screens and real paint never match exactly, and the preview is a
-                lighting-aware approximation — set that expectation on the page
-                itself so a colour is chosen by its shade name/code, not the pixels. */}
-            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
-              <p className="hv-studio-disclaimer" role="note">
-                Colours shown are indicative. The final painted shade may look different on your
-                wall — confirm the exact colour by its shade name and number before buying.
-              </p>
-            )}
-            {/* "The AI got this wrong." Deliberately quiet and deliberately
-                ALWAYS THERE once a run has finished — a bad mask is invisible to
-                every check the backend makes, so this button is the only way the
-                team ever learns a run failed. Hiding it behind a menu would lose
-                exactly the reports worth having. */}
-            {canReport && (
-              <div className="hv-studio-report">
-                {reported ? (
-                  <Mono>Reported — thank you. Our team will take a look.</Mono>
-                ) : (
-                  <button type="button" className="hv-studio-report-btn" onClick={() => setReportOpen(true)}>
-                    <FlagIcon />
-                    Not right? Report a problem
-                  </button>
-                )}
-              </div>
             )}
             {/* The colour board, collapsed to its icon until it is wanted. The count
                 rides on the icon because it is the one fact that has to survive the
@@ -3565,6 +3575,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               <div
                 role="group"
                 aria-label="Confirm your photo"
+                className="hv-studio-confirm"
                 style={{
                   position: "absolute",
                   left: "50%",
@@ -4120,6 +4131,82 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               </div>
             )}
           </div>
+          {/* Everything that BELONGS WITH the room but does not belong ON it.
+
+              On a desktop the legend and the disclaimer are glass cards floating over
+              the bottom of the photo, which is where they read best — a screenshot of
+              the preview carries its own shade names. They are anchored to the TOP of
+              this block (bottom: 100%) rather than to the canvas, so the report row
+              below can never end up underneath them.
+
+              On a phone the same three things stack UNDER the photo instead. A canvas
+              that is 250px tall cannot carry a three-row legend, a five-line
+              disclaimer and two glass buttons and still show anybody a wall — which
+              is exactly what it was doing. Same content, same order, off the picture. */}
+          <div className="hv-studio-canvas-notes">
+            {/* The legend: every painted surface with its shade name and code, so
+                the colours in the preview are never anonymous — the counter (or a
+                screenshot) reads them straight off the image on a wide screen, and
+                straight off the line under it on a phone.
+                Labelled by the SAME rules as the share sheet and the PDF: this
+                branched on `guest` alone, so a signed-in customer of a shop
+                running its own numbering was shown the manufacturer's real code
+                right under a picker that had just shown them the coded one. The
+                customer uses this exact screen, so that one label undid the
+                scheme everywhere else it was honoured. */}
+            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
+              <div className="hv-studio-legend" role="list" aria-label="Colours in this preview">
+                {regions.filter((r) => r.applied).map((r) => {
+                  // A custom-picked colour is nobody's catalogue shade, so its hex
+                  // is all there is to name it by and nothing is being protected.
+                  const code = r.shade
+                    ? hideRawCodes
+                      ? encodeCode
+                        ? encodeCode(r.shade.code)
+                        : undefined
+                      : r.shade.code
+                    : r.hex.toUpperCase();
+                  const name = hideNames ? "" : (r.shade?.name ?? "Custom colour");
+                  return (
+                    <div key={r.id} className="hv-studio-legend-row" role="listitem">
+                      <span aria-hidden className="hv-studio-legend-chip" style={{ background: r.hex }} />
+                      <span className="hv-studio-legend-region">{r.label}</span>
+                      {name && <span className="hv-studio-legend-name">{name}</span>}
+                      {/* No code to show and no name either → the swatch itself is
+                          the only handle, and the hex is a worse leak than none. */}
+                      {code && <span className="hv-studio-legend-code">{code}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {/* Screens and real paint never match exactly, and the preview is a
+                lighting-aware approximation — set that expectation on the page
+                itself so a colour is chosen by its shade name/code, not the pixels. */}
+            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
+              <p className="hv-studio-disclaimer" role="note">
+                Colours shown are indicative. The final painted shade may look different on your
+                wall — confirm the exact colour by its shade name and number before buying.
+              </p>
+            )}
+            {/* "The AI got this wrong." Deliberately quiet and deliberately
+                ALWAYS THERE once a run has finished — a bad mask is invisible to
+                every check the backend makes, so this button is the only way the
+                team ever learns a run failed. Hiding it behind a menu would lose
+                exactly the reports worth having. */}
+            {canReport && (
+              <div className="hv-studio-report">
+                {reported ? (
+                  <Mono>Reported — thank you. Our team will take a look.</Mono>
+                ) : (
+                  <button type="button" className="hv-studio-report-btn" onClick={() => setReportOpen(true)}>
+                    <FlagIcon />
+                    Not right? Report a problem
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="hv-studio-sidebar">
@@ -4266,6 +4353,111 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         </div>
       )}
     </div>
+  );
+}
+
+/** One entry in the phone topbar's overflow menu. */
+type MoreItem = {
+  key: string;
+  label: string;
+  /** A link entry (Add to gallery); mutually exclusive with onClick. */
+  href?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+};
+
+/**
+ * The studio's second-rank actions, folded into one button for a phone.
+ *
+ * It renders at every width and the stylesheet decides who sees it: above 900px the
+ * actions are out in the open and this is hidden, below it the reverse. That way there
+ * is one list of actions in the source rather than a phone copy drifting from a desktop
+ * one — and nothing on this screen becomes unreachable on a small display, which is the
+ * failure mode of simply hiding buttons.
+ */
+function StudioMoreMenu({ items }: { items: ReadonlyArray<MoreItem> }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+
+  // Same manners as the company picker beside it: an outside tap or Escape closes it,
+  // because a panel left open over the room is in the way of the room.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="hv-studio-more" ref={root}>
+      <button
+        type="button"
+        className="hv-studio-more-btn"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        /* Just "More actions": the menu names its own entries, and spelling them
+           out here made this button answer to every one of them — a search for the
+           report button found two. */
+        aria-label="More actions"
+        title="More actions"
+      >
+        <MoreIcon />
+      </button>
+      {open && (
+        <div className="hv-studio-more-menu" role="menu" aria-label="More actions">
+          {items.map((it) =>
+            it.href ? (
+              <Link
+                key={it.key}
+                role="menuitem"
+                className="hv-studio-more-item"
+                href={it.href}
+                onClick={() => setOpen(false)}
+              >
+                {it.label}
+              </Link>
+            ) : (
+              <button
+                key={it.key}
+                type="button"
+                role="menuitem"
+                className="hv-studio-more-item"
+                disabled={it.disabled}
+                onClick={() => {
+                  setOpen(false);
+                  it.onClick?.();
+                }}
+              >
+                {it.label}
+              </button>
+            ),
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MoreIcon() {
+  // Three dots — "there is more here", the one icon nobody has to be taught.
+  return (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
+    </svg>
   );
 }
 
