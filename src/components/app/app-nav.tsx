@@ -508,7 +508,11 @@ export function AppNav({ user, access = null, libraryLive = false, hasShop = fal
            like any page — keep the navbar in normal flow there. */
         @media (max-width: 900px) {
           .app-header-studio { position: static; pointer-events: auto; }
-          .app-header-studio .app-header-slide { transform: none; }
+          /* The padding clears the persistent studio bar, which is not shown at this
+             width — so it was 16px of nothing. It matters here in a way it does not on
+             other pages: the studio is locked to the screen on a phone (globals.css),
+             so every pixel the header takes is a pixel off the workspace. */
+          .app-header-studio .app-header-slide { transform: none; padding-top: 0; margin-top: 0; }
           .studio-nav-hotzone, .studio-minibar { display: none; }
         }
         /* Wide tab sets (ADMIN): tighten the row so 8 tabs + the user block fit

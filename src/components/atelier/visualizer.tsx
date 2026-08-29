@@ -3266,21 +3266,23 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       )}
 
       <div className="hv-studio-body">
-        <div className="hv-studio-canvas-wrap" ref={canvasWrapRef}>
+        <div
+          className="hv-studio-canvas-wrap"
+          ref={canvasWrapRef}
+          /* The room's own shape, handed to CSS. On a phone the picture panel takes this
+             ratio rather than a flat slice of the screen, so a wide photo is the picture
+             and nothing else — no dead letterbox bands above and below it eating height
+             the colour list wants. It sits on this box because this is the one the
+             stylesheet sizes; the canvas inside simply fills it. Absent (no photo yet),
+             the stylesheet falls back to 4:3. */
+          style={imageDims ? ({ "--hv-photo-ar": `${imageDims.w} / ${imageDims.h}` } as CSSProperties) : undefined}
+        >
           {/* `is-preview` = this box is showing the ROOM. On a phone that earns it a
               measured slice of the screen (see globals.css) so the colours below stay
               within a thumb's reach. The same box also carries the forms that come
               before a room exists — name the project, choose a photo, confirm it — and
-              those size to their content instead of being squeezed into 42vh. */}
-          <div
-            className={`hv-studio-canvas${imageUrl && !pendingFile && !showDetailsGate ? " is-preview" : ""}`}
-            /* The room's own shape, handed to CSS. On a phone the picture panel takes
-               this ratio instead of a fixed slice of the screen, so a wide photo is the
-               picture and nothing else — no dead letterbox bands above and below it
-               eating the little height there is. Absent (no photo yet), the stylesheet
-               falls back to 4:3. */
-            style={imageDims ? ({ "--hv-photo-ar": `${imageDims.w} / ${imageDims.h}` } as CSSProperties) : undefined}
-          >
+              those take the space instead of being squeezed into a third of it. */}
+          <div className={`hv-studio-canvas${imageUrl && !pendingFile && !showDetailsGate ? " is-preview" : ""}`}>
             {/* The one thing on the page a screen reader most needs named, and the
                 only canvas here that had no name at all — the little colour wheel
                 beside it has carried one all along. `img` because that is what it
