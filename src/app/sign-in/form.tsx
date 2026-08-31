@@ -31,7 +31,10 @@ export function SignInForm({ action, otpAction, next, mode = "signin", initialEr
 
   return (
     <form
-      style={{ display: "flex", flexDirection: "column", gap: 28, marginTop: 48 }}
+      /* Spacing lives in globals.css (.hv-auth-form) rather than inline, so a phone
+         can tighten it: at 28px a gap, the password field and the Sign in button
+         both sat below the fold on a 568px screen. */
+      className="hv-auth-form"
       onSubmit={(e) => {
         e.preventDefault();
         // Surface the browser's bubble on the exact offending field (works with noValidate).
