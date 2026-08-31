@@ -537,13 +537,23 @@ export function AppNav({ user, access = null, libraryLive = false, hasShop = fal
             position: fixed; top: 0; left: 0; right: 0;
             z-index: 70;
             padding: 0 8px;
-            /* Stronger than the desktop bar's .72: on a desktop it sits over a
-               static workspace, here a grid of colour swatches scrolls underneath
-               it all session and read straight through the two links. */
-            background: var(--nav-bg-strong);
+            /* Opaque, where the desktop bar is glass at .72. A grid of colour
+               swatches scrolls under this one for the whole session, and at any
+               alpha at all the swatch edges travelled through the two links —
+               on the one control somebody needs to find without looking. */
+            background: var(--bg);
+            -webkit-backdrop-filter: none;
+            backdrop-filter: none;
           }
-          .studio-minibar-links { gap: 2px; }
-          .studio-minibar-link { padding: 12px 10px; letter-spacing: .12em; }
+          .studio-minibar-links { gap: 2px; height: 100%; }
+          /* Full-height rather than padded to roughly the bar: padding around an 11px
+             line came out 35px, a target a pixel under the 36px floor on the one
+             control that has to be hit reliably. Filling the bar makes it 44. */
+          .studio-minibar-link {
+            display: inline-flex; align-items: center;
+            height: 100%; padding: 0 12px;
+            letter-spacing: .12em;
+          }
           /* The bar carries the two ways OUT and nothing else — on the narrowest
              phone there is room for little more, and "Report a problem" already has
              its place in the drawer below (and in the workspace's own ⋯ menu). */
