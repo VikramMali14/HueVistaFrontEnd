@@ -4838,6 +4838,12 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   display: block;
   width: 100%;
   aspect-ratio: 4 / 3;
+  /* 4:3 of a THIRD of the card is a swatch; 4:3 of the whole card is a poster. Once a
+     palette can be one or two colours wide, the ratio alone stops working — a one-wall
+     room's single colour filled the card top to bottom and pushed its own name off the
+     screen. The cap only ever bites on the wide ones, so a three-across card is
+     untouched and a lone swatch becomes a broad band instead. */
+  max-height: 120px;
   border: 1px solid var(--rule-strong);
   border-radius: 4px;
   transition: box-shadow .15s var(--ease);
@@ -4846,10 +4852,15 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .hv-ai-swatch:hover .hv-ai-swatch-color { box-shadow: 0 0 0 2px var(--accent); }
 }
 .hv-ai-swatch-role {
-  font: 400 12px/1 var(--mono);
+  font: 400 12px/1.25 var(--mono);
   letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--fg-mute);
+  /* Room for two lines whether or not this one needs them. These are the customer's own
+     wall names now — "Chimney breast" wraps where "Trim" never did — and a column that
+     wrapped pushed its colour's name and code a line below its neighbours', so a row of
+     three swatches read as three different things. */
+  min-height: 2.5em;
 }
 .hv-ai-swatch-name {
   font: 400 12px/1.25 var(--sans);
