@@ -1021,14 +1021,21 @@ canvas { image-rendering: -webkit-optimize-contrast; }
 }
 
 /* =========================================================
-   HOME · HERO (cinematic, full-bleed)
+   HOME · HERO  ·  an asymmetric split, not a centred stack
+
+   Type sets left on its own column; the compare slider takes
+   the rest of the width at full height and runs off the right
+   edge of the viewport. The bleed is deliberate: an image that
+   leaves the frame reads as something the page was built
+   around, where the same image inset with a radius and a drop
+   shadow reads as a screenshot pasted into a template.
 ========================================================= */
 /* Hero ink is tokenised so the section can flip with the theme.
    It used to be hardcoded ivory-on-near-black, which meant switching to the
    light theme lit the header and left the hero dark — and the page then
    alternated light → dark → light → dark down its length, reading as sections
    that had failed to load rather than as a design. */
-.hv-hero2 {
+.hv-hero {
   --hero-ink: var(--ivory);
   --hero-ink-soft: rgba(247,247,245,.78);
   --hero-ink-mute: rgba(247,247,245,.62);
@@ -1036,19 +1043,21 @@ canvas { image-rendering: -webkit-optimize-contrast; }
   --hero-btn-fg: #141413;
   --hero-rule: rgba(247,247,245,.4);
   --hero-wash: rgba(247,247,245,.08);
+  --hero-hair: rgba(247,247,245,.18);
   position: relative;
-  min-height: min(92vh, 880px);
-  padding-top: 96px; padding-bottom: 84px;       /* left/right come from .full-bleed */
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  text-align: center;
+  padding-top: 0; padding-bottom: 0;             /* left/right come from .full-bleed */
+  /* The right column is the picture, and it has to reach the edge of the
+     screen. .full-bleed gives the section that much padding on each side, so
+     the figure cancels exactly this much of it and nothing else has to know. */
+  --hero-bleed: calc((100vw - var(--max)) / 2 + var(--gutter));
   overflow: hidden;
   isolation: isolate;
   border-bottom: 1px solid var(--rule);
 }
-.hv-hero2-bg, .hv-hero2-media { position: absolute; inset: 0; z-index: -1; }
-.hv-hero2-media { width: 100%; height: 100%; object-fit: cover; }
-.hv-hero2-bg {
+@media (max-width: 1520px) { .hv-hero { --hero-bleed: var(--gutter); } }
+.hv-hero-bg, .hv-hero-media { position: absolute; inset: 0; z-index: -1; }
+.hv-hero-media { width: 100%; height: 100%; object-fit: cover; }
+.hv-hero-bg {
   /* A lit room, which is what the hero is a picture of: one warm key off the
      upper right, the fall-off carrying it down and across, and deep ink in the
      far corner. It used to be a violet and a cyan radial over this same warm
@@ -1060,43 +1069,87 @@ canvas { image-rendering: -webkit-optimize-contrast; }
     radial-gradient(80% 62% at 18% 88%, rgba(122,86,58,.13), transparent 66%),
     linear-gradient(158deg, rgba(28,23,18,.92) 0%, rgba(18,15,13,.80) 46%, rgba(9,8,7,.95) 100%);
 }
-.hv-hero2-bg::before {                            /* film grain */
+.hv-hero-bg::before {                            /* film grain */
   content: ""; position: absolute; inset: 0; mix-blend-mode: overlay; opacity: .5;
   background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-.hv-hero2-bg::after {                             /* vignette + scrim for text contrast */
-  content: ""; position: absolute; inset: 0;
-  background: radial-gradient(125% 120% at 50% 32%, transparent 44%, rgba(8,8,7,.58) 100%);
-}
-.hv-hero2-inner {
+
+.hv-hero-grid {
   position: relative; z-index: 2;
-  max-width: 920px;
-  display: flex; flex-direction: column; align-items: center; gap: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
+  align-items: stretch;
+  gap: 56px;
+  min-height: min(88vh, 860px);
 }
-.hv-hero2-title {
+.hv-hero-copy {
+  display: flex; flex-direction: column; align-items: flex-start;
+  justify-content: center;
+  gap: 22px;
+  padding: 104px 0;
+}
+/* Bigger than the old centred one (52→120px) and set to a measure, so it breaks
+   into three strong lines instead of wherever the viewport happens to put it.
+   A hero headline is the one place on a site where scale IS the design. */
+.hv-hero-title {
   color: var(--hero-ink);
-  font-size: clamp(52px, 8.5vw, 120px);
-  line-height: .95; letter-spacing: -.045em;
+  font-size: clamp(46px, 5.6vw, 104px);
+  line-height: .94; letter-spacing: -.045em;
+  max-width: 13ch;
+  margin: 0;
 }
-.hv-hero2-title span { display: block; }
-.hv-hero2-cta { display: inline-flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+.hv-hero-title i { color: var(--hero-ink-soft); }
+.hv-hero-eyebrow { color: var(--hero-ink-mute); }
+.hv-hero-sub { font: 400 17px/1.6 var(--sans); color: var(--hero-ink-soft); margin: 0; max-width: 44ch; }
+.hv-hero-cta { display: inline-flex; gap: 14px; flex-wrap: wrap; }
 /* Buttons follow the hero's ink, so they invert with it. */
-.hv-hero2 .btn { background: var(--hero-btn-bg); color: var(--hero-btn-fg); border-color: var(--hero-btn-bg); }
-.hv-hero2 .btn:hover { opacity: .9; }
-.hv-hero2 .btn-ghost { background: transparent; color: var(--hero-ink); border-color: var(--hero-rule); }
-.hv-hero2 .btn-ghost:hover { background: var(--hero-wash); border-color: var(--hero-ink); color: var(--hero-ink); }
-.hv-hero2-sub { font: 400 16px/1.55 var(--sans); color: var(--hero-ink-soft); margin: 0; max-width: 46ch; }
-/* The hero carries its own ink (it sits on a plate, not on the page), so the
-   two-tone heading and the eyebrow both have to resolve against that rather
-   than against --fg-soft / --fg-mute. */
-.hv-hero2-title i { color: var(--hero-ink-soft); }
-.hv-hero2-eyebrow { color: var(--hero-ink-mute); }
-.hv-hero2 .mono { color: var(--hero-ink-mute); }
+.hv-hero .btn { background: var(--hero-btn-bg); color: var(--hero-btn-fg); border-color: var(--hero-btn-bg); }
+.hv-hero .btn:hover { opacity: .9; }
+.hv-hero .btn-ghost { background: transparent; color: var(--hero-ink); border-color: var(--hero-rule); }
+.hv-hero .btn-ghost:hover { background: var(--hero-wash); border-color: var(--hero-ink); color: var(--hero-ink); }
+.hv-hero .mono { color: var(--hero-ink-mute); }
+
+/* The proof row, on a rule at the foot of the column. This was its own centred
+   band under the hero with the figures set at 100px — larger than the headline
+   above them, so the first thing the eye landed on was "20s" rather than the
+   sentence saying what the product is. Support, at the size of support. */
+.hv-hero-proof {
+  display: flex; flex-wrap: wrap; gap: 40px;
+  margin: 14px 0 0; padding-top: 26px;
+  border-top: 1px solid var(--hero-hair);
+  align-self: stretch;
+}
+.hv-hero-proof-n {
+  font-family: var(--serif); font-weight: 600; font-size: 30px;
+  line-height: 1; letter-spacing: -.03em; color: var(--hero-ink);
+  font-variant-numeric: tabular-nums;
+}
+.hv-hero-proof-l { font: 400 13px/1.4 var(--sans); color: var(--hero-ink-mute); margin: 8px 0 0; }
+
+.hv-hero-demo {
+  position: relative;
+  margin: 0 calc(-1 * var(--hero-bleed)) 0 0;
+  display: flex; flex-direction: column; justify-content: center;
+  min-width: 0;
+}
+.hv-hero .hv-hero-compare {
+  /* Fills the column instead of holding a 21:10 box — the picture is the point,
+     so it is sized by the layout rather than sizing the layout. */
+  aspect-ratio: auto;
+  margin-top: 0;
+  height: min(72vh, 660px);
+  border-left: 1px solid var(--hero-hair);
+}
+.hv-hero-demo figcaption {
+  margin-top: 14px; padding-right: var(--hero-bleed);
+  font: 400 12.5px/1.5 var(--sans); letter-spacing: .01em;
+  color: var(--hero-ink-mute);
+}
 
 /* The genuine light hero: the same warm key light as the dark plate, struck on
    paper instead of into ink. Same composition, opposite polarity — so the light
    theme is a theme rather than a half-applied one. */
-html[data-theme="light"] .hv-hero2 {
+html[data-theme="light"] .hv-hero {
   --hero-ink: #1c1712;
   --hero-ink-soft: rgba(28,23,18,.78);
   --hero-ink-mute: rgba(28,23,18,.62);
@@ -1104,82 +1157,84 @@ html[data-theme="light"] .hv-hero2 {
   --hero-btn-fg: #f7f7f5;
   --hero-rule: rgba(28,23,18,.32);
   --hero-wash: rgba(28,23,18,.06);
+  --hero-hair: rgba(28,23,18,.16);
 }
-html[data-theme="light"] .hv-hero2-bg {
+html[data-theme="light"] .hv-hero-bg {
   background:
     radial-gradient(95% 70% at 76% 8%, rgba(192,139,78,.18), transparent 62%),
     radial-gradient(80% 62% at 18% 88%, rgba(160,120,80,.10), transparent 66%),
     linear-gradient(158deg, #fdfbf6 0%, #f5f1e8 46%, #ebe5d9 100%);
 }
-/* The grain overlay and the darkening vignette are both built for a dark
-   plate; on paper they read as dirt and as a shadow round the edge. */
-html[data-theme="light"] .hv-hero2-bg::before { opacity: .22; mix-blend-mode: multiply; }
-html[data-theme="light"] .hv-hero2-bg::after {
-  background: radial-gradient(125% 120% at 50% 32%, transparent 44%, rgba(28,23,18,.10) 100%);
+/* The grain overlay is built for a dark plate; on paper it reads as dirt. */
+html[data-theme="light"] .hv-hero-bg::before { opacity: .22; mix-blend-mode: multiply; }
+
+@media (max-width: 1080px) {
+  /* Stacked, and the picture goes full-bleed BOTH sides rather than being
+     re-inset — a phone has no room for a margin round the one thing worth
+     looking at. */
+  .hv-hero-grid { grid-template-columns: 1fr; gap: 0; min-height: 0; }
+  .hv-hero-copy { padding: 72px 0 40px; }
+  .hv-hero-title { font-size: clamp(42px, 8vw, 72px); max-width: 16ch; }
+  .hv-hero-demo { margin: 0 calc(-1 * var(--hero-bleed)); padding-bottom: 62px; }
+  .hv-hero .hv-hero-compare { height: auto; aspect-ratio: 16 / 10; border-left: 0; border-top: 1px solid var(--hero-hair); }
+  .hv-hero-demo figcaption { margin: 14px var(--hero-bleed) 0; padding-right: 0; }
 }
-.hv-hero2-demo { position: relative; z-index: 2; margin: 60px auto 0; width: min(1040px, 100%); }
-.hv-hero2-demo .compare {
-  margin-top: 0 !important;
-  border-radius: 12px;
-  border: 1px solid rgba(247,247,245,.16);
-  box-shadow: 0 40px 80px -32px rgba(0,0,0,.7);
-}
-.hv-hero2-demo figcaption { margin: 16px 0 0; text-align: center; }
-.hv-hero2-demo figcaption .mono { color: rgba(247,247,245,.8); }
-@media (max-width: 768px) {
-  .hv-hero2 { min-height: auto; padding-top: 64px; padding-bottom: 56px; }
-  .hv-hero2-inner { gap: 22px; }
-  .hv-hero2-title { font-size: clamp(40px, 12vw, 64px); }
-  .hv-hero2-demo { margin-top: 40px; }
+@media (max-width: 640px) {
+  .hv-hero-copy { padding: 52px 0 32px; gap: 18px; }
+  .hv-hero-title { font-size: clamp(36px, 10vw, 56px); }
+  .hv-hero-proof { gap: 26px; padding-top: 22px; }
+  .hv-hero-proof-n { font-size: 24px; }
+  .hv-hero .hv-hero-compare { aspect-ratio: 4 / 3; }
 }
 
 /* =========================================================
-   HOME · STATS band (big numbers, dark)
+   COMPARE SLIDER  ·  shared by the hero, /work and the admin
+   preview. Sized and marked here so a consumer can override
+   it — all of this was inline, where nothing could.
 ========================================================= */
-/* ── One dark band, not three ────────────────────────────────────────────
-   Stats, Partners and the paint-room demo were each hardcoded dark in both
-   themes. In the light theme the page then went light → dark → light → dark
-   down its length, which reads as sections that failed to load rather than as
-   a design. The paint-room demo KEEPS its dark plate in both themes — colour
-   chips need it, and one committed accent is the point — while Stats and
-   Partners follow the theme. Their ink is tokenised here so a single pair of
-   overrides flips the whole band. */
-.hv-stats {
-  --band-ink: var(--ivory);
-  --band-ink-soft: rgba(247,247,245,.72);
-  --band-rule-hair: rgba(247,247,245,.12);
-  background: var(--charcoal-deep); color: var(--band-ink);
-  text-align: center;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
+.compare {
+  position: relative;
+  margin-top: 96px;
+  aspect-ratio: 21 / 10;
+  overflow: hidden;
+  user-select: none;
+  cursor: ew-resize;
+  background: var(--charcoal-warm);
+  touch-action: pan-y;
 }
-.hv-stats-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; align-items: start; }
-/* Two figures instead of three when the live catalogue count is unavailable. */
-.hv-stats-grid.is-two { grid-template-columns: repeat(2, 1fr); }
-.hv-stat {
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-  gap: 12px; padding: 6px 30px; position: relative; text-align: center;
+.compare-pane { position: absolute; inset: 0; }
+/* Flat labels. These were glass pills — a blurred dark rectangle with a border,
+   one in each top corner — which is chrome laid over the one image on the site
+   that has to be looked at rather than looked past. A shadow buys the same
+   legibility over an arbitrary uploaded photograph and takes no space. */
+.compare-tag {
+  position: absolute; bottom: 20px; z-index: 3;
+  font: 500 11px/1 var(--mono); letter-spacing: .28em; text-transform: uppercase;
+  color: var(--ivory);
+  text-shadow: 0 1px 12px rgba(0,0,0,.85), 0 1px 3px rgba(0,0,0,.7);
 }
-/* Hairline dividers between the three figures, so the row reads as aligned. */
-.hv-stat + .hv-stat::before {
-  content: ""; position: absolute; left: 0; top: 10%; bottom: 10%;
-  width: 1px; background: var(--band-rule-hair);
+.compare-tag.is-before { left: 20px; }
+.compare-tag.is-after { right: 20px; }
+.hv-compare-handle {
+  position: absolute; top: 0; bottom: 0;
+  width: 2px; background: var(--ivory);
+  transform: translateX(-50%);
+  z-index: 4;
+  box-shadow: 0 0 20px rgba(0,0,0,.4);
+  padding: 0; border: none; cursor: ew-resize;
 }
-/* Down from clamp(48px, 7vw, 100px). At 100px these three figures were set
-   larger than the h1 six inches above them, so the first thing a visitor's eye
-   landed on was "20s" rather than the sentence explaining what the product is.
-   A proof row supports the claim; it does not outrank it. */
-.hv-stat-num {
-  font-family: var(--serif); font-weight: 600; font-size: clamp(34px, 4.4vw, 58px);
-  line-height: 1; letter-spacing: -.035em; color: var(--band-ink);
-  font-variant-numeric: tabular-nums;
+/* Solid, not glass: ivory disc, ink chevrons. Reads at any size and over any
+   photograph, which a 70%-opaque blurred circle does not. */
+.hv-compare-grip {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 46px; height: 46px; border-radius: 50%;
+  background: var(--ivory); color: #17130e;
+  font: 500 16px/1 var(--mono); letter-spacing: .08em;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 22px rgba(0,0,0,.45);
 }
-.hv-stat-label { font: 400 14px/1.45 var(--sans); color: var(--band-ink-soft); margin: 0; max-width: 24ch; }
-@media (max-width: 768px) {
-  .hv-stats-grid, .hv-stats-grid.is-two { grid-template-columns: 1fr; gap: 0; }
-  .hv-stat { padding: 30px 20px; }
-  .hv-stat + .hv-stat::before { left: 14%; right: 14%; top: 0; bottom: auto; width: auto; height: 1px; }
-}
+@media (max-width: 640px) { .hv-compare-grip { width: 38px; height: 38px; font-size: 14px; } }
 
 /* =========================================================
    HOME · PARTNERS band (dark)
@@ -1205,9 +1260,8 @@ html[data-theme="light"] .hv-hero2-bg::after {
    precisely because it turns a sentence into texture (see .note). */
 .hv-partners-note { font: 400 13.5px/1.6 var(--sans); letter-spacing: 0; color: var(--band-ink-soft); flex-basis: 100%; max-width: 92ch; }
 
-/* The light-theme variants. One override pair per band, because every colour
-   inside them goes through --band-ink / --band-ink-soft. */
-html[data-theme="light"] .hv-stats,
+/* The light-theme variant. One override per band, because every colour inside
+   it goes through --band-ink / --band-ink-soft. */
 html[data-theme="light"] .hv-partners {
   --band-ink: #1c1712;
   --band-ink-soft: rgba(28,23,18,.72);
@@ -1222,19 +1276,47 @@ html[data-theme="light"] .hv-partners {
 .hv-method-head { display: grid; grid-template-columns: 1.5fr 1fr; gap: 40px; align-items: end; margin-bottom: 52px; }
 .hv-method-title { font-size: clamp(36px, 5vw, 72px); max-width: 17ch; margin: 0; }
 .hv-method-lead { font: 400 17px/1.55 var(--sans); color: var(--fg-soft); max-width: 46ch; margin: 0; text-align: right; }
-.hv-method-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(234,232,227,.07); border: 1px solid rgba(234,232,227,.10); border-radius: 12px; overflow: hidden; }
-.hv-method-card { background: var(--surface); padding: 28px 24px; display: flex; flex-direction: column; gap: 10px; transition: background .25s var(--ease); }
-.hv-method-card:hover { background: var(--surface-soft); }
+/* Six steps on one rule, not six boxes in a rounded grid.
+   A process is a sequence, and a 3x2 grid of filled, bordered, radiused cards
+   says the opposite: six equal things, order optional, read them in whatever
+   order your eye lands. Worse, it is the single most generated shape on the
+   web — put anything in it and it reads as a feature grid regardless of what
+   it says. One rule across the top with six ticks hanging off it is the same
+   information as a line you can follow, and it costs no chrome at all. */
+.hv-method-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 0;
+  border-top: 1px solid var(--rule-strong);
+}
+.hv-method-card {
+  padding: 24px 22px 4px 20px;
+  border-left: 1px solid var(--rule);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.hv-method-card:first-child { border-left: 0; padding-left: 0; }
 /* An editorial figure, in the page's own ink. It was set in the accent, which
    put six brass numerals in a grid on a page whose subject is colour — the one
    hue the design is allowed, spent on counting to six. */
-.hv-method-card-num { font: 400 42px/1 var(--serif); letter-spacing: -.03em; color: var(--fg-mute); font-variant-numeric: tabular-nums; }
+.hv-method-card-num { font: 400 32px/1 var(--serif); letter-spacing: -.03em; color: var(--fg-mute); font-variant-numeric: tabular-nums; }
 .hv-method-card-tag { display: none; }
-.hv-method-card-title { font-family: var(--serif); font-weight: 600; font-size: 17px; line-height: 1.2; color: var(--fg); margin-top: 4px; }
+.hv-method-card-title { font-family: var(--serif); font-weight: 600; font-size: 16px; line-height: 1.2; color: var(--fg); margin: 2px 0 0; }
 .hv-method-card-body { font: 400 13px/1.5 var(--sans); color: var(--fg-mute); margin: 0; }
+@media (max-width: 1180px) {
+  /* Three, then two. The row keeps its rules; the second and third rows get
+     their own so the sequence still reads as a line rather than as blocks. */
+  .hv-method-grid { grid-template-columns: repeat(3, 1fr); }
+  .hv-method-card:nth-child(3n+1) { border-left: 0; padding-left: 0; }
+  .hv-method-card:nth-child(n+4) { border-top: 1px solid var(--rule); margin-top: 28px; padding-top: 24px; }
+}
 @media (max-width: 1024px) {
   .hv-method-head { grid-template-columns: 1fr; gap: 20px; }
   .hv-method-lead { text-align: left; }
+}
+@media (max-width: 620px) {
+  .hv-method-grid { grid-template-columns: repeat(2, 1fr); }
+  .hv-method-card:nth-child(n) { border-left: 1px solid var(--rule); padding-left: 18px; border-top: 0; margin-top: 0; padding-top: 22px; }
+  .hv-method-card:nth-child(2n+1) { border-left: 0; padding-left: 0; }
+  .hv-method-card:nth-child(n+3) { border-top: 1px solid var(--rule); margin-top: 22px; }
+  .hv-method-card-num { font-size: 26px; }
 }
 
 /* =========================================================
@@ -1344,7 +1426,10 @@ html[data-theme="light"] .hv-partners {
   position: relative; overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--rule);
-  border-radius: 14px;
+  /* 14px was its own radius, unrelated to the 6px on buttons and the sharp
+     corners on every grid around it. Three radii on one page is three design
+     languages taking turns. */
+  border-radius: 8px;
   padding: 22px;
   display: flex; flex-direction: column;
   transition: transform .3s var(--ease), box-shadow .3s var(--ease), border-color .3s var(--ease);
@@ -1450,7 +1535,7 @@ html[data-theme="light"] .hv-partners {
   .hv-tk-head { margin-bottom: 40px; }
 }
 @media (max-width: 480px) {
-  .hv-tk-card { padding: 20px; border-radius: 14px; }
+  .hv-tk-card { padding: 20px; border-radius: 8px; }
   .hv-tk-chat { min-height: 110px; margin-bottom: 18px; }
   .hv-tk-card-title { font-size: 19px; }
 }
@@ -1534,6 +1619,9 @@ html[data-theme="light"] .hv-partners {
   background: var(--rule); border: 1px solid var(--rule);
 }
 .hv-pp-grid .hv-tier {
+  /* The home row sits on the page, so it takes the page's palette. /pricing's
+     row sits on a permanently dark band and keeps the darker defaults on
+     .hv-tier below. */
   --tier-bg: var(--surface); --tier-ink: var(--fg);
   --tier-ink-soft: var(--fg-mute); --tier-rule: var(--rule);
   background: var(--tier-bg); color: var(--tier-ink);
@@ -2041,7 +2129,14 @@ html[data-theme="light"] .hv-loader-blobs i { mix-blend-mode: multiply; }
   --tier-btn-fg: #141413;
   transition: transform .4s var(--ease), box-shadow .4s var(--ease);
 }
-.hv-tier--featured {
+/* Written as .hv-tier.hv-tier--featured, and it has to stay that way.
+   `hv-tier--featured` is ONE class — the double hyphen is part of the name, not
+   a second selector — so as a bare `.hv-tier--featured` it scores (0,1,0) and
+   loses to `.hv-pp-grid .hv-tier` at (0,2,0) above. That is exactly what
+   happened: the home page's featured tier quietly dropped its brass fill and
+   went back to plain surface. Doubling the class ties the score, and this rule
+   comes later in the file, so the modifier wins where a modifier should. */
+.hv-tier.hv-tier--featured {
   --tier-bg: var(--accent);
   --tier-ink: var(--accent-on);
   --tier-ink-soft: #36291a;
@@ -2426,35 +2521,48 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .circular-gallery:active { cursor: grabbing; }
 
 /* =========================================================
-   PILL NAV — floating glassy pill with flat horizontal links
+   SITE NAV — a full-width bar on the page's own grid
+
+   It was a floating glass capsule: 1120px wide, centred, an
+   18px radius, a 20px backdrop blur with 160% saturation and
+   a 60px drop shadow under it. That object is the single most
+   recognisable navbar of the moment, and it is wrong here for
+   a reason beyond fashion — its 1120px sat inside the page's
+   1440px column, so the wordmark hung in space a hundred-odd
+   pixels to the right of the headline directly beneath it, and
+   nothing on the first screen lined up with anything.
+
+   The bar spans the width now and its contents sit on the same
+   --max column and --gutter as every section below, so the
+   wordmark starts exactly where the h1 starts. A hairline does
+   the separating that a shadow was doing. The blur stays,
+   without the saturation boost: it is there so text does not
+   smear through the bar, not as an effect.
 ========================================================= */
 .cnav-wrap {
   position: sticky; top: 0; z-index: 80;
-  display: flex; justify-content: center;
-  padding: 14px var(--gutter);
   pointer-events: none;
   transition: transform .38s var(--ease);
 }
 /* Tucked up out of view — set once the page has scrolled past the first section
    and the reader is scrolling down; any upward scroll clears it (bar slides back
-   down). Translates far enough to hide the card's glass shadow too. */
-.cnav-wrap.is-hidden { transform: translateY(-140%); }
+   down). */
+.cnav-wrap.is-hidden { transform: translateY(-101%); }
 .cnav {
   pointer-events: auto;
   position: relative; z-index: 2;
-  width: 100%; max-width: 1120px;
   background: var(--nav-bg);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255,255,255,.09);
-  border-radius: 18px;
-  box-shadow: 0 18px 60px -24px rgba(0,0,0,.8);
-  transition: box-shadow .3s var(--ease), border-color .3s var(--ease);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--rule);
+  transition: border-color .3s var(--ease);
 }
 
 .cnav-bar {
   display: flex; align-items: center; gap: 18px;
-  padding: 10px 24px;
+  height: var(--nav-h);
+  max-width: var(--max); margin: 0 auto;
+  padding: 0 var(--gutter);
 }
 
 .cnav-logo {
@@ -2465,16 +2573,24 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .cnav-links {
   display: flex; gap: 1px; margin: 0 auto; align-items: center;
 }
+/* A rule under the current page, not a filled pill. The pill was the third
+   rounded object in a row of them — capsule bar, capsule link, capsule button —
+   and on a site whose structure is hairlines and sharp grids, three nested
+   999px radii in the first 60px of the page set entirely the wrong expectation
+   for everything under it. The mark still reads without colour alone doing the
+   work, and it is not the shape the focus ring draws. */
 .cnav-link {
-  font: 500 13px/1 var(--sans); color: rgba(var(--fg-rgb), .52);
-  padding: 7px 12px; border-radius: 999px; white-space: nowrap; text-decoration: none;
-  transition: color .18s var(--ease), background .18s var(--ease);
+  position: relative;
+  font: 500 13px/1 var(--sans); color: rgba(var(--fg-rgb), .55);
+  padding: 8px 12px; white-space: nowrap; text-decoration: none;
+  transition: color .18s var(--ease);
 }
-.cnav-link:hover { color: var(--fg); background: rgba(var(--fg-rgb), .07); }
-/* Current page reads as a filled pill, not as colour alone — and never as
-   the same shape the focus ring draws. */
-.cnav-link.active { color: var(--bg); background: var(--fg); }
-.cnav-link.active:hover { color: var(--bg); background: var(--fg); }
+.cnav-link:hover { color: var(--fg); }
+.cnav-link.active { color: var(--fg); }
+.cnav-link.active::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: -2px;
+  height: 1.5px; background: var(--fg);
+}
 
 .cnav-actions { display: inline-flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .cnav-signin {
@@ -2490,7 +2606,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
      so the label must be var(--bg). In light theme --fg is dark, and the old
      fixed #0a0a0f made this primary CTA near-black-on-near-black (invisible). */
   color: var(--bg); background: var(--fg);
-  padding: 11px 18px; border-radius: 999px; white-space: nowrap; text-decoration: none;
+  padding: 11px 18px; border-radius: 6px; white-space: nowrap; text-decoration: none;
   transition: opacity .2s var(--ease);
 }
 .cnav-cta:hover { opacity: .88; }
@@ -2523,7 +2639,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 
 /* Mobile dropdown panel */
 .cnav-panel {
-  position: absolute; top: calc(100% + 8px); left: 0; right: 0;
+  position: absolute; top: 100%; left: var(--gutter); right: var(--gutter);
   height: 0; overflow: hidden; visibility: hidden;
   /* Solid (not translucent): this dropdown nests inside .cnav, whose own
      backdrop-filter means the panel's backdrop-filter can't blur the page —
@@ -2531,8 +2647,9 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
      the links (badly in light mode). A solid surface keeps the menu legible. */
   background: var(--surface);
   border: 1px solid var(--rule-strong);
-  border-radius: 16px;
-  box-shadow: 0 24px 60px -20px rgba(0,0,0,.7);
+  border-top: 0;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 24px 60px -20px rgba(0,0,0,.5);
 }
 .cnav.is-open .cnav-panel { visibility: visible; }
 .cnav-panel-links {
@@ -2554,10 +2671,8 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .cnav-links { display: none; }
   .cnav-burger { display: inline-flex; }
   .cnav-signin { display: none; }
-  .cnav-bar { padding: 10px 16px; }
 }
 @media (max-width: 480px) {
-  .cnav-wrap { padding: 10px 14px; }
   .cnav-cta { padding: 9px 14px; font-size: 12px; }
 }
 

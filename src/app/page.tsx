@@ -3,7 +3,6 @@ import { fetchSiteAssets } from "@/lib/site-assets-server";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Footer } from "@/components/layout/footer";
 import { Hero } from "@/components/home/hero";
-import { Stats } from "@/components/home/stats";
 import { Problem } from "@/components/home/problem";
 import { PaintRoom } from "@/components/home/paint-room";
 import { MethodGrid } from "@/components/home/method-grid";
@@ -26,7 +25,7 @@ import { RevealMount } from "@/components/ui/reveal-mount";
  * So it now runs as one line of reasoning — the problem, the proof, the how,
  * the detail, the price, the door:
  *
- *   Hero + Stats     a claim, and the three numbers behind it
+ *   Hero             a claim, the proof of it, and the room it happens in
  *   Problem          why a shade card loses the sale
  *   PaintRoom        the answer, working, in the visitor's own hands
  *   Method           how it does that, in six steps
@@ -34,6 +33,10 @@ import { RevealMount } from "@/components/ui/reveal-mount";
  *   Catalogue        whose shades, with which codes
  *   Pricing          what it costs
  *   Closing          the door
+ *
+ * The three figures used to be their own centred band under the hero; they
+ * ride on a rule inside it now, so the first screen carries the claim and the
+ * evidence together instead of spending a whole section on three numbers.
  *
  * Two sections came out. `Services` was four cards pointing at Pricing,
  * Catalogue, Gallery and Trial — three of which are sections of this same page
@@ -56,8 +59,7 @@ export default async function HomePage() {
       <SiteHeader />
       <main id="main">
         <RevealMount />
-        <Hero assets={assets} />
-        <Stats shades={size?.shades ?? null} />
+        <Hero assets={assets} shades={size?.shades ?? null} />
         <Problem />
         <PaintRoom />
         <MethodGrid />
