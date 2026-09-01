@@ -18,7 +18,7 @@ export default async function AdminShadesPage() {
   await requireRole(["ADMIN"]);
   const brands = await getUploadBrands();
   return (
-    <div style={{ maxWidth: 820 }}>
+    <div className="measure" style={{ maxWidth: 820 }}>
       <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
         ← Admin
       </Link>
