@@ -212,13 +212,19 @@ function firePointer(type: string, opts: { pointerId: number; clientX: number; c
   window.dispatchEvent(ev);
 }
 
-describe("Palette card role swap (drag a colour onto another role)", () => {
+/**
+ * A swatch is labelled with the WALL it is going on, not with a role vocabulary the
+ * customer never chose. The fixture's trim wall is called "Border", which is the point:
+ * whatever the room calls a surface is what the card calls it, so nobody has to hold a
+ * translation in their head while judging a colour.
+ */
+describe("Palette card role swap (drag a colour onto another wall)", () => {
   const originalElementFromPoint = document.elementFromPoint;
   afterEach(() => {
     document.elementFromPoint = originalElementFromPoint;
   });
 
-  it("dragging Main onto Trim swaps the two colours before Apply all", async () => {
+  it("dragging the main wall's colour onto the border swaps the two before Apply all", async () => {
     const user = userEvent.setup();
     const fetchPalettes = vi.fn(async () => RESPONSE);
     const { onApplyToRegion } = renderGrid({ onFetchAiPalettes: fetchPalettes });
@@ -227,8 +233,8 @@ describe("Palette card role swap (drag a colour onto another role)", () => {
     await user.click(screen.getByRole("button", { name: /Suggest colours/ }));
     await screen.findByText("Morning Chai");
 
-    const mainSwatch = screen.getAllByRole("button", { name: /^Main: Catalogue Fog/ })[0]!;
-    const trimSwatch = screen.getAllByRole("button", { name: /^Trim: Deep Walnut/ })[0]!;
+    const mainSwatch = screen.getAllByRole("button", { name: /^Main wall: Catalogue Fog/ })[0]!;
+    const trimSwatch = screen.getAllByRole("button", { name: /^Border: Deep Walnut/ })[0]!;
 
     // jsdom has no layout — point the hit test at the Trim slot ourselves.
     document.elementFromPoint = () => trimSwatch;
@@ -240,9 +246,9 @@ describe("Palette card role swap (drag a colour onto another role)", () => {
       firePointer("pointerup", { pointerId: 7, clientX: 90, clientY: 12 });
     });
 
-    // Roles swapped in place: Main now holds Deep Walnut, Trim holds Catalogue Fog.
-    expect(screen.getAllByRole("button", { name: /^Main: Deep Walnut/ }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /^Trim: Catalogue Fog/ }).length).toBeGreaterThan(0);
+    // Swapped in place: the main wall now holds Deep Walnut, the border Catalogue Fog.
+    expect(screen.getAllByRole("button", { name: /^Main wall: Deep Walnut/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /^Border: Catalogue Fog/ }).length).toBeGreaterThan(0);
 
     // Apply all delivers the SWAPPED arrangement to the mapped regions.
     await user.click(screen.getAllByRole("button", { name: "Apply all" })[0]!);
@@ -261,7 +267,7 @@ describe("Palette card role swap (drag a colour onto another role)", () => {
     await user.click(screen.getByRole("button", { name: /Suggest colours/ }));
     await screen.findByText("Morning Chai");
 
-    await user.click(screen.getAllByRole("button", { name: /^Main: Catalogue Fog/ })[0]!);
+    await user.click(screen.getAllByRole("button", { name: /^Main wall: Catalogue Fog/ })[0]!);
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ code: "HV-101" }));
   });
 });

@@ -19,6 +19,7 @@ import { PARENT_FAMILIES, parentFamilyOf } from "@/lib/colour-families";
 import { UndertoneTag } from "@/components/catalogue/undertone-tag";
 import { SHADE_ACCURACY_TEXT } from "@/components/shared/accuracy-note";
 import { generatePalettes } from "@/lib/palettes";
+import { colourCount, planWalls, WALL_ROLES, wallCount } from "@/lib/wall-plan";
 import { mapToPaintShade } from "@/lib/shade-mapping";
 import { crossBrandLookup, type CrossBrandLookup } from "@/lib/cross-brand";
 import { HttpError } from "@/lib/http-error";
@@ -180,6 +181,21 @@ interface ShadeGridProps {
   onEditWall?: (id: string) => void;
   /** Remove a hand-drawn wall (only offered for custom regions). */
   onDeleteWall?: (id: string) => void;
+  /**
+   * Change what a wall IS in the scheme — main wall, accent, another wall, trim.
+   *
+   * The role decides which colour of a suggested combination lands on it, so this is a
+   * decision and not a label: the commonest reason to open the plan panel at all is to
+   * say "no, THAT one is the accent". Absent = the panel shows roles read-only.
+   */
+  onSetWallRole?: (id: string, kind: RegionKind) => void;
+  /**
+   * Take a wall in or out of the scheme being painted.
+   *
+   * Not a delete: the wall keeps its mask and its colour, and comes back exactly as it
+   * was. Absent = every wall is in and the panel offers no way to change that.
+   */
+  onSetWallInPlan?: (id: string, inPlan: boolean) => void;
   /** Hand-drawn masks still allowed (3-mask cap); disables "+ Add wall" at 0. */
   masksRemaining?: number;
   /** Shades previously applied to the ACTIVE region — one-tap re-apply. */
@@ -282,6 +298,8 @@ export function ShadeGrid({
   onAddWall,
   onEditWall,
   onDeleteWall,
+  onSetWallRole,
+  onSetWallInPlan,
   masksRemaining,
   triedShades,
   recentShades,
@@ -632,6 +650,8 @@ export function ShadeGrid({
         onAddWall={onAddWall}
         onEditWall={onEditWall}
         onDeleteWall={onDeleteWall}
+        onSetWallRole={onSetWallRole}
+        onSetWallInPlan={onSetWallInPlan}
         masksRemaining={masksRemaining}
       />
       </div>
@@ -1306,64 +1326,156 @@ function SelectionDock({
   );
 }
 
+/**
+ * The slot names a card falls back to when the room has no wall for a colour.
+ *
+ * Only reached where the plan cannot name the target — a shop's combination opened on a
+ * room with no trim, a guest browsing before any wall exists. Everywhere else the swatch
+ * is labelled with the customer's own wall ("Back wall", "Chimney breast"), which is the
+ * whole point: a colour is easier to judge when you are told where it is going.
+ */
 const PALETTE_ROLES = ["Main", "Accent", "Trim"] as const;
 
 /**
- * Put a whole palette on the room at once, by ROLE: first colour → main wall, second →
- * accent, third → trim. Falls back to the active wall when the regions can't be mapped
- * (no per-region apply available, or a room with a single surface), so "Apply all"
- * always does something visible rather than silently landing nowhere.
+ * One position on a suggestion card: a colour, and the wall it is going on.
  *
- * Shared by every card that has an "Apply all": the AI suggestions, the shop's picks and
- * the customer's own saved selection. Those cards differ in where their colours come
- * from, not in what applying three of them at once means.
+ * Pairing the two here is what makes every card in this panel work the same way. The
+ * cards differ in where their colours come from — generated locally, asked of the model,
+ * saved by the shop — and used to differ in how "Apply all" decided where the paint
+ * landed, which is why a shop's three-colour pick and a room's own palette could put the
+ * same colour on different walls. Now each card is handed its targets and applying is a
+ * zip down them.
  */
-function applyShadesByRole(
+interface PaletteSlot {
+  /** The wall this colour is for, when the plan has one. */
+  wall?: RegionLite;
+  /** What to call the position when no wall claims it. */
+  fallbackLabel: string;
+}
+
+/** What a card calls one of its positions. */
+function slotLabel(slot: PaletteSlot): string {
+  return slot.wall?.label ?? slot.fallbackLabel;
+}
+
+/**
+ * The card positions for a palette built AGAINST the plan — one colour per wall.
+ *
+ * The order is the palette's own: {@code generatePalettes} was handed these walls in this
+ * order and answered with one shade for each, so position i is wall i by construction and
+ * there is nothing left to guess.
+ */
+function slotsForWalls(walls: ReadonlyArray<RegionLite>): PaletteSlot[] {
+  return walls.map((wall, i) => ({ wall, fallbackLabel: PALETTE_ROLES[i] ?? `Colour ${i + 1}` }));
+}
+
+/**
+ * The card positions for a FIXED main / accent / trim combination — a shop's pick, or a
+ * palette the model returned in those three roles.
+ *
+ * These colours were chosen as a trio and cannot be re-sized to the room, so the room is
+ * matched to them instead: each one goes to the wall in the plan that plays its role. The
+ * accent falls through to another wall when the room has no accent, because a two-colour
+ * room of "main + another wall" is an ordinary room and refusing to place the second
+ * colour would leave the customer applying it by hand.
+ *
+ * A role with no wall behind it keeps its slot and its name — the colour is still part of
+ * the combination and still worth showing; it simply has nowhere to land until the
+ * customer gives some wall that role in the plan panel.
+ */
+function slotsForRoles(walls: ReadonlyArray<RegionLite>, activeRegionId?: string): PaletteSlot[] {
+  const taken = new Set<string>();
+  const claim = (...kinds: ReadonlyArray<RegionKind>): RegionLite | undefined => {
+    for (const kind of kinds) {
+      const wall = walls.find((r) => r.kind === kind && !taken.has(r.id));
+      if (wall) {
+        taken.add(wall.id);
+        return wall;
+      }
+    }
+    return undefined;
+  };
+  const claimActive = (): RegionLite | undefined => {
+    const wall = walls.find((r) => r.id === activeRegionId && !taken.has(r.id));
+    if (wall) taken.add(wall.id);
+    return wall;
+  };
+  // The main colour lands on the main wall. In a room where nobody has named one it goes
+  // to the wall the customer is looking at, which is the one they are judging the
+  // combination against — and only then to whatever else is in the plan.
+  const main = claim("MAIN_WALL") ?? claimActive() ?? claim("OTHER_WALL", "MANUAL", "ACCENT_WALL", "TRIM");
+  const accent = claim("ACCENT_WALL", "OTHER_WALL", "MANUAL");
+  const trim = claim("TRIM");
+  return [
+    { wall: main, fallbackLabel: PALETTE_ROLES[0] },
+    { wall: accent, fallbackLabel: PALETTE_ROLES[1] },
+    { wall: trim, fallbackLabel: PALETTE_ROLES[2] },
+  ];
+}
+
+/**
+ * Put a whole combination on the room: each colour onto the wall its slot names.
+ *
+ * Shared by every card that has an "Apply all" — the room's own palettes, the shop's
+ * picks and the customer's saved selection. They differ in where their colours come from,
+ * not in what applying a set of them at once means.
+ *
+ * Falls back to the active wall when nothing could be placed (a room with no walls yet,
+ * or a caller with no per-region apply), so "Apply all" always does something visible
+ * rather than silently landing nowhere.
+ */
+function applyPalette(
   shades: ReadonlyArray<PaintShade | undefined>,
+  slots: ReadonlyArray<PaletteSlot>,
   {
-    regions,
-    activeRegionId,
     onApplyToRegion,
     onSelect,
   }: {
-    regions?: ReadonlyArray<RegionLite>;
-    activeRegionId?: string;
     onApplyToRegion?: (regionId: string, shade: PaintShade) => void;
     onSelect: (shade: PaintShade) => void;
   },
 ): void {
-  const byKind = (k: RegionKind) => regions?.find((r) => r.kind === k);
-  const main = byKind("MAIN_WALL") ?? regions?.find((r) => r.id === activeRegionId) ?? regions?.[0];
-  const targets: Array<[RegionLite | undefined, PaintShade | undefined]> = [
-    [main, shades[0]],
-    [byKind("ACCENT_WALL"), shades[1]],
-    [byKind("TRIM"), shades[2]],
-  ];
   let applied = false;
   if (onApplyToRegion) {
-    for (const [region, shade] of targets) {
-      if (region && shade) {
-        onApplyToRegion(region.id, shade);
+    for (let i = 0; i < shades.length; i++) {
+      const shade = shades[i];
+      const wall = slots[i]?.wall;
+      if (shade && wall) {
+        onApplyToRegion(wall.id, shade);
         applied = true;
       }
     }
   }
-  if (!applied && shades[0]) onSelect(shades[0]); // single-surface / no mapping → active wall
+  const first = shades.find(Boolean);
+  if (!applied && first) onSelect(first); // no mapping at all → the active wall
 }
 
 /**
- * One suggestion card, shared by "Room palettes", "Claude's picks" and the
- * shop's combos: three fixed role slots (Main / Accent / Trim) holding three
- * colours. Tap a swatch to put that colour on the active wall; DRAG a swatch
- * onto another role slot to swap the two colours' roles — palette A/B/C can
- * become C/B/A before "Apply all". Pointer-based so it works with both mouse
- * and touch: a mostly-horizontal press-and-move starts the drag, a vertical
- * one stays a scroll (swatches are `touch-action: pan-y`).
+ * One suggestion card, shared by "Room palettes", "Claude's picks" and the shop's combos:
+ * one slot per wall being painted, each holding a colour and naming the wall it is for.
+ *
+ * <b>As many colours as the room has walls.</b> The card used to be three fixed slots
+ * labelled Main / Accent / Trim whatever the room contained — so a customer who had
+ * marked out one feature wall was handed three colours and left to work out which of them
+ * was theirs, and a customer with five surfaces was handed three and had to invent the
+ * rest. The slots now come from the paint plan, so a one-wall room gets one colour and a
+ * five-wall room gets five.
+ *
+ * <b>And each slot says where its colour is going.</b> "Chimney breast" is a thing the
+ * customer can picture; "Accent" is a word they have to translate first. The role names
+ * only stand in where the plan has no wall for a colour.
+ *
+ * Tap a swatch to put that colour on the active wall; DRAG a swatch onto another slot to
+ * swap where the two colours land — a palette's A/B/C can become C/B/A before "Apply
+ * all". Pointer-based so it works with both mouse and touch: a mostly-horizontal
+ * press-and-move starts the drag, a vertical one stays a scroll (swatches are
+ * `touch-action: pan-y`).
  */
-function PaletteTrioCard({
+function PaletteCard({
   title,
   rationale,
   trio,
+  slots,
   onSelect,
   onApplyCombo,
   onAddComboToPdf,
@@ -1374,6 +1486,8 @@ function PaletteTrioCard({
   title: ReactNode;
   rationale?: string | null;
   trio: ReadonlyArray<PaintShade | undefined>;
+  /** Where each colour is going — one entry per position in {@code trio}. */
+  slots: ReadonlyArray<PaletteSlot>;
   onSelect: (shade: PaintShade) => void;
   onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
   /** Apply the palette AND snapshot it onto the colour-board PDF. Absent where the board
@@ -1384,13 +1498,20 @@ function PaletteTrioCard({
   nameLabel: (shade: { name: string; code: string }) => string;
   applyAllTitle: string;
 }) {
-  // order[slot] = index into `trio` of the colour currently in that role slot.
-  const [order, setOrder] = useState<number[]>([0, 1, 2]);
-  // New shades (shuffle / re-ask / different combo) → back to the suggested roles.
+  // order[slot] = index into `trio` of the colour currently in that slot. Sized to the
+  // palette rather than fixed at three: a one-wall room's card has one slot and a
+  // five-wall room's has five, and a hard-coded [0,1,2] left the fourth and fifth
+  // swatches unreachable by a drag and undefined on an apply.
+  const [order, setOrder] = useState<number[]>(() => trio.map((_, i) => i));
+  // New shades (shuffle / re-ask / different combo) → back to the suggested walls.
   const trioKey = trio.map((s) => s?.code ?? "").join("|");
   useEffect(() => {
-    setOrder([0, 1, 2]);
-  }, [trioKey]);
+    setOrder(trio.map((_, i) => i));
+    // `trioKey` and the length stand in for the colours themselves; `trio` is a fresh
+    // array on every render and depending on it would reset a drag the moment anything
+    // else in the panel re-rendered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trioKey, trio.length]);
   const arranged = order.map((i) => trio[i]);
 
   // Live drag: source slot, pointer position (for the floating colour ghost)
@@ -1470,6 +1591,10 @@ function PaletteTrioCard({
         {arranged.map((s, slot) => {
           if (!s) return null;
           const code = codeLabel(s.code);
+          // The customer's own wall wherever the plan names one, and the role only where
+          // it doesn't. "Chimney breast" is a thing they can picture; "Accent" is a word
+          // they have to translate first.
+          const where = slots[slot] ? slotLabel(slots[slot]!) : (PALETTE_ROLES[slot] ?? `Colour ${slot + 1}`);
           const isSource = drag?.from === slot;
           const isTarget = drag?.over === slot;
           return (
@@ -1486,11 +1611,11 @@ function PaletteTrioCard({
                 }
                 onSelect(s);
               }}
-              title={`${nameLabel(s) || "Colour"}${code ? ` · ${code}` : ""} — tap for the active wall, drag onto another role to swap`}
-              aria-label={`${PALETTE_ROLES[slot]}: ${nameLabel(s) || "colour"}${code ? ` (${code})` : ""}. Tap to apply to the active wall, drag onto another role to swap.`}
+              title={`${nameLabel(s) || "Colour"}${code ? ` · ${code}` : ""} — for ${where}. Tap to put it on the active wall, drag onto another swatch to swap where the two go.`}
+              aria-label={`${where}: ${nameLabel(s) || "colour"}${code ? ` (${code})` : ""}. Tap to apply to the active wall, drag onto another swatch to swap.`}
             >
               <span aria-hidden className="hv-ai-swatch-color" style={{ background: s.hex }} />
-              <span className="hv-ai-swatch-role">{PALETTE_ROLES[slot]}</span>
+              <span className="hv-ai-swatch-role">{where}</span>
               <span className="hv-ai-swatch-name">{nameLabel(s)}</span>
               {code && <span className="hv-ai-swatch-code">{code}</span>}
             </button>
@@ -1602,14 +1727,11 @@ function SelectionPanel({
     // the board named, so the already-painted regions are held out of the mapping.
     if (unplaced.length > 0) {
       const taken = new Set(placed.map((e) => liveRegionId(e)));
-      applyShadesByRole(
+      const free = planWalls(regions?.filter((r) => !taken.has(r.id)));
+      applyPalette(
         unplaced.map((e) => e.shade),
-        {
-          regions: regions?.filter((r) => !taken.has(r.id)),
-          activeRegionId,
-          onApplyToRegion,
-          onSelect,
-        },
+        slotsForRoles(free, activeRegionId),
+        { onApplyToRegion, onSelect },
       );
     }
   };
@@ -1735,6 +1857,26 @@ function AISuggestPanel({
   // your wall" about a colour the user picked in this header is just wrong.
   const [seedPicked, setSeedPicked] = useState(false);
 
+  /**
+   * Re-snap when the PLAN changes — a wall taken out, put back, or given a new role.
+   *
+   * The snapshot exists so applying a colour cannot rebuild the cards under somebody's
+   * finger, and that reasoning covers the wall's COLOUR, not its existence. A card
+   * offering three colours for a room the customer has just cut to two walls is not a
+   * stable card, it is a wrong one — and the customer changed the plan precisely to
+   * change what they are offered. The seed colour and the shuffle position both survive,
+   * so the schemes on screen stay the schemes they were; only their length changes.
+   */
+  const planKey = (regions ?? [])
+    .filter((r) => r.inPlan !== false)
+    .map((r) => `${r.id}:${r.kind}`)
+    .join("|");
+  const regionsRef = useRef(regions);
+  regionsRef.current = regions;
+  useEffect(() => {
+    setSnap((prev) => ({ ...prev, regions: regionsRef.current ?? [] }));
+  }, [planKey]);
+
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
   // With names hidden the code becomes the colour's only handle, so it stands in for
   // the name rather than leaving the swatch with no label at all.
@@ -1742,12 +1884,51 @@ function AISuggestPanel({
     hideNames ? (codeLabel(s.code) ?? "") : s.name;
 
   const stale = (baseHex ?? "") !== (snap.baseHex ?? "");
+
+  /**
+   * The walls this tab is building schemes for: the ones in the paint plan, in the order
+   * a scheme hands its colours out — base, the wall that answers it, any other walls,
+   * trim.
+   *
+   * Off the SNAPSHOT rather than the live list, for the same reason the seed colour is:
+   * the cards must not rebuild themselves under somebody's finger. Adding or removing a
+   * wall from the plan does re-snap them, though — see the effect below — because a
+   * three-colour card in a room the customer has just cut to two is worse than a rebuild.
+   */
+  const walls = useMemo(() => planWalls(snap.regions), [snap.regions]);
+  const slots = useMemo(() => slotsForWalls(walls), [walls]);
+  /**
+   * The customer emptied the plan — the room HAS walls and none of them is ticked.
+   *
+   * Told apart from a room that has no walls at all, because the two want opposite
+   * answers. A room with nothing marked out yet (before a photo, before detection, a
+   * guest browsing) should still see schemes: they are the reason to mark a wall. A room
+   * whose walls were all unticked has been told, on purpose, to paint nothing — and
+   * offering it combinations anyway would ignore the only instruction it was given.
+   */
+  const planEmpty = snap.regions.length > 0 && walls.length === 0;
+  // Shop picks and the model's own answers arrive as a fixed main / accent / trim trio,
+  // so they are matched to the room by ROLE rather than one-per-wall.
+  const roleSlots = useMemo(() => slotsForRoles(walls, activeRegionId), [walls, activeRegionId]);
+
   // `catalogue` arrives already scoped to the company chosen in the studio topbar,
   // so the generated palettes and the coordinate pairings below are within that
   // company by construction — there is no second filter to keep in step with it.
+  //
+  // The walls decide how many colours a palette holds: one wall, one colour; five walls,
+  // five. That is the whole reason the plan exists — a customer who marked out a single
+  // feature wall used to be handed a trio and left to work out which third of it was for
+  // them.
+  //   walls  → one colour each, in this order.
+  //   []      → the room said paint nothing; generatePalettes returns nothing.
+  //   default → no walls marked yet, so the classic main/accent/trim trio stands in.
+  const wallRoles = useMemo(
+    () => (walls.length > 0 ? walls.map((w) => w.kind) : planEmpty ? [] : undefined),
+    [walls, planEmpty],
+  );
   const palettes = useMemo(
-    () => generatePalettes(catalogue, snap.baseHex, snap.variant),
-    [catalogue, snap.baseHex, snap.variant],
+    () => generatePalettes(catalogue, snap.baseHex, snap.variant, wallRoles),
+    [catalogue, snap.baseHex, snap.variant, wallRoles],
   );
   const rebuild = () => {
     setSnap({ baseHex, regions: regions ?? [], variant: 0 });
@@ -1766,23 +1947,34 @@ function AISuggestPanel({
   // anything else; palettes can also be seeded from nothing at all.
   const seedValue = snap.baseHex && /^#[0-9a-fA-F]{6}$/.test(snap.baseHex) ? snap.baseHex : "#C8C2B8";
 
-  // "Apply all" puts the whole palette on the room at once: main → main wall,
-  // accent → accent wall, trim → trim — each to its matching region. Targets the
-  // LIVE regions, not the snapshot, so paint always lands on the real walls.
+  /**
+   * "Apply all" puts the whole palette on the room at once — each colour on the wall its
+   * swatch names.
+   *
+   * Two flavours because the cards are two different shapes. A room palette was BUILT
+   * against these walls, so its colours and the walls line up position for position. A
+   * shop's pick is a fixed trio chosen long before this room existed, so it is matched by
+   * role instead. Both end at the same place; only the mapping differs.
+   */
   const applyCombo = (shades: ReadonlyArray<PaintShade | undefined>) =>
-    applyShadesByRole(shades, { regions, activeRegionId, onApplyToRegion, onSelect });
+    applyPalette(shades, slots, { onApplyToRegion, onSelect });
+  const applyRoleCombo = (shades: ReadonlyArray<PaintShade | undefined>) =>
+    applyPalette(shades, roleSlots, { onApplyToRegion, onSelect });
 
   // Apply, then hand off to the caller to capture. Sequencing the two here rather than
   // in each section keeps "what Apply all does" in exactly one place.
-  const addComboToPdf = onAddComboToPdf
-    ? (shades: ReadonlyArray<PaintShade | undefined>) => {
-        applyCombo(shades);
-        onAddComboToPdf();
-      }
-    : undefined;
+  const withPdf = (apply: (shades: ReadonlyArray<PaintShade | undefined>) => void) =>
+    onAddComboToPdf
+      ? (shades: ReadonlyArray<PaintShade | undefined>) => {
+          apply(shades);
+          onAddComboToPdf();
+        }
+      : undefined;
+  const addComboToPdf = withPdf(applyCombo);
+  const addRoleComboToPdf = withPdf(applyRoleCombo);
 
   const showPairings =
-    Boolean(snap.baseHex) && Boolean(activeRegionId) && Boolean(onApplyToRegion) && snap.regions.length > 0;
+    Boolean(snap.baseHex) && Boolean(activeRegionId) && Boolean(onApplyToRegion) && walls.length > 0;
 
   return (
     <div className="hv-ai-panel">
@@ -1792,30 +1984,42 @@ function AISuggestPanel({
           outdoor={outdoor}
           catalogue={catalogue}
           onSelect={onSelect}
-          onApplyCombo={applyCombo}
+          onApplyCombo={applyRoleCombo}
+          slots={roleSlots}
           hideCodes={hideCodes}
-        hideNames={hideNames}
+          hideNames={hideNames}
           encodeCode={encodeCode}
         />
       )}
 
       {onFetchAiPalettes && (
         <SuggestedColoursSection
-          onAddComboToPdf={addComboToPdf}
+          onAddComboToPdf={addRoleComboToPdf}
           fetchPalettes={onFetchAiPalettes}
           catalogue={catalogue}
           onSelect={onSelect}
-          onApplyCombo={applyCombo}
+          onApplyCombo={applyRoleCombo}
+          slots={roleSlots}
           hideCodes={hideCodes}
-        hideNames={hideNames}
+          hideNames={hideNames}
           encodeCode={encodeCode}
         />
       )}
 
       {/* The free, local Room palettes need the catalogue; the suggestions above
-          do not, so an empty/loading catalogue only blanks THIS half. */}
+          do not, so an empty/loading catalogue only blanks THIS half.
+
+          Two different nothings, and they used to share one sentence. A room with no
+          walls in its scheme has no palette to build — there is nowhere for a colour to
+          go — and telling that customer the catalogue is loading sends them to wait for
+          something that has already arrived. */}
       {palettes.length === 0 && (
-        <p className="hv-studio-empty">The catalogue is still loading — palettes will appear here.</p>
+        <p className="hv-studio-empty">
+          {planEmpty
+            ? "None of this room's walls are ticked, so there is nothing to build a "
+              + "combination from. Open Plan walls above and tick the ones you're painting."
+            : "The catalogue is still loading — palettes will appear here."}
+        </p>
       )}
 
       {/* The same chip covers both ways the palettes can drift from the room: the
@@ -1876,22 +2080,35 @@ function AISuggestPanel({
                   aria-hidden
                   style={{ display: "inline-block", width: 10, height: 10, background: snap.baseHex, border: "1px solid var(--rule-strong)", borderRadius: 3, margin: "0 4px", verticalAlign: "-1px" }}
                 />
-                — every swatch is a real catalogue shade. Drag a colour onto another
-                role (say, Main onto Trim) to swap them before applying.
+                — every swatch is a real catalogue shade.
               </>
             ) : (
-              "Pick a colour first and the palettes build around it — every swatch is a real catalogue shade. Drag a colour onto another role to swap them before applying."
+              "Pick a colour first and the palettes build around it — every swatch is a real catalogue shade."
+            )}{" "}
+            {/* Said outright, because it is the answer to the question people actually
+                arrive at this tab with: how many colours am I choosing? It is the count
+                of walls being painted, and if that is not the count they wanted, the
+                plan panel above is where they change it. */}
+            {walls.length > 0 && (
+              <>
+                <strong>
+                  Each combination is {colourCount(walls.length)} — one for each of the{" "}
+                  {wallCount(walls.length)} you&rsquo;re painting.
+                </strong>{" "}
+              </>
             )}
+            Drag a colour onto another swatch to swap which wall gets which.
           </p>
           <div className="hv-ai-cards">
             {palettes.map((p, i) => (
-              <PaletteTrioCard
-                // Claude names aren't guaranteed unique — the index keeps two
+              <PaletteCard
+                // Scheme names aren't guaranteed unique — the index keeps two
                 // same-named palettes from colliding and dropping a card.
                 key={`${i}-${p.name}`}
                 title={p.name}
                 rationale={p.rationale}
-                trio={[p.main, p.accent, p.trim]}
+                trio={p.shades}
+                slots={slots}
                 onSelect={onSelect}
                 onApplyCombo={applyCombo}
                 // `addComboToPdf`, not the raw prop: the raw one only captures, so the
@@ -1900,7 +2117,13 @@ function AISuggestPanel({
                 onAddComboToPdf={addComboToPdf}
                 codeLabel={codeLabel}
                 nameLabel={nameLabel}
-                applyAllTitle="Apply the whole palette — main, accent and trim — across the room"
+                applyAllTitle={
+                  walls.length > 0
+                    ? `Put all ${colourCount(walls.length)} on the room — ${walls
+                        .map((w) => w.label)
+                        .join(", ")}`
+                    : "Apply the whole palette across the room"
+                }
               />
             ))}
           </div>
@@ -1911,7 +2134,10 @@ function AISuggestPanel({
         <CoordinateSuggestions
           baseHex={snap.baseHex!}
           activeRegionId={activeRegionId!}
-          regions={snap.regions}
+          // The plan, not every region: a wall the customer took out of the scheme should
+          // not come back as a row of "shades that pair with this" for a wall nobody is
+          // painting.
+          regions={walls}
           catalogue={catalogue}
           onApplyToRegion={onApplyToRegion!}
           hideCodes={hideCodes}
@@ -1941,6 +2167,7 @@ function SuggestedColoursSection({
   catalogue,
   onSelect,
   onApplyCombo,
+  slots,
   hideCodes = false,
   hideNames = false,
   encodeCode,
@@ -1950,6 +2177,8 @@ function SuggestedColoursSection({
   catalogue: ReadonlyArray<PaintShade>;
   onSelect: (shade: PaintShade) => void;
   onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
+  /** Where each of the three colours lands — matched to the room by role. */
+  slots: ReadonlyArray<PaletteSlot>;
   hideCodes?: boolean;
   hideNames?: boolean;
   encodeCode?: (code: string) => string;
@@ -2054,13 +2283,14 @@ function SuggestedColoursSection({
       {cards.length > 0 && (
         <div className="hv-ai-cards">
           {cards.map(({ combo, trio }, i) => (
-            <PaletteTrioCard
+            <PaletteCard
               // Combo names aren't guaranteed unique — the index keeps two
               // same-named combos from colliding and dropping a card.
               key={`${i}-${combo.name}`}
               title={combo.name}
               rationale={combo.rationale}
               trio={trio}
+              slots={slots}
               onSelect={onSelect}
               onApplyCombo={onApplyCombo}
               onAddComboToPdf={onAddComboToPdf}
@@ -2096,6 +2326,7 @@ function ShopPicksSection({
   catalogue,
   onSelect,
   onApplyCombo,
+  slots,
   hideCodes = false,
   hideNames = false,
   encodeCode,
@@ -2105,6 +2336,12 @@ function ShopPicksSection({
   catalogue: ReadonlyArray<PaintShade>;
   onSelect: (shade: PaintShade) => void;
   onApplyCombo: (shades: ReadonlyArray<PaintShade | undefined>) => void;
+  /**
+   * Where the three colours land. A shop's pick was chosen long before this room
+   * existed, so it cannot be re-sized to the walls the way a generated palette is —
+   * the room is matched to IT instead, by role.
+   */
+  slots: ReadonlyArray<PaletteSlot>;
   hideCodes?: boolean;
   hideNames?: boolean;
   encodeCode?: (code: string) => string;
@@ -2169,12 +2406,15 @@ function ShopPicksSection({
       <>
       <p className="hv-ai-intro">
         Combinations your paint shop put together — tap a shade for the active wall, drag a
-        colour onto another role to swap them, or apply all three across the room.
+        colour onto another swatch to swap where the two go, or apply all three across the
+        room. These are fixed three-colour sets, so each colour goes to the wall playing
+        its part rather than one per wall.
       </p>
       <div className="hv-ai-cards">
         {sorted.map((combo) => (
-          <PaletteTrioCard
+          <PaletteCard
             key={combo.id}
+            slots={slots}
             title={
               <>
                 {combo.name}
@@ -2205,6 +2445,8 @@ function RegionStrip({
   onAddWall,
   onEditWall,
   onDeleteWall,
+  onSetWallRole,
+  onSetWallInPlan,
   masksRemaining,
 }: {
   regions?: ReadonlyArray<RegionLite>;
@@ -2213,9 +2455,17 @@ function RegionStrip({
   onAddWall?: () => void;
   onEditWall?: (id: string) => void;
   onDeleteWall?: (id: string) => void;
+  onSetWallRole?: (id: string, kind: RegionKind) => void;
+  onSetWallInPlan?: (id: string, inPlan: boolean) => void;
   masksRemaining?: number;
 }) {
   const list = regions ?? [];
+  // The plan panel is a drawer rather than a permanent block: it is opened to make a
+  // decision and closed again, and a room with three obvious walls should not have to
+  // scroll past a form it will never touch to reach the colours.
+  const [planOpen, setPlanOpen] = useState(false);
+  const painting = planWalls(list);
+  const canPlan = Boolean(onSetWallRole || onSetWallInPlan);
   // On narrow screens the chips overflow into a horizontal scroll with no
   // scrollbar — fade the clipped edge so a half-visible "+ Wall" reads as
   // "scroll for more", not as a broken layout. The data attribute drives the
@@ -2248,6 +2498,10 @@ function RegionStrip({
       >
         {list.map((r) => {
           const isActive = r.id === activeRegionId;
+          // A wall the customer has taken out of the scheme. It keeps its chip — it is
+          // still part of the room, still refinable, and still one tap from coming back —
+          // but it reads as set aside rather than as one of the walls being painted.
+          const isOut = r.inPlan === false;
           // Every wall can be removed now, drawn or detected. Detection routinely
           // finds surfaces nobody wants painted — an accent wall the customer is
           // keeping, a ceiling, a strip of floor — and while those had no ✕ they
@@ -2264,7 +2518,8 @@ function RegionStrip({
           return (
             <div
               key={r.id}
-              className={`hv-studio-region-chip ${isActive ? "is-active" : ""}`}
+              className={`hv-studio-region-chip ${isActive ? "is-active" : ""}${isOut ? " is-out" : ""}`}
+              title={isOut ? `${r.label} isn't being painted — turn it back on under "Plan walls"` : undefined}
             >
               <button
                 type="button"
@@ -2344,6 +2599,163 @@ function RegionStrip({
           </button>
         )}
       </div>
+
+      {/* The scheme, in a line, always visible: how many walls are being painted and
+          therefore how many colours every suggestion will hold. This is the fact the
+          whole panel below turns on, and leaving it inside a closed drawer meant a
+          customer could wonder for a long time why they were being offered three colours
+          for a one-wall job. */}
+      {canPlan && (
+        <div className="hv-studio-plan-bar">
+          <p className="hv-studio-plan-sum">
+            Painting <strong>{wallCount(painting.length)}</strong> of {list.length} ·
+            combinations come in {colourCount(painting.length)}
+          </p>
+          <button
+            type="button"
+            className="hv-studio-plan-toggle"
+            aria-expanded={planOpen}
+            onClick={() => setPlanOpen((o) => !o)}
+            title="Choose which walls you're painting, and what each one is in the scheme"
+          >
+            {planOpen ? "Done" : "Plan walls"}
+          </button>
+        </div>
+      )}
+
+      {canPlan && planOpen && (
+        <WallPlan
+          regions={list}
+          activeRegionId={activeRegionId}
+          onSelectRegion={onSelectRegion}
+          onSetWallRole={onSetWallRole}
+          onSetWallInPlan={onSetWallInPlan}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Plan walls" — which surfaces are being painted, and what each one is in the scheme.
+ *
+ * <b>Why it exists.</b> A room's regions are everything anybody found or drew, and the
+ * studio treated all of them as walls to paint. Someone who marks out ten surfaces to get
+ * the shapes right and wants three of them coloured had no way to say so: every one went
+ * into the suggestions, every "Apply all" put paint on all ten, and the colour board
+ * printed ten rows for a three-colour job. The only workaround was deletion, which for a
+ * detected wall costs a credit to undo — a bad trade for a decision people change every
+ * time they try a different scheme.
+ *
+ * <b>Two decisions per wall, and they are different decisions.</b> The tick is whether
+ * this surface is being painted at all. The role is what it IS once it is — the base
+ * colour, the one wall that stands out, another wall that goes with the base, or the
+ * borders. The role decides which colour of a combination lands here, which is why it is
+ * a picker and not a label: "no, THAT one is the accent" is the commonest thing anybody
+ * comes to this panel to say.
+ *
+ * Excluding is not deleting, and the panel says so — the wall keeps its shape and its
+ * colour and comes straight back when it is ticked again.
+ */
+function WallPlan({
+  regions,
+  activeRegionId,
+  onSelectRegion,
+  onSetWallRole,
+  onSetWallInPlan,
+}: {
+  regions: ReadonlyArray<RegionLite>;
+  activeRegionId?: string;
+  onSelectRegion?: (id: string) => void;
+  onSetWallRole?: (id: string, kind: RegionKind) => void;
+  onSetWallInPlan?: (id: string, inPlan: boolean) => void;
+}) {
+  const painting = planWalls(regions);
+  // Named so the summary can say what the customer will actually be choosing between,
+  // rather than only how many things they will be choosing.
+  const order = painting.map((w) => w.label).join(" → ");
+
+  return (
+    <div className="hv-studio-plan">
+      <p className="hv-studio-plan-intro">
+        Tick the walls you&rsquo;re painting and say what each one is. Suggestions come
+        back with one colour per ticked wall, and &ldquo;Apply all&rdquo; puts them on in
+        this order. Unticking a wall doesn&rsquo;t delete it — it keeps its shape and its
+        colour, and comes back the moment you tick it again.
+      </p>
+
+      <ul className="hv-studio-plan-list">
+        {regions.map((r) => {
+          const on = r.inPlan !== false;
+          const place = painting.findIndex((w) => w.id === r.id);
+          return (
+            <li key={r.id} className={`hv-studio-plan-row${on ? "" : " is-out"}`}>
+              <label className="hv-studio-plan-tick">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  disabled={!onSetWallInPlan}
+                  onChange={(e) => onSetWallInPlan?.(r.id, e.target.checked)}
+                />
+                {/* The order the colours arrive in, on the wall it applies to. A list
+                    that says "one colour each" without saying WHICH colour goes where
+                    answers half the question. */}
+                <span className="hv-studio-plan-no" aria-hidden>
+                  {on ? place + 1 : "—"}
+                </span>
+                <span
+                  aria-hidden
+                  className="hv-studio-plan-dot"
+                  style={{ background: r.applied ? r.hex : undefined }}
+                />
+                <span className="hv-studio-plan-name">{r.label}</span>
+              </label>
+
+              <span className="hv-studio-plan-tools">
+                {/* Straight to the wall it names, because the commonest question in this
+                    panel is "which one is that?" and the answer is on the photo. */}
+                {onSelectRegion && (
+                  <button
+                    type="button"
+                    className="hv-studio-plan-show"
+                    aria-pressed={r.id === activeRegionId}
+                    onClick={() => onSelectRegion(r.id)}
+                    title={`Make ${r.label} the wall you're painting`}
+                  >
+                    Show
+                  </button>
+                )}
+                <label className="hv-studio-plan-role">
+                  <span className="sr-only">What {r.label} is in the scheme</span>
+                  <select
+                    value={WALL_ROLES.some((w) => w.kind === r.kind) ? r.kind : "OTHER_WALL"}
+                    disabled={!onSetWallRole || !on}
+                    onChange={(e) => onSetWallRole?.(r.id, e.target.value as RegionKind)}
+                    title={
+                      on
+                        ? WALL_ROLES.find((w) => w.kind === r.kind)?.hint
+                          ?? "What this surface is in the scheme"
+                        : "Tick this wall to give it a part in the scheme"
+                    }
+                  >
+                    {WALL_ROLES.map((role) => (
+                      <option key={role.kind} value={role.kind}>
+                        {role.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className="hv-studio-plan-foot">
+        {painting.length === 0
+          ? "Nothing is ticked, so there is no scheme to build. Tick at least one wall."
+          : `In order: ${order}.`}
+      </p>
     </div>
   );
 }

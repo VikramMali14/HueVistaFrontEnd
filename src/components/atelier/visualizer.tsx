@@ -131,6 +131,14 @@ interface RegionState {
   applied?: boolean;
   /** True for masks the user created by hand (counts against the 3-mask cap). */
   custom?: boolean;
+  /**
+   * Whether this surface is in the scheme being painted.
+   *
+   * Undefined means IN, which is what every region was before the plan existed. Taking
+   * one out keeps its mask, its shape and its colour — it simply stops being one of the
+   * walls the suggestions size themselves to and "Apply all" lands on.
+   */
+  inPlan?: boolean;
 }
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -178,10 +186,14 @@ const DEFAULT_REGIONS: ReadonlyArray<RegionState> = [
   { id: "trim", kind: "TRIM", label: "Trim & frames", hex: "#4a362a" },
 ];
 
+// One role in, one role out. OTHER_WALL used to arrive as ACCENT_WALL, which was
+// harmless while the roles were only a naming convention and wrong the moment the
+// customer started picking them: a room's third wall is not a second feature wall, and
+// handing it the accent colour is not what anybody asked for.
 const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
   MAIN_WALL: "MAIN_WALL",
   ACCENT_WALL: "ACCENT_WALL",
-  OTHER_WALL: "ACCENT_WALL",
+  OTHER_WALL: "OTHER_WALL",
   TRIM: "TRIM",
   MANUAL: "MANUAL",
 };
@@ -196,6 +208,10 @@ const CATEGORY_TO_KIND: Record<RegionCategory, RegionKind> = {
 const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
   MAIN_WALL: "#e8d5b0",   // Cashmere Beige (0342)
   ACCENT_WALL: "#b0603e", // Burnt Sienna (6118)
+  // Another wall opens on the body colour rather than the accent: it is a wall that goes
+  // WITH the main one, and a room that opened with every extra wall in Burnt Sienna
+  // looked like a mistake rather than like a scheme.
+  OTHER_WALL: "#e8d5b0",  // Cashmere Beige (0342)
   TRIM: "#4a362a",        // Dark Clove (8511)
   MANUAL: "#ffffff",
 };
@@ -208,6 +224,7 @@ const DEFAULT_HEX_FOR_KIND: Record<RegionKind, string> = {
 const KIND_LABEL: Record<RegionKind, string> = {
   MAIN_WALL: "Main wall",
   ACCENT_WALL: "Accent wall",
+  OTHER_WALL: "Wall",
   TRIM: "Trim & frames",
   MANUAL: "Wall",
 };
@@ -289,6 +306,9 @@ function mapBackendRegion(
     // "Manual" survives reload via the backend's explicit flag; fall back to the
     // category for older rows saved before the flag existed.
     custom: region.manual === true || kind === "MANUAL",
+    // Absent on an older backend, and absent means in — a room must not quietly stop
+    // painting its walls because a field is missing.
+    inPlan: region.inPlan !== false,
     // Route relative backend mask URLs through the BFF so auth is attached and the canvas
     // stays untainted; S3 presigned URLs pass through unchanged.
     maskUrl: resolveMediaUrl(region.maskUrl),
@@ -474,6 +494,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   const createCustomMaskCall = guest ? guestApi.createCustomMask : api.createCustomMask;
   const updateRegionMaskCall = guest ? guestApi.updateRegionMask : api.updateRegionMask;
   const deleteRegionCall = guest ? guestApi.deleteRegion : api.deleteRegion;
+  const updateRegionPlanCall = guest ? guestApi.updateRegionPlan : api.updateRegionPlan;
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1117,7 +1138,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       // Fetch every painted region's mask in PARALLEL — awaiting them one by
       // one serialised the network round-trips, so reopening a project with
       // several walls waited masks × latency before the first painted frame.
-      const applied = regions.filter((r) => r.applied);
+      // Painted AND in the scheme. A wall the customer has taken out of the plan keeps
+      // its colour on record — ticking it back on has to bring the room back exactly as
+      // it was — but it is not one of the surfaces being painted, so it does not appear
+      // on the picture. That is the whole ask: mark ten surfaces, paint three.
+      const applied = regions.filter((r) => r.applied && r.inPlan !== false);
       const masks = await Promise.all(
         applied.map(async (r): Promise<HTMLImageElement | HTMLCanvasElement | null> => {
           // Narrow to img/canvas (both valid as a GL texture AND for 2D sampling).
@@ -2108,6 +2133,66 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     [regions, projectId, deleteRegionCall, runSave],
   );
 
+  /**
+   * Save one line of the paint plan: a wall taken in or out, or given a new part.
+   *
+   * <b>Optimistic, and through the shared save machine.</b> The panel changes the moment
+   * the tick or the picker does, because the whole point of the plan is to see the
+   * suggestions re-size themselves to it; the write follows and a failure raises the
+   * usual "Could not save · Retry" chip rather than letting the room quietly disagree
+   * with the server on the next reload.
+   *
+   * <b>Excluding never clears the colour.</b> The commonest reason to take a surface out
+   * is to look at a scheme without it, and ticking it again has to bring the room back
+   * exactly as it was — otherwise every exclusion is a decision the customer cannot undo,
+   * which is the precise problem the flag exists to fix. The composite skips a wall that
+   * is out; its colour sits there waiting.
+   */
+  const savePlanLine = useCallback(
+    (regionId: string, patch: { category?: RegionCategory; inPlan?: boolean }) => {
+      const target = regions.find((r) => r.id === regionId);
+      if (!target || viewOnly) return;
+      if (!projectId || target.backendId == null) return;
+      const backendId = target.backendId;
+      runSave(async () => {
+        await updateRegionPlanCall(projectId, [{ regionId: backendId, ...patch }]);
+      });
+    },
+    [regions, projectId, viewOnly, updateRegionPlanCall, runSave],
+  );
+
+  /**
+   * Change what a wall IS in the scheme — main wall, accent, another wall, trim.
+   *
+   * The role decides which colour of a combination lands here, so this is the customer's
+   * decision and not a label. The wall's NAME follows only while it is still the
+   * role's default: somebody who called a surface "Chimney breast" keeps that name when
+   * they make it the accent, and somebody who never renamed it sees it re-titled rather
+   * than left reading "Main wall" while playing a different part.
+   */
+  const handleSetWallRole = useCallback(
+    (regionId: string, kind: RegionKind) => {
+      setRegions((prev) =>
+        prev.map((r) => {
+          if (r.id !== regionId || r.kind === kind) return r;
+          const renamed = Object.values(KIND_LABEL).includes(r.label) ? KIND_LABEL[kind] : r.label;
+          return { ...r, kind, label: renamed };
+        }),
+      );
+      savePlanLine(regionId, { category: kind });
+    },
+    [savePlanLine],
+  );
+
+  /** Take a wall in or out of the scheme being painted. Not a delete — see savePlanLine. */
+  const handleSetWallInPlan = useCallback(
+    (regionId: string, inPlan: boolean) => {
+      setRegions((prev) => prev.map((r) => (r.id === regionId ? { ...r, inPlan } : r)));
+      savePlanLine(regionId, { inPlan });
+    },
+    [savePlanLine],
+  );
+
   // Open the share sheet, creating the public link if this project has not been
   // shared yet.
   //
@@ -2261,7 +2346,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
       setPdfNotice(`That's the most (${maxPdfPages}) — download or remove one to add more.`);
       return;
     }
-    const painted = regions.filter((r) => r.applied);
+    // The scheme, not the room's whole inventory of surfaces. A board that lists ten
+    // rows for a three-colour job is a shopping list the customer then has to edit at
+    // the counter — and the ten are exactly what they told us they were not painting.
+    const painted = regions.filter((r) => r.applied && r.inPlan !== false);
     if (painted.length === 0) {
       setPdfNotice("Apply a colour first, then add it to the PDF.");
       return;
@@ -2582,7 +2670,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   // Undertone check across every painted wall: the first warm-vs-cool (or
   // white-tint) fight found becomes a quiet note in the shade panel.
   const clashNote = useMemo(() => {
-    const painted = regions.filter((r) => r.applied);
+    // Only the walls being painted: a colour left on a surface nobody is painting is not
+    // part of the scheme and must not raise a warning about a clash that will never
+    // happen on the wall.
+    const painted = regions.filter((r) => r.applied && r.inPlan !== false);
     for (let i = 0; i < painted.length; i++) {
       for (let j = i + 1; j < painted.length; j++) {
         const verdict = undertoneClash(painted[i]!.hex, painted[j]!.hex);
@@ -2593,6 +2684,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
     }
     return null;
   }, [regions]);
+
+  /**
+   * What is actually on the picture: painted, and in the scheme.
+   *
+   * Read by the legend under the canvas, the canvas's own alt text and the accuracy
+   * note beside it. One list rather than three copies of the same filter, because the
+   * three used to be three copies of a SIMPLER filter and adding the plan to two of them
+   * would have left the legend naming a colour the preview no longer shows.
+   */
+  const onPicture = useMemo(
+    () => regions.filter((r) => r.applied && r.inPlan !== false),
+    [regions],
+  );
 
   // Slim region list for the shade grid's coordinate suggestions.
   const regionLites = useMemo<RegionLite[]>(
@@ -2606,6 +2710,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
         shadeCode: r.shade?.code,
         custom: Boolean(r.custom),
         hasMask: Boolean(r.maskCanvas || r.maskUrl),
+        inPlan: r.inPlan !== false,
       })),
     [regions],
   );
@@ -3290,8 +3395,8 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
               ref={canvasRef}
               role="img"
               aria-label={
-                regions.some((r) => r.applied)
-                  ? `${projectName || "Your room"} — preview with ${regions.filter((r) => r.applied).length} surface${regions.filter((r) => r.applied).length === 1 ? "" : "s"} painted`
+                onPicture.length > 0
+                  ? `${projectName || "Your room"} — preview with ${onPicture.length} surface${onPicture.length === 1 ? "" : "s"} painted`
                   : `${projectName || "Your room"} — room photo, no colours applied yet`
               }
               style={{
@@ -4154,9 +4259,9 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 right under a picker that had just shown them the coded one. The
                 customer uses this exact screen, so that one label undid the
                 scheme everywhere else it was honoured. */}
-            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
+            {imageUrl && !pendingFile && !uploading && !segmenting && onPicture.length > 0 && (
               <div className="hv-studio-legend" role="list" aria-label="Colours in this preview">
-                {regions.filter((r) => r.applied).map((r) => {
+                {onPicture.map((r) => {
                   // A custom-picked colour is nobody's catalogue shade, so its hex
                   // is all there is to name it by and nothing is being protected.
                   const code = r.shade
@@ -4183,7 +4288,7 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             {/* Screens and real paint never match exactly, and the preview is a
                 lighting-aware approximation — set that expectation on the page
                 itself so a colour is chosen by its shade name/code, not the pixels. */}
-            {imageUrl && !pendingFile && !uploading && !segmenting && regions.some((r) => r.applied) && (
+            {imageUrl && !pendingFile && !uploading && !segmenting && onPicture.length > 0 && (
               <p className="hv-studio-disclaimer" role="note">
                 Colours shown are indicative. The final painted shade may look different on your
                 wall — confirm the exact colour by its shade name and number before buying.
@@ -4255,6 +4360,13 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             }}
             onEditWall={wallsLocked || projectLocked ? undefined : editRegionMask}
             onDeleteWall={wallsLocked || projectLocked ? undefined : handleDeleteWall}
+            // The plan is a decision about PAINT, not about wall shapes — so a library
+            // room, whose walls were marked out when it was published, still gets it.
+            // Choosing that the alcove stays as it is, or that the chimney breast is the
+            // accent, is exactly what a library room is for. A locked project does not:
+            // every write on it comes back refused.
+            onSetWallRole={projectLocked ? undefined : handleSetWallRole}
+            onSetWallInPlan={projectLocked ? undefined : handleSetWallInPlan}
             masksRemaining={wallsLocked || projectLocked ? undefined : masksRemaining}
             triedShades={triedByRegion[activeRegion]}
             recentShades={recentShades}

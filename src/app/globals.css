@@ -4171,6 +4171,150 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-add-wall-chip:hover:not(:disabled) { background: var(--surface-soft); border-color: var(--fg-mute); }
 .hv-studio-add-wall-chip:disabled { opacity: .45; cursor: not-allowed; }
 
+/* A wall the customer has taken out of the scheme. It keeps its chip — it is still part
+   of the room, still refinable, and one tick from coming back — but it must not read as
+   one of the walls being painted, or the strip and the picture disagree about what the
+   room is. Dimmed and dashed rather than hidden: hiding it would look like the delete
+   the plan exists to avoid. */
+.hv-studio-region-chip.is-out {
+  opacity: .5;
+  border-style: dashed;
+  background: transparent;
+}
+.hv-studio-region-chip.is-out .hv-studio-region-chip-dot {
+  background: transparent !important;
+  border-style: dashed;
+}
+
+/* ── The paint plan ──────────────────────────────────────────────────────────
+   How many walls are being painted, and therefore how many colours every
+   suggestion will hold. The summary line is always visible and the panel below it
+   opens on demand: this is a decision made once and then left alone, so it must be
+   FINDABLE without being in the way of the colours. */
+.hv-studio-plan-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 10px 8px;
+}
+.hv-studio-plan-sum {
+  margin: 0;
+  font: 400 12px/1.4 var(--sans);
+  color: var(--fg-mute);
+  min-width: 0;
+}
+.hv-studio-plan-sum strong { color: var(--fg); font-weight: 600; }
+.hv-studio-plan-toggle {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  color: var(--fg-soft);
+  font: 500 11.5px/1 var(--sans);
+  cursor: pointer;
+  transition: background .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease);
+}
+.hv-studio-plan-toggle:hover { background: var(--surface-soft); border-color: var(--accent); color: var(--fg); }
+.hv-studio-plan-toggle[aria-expanded="true"] { border-color: var(--accent); color: var(--accent-text); }
+
+.hv-studio-plan {
+  padding: 12px 10px 14px;
+  border-top: 1px solid var(--rule);
+  background: var(--surface);
+  /* Ten walls is an ordinary number for a hand-marked exterior, and the plan must not
+     push the colours off the panel to show them. */
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.hv-studio-plan-intro {
+  margin: 0 0 12px;
+  font: 400 12px/1.55 var(--sans);
+  color: var(--fg-mute);
+}
+.hv-studio-plan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.hv-studio-plan-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.hv-studio-plan-row.is-out { opacity: .55; border-style: dashed; }
+.hv-studio-plan-tick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+  /* The whole label is the target, which on a phone is the difference between
+     hitting a 13px checkbox and hitting the wall's name. */
+  flex: 1;
+}
+.hv-studio-plan-tick input { accent-color: var(--accent); width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+.hv-studio-plan-tick input:disabled { cursor: default; }
+/* The position in the order colours are handed out — 1, 2, 3 — so "one colour per wall"
+   also says WHICH colour. An unticked wall shows a dash rather than a stale number. */
+.hv-studio-plan-no {
+  flex-shrink: 0;
+  min-width: 16px;
+  text-align: center;
+  font: 500 10.5px/1 var(--mono);
+  color: var(--fg-mute);
+  font-variant-numeric: tabular-nums;
+}
+.hv-studio-plan-dot {
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  border: 1px solid var(--rule-strong);
+  flex-shrink: 0;
+}
+.hv-studio-plan-name {
+  font: 500 12.5px/1.3 var(--sans);
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hv-studio-plan-tools { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.hv-studio-plan-show {
+  padding: 4px 9px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--fg-mute);
+  font: 500 11px/1 var(--sans);
+  cursor: pointer;
+}
+.hv-studio-plan-show:hover { color: var(--fg); border-color: var(--fg-mute); }
+.hv-studio-plan-show[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-text); }
+.hv-studio-plan-role select {
+  padding: 4px 6px;
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  border: 1px solid var(--rule);
+  color: var(--fg);
+  font: 500 11.5px/1.3 var(--sans);
+  cursor: pointer;
+  max-width: 118px;
+}
+.hv-studio-plan-role select:disabled { opacity: .5; cursor: not-allowed; }
+.hv-studio-plan-foot {
+  margin: 12px 0 0;
+  font: 400 11.5px/1.5 var(--sans);
+  color: var(--fg-mute);
+}
+@media (max-width: 420px) {
+  /* Two lines rather than a picker squeezed to nothing beside a truncated name. */
+  .hv-studio-plan-row { flex-wrap: wrap; }
+  .hv-studio-plan-tools { width: 100%; justify-content: flex-end; }
+  .hv-studio-plan-role select { max-width: none; }
+}
+
 /* Swatch grid — a colour chip with its name and code UNDER it.
    Six dense columns fit more colours on screen and made every one of them
    unusable: names arrived as "Bright Lim…", "Zinnia Blo…", "Shocking …", and
@@ -4636,11 +4780,23 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   color: var(--fg-mute);
   margin: 6px 0 12px;
 }
+/* A card's swatches. It was a flex row built for exactly three, and a five-wall room
+   squeezed five colours into the same width — a 40px chip with "Cashmere Bei…" under it
+   is a colour nobody can judge and a name nobody can read. Wrapping onto a second row
+   keeps every swatch wide enough to be a colour: three across, then the rest beneath. */
 .hv-ai-trio {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 12px;
 }
+/* One and two-colour schemes are the point of the plan, not an edge case: a customer
+   painting one feature wall gets one swatch, and it should read as the answer rather
+   than as a third of a row that failed to fill. */
+.hv-ai-trio:has(> :nth-child(1):last-child) { grid-template-columns: minmax(0, 1fr); }
+.hv-ai-trio:has(> :nth-child(2):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Four splits evenly rather than leaving one swatch alone on the second row. */
+.hv-ai-trio:has(> :nth-child(4):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .hv-ai-swatch {
   flex: 1;
   min-width: 0;

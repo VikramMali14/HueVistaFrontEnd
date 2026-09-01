@@ -126,12 +126,19 @@ interface MaskStudioProps {
   onSaveEdits: (edits: MaskEdit[]) => void;
 }
 
-// The same four names the studio, the dock and the backend use. "Accent /
-// border" and "Trim" here against "Accent wall" and "Trim & frames" there meant
-// the surface a shop had just drawn came back under a different name.
+// The same names the studio, the dock, the plan panel and the backend use. "Accent /
+// border" and "Trim" here against "Accent wall" and "Trim & frames" there meant the
+// surface a shop had just drawn came back under a different name.
+//
+// "Another wall" is offered here rather than only in the plan panel, because it is the
+// honest answer for most walls somebody draws by hand: a third wall in a room is not a
+// second feature wall, and until this option existed the only ways to file one were as
+// the accent (wrong — it gets the accent colour) or as "Other" (a surface with no part
+// in the scheme at all).
 const CATEGORY_OPTIONS: ReadonlyArray<readonly [RegionKind, string]> = [
   ["MAIN_WALL", "Main wall"],
   ["ACCENT_WALL", "Accent wall"],
+  ["OTHER_WALL", "Another wall"],
   ["TRIM", "Trim & frames"],
   ["MANUAL", "Other"],
 ];
@@ -2677,6 +2684,7 @@ function labelForKind(kind: RegionKind): string {
       return "Accent wall";
     case "TRIM":
       return "Trim & frames";
+    case "OTHER_WALL":
     default:
       return "Wall";
   }

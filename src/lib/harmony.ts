@@ -2,6 +2,7 @@
  * Coordinate-shade suggestions. Given the colour the user just picked for the
  * active wall, surface catalogue shades that *go with it* for each wall role:
  *   - MAIN_WALL : tonal neighbours of the pick (shades they may also like)
+ *   - OTHER_WALL: companions that sit with the main wall rather than answer it
  *   - TRIM      : light, soft coordinating trims
  *   - ACCENT_WALL: richer complementary / analogous accents
  * Every generated target is snapped to the nearest REAL catalogue shade (ΔE76),
@@ -35,6 +36,20 @@ function genTargets(baseHex: string, role: RegionKind): string[] {
       mk(b.h + 150, clamp(b.s, 0.3, 0.82), clamp(b.v * 0.8, 0.2, 0.7)),
       mk(b.h + 210, clamp(b.s, 0.3, 0.82), clamp(b.v * 0.8, 0.2, 0.7)),
       mk(b.h + 30, clamp(b.s * 1.05, 0.3, 0.85), clamp(b.v * 0.9, 0.25, 0.78)),
+    ];
+  }
+  if (role === "OTHER_WALL") {
+    // Another wall in the same room: it has to sit WITH the main wall rather than
+    // answer it, so these are companions a shade or two off — near in hue, a little
+    // lighter or a little deeper. Sending these through the MAIN_WALL branch (which
+    // is what happened while OTHER_WALL was flattened into ACCENT_WALL, and then
+    // through the accent branch) offered a second feature wall for every ordinary
+    // third wall in a room.
+    return [
+      mk(b.h, clamp(b.s * 0.75), clamp(b.v * 1.05)),
+      mk(b.h, clamp(b.s * 0.9), clamp(b.v * 0.88)),
+      mk(b.h + 18, clamp(b.s * 0.8), clamp(b.v * 0.98)),
+      mk(b.h - 18, clamp(b.s * 0.8), clamp(b.v * 0.98)),
     ];
   }
   // MAIN_WALL / MANUAL: gentle tonal + small hue neighbours of the pick.
