@@ -560,6 +560,20 @@ section + section { border-top: var(--hairline) solid var(--rule); }
 .ph[data-tone="ivory"] .ph-tag, .ph[data-tone="brass"] .ph-tag { color: rgba(20,20,18,.62); }
 .ph-corners::before { display: none; }
 
+/* ====== MEASURE ======
+   Centres a page that sets its own max-width.
+
+   Every signed-in page constrains its column — 640 for a settings page, 880 for
+   the plan, 1080 for a table — and all but one of them then left the remainder
+   on the right. On a 1440 screen that put /account in a 640 column with 800px of
+   nothing beside it, which does not read as a considered measure; it reads as a
+   page that was never finished. The studio already did this correctly with its
+   own `margin: 0 auto`, so this is that one line made shareable rather than a
+   new idea.
+
+   It sets only the inline margins, so a page keeps whatever max-width it chose. */
+.measure { margin-inline: auto; }
+
 /* ====== REVEAL (scroll-in) ====== */
 /* Shorter and closer than it was (.7s / 20px). At that length, with a delay
    ladder under it, a section did not settle until most of a second after it came

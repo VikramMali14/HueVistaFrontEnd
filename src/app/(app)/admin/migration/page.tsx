@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export default async function AdminMigrationPage() {
   await requireRole(["ADMIN"]);
   return (
-    <div style={{ maxWidth: 820 }}>
+    <div className="measure" style={{ maxWidth: 820 }}>
       <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
         ← Admin
       </Link>

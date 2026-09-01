@@ -39,7 +39,7 @@ export default async function PaymentAuditPage() {
   ]);
 
   return (
-    <div style={{ maxWidth: 1080 }}>
+    <div className="measure" style={{ maxWidth: 1080 }}>
       <Eyebrow>Admin · payment audit</Eyebrow>
       <h1 className="display" style={{ fontSize: "clamp(34px, 5vw, 56px)", margin: "12px 0 14px" }}>
         Every checkout, <i>including the ones nobody paid.</i>

@@ -44,7 +44,7 @@ export default async function NetworkPage() {
   const report = await getNetworkReport();
 
   return (
-    <div style={{ maxWidth: 1080 }}>
+    <div className="measure" style={{ maxWidth: 1080 }}>
       <Eyebrow>
         {user.role === "ADMIN" && "Admin · full network"}
         {user.role === "DISTRIBUTOR" && "Distributor · my shops"}

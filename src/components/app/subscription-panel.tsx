@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -803,6 +804,20 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
             ? ` Your current plan runs to ${fmtDate(sub.currentPeriodEnd)}; whichever you pick starts that day, so there's no overlap and no double charge.`
             : ""}
         </p>
+        {/* No tiers is a real state, not an impossible one: the plans call can fail,
+            and a backend that is briefly unreachable used to leave this section as a
+            heading and a paragraph promising plans with nothing at all underneath —
+            which reads as a page that is broken rather than one that is waiting. Say
+            what happened instead, and leave the way to a person open. */}
+        {purchasable.length === 0 ? (
+          <p style={{ font: "400 14px/1.6 var(--sans)", color: "var(--fg-mute)", margin: 0, maxWidth: "62ch" }}>
+            The plans couldn&rsquo;t be loaded just now. Refresh the page to try again — or{" "}
+            <Link href="/legal/contact" style={{ color: "var(--accent-text)" }}>
+              talk to us
+            </Link>{" "}
+            and we&rsquo;ll set one up for you.
+          </p>
+        ) : (
         <div
           className="r-cols-md-1"
           style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}
@@ -877,6 +892,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
             );
           })}
         </div>
+        )}
       </section>
 
       {/* History */}
