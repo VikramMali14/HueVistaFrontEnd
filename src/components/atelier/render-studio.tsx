@@ -1002,7 +1002,7 @@ function OptionRow<T extends string>({
         .hv-render-choice:hover:not(:disabled):not(.is-on) { border-color: var(--rule-strong); color: var(--fg); }
         .hv-render-choice.is-on {
           border-color: var(--brass); background: var(--surface-soft); color: var(--fg);
-          font-weight: 500; box-shadow: 0 0 0 3px rgba(124,92,255,.12);
+          font-weight: 500; box-shadow: 0 0 0 3px rgba(192,139,78,.12);
         }
         .hv-render-choice:disabled { opacity: .45; cursor: default; }
         @media (prefers-reduced-motion: reduce) { .hv-render-choice { transition: none; } }

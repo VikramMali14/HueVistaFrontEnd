@@ -1,5 +1,5 @@
 import { LinkButton } from "@/components/ui/button";
-import { Eyebrow, Lead } from "@/components/ui/eyebrow";
+import { Lead } from "@/components/ui/eyebrow";
 
 const SWATCHES = [
   "#a47148", "#d6a78a", "#8a5a3a", "#1a1612", "#f3eee4",
@@ -11,23 +11,33 @@ const SWATCHES = [
 
 export function CataloguePreview() {
   return (
-    <section aria-label="A look at the catalogue">
-      <div className="reveal r-stack-md" style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 80, alignItems: "center" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          <Eyebrow>The catalogue</Eyebrow>
-          <h2 className="display" style={{ fontSize: "clamp(48px, 6vw, 84px)" }}>Every shade. <i>Codes intact.</i></h2>
-          <Lead>Filter by colour family, finish, or depth. Search by shade code or name. Find what looks closest across brands by colour science — not by approximation.</Lead>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
+    <section className="hv-cat" aria-labelledby="catalogue-title">
+      <div className="hv-cat-inner reveal r-stack-md">
+        <div className="hv-cat-copy">
+          {/* One long line at a set measure, where the four headings above it are
+              short. A heading is not obliged to be two lines with an italic
+              clause on the second — that was the shape of every one of them, and
+              a page whose headings all scan identically has, in effect, one
+              heading repeated at eight different sizes. */}
+          <h2 id="catalogue-title" className="display hv-cat-title">
+            Every shade, with the code it was sold under.
+          </h2>
+          <Lead>
+            Filter by colour family, finish, or depth. Search by shade code or name.
+            Find what looks closest across brands by colour science — not by
+            approximation.
+          </Lead>
+          <div className="hv-cat-cta">
             <LinkButton href="/catalogue">Browse the catalogue <span className="arr">→</span></LinkButton>
-            <LinkButton href="/gallery" variant="ghost">See it on real walls <span className="arr">→</span></LinkButton>
+            <LinkButton href="/gallery" variant="ghost">See it on real walls</LinkButton>
           </div>
         </div>
-        <div className="hv-cat-preview" style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)" }}>
+        <div className="hv-cat-preview" aria-hidden>
           {/* Decoration, so no labels. Each tile used to carry a tooltip reading
               "AP-2104", "AP-2105" … — sequential invented codes in a real
               company's format, none of which exist in anyone's range. */}
           {SWATCHES.map((hex, i) => (
-            <div key={i} style={{ background: hex, aspectRatio: "1 / 1", "--i": i } as React.CSSProperties} />
+            <div key={i} style={{ background: hex, "--i": i } as React.CSSProperties} />
           ))}
         </div>
       </div>

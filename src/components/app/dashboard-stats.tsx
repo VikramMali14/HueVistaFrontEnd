@@ -111,7 +111,7 @@ function Styles() {
         position: relative; overflow: hidden; padding: 26px 28px;
         border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.6);
         background:
-          radial-gradient(120% 90% at 0% 0%, rgba(124,92,255,.07), transparent 60%),
+          radial-gradient(120% 90% at 0% 0%, rgba(192,139,78,.07), transparent 60%),
           var(--surface);
         transition: transform .3s var(--ease), border-color .3s var(--ease);
       }

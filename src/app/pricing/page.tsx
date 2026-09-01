@@ -110,12 +110,12 @@ const MATRIX: ReadonlyArray<Section> = [
 
 const cellStyle: React.CSSProperties = { textAlign: "left", padding: "22px 24px", borderBottom: "1px solid var(--rule)", fontFamily: "var(--sans)", fontWeight: 400, fontSize: 15, color: "var(--ivory-soft)", verticalAlign: "top" };
 const featCellStyle: React.CSSProperties = { ...cellStyle, color: "var(--ivory)", fontFamily: "var(--serif)", fontSize: 19 };
-const featuredColStyle: React.CSSProperties = { background: "rgba(124,92,255,.05)", color: "var(--ivory)" };
+const featuredColStyle: React.CSSProperties = { background: "rgba(192,139,78,.05)", color: "var(--ivory)" };
 // The soft cut of the accent, not the base one, for everything small on the band.
-// #7c5cff measures 4.01:1 on the band in light and 4.47:1 in dark — both under AA
-// for 12–13px text, and the whole matrix is 12–13px text. #a080ff is 5.83:1 and
-// 6.51:1 on the same two grounds. The band is always dark, so this is one choice
-// serving both themes.
+// The brass itself clears AA here (6.6:1 in dark, 6.1:1 in light), so this is
+// headroom rather than a rescue: the whole matrix is 12–13px text read across a
+// wide row, and the soft cut takes it to 8.9:1 / 8.2:1. The band is always dark,
+// so this is one choice serving both themes.
 const headStyle: React.CSSProperties = { textAlign: "left", padding: "32px 24px", borderBottom: "1px solid var(--rule-strong)", font: "400 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", color: "var(--brass-soft)" };
 const sectionHeadStyle: React.CSSProperties = { font: "400 22px/1 var(--serif)", color: "var(--brass-soft)", padding: "56px 24px 12px" };
 const yesStyle: React.CSSProperties = { color: "var(--brass-soft)", fontFamily: "var(--mono)", fontSize: 13 };
@@ -199,7 +199,7 @@ export default async function PricingPage() {
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹999 / mo</div></th>
                     {/* Literal metallic on the always-dark band. Opaque composite
                         so the tint survives sticky overlap. */}
-                    <th style={{ ...headStyle, color: "var(--accent-soft)", background: "linear-gradient(rgba(124,92,255,.08), rgba(124,92,255,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "var(--accent-soft)" }}>₹2,499 / mo</div></th>
+                    <th style={{ ...headStyle, color: "var(--accent-soft)", background: "linear-gradient(rgba(192,139,78,.08), rgba(192,139,78,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "var(--accent-soft)" }}>₹2,499 / mo</div></th>
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Business<div style={thPriceStyle}>₹4,999 / mo</div></th>
                   </tr>
                 </thead>
@@ -232,7 +232,7 @@ export default async function PricingPage() {
                     <td style={ctaCellStyle} />
                     <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
                     <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
-                    <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#0a0a0f" }}>Start free</Link></td>
+                    <td style={{ ...ctaCellStyle, ...featuredColStyle, borderBottom: "none" }}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "var(--accent-on)" }}>Start free</Link></td>
                     <td style={ctaCellStyle}><Link href="/trial" className="btn btn-sm" style={{ background: "var(--ivory)", borderColor: "var(--ivory)", color: "var(--charcoal)" }}>Start free</Link></td>
                   </tr>
                 </tbody>
@@ -258,7 +258,7 @@ export default async function PricingPage() {
           </div>
         </section>
 
-        <section style={{ textAlign: "center", padding: "180px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(124,92,255,.10), transparent 65%)" }}>
+        <section style={{ textAlign: "center", padding: "180px 0", background: "radial-gradient(ellipse at 50% 50%, rgba(192,139,78,.10), transparent 65%)" }}>
           <div className="reveal">
             <Mono brass>Commencement</Mono>
             <h2 className="display" style={{ fontSize: "clamp(56px, 9vw, 142px)", marginTop: 32, lineHeight: 0.92 }}>

@@ -29,9 +29,9 @@ const PAPER = "#ffffff";
 const INK = "#1a1828";
 const INK_SOFT = "#3d3a55";
 const INK_MUTE = "#6b687e";
-const ACCENT = "#7c5cff";
-const ACCENT_SOFT = "#a080ff";
-const ACCENT_DEEP = "#5a3fcc";
+const ACCENT = "#c08b4e";
+const ACCENT_SOFT = "#d6a66e";
+const ACCENT_DEEP = "#9a6a33";
 const RULE = "#d8d5e2";
 
 /**

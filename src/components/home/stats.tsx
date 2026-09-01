@@ -1,5 +1,3 @@
-import { CountUp } from "@/components/ui/count-up";
-import BlurText from "@/components/ui/blur-text";
 import { FREE_PLAN_PROJECTS } from "@/lib/free-plan";
 
 /**
@@ -18,38 +16,28 @@ import { FREE_PLAN_PROJECTS } from "@/lib/free-plan";
  * down). The row then drops that figure and renders the two it can still state
  * truthfully, rather than printing a hard-coded number that would drift the moment
  * another company's catalogue is loaded.
+ *
+ * The numbers are printed, not performed. They used to ride in on a count-up while
+ * their labels blurred in word by word from alternating directions — which on the
+ * shade count meant animating through four thousand values that are not the figure,
+ * to arrive at the one that is. A number a shop owner is being asked to trust
+ * should not audition first, and the row sits immediately under the hero where a
+ * visitor is still deciding whether to keep reading.
  */
 export function Stats({ shades }: { shades?: number | null }) {
   const STATS = [
-    { value: 20, suffix: "s", label: "Photo to realistic preview" },
-    ...(shades ? [{ value: shades, suffix: "", label: "Shades, real codes intact" }] : []),
-    { value: FREE_PLAN_PROJECTS, suffix: " a month", label: "Free projects, no card" },
+    { value: "20s", label: "Photo to realistic preview" },
+    ...(shades ? [{ value: shades.toLocaleString("en-IN"), label: "Shades, real codes intact" }] : []),
+    { value: `${FREE_PLAN_PROJECTS} a month`, label: "Free projects, no card" },
   ];
 
   return (
-    <section className="hv-stats full-bleed" aria-label="HueVista in numbers">
+    <section className="hv-stats full-bleed band-tight" aria-label="HueVista in numbers">
       <div className={`hv-stats-grid${STATS.length === 2 ? " is-two" : ""}`}>
-        {STATS.map((s, i) => (
-          <div key={s.label} className="hv-stat">
-            <div className="hv-stat-num">
-              <CountUp value={s.value} duration={900} />
-              {/* Its own span with white-space:pre. .hv-stat-num is a flex
-                  container, so a bare " days" text node became an anonymous
-                  flex item and had its leading space stripped — the stat read
-                  "7days". "20s" wants no space, so the space stays part of the
-                  suffix string rather than becoming a flex gap. */}
-              <span className="hv-stat-suffix">{s.suffix}</span>
-            </div>
-            {/* Labels blur in on scroll, alternating bottom/top so the row reads
-                as the numbers settling between two lines of text. */}
-            <BlurText
-              text={s.label}
-              animateBy="words"
-              direction={i % 2 === 0 ? "bottom" : "top"}
-              delay={90}
-              stepDuration={0.3}
-              className="hv-stat-label"
-            />
+        {STATS.map((s) => (
+          <div key={s.label} className="hv-stat reveal">
+            <div className="hv-stat-num">{s.value}</div>
+            <div className="hv-stat-label">{s.label}</div>
           </div>
         ))}
       </div>

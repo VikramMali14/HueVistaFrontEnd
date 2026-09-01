@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { LinkButton } from "@/components/ui/button";
-import { Eyebrow } from "@/components/ui/eyebrow";
 
 interface Shade {
   name: string;
@@ -41,8 +40,11 @@ export function PaintRoom() {
     <section id="paint-room" className="hv-room full-bleed" aria-labelledby="paint-room-title">
       <div className="hv-room-inner">
         <div className="hv-room-copy reveal">
-          <Eyebrow>Try it here</Eyebrow>
-          <h2 id="paint-room-title" className="display hv-room-title">Go on —{" "}<br /><i>paint it.</i></h2>
+          {/* Two words, imperative, on one line — and no eyebrow over it. "Try it
+              here" above a heading that says to try it is a label explaining a
+              label, and there were five of those down this page. The chips are
+              directly underneath: the heading can just say the thing. */}
+          <h2 id="paint-room-title" className="display hv-room-title">Paint a wall.</h2>
           <p className="hv-room-lead">
             Tap a colour. The wall changes; the light and shadows stay as they
             were. This is what your customer sees at the counter, with a photo
@@ -68,7 +70,7 @@ export function PaintRoom() {
           </div>
 
           {/* Trying your own photo is the shop-code flow, not the retailer funnel. */}
-          <LinkButton href="/unlock" variant="ghost">Now try your own photo <span className="arr">→</span></LinkButton>
+          <LinkButton href="/unlock" variant="ghost">Now try your own photo</LinkButton>
         </div>
 
         <div className="hv-room-stage reveal d1" aria-hidden>

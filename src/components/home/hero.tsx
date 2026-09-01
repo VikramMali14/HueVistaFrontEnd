@@ -1,5 +1,5 @@
 import { LinkButton } from "@/components/ui/button";
-import { Mono } from "@/components/ui/eyebrow";
+import { Eyebrow, Mono } from "@/components/ui/eyebrow";
 import type { SiteAssetMap } from "@/lib/site-assets";
 import { CompareSlider } from "./compare-slider";
 
@@ -24,10 +24,11 @@ export function Hero({ assets = {} }: { assets?: SiteAssetMap }) {
       <div className="hv-hero2-bg" aria-hidden />
 
       <div className="hv-hero2-inner">
-        <p className="mono hv-rise" style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--hero-ink-mute)", margin: 0, display: "inline-flex", alignItems: "center", gap: 10 }}>
-          <span style={{ display: "inline-block", width: 18, height: 1, background: "var(--accent)", flexShrink: 0 }} aria-hidden />
-          Paint visualiser · Indian counters
-        </p>
+        {/* The shared .eyebrow, not eight inline style properties hand-rolling it.
+            This was a copy of that component's rules — a mono cap line with a rule
+            in front of it — kept in sync by hand, and it had already drifted from
+            the original on letter-spacing and on the length of the rule. */}
+        <Eyebrow className="hv-hero2-eyebrow hv-rise">Paint visualiser · Indian counters</Eyebrow>
         <h1 id="hero-title" className="display hv-hero2-title hv-rise">
           {/* The space is explicit: JSX drops the newline between a text node and the
               next element, so without it the heading's real text content — what a
@@ -35,13 +36,16 @@ export function Hero({ assets = {} }: { assets?: SiteAssetMap }) {
               produces — was "See any paint colouron your walls." */}
           See any paint colour{" "}
           {/* Weight, not lightness — a pale second half reads as disabled text
-              rather than as emphasis, and it has to invert with the theme. */}
-          <span style={{ color: "var(--hero-ink-soft)", fontWeight: 400 }}>on your walls.</span>
+              rather than as emphasis, and it has to invert with the theme. The
+              page uses this device exactly twice, here and on the closing line,
+              so the two of them read as a frame round the page rather than as
+              the one shape every heading on it happens to have. */}
+          <i>on your walls.</i>
         </h1>
-        <p className="hv-hero2-sub reveal" style={{ maxWidth: "46ch" }}>Upload a photo of a room and see any paint colour on the walls in seconds. Made for paint shops and their customers.</p>
+        <p className="hv-hero2-sub reveal">Upload a photo of a room and see any paint colour on the walls in seconds. Made for paint shops and their customers.</p>
         <div className="hv-hero2-cta reveal d1">
           <LinkButton href="/trial" size="lg">Get started <span className="arr">→</span></LinkButton>
-          <LinkButton href="/method" size="lg" variant="ghost">How it works <span className="arr">→</span></LinkButton>
+          <LinkButton href="/method" size="lg" variant="ghost">How it works</LinkButton>
         </div>
       </div>
 

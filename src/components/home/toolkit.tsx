@@ -1,4 +1,4 @@
-import { Eyebrow, Mono } from "@/components/ui/eyebrow";
+import { Mono } from "@/components/ui/eyebrow";
 import { site } from "@/lib/config";
 
 /**
@@ -10,8 +10,10 @@ export function Toolkit() {
   return (
     <section id="toolkit" aria-labelledby="toolkit-title">
       <div className="reveal hv-tk-head">
-        <Eyebrow>The toolkit</Eyebrow>
-        <h2 id="toolkit-title" className="display hv-tk-title">Small things,{" "}<br /><i>done properly.</i></h2>
+        {/* The heading carries its own context now, so the eyebrow that used to
+            sit over it ("The toolkit", above a section titled "Small things,
+            done properly") has nothing left to add. */}
+        <h2 id="toolkit-title" className="display hv-tk-title">Everything else it does.</h2>
       </div>
 
       <div className="reveal d1 hv-tk-grid">
@@ -22,7 +24,7 @@ export function Toolkit() {
               <span className="hv-tk-thumb" />
               <span>Your wall in Terracotta</span>
             </div>
-            <div className="hv-tk-bubble is-reply">Looks perfect — book it 🎉</div>
+            <div className="hv-tk-bubble is-reply">That’s the one. Book it.</div>
           </div>
           <h3 className="hv-tk-card-title">WhatsApp-first share</h3>
           <p className="hv-tk-card-desc">Send the finished preview to your customer as a picture or a link, in one tap.</p>

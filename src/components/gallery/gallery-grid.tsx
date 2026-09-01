@@ -135,7 +135,7 @@ export function GalleryGrid({ plates }: { plates: ReadonlyArray<Plate> }) {
                 font: "400 12px/1 var(--mono)",
                 letterSpacing: ".26em",
                 textTransform: "uppercase",
-                background: active ? "rgba(124,92,255,.08)" : "transparent",
+                background: active ? "rgba(192,139,78,.08)" : "transparent",
                 color: active ? "var(--brass)" : "var(--fg-soft)",
                 border: "1px solid " + (active ? "var(--rule-brass)" : "transparent"),
                 cursor: "pointer",
