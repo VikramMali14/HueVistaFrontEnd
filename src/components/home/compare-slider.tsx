@@ -77,20 +77,15 @@ export function CompareSlider({
   }, [updateFromClient]);
 
   return (
+    // Size, spacing and the two marks live in .compare now (see globals.css).
+    // They were inline, and inline styles beat every class — so the hero, which
+    // needs this to fill a column rather than hold a 21:10 box, had no way to
+    // say so. Only the three genuinely dynamic values stay here: the two panes'
+    // backgrounds and the split position.
     <div
       className={className}
       ref={ref}
-      style={{
-        position: "relative",
-        marginTop: 96,
-        aspectRatio: "21 / 10",
-        overflow: "hidden",
-        userSelect: "none",
-        cursor: "ew-resize",
-        background: "var(--charcoal-warm)",
-        touchAction: "pan-y",
-        ...style,
-      } as React.CSSProperties}
+      style={style}
       onPointerDown={(e) => {
         dragging.current = true;
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -102,10 +97,10 @@ export function CompareSlider({
     >
       {/* Base layer = recoloured room; the clipped layer on the left reveals the
           untouched "before" under its tag. */}
-      <div style={{ position: "absolute", inset: 0, background: afterBg }} />
-      <div style={{ position: "absolute", inset: 0, clipPath: `inset(0 calc(100% - ${pos}%) 0 0)`, background: beforeBg }} />
-      <span style={tagStyle("left")}>Before</span>
-      <span style={tagStyle("right")}>{afterShade}</span>
+      <div className="compare-pane" style={{ background: afterBg }} />
+      <div className="compare-pane" style={{ clipPath: `inset(0 calc(100% - ${pos}%) 0 0)`, background: beforeBg }} />
+      <span className="compare-tag is-before">Before</span>
+      <span className="compare-tag is-after">{afterShade}</span>
       <button
         type="button"
         className="hv-compare-handle"
@@ -119,57 +114,10 @@ export function CompareSlider({
           if (e.key === "ArrowLeft") setPos((p) => Math.max(2, p - 2));
           if (e.key === "ArrowRight") setPos((p) => Math.min(98, p + 2));
         }}
-        style={{
-          position: "absolute",
-          top: 0,
-          bottom: 0,
-          left: `${pos}%`,
-          width: 2,
-          background: "var(--ivory)",
-          transform: "translateX(-50%)",
-          zIndex: 4,
-          boxShadow: "0 0 20px rgba(0,0,0,.4)",
-          padding: 0,
-          border: "none",
-          cursor: "ew-resize",
-        }}
+        style={{ left: `${pos}%` }}
       >
-        <span style={handleDotStyle} aria-hidden>‹  ›</span>
+        <span className="hv-compare-grip" aria-hidden>‹  ›</span>
       </button>
     </div>
   );
 }
-
-const tagStyle = (side: "left" | "right"): React.CSSProperties => ({
-  position: "absolute",
-  top: 24,
-  [side]: 24,
-  font: "400 12px/1 var(--mono)",
-  letterSpacing: ".3em",
-  textTransform: "uppercase",
-  color: "var(--ivory)",
-  background: "rgba(10,9,15,.6)",
-  backdropFilter: "blur(6px)",
-  padding: "10px 14px",
-  border: "1px solid rgba(235,229,215,.2)",
-  zIndex: 3,
-});
-
-const handleDotStyle: React.CSSProperties = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  width: 56,
-  height: 56,
-  border: "1px solid var(--ivory)",
-  background: "rgba(10,9,15,.7)",
-  backdropFilter: "blur(6px)",
-  borderRadius: "50%",
-  color: "var(--ivory)",
-  font: "400 18px/1 var(--mono)",
-  letterSpacing: ".1em",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};

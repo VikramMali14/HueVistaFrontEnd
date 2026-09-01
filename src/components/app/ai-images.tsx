@@ -768,7 +768,7 @@ function Styles() {
       .hv-imgs-card.is-on {
         border-color: var(--rule-brass);
         background:
-          radial-gradient(120% 90% at 0% 0%, rgba(124,92,255,.10), transparent 62%),
+          radial-gradient(120% 90% at 0% 0%, rgba(192,139,78,.10), transparent 62%),
           var(--surface);
       }
       /* The rail. Grows from the top down when the card is chosen, so which one is open
@@ -834,7 +834,7 @@ function Styles() {
         border: 1px solid var(--rule);
         border-radius: calc(var(--radius) * 1.6);
         background:
-          radial-gradient(120% 90% at 100% 0%, rgba(124,92,255,.09), transparent 62%),
+          radial-gradient(120% 90% at 100% 0%, rgba(192,139,78,.09), transparent 62%),
           var(--surface-soft);
       }
       .hv-imgs-stage::before {
@@ -947,7 +947,7 @@ function Styles() {
         margin-bottom: 40px; padding: 32px;
         border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.8);
         background:
-          radial-gradient(110% 80% at 0% 0%, rgba(124,92,255,.07), transparent 60%),
+          radial-gradient(110% 80% at 0% 0%, rgba(192,139,78,.07), transparent 60%),
           var(--surface);
         animation: hv-rise .6s var(--ease) .18s both;
       }

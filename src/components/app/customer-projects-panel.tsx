@@ -51,7 +51,7 @@ function PanelStyles() {
         border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.8);
         padding: 30px;
         background:
-          radial-gradient(110% 80% at 0% 0%, rgba(124,92,255,.07), transparent 60%),
+          radial-gradient(110% 80% at 0% 0%, rgba(192,139,78,.07), transparent 60%),
           var(--surface);
       }
       .hv-cpp::before {
