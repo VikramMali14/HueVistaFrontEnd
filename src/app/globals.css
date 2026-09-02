@@ -2733,6 +2733,25 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   .cnav-links { display: none; }
   .cnav-burger { display: inline-flex; }
   .cnav-signin { display: none; }
+  /* The `margin: 0 auto` that centres the links is also what pushes everything
+     after them to the right edge. Hidden here, it stops applying and the whole
+     right-hand cluster — theme toggle, "Get started", the menu button — bunches up
+     against the wordmark with the rest of the bar empty beside it. Carry the push
+     on the actions instead, which are what needs to end up on the right. */
+  .cnav-actions { margin-left: auto; }
+}
+@media (max-width: 560px) {
+  /* The wordmark, the theme toggle and the "Get started" pill together are wider
+     than a phone, and .cnav-actions does not shrink — so the row overflowed the bar
+     and the menu button, being last in it, went over the edge. Measured at 320px:
+     the button was entirely off-screen, on every public page, with no other way to
+     reach the menu.
+
+     The pill is what gives way, because it is the one thing here that is duplicated:
+     the panel that button opens lists "Create account" and "Sign in" already, so
+     nothing becomes unreachable — where the button being unreachable took the whole
+     menu with it. */
+  .cnav-cta { display: none; }
 }
 @media (max-width: 480px) {
   .cnav-cta { padding: 9px 14px; font-size: 12px; }
