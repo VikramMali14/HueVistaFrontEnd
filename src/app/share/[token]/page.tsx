@@ -100,15 +100,23 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   }
 
   const img = absUrl(project.cleanedImageUrl) ?? absUrl(project.imageUrl);
-  // Every masked region is repaintable — the viewer can recolour walls the
+  // Every masked region IN THE SCHEME is repaintable — the viewer can recolour walls the
   // retailer left bare, too. Colours applied by the retailer are the start state.
-  const repaintRegions: RepaintRegion[] = project.regions.map((r) => ({
-    id: r.id,
-    label: r.label,
-    maskUrl: absUrl(r.maskUrl),
-    initialHex: r.appliedHexCode ?? null,
-    initialHvCode: r.appliedHvCode ?? null,
-  }));
+  //
+  // The plan is honoured here for the same reason it is honoured in the studio: a shared
+  // link is a picture of the scheme somebody chose, and a surface they deliberately took
+  // out of it would otherwise arrive painted — the link showing the ten surfaces the
+  // detector found rather than the three walls the customer settled on. `inPlan` is
+  // absent on an older backend, and absent means in.
+  const repaintRegions: RepaintRegion[] = project.regions
+    .filter((r) => r.inPlan !== false)
+    .map((r) => ({
+      id: r.id,
+      label: r.label,
+      maskUrl: absUrl(r.maskUrl),
+      initialHex: r.appliedHexCode ?? null,
+      initialHvCode: r.appliedHvCode ?? null,
+    }));
   const brands = await fetchShareBrands(project);
 
   return (

@@ -1328,6 +1328,17 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(updates),
     }),
+  // The paint plan: which walls are being painted and what each one is in the scheme.
+  //
+  // Not the autosave above, and deliberately a separate call. That one fires on every
+  // swatch click and carries a colour; this one carries decisions — made once, on
+  // purpose, and only a handful of them — so it is sent when the plan panel changes
+  // rather than on a timer. 204, same featherweight contract.
+  updateRegionPlan: (projectId: string, updates: import("./types").RegionPlanUpdate[]) =>
+    browserFetch<void>(`api/projects/${encodeURIComponent(projectId)}/regions/plan`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    }),
   // Charge for a colour board AND record what was on it. The board is built in the
   // browser, so this is the only moment the shades that went onto paper can be captured
   // — and the response says whether that board was the one that closed the project.
@@ -1960,6 +1971,11 @@ export const guestApi = {
     browserFetch<RegionDetail>(`api/guest/projects/${encodeURIComponent(projectId)}/regions/custom-mask`, {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  updateRegionPlan: (projectId: string, updates: import("./types").RegionPlanUpdate[]) =>
+    browserFetch<void>(`api/guest/projects/${encodeURIComponent(projectId)}/regions/plan`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
     }),
   updateRegionMask: (projectId: string, regionId: number, maskBase64: string) =>
     browserFetch<RegionDetail>(

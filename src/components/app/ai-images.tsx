@@ -266,10 +266,12 @@ export function AiImages() {
         <Header count={0} />
         <div className="hv-imgs-empty">
           <p className="hv-imgs-empty-title">No AI images yet.</p>
-          <Lead style={{ maxWidth: "52ch" }}>
-            An AI image is made from a combination on one of your colour boards — so pick
-            your colours in the studio, download the board, and the image is the step after
-            it. Every one you make will be here.
+          {/* One sentence, because the two buttons under it are the rest of the answer.
+              It used to be three: what an image is made from, the three steps to get one,
+              and a promise that they would appear here — on the screen whose whole
+              content is a promise that they appear here. */}
+          <Lead style={{ maxWidth: "46ch" }}>
+            An image is made from a combination on a finished colour board.
           </Lead>
           <div className="hv-imgs-actions">
             <LinkButton href="/render" variant="brass">
@@ -385,13 +387,17 @@ export function AiImages() {
                 variant="ghost"
                 disabled={pdfBusy === selected.id}
                 onClick={() => void downloadPdf(selected)}
+                title="One A4 page: this picture with its shades and their codes printed underneath"
               >
                 {pdfBusy === selected.id ? "Building your PDF…" : "Download as PDF"}
               </Button>
             </div>
+            {/* What the PDF has on it that the JPEG does not, and nothing else. It used to
+                be a sentence restating the button above it; the only fact in it worth the
+                line is that the codes are printed, because that is what makes the sheet
+                worth sending to whoever is doing the painting. */}
             <p className="hv-imgs-pdf-note">
-              The PDF is one page: this image with its shades and their codes, so whoever
-              is doing the painting can read them.
+              The PDF is one page — the picture with its shade codes underneath.
             </p>
 
             {/* The colours, so the picture can be acted on without opening the PDF —
@@ -657,6 +663,19 @@ function shadeList(
     .join("\n");
 }
 
+/**
+ * The page's own header: what this is, how many there are, and how to make another.
+ *
+ * <b>Short on purpose.</b> It used to open with a headline pun and then a sentence
+ * explaining that an image can be downloaded on its own or as a one-page PDF — which are
+ * the labels on the two buttons directly under the picture, said again before the reader
+ * has seen a picture. A shelf of photographs does not need to be introduced; it needs to
+ * be counted and got out of the way.
+ *
+ * The title and the count sit on one line with the action opposite, rather than stacked
+ * with the button below, because that is the shape of a header. Stacked, the button read
+ * as the page's first item and the pictures as an afterthought below it.
+ */
 function Header({ count }: { count: number }) {
   return (
     <header className="hv-imgs-head">
@@ -665,36 +684,36 @@ function Header({ count }: { count: number }) {
           sits under a picture of a painted wall and changes what that colour looks
           like. */}
       <div className="hv-aura" aria-hidden />
-      <Eyebrow className="hv-rise">My AI images</Eyebrow>
-      <h1 className="display hv-rise hv-rise-1">
-        Every room you have <i>seen for real.</i>
-      </h1>
-      <Lead className="hv-rise hv-rise-2" style={{ maxWidth: "58ch" }}>
-        {count === 0 ? (
-          "The photorealistic images you make from your colour boards collect here."
-        ) : (
-          <>
-            {/* The tally counts itself up. It is the one number on the page and the
-                first thing somebody checks against what they remember buying, so it
-                is worth a beat of attention — CountUp prints the final value outright
-                on the server and under reduced motion, so nobody waits to read it. */}
-            <CountUp value={count} /> image{count === 1 ? "" : "s"}, newest first.
-            Download any of them on their own, or as a one-page PDF with the shades
-            printed underneath.
-          </>
-        )}
-      </Lead>
-      {/* The way to make ANOTHER one, on the page where somebody looking at the last one
-          thinks of it. Every image is bought with an AI credit and no room includes one,
-          so this is a purchase and not a leftover allowance — which is exactly why it
-          belongs beside the pictures rather than buried in a room. */}
-      {count > 0 && (
-        <div className="hv-imgs-head-go hv-rise hv-rise-3">
-          <LinkButton href="/render" variant="brass">
-            Make a new image <span className="arr">→</span>
-          </LinkButton>
+      <Eyebrow className="hv-rise">Your account</Eyebrow>
+      <div className="hv-imgs-head-row">
+        <div className="hv-imgs-head-text">
+          <h1 className="display hv-rise hv-rise-1">AI images</h1>
+          <Lead className="hv-rise hv-rise-2" style={{ maxWidth: "48ch" }}>
+            {count === 0 ? (
+              "Photorealistic pictures of your rooms, in the colours you chose."
+            ) : (
+              <>
+                {/* The tally counts itself up. It is the one number on the page and the
+                    first thing somebody checks against what they remember buying, so it
+                    is worth a beat of attention — CountUp prints the final value outright
+                    on the server and under reduced motion, so nobody waits to read it. */}
+                <CountUp value={count} /> image{count === 1 ? "" : "s"}, newest first.
+              </>
+            )}
+          </Lead>
         </div>
-      )}
+        {/* The way to make ANOTHER one, on the page where somebody looking at the last one
+            thinks of it. Every image is bought with an AI credit and no room includes one,
+            so this is a purchase and not a leftover allowance — which is exactly why it
+            belongs beside the pictures rather than buried in a room. */}
+        {count > 0 && (
+          <div className="hv-imgs-head-go hv-rise hv-rise-3">
+            <LinkButton href="/render" variant="brass">
+              Make a new image <span className="arr">→</span>
+            </LinkButton>
+          </div>
+        )}
+      </div>
     </header>
   );
 }
@@ -731,8 +750,17 @@ function Styles() {
          somebody the colour they chose is a thing that must not happen. */
       .hv-imgs-head { position: relative; margin-bottom: 28px; }
       .hv-imgs-head > *:not(.hv-aura) { position: relative; z-index: 1; }
-      .hv-imgs-head-go { margin-top: 18px; }
-      .hv-imgs-head .display { font-size: clamp(30px, 4.4vw, 52px); margin: 12px 0 14px; }
+      /* Title and count on the left, the one action opposite. Stacked — which is what
+         this was — the button read as the page's first item and the shelf of pictures as
+         something that happened underneath it. */
+      .hv-imgs-head-row {
+        display: flex; align-items: flex-end; justify-content: space-between;
+        gap: 20px 32px; flex-wrap: wrap;
+      }
+      .hv-imgs-head-text { min-width: 0; }
+      .hv-imgs-head-go { flex-shrink: 0; padding-bottom: 4px; }
+      .hv-imgs-head .display { font-size: clamp(30px, 4.4vw, 52px); margin: 12px 0 12px; }
+      .hv-imgs-head-text p { margin-bottom: 0; }
       .hv-imgs-loading {
         display: flex; align-items: center; gap: 10px;
         padding: 80px 0; color: var(--fg-soft); font: 400 15px/1.4 var(--sans);

@@ -76,8 +76,11 @@ export function ProjectsAndCredits() {
           for an account that may not hold credits — and a grid whose columns are assigned
           by nth-child rearranges itself when one of its children declines to exist. */}
       <div className="hv-pac-side">
-        <CustomerProjectsPanel showBuy={false} reloadKey={reloadKey} />
-        <AiCreditWallet showBuy={false} reloadKey={reloadKey} />
+        {/* `describe={false}`: the page header defines a project and a credit once, as a
+            pair. These two are counters — how many, where from, how long — and the page
+            used to state the same two definitions three times over. */}
+        <CustomerProjectsPanel showBuy={false} describe={false} reloadKey={reloadKey} />
+        <AiCreditWallet showBuy={false} describe={false} reloadKey={reloadKey} />
       </div>
 
       <style>{`

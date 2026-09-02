@@ -49,13 +49,24 @@ const QUICK_BUY = [1, 3, 5, 10];
  * something is bought elsewhere on the same screen — which on the customer's billing
  * page is the whole point of the screen. See {@code ProjectsAndCredits}.
  */
+/**
+ * @param describe whether this panel also has to say WHAT a credit is.
+ *
+ * True on a screen where it stands alone — /plan, where a shop meets it beside its points
+ * and the two need telling apart. False on Projects &amp; credits, whose header defines a
+ * project and a credit once, as a pair; repeating it here in slightly different words was
+ * a third of what made that page read as a wall of text. What is left is what the header
+ * cannot know: the balance, what an image costs in credits, and when any of them lapse.
+ */
 export function AiCreditWallet({
   compact = false,
   showBuy = true,
+  describe = true,
   reloadKey = 0,
 }: {
   compact?: boolean;
   showBuy?: boolean;
+  describe?: boolean;
   reloadKey?: number;
 }) {
   const [wallet, setWallet] = useState<AiCreditSummary | null>(null);
@@ -122,11 +133,20 @@ export function AiCreditWallet({
         </p>
       </header>
 
-      <p className="hv-aiw-lead">
-        One credit makes one AI image of your room — a real photograph of a combination from
-        your colour boards. They work on any room.
-        {tierNote(wallet)}
-      </p>
+      {/* The tier note survives even where the definition does not: "Premium is 2 credits"
+          is a price, not an explanation, and it is the one thing on this panel a buyer
+          cannot work out from the balance above it. */}
+      {(describe || tierNote(wallet)) && (
+        <p className="hv-aiw-lead">
+          {describe && (
+            <>
+              One credit makes one AI image of your room — a real photograph of a
+              combination from your colour boards. They work on any room.
+            </>
+          )}
+          {tierNote(wallet).trim()}
+        </p>
+      )}
 
       {/* When some of these lapse, and how many. Only for a wallet that actually holds
           dated credits — a shop's never expire, and inventing a date for them would be a
