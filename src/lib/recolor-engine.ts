@@ -52,6 +52,19 @@ export interface RegionPaint {
    */
   whitePoint?: number;
   /**
+   * This region's own edge nudge in PHOTO px, overriding {@link RecolorEngine.setEdgeOffset}
+   * for this mask alone. Undefined keeps the engine-wide value.
+   *
+   * The engine-wide +1px exists because masks tend to sit slightly INSIDE the real
+   * surface, so growing every border hides the unpainted seam. That is a property of
+   * how a given mask was made, not of the photo: a mask whose edge already sits on the
+   * boundary needs no nudge, and giving it one paints a pixel of wall colour onto the
+   * sky. Since one project mixes masks from different sources — detection's, and the
+   * ones a shop marks by hand in the Mask Studio — the correction has to travel with
+   * the mask rather than with the frame.
+   */
+  edgeOffset?: number;
+  /**
    * How much of this surface's shading to take from the engine's relief source (the
    * original photograph) rather than from the canvas being painted, 0..1.
    *

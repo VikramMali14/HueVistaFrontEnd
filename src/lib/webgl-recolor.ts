@@ -295,7 +295,7 @@ export class Recolor implements RecolorEngine {
   // GPU mask textures cached by source identity — a mask's pixels never change
   // for a given source object, so we upload each one ONCE and just rebind it on
   // subsequent renders (no per-frame texImage2D when only colour/shadow change).
-  private maskTexCache = new Map<TexImageSource, WebGLTexture>();
+  private maskTexCache = new Map<TexImageSource, { off: number; tex: WebGLTexture }>();
   private locTarget!: WebGLUniformLocation | null;
   private locStrength!: WebGLUniformLocation | null;
   private locUseMask!: WebGLUniformLocation | null;
@@ -513,13 +513,13 @@ export class Recolor implements RecolorEngine {
    * degrades to its input when it can't run, so the raw mask is always a
    * valid outcome.
    */
-  private prepared(mask: TexImageSource): TexImageSource {
+  private prepared(mask: TexImageSource, offsetPx: number): TexImageSource {
     let m = mask;
-    if (this.edgeOffsetPx !== 0) {
+    if (offsetPx !== 0) {
       const dims = texSize(m);
       if (dims) {
-        const off = featherRadiusInMaskPx(Math.abs(this.edgeOffsetPx), dims.w, this.width)
-          * Math.sign(this.edgeOffsetPx);
+        const off = featherRadiusInMaskPx(Math.abs(offsetPx), dims.w, this.width)
+          * Math.sign(offsetPx);
         const shifted = offsetMaskCanvas(m as CanvasImageSource, dims.w, dims.h, off);
         if (shifted) m = shifted;
       }
@@ -562,25 +562,28 @@ export class Recolor implements RecolorEngine {
     return feathered ?? mask;
   }
 
-  /** Get (or upload-once) the cached GL texture for a mask source. */
-  private maskTexture(mask: TexImageSource): WebGLTexture {
+  /** Get (or upload-once) the cached GL texture for a mask source at `off` px of
+   *  edge nudge. A mask keeps its own offset baked in, so the cache holds the one it
+   *  was uploaded with and re-uploads only if that region's offset actually changes. */
+  private maskTexture(mask: TexImageSource, off: number): WebGLTexture {
     const gl = this.gl;
     const cached = this.maskTexCache.get(mask);
-    if (cached) return cached;
+    if (cached && cached.off === off) return cached.tex;
+    if (cached) gl.deleteTexture(cached.tex);
     const tex = gl.createTexture()!;
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.prepared(mask));
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.prepared(mask, off));
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    this.maskTexCache.set(mask, tex);
+    this.maskTexCache.set(mask, { off, tex });
     return tex;
   }
 
   private clearMaskCache() {
-    for (const tex of this.maskTexCache.values()) this.gl.deleteTexture(tex);
+    for (const { tex } of this.maskTexCache.values()) this.gl.deleteTexture(tex);
     this.maskTexCache.clear();
   }
 
@@ -636,7 +639,7 @@ export class Recolor implements RecolorEngine {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     for (const r of regions) {
       if (!r.mask) continue;
-      const maskTex = this.maskTexture(r.mask);
+      const maskTex = this.maskTexture(r.mask, r.edgeOffset ?? this.edgeOffsetPx);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.imgTex);
       gl.activeTexture(gl.TEXTURE1);
