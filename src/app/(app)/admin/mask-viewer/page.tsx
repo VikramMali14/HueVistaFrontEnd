@@ -53,6 +53,11 @@ export default async function AdminMaskViewerPage({
         <Link href="/admin/mask-reports" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
           Reported runs →
         </Link>
+        {/* Where this screen's answer is "no, it is off the wall": the align bench
+            is the only place that can move it. */}
+        <Link href="/admin/mask-align" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          Align bench — move a drifted mask →
+        </Link>
         {/* The next question along: this screen judges the mask's shape, the bench
             judges how paint lands inside it. */}
         <Link href="/admin/studio-test" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
