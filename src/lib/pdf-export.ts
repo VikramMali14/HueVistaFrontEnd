@@ -92,7 +92,7 @@ const FOOT_BASE = 33;
 /* Brand palette (matches globals.css light theme), as PDF "r g b" strings. */
 const INK = "0.1 0.09 0.16"; // #1a1828
 const MUTE = "0.42 0.41 0.49"; // #6b687e
-const ACCENT = "0.49 0.36 1"; // #7c5cff
+const ACCENT = "0.753 0.545 0.306"; // #c08b4e
 const RULE_SOFT = "0.89 0.88 0.93";
 const RULE_STRONG = "0.81 0.8 0.86";
 
@@ -377,7 +377,7 @@ function pageContent(
   eyebrow?: string,
 ): string {
   const right = PAGE_W - MARGIN;
-  const stripHexes = entry.shades.length ? entry.shades.map((s) => s.hex) : ["#7c5cff"];
+  const stripHexes = entry.shades.length ? entry.shades.map((s) => s.hex) : ["#c08b4e"];
   const ops = pageChrome(stripHexes, title, dateLine, pageNo, pageCount, universalCodes,
     counter, eyebrow);
 
@@ -542,7 +542,7 @@ export function buildColourBoardPdf(
 
   if (usable.length === 0 && !closing) {
     // Degenerate case: a branded page telling the user there was nothing to add.
-    const ops = pageChrome(["#7c5cff"], title, dateLine, 1, pageCount, universalCodes,
+    const ops = pageChrome(["#c08b4e"], title, dateLine, 1, pageCount, universalCodes,
       undefined, eyebrow);
     ops.push(textOp("F1", 12, MARGIN, PAGE_H - 160, "No coloured images were added.", MUTE));
     const content = ops.join("\n");

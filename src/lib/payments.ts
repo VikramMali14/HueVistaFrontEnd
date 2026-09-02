@@ -214,7 +214,7 @@ export async function subscribeToPlan(plan: PurchasablePlan): Promise<boolean> {
       subscription_id: subscriptionId,
       name: "HueVista",
       description: `${sub.planDisplayName} plan`,
-      theme: { color: "#7c5cff" },
+      theme: { color: "#c08b4e" },
       handler: async (resp: SubscriptionCheckoutSuccess) => {
         tracker.settle();
         try {
@@ -285,7 +285,7 @@ export async function openStoreCheckout(
       description: order.shopName
         ? `One room visualisation · ${order.shopName}`
         : "One room visualisation",
-      theme: { color: "#7c5cff" },
+      theme: { color: "#c08b4e" },
       ...(prefill && (prefill.email || prefill.name || prefill.contact)
         ? { prefill: { ...(prefill.email ? { email: prefill.email } : {}), ...(prefill.name ? { name: prefill.name } : {}), ...(prefill.contact ? { contact: prefill.contact } : {}) } }
         : {}),
@@ -337,7 +337,7 @@ export async function buyPoints(
       name: "HueVista",
       description: `${order.points.toLocaleString("en-IN")} points`,
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
-      theme: { color: "#7c5cff" },
+      theme: { color: "#c08b4e" },
       handler: async (resp: CheckoutSuccess) => {
         tracker.settle();
         try {
@@ -389,7 +389,7 @@ export async function buyOneProject(
       name: "HueVista",
       description: credits === 1 ? "1 extra project" : `${credits} projects`,
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
-      theme: { color: "#7c5cff" },
+      theme: { color: "#c08b4e" },
       handler: async (resp: CheckoutSuccess) => {
         tracker.settle();
         try {
@@ -442,7 +442,7 @@ export async function reopenProjectWithMoney(
       name: "HueVista",
       description: "Reopen project",
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
-      theme: { color: "#7c5cff" },
+      theme: { color: "#c08b4e" },
       handler: async (resp: CheckoutSuccess) => {
         tracker.settle();
         try {
@@ -497,7 +497,7 @@ export async function buyAiCredits(
       name: "HueVista",
       description: `${order.credits} AI image credit${order.credits === 1 ? "" : "s"}`,
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
-      theme: { color: "#7c5cff" },
+      theme: { color: "#c08b4e" },
       handler: async (resp: CheckoutSuccess) => {
         tracker.settle();
         try {
@@ -561,7 +561,7 @@ export async function checkoutCart(
       name: "HueVista",
       description: describeBasket(order),
       prefill: { name: prefill?.name ?? "", email: prefill?.email ?? "" },
-      theme: { color: "#7c5cff" },
+      theme: { color: "#c08b4e" },
       handler: async (resp: CheckoutSuccess) => {
         tracker.settle();
         try {

@@ -17,6 +17,13 @@ export interface RegionLite {
   custom?: boolean;
   /** Whether this region has a mask to refine — drives the "edit shape" affordance. */
   hasMask?: boolean;
+  /**
+   * Whether this wall is in the scheme being painted.
+   *
+   * Optional, and undefined means IN — a caller that has never heard of the paint plan
+   * must not silently stop offering colours for its walls.
+   */
+  inPlan?: boolean;
 }
 
 /**

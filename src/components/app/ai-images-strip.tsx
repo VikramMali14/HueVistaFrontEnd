@@ -64,9 +64,12 @@ export function AiImagesStrip() {
           {more > 0 ? `See all ${renders.length}` : "Open the shelf"} <span className="arr" aria-hidden>→</span>
         </Link>
       </div>
-      <p style={{ margin: "10px 0 18px", font: "300 15px/1.5 var(--serif)", color: "var(--fg-soft)", maxWidth: "56ch" }}>
-        What your credits bought. Each one downloads on its own, or as a one-page sheet with
-        the shades printed underneath — everything a painter needs to buy the paint.
+      {/* What the strip is, in the fewest words that still say it. The rest — that each
+          one downloads on its own or as a sheet with the shade codes printed under it —
+          is the two buttons on the shelf itself, and saying it here made a row of
+          thumbnails carry two lines of explanation before the first thumbnail. */}
+      <p style={{ margin: "10px 0 18px", font: "400 14px/1.6 var(--sans)", color: "var(--fg-mute)" }}>
+        What your credits bought.
       </p>
 
       <ul className="hv-ai-strip">

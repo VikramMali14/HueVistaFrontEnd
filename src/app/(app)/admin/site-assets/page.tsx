@@ -29,7 +29,7 @@ export default async function SiteAssetsPage() {
   const assets = await fetchSiteAssets();
 
   return (
-    <div style={{ maxWidth: 1080 }}>
+    <div className="measure" style={{ maxWidth: 1080 }}>
       <Eyebrow>Admin · site images</Eyebrow>
       <h1 className="display" style={{ fontSize: "clamp(34px, 5vw, 56px)", margin: "12px 0 14px" }}>
         The pictures <i>on the public site.</i>

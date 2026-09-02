@@ -27,7 +27,7 @@ export default async function SubscriptionPage() {
   // person who administers everyone else's subscriptions.
   if (user?.role === "ADMIN") {
     return (
-      <div style={{ maxWidth: 640 }}>
+      <div className="measure" style={{ maxWidth: 640 }}>
         <Eyebrow>Subscription</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(34px, 5vw, 56px)", margin: "12px 0 14px" }}>
           No plan <i>needed.</i>
@@ -46,7 +46,7 @@ export default async function SubscriptionPage() {
 
   if (user?.role === "CUSTOMER") {
     return (
-      <div style={{ maxWidth: 640 }}>
+      <div className="measure" style={{ maxWidth: 640 }}>
         <Eyebrow>Subscription</Eyebrow>
         <h1 className="display" style={{ fontSize: "clamp(34px, 5vw, 56px)", margin: "12px 0 14px" }}>
           No plan <i>needed.</i>
@@ -95,7 +95,7 @@ export default async function SubscriptionPage() {
   }
 
   return (
-    <div style={{ maxWidth: 880 }}>
+    <div className="measure" style={{ maxWidth: 880 }}>
       <Eyebrow>Subscription</Eyebrow>
       <h1 className="display" style={{ fontSize: "clamp(34px, 5vw, 56px)", margin: "12px 0 14px" }}>
         Your <i>plan.</i>

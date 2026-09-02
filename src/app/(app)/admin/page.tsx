@@ -61,7 +61,7 @@ export default async function AdminPage() {
   return (
     // Wide enough that the working sections (request queue, user search, audit
     // trail) actually use a desktop screen; prose stays readable via its own caps.
-    <div style={{ maxWidth: 1080 }}>
+    <div className="measure" style={{ maxWidth: 1080 }}>
       <Eyebrow>Admin · accounts</Eyebrow>
       <h1 className="display" style={{ fontSize: "clamp(34px, 5vw, 56px)", margin: "12px 0 14px" }}>
         Distributors, shops <i>and who asked.</i>

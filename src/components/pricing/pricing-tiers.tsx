@@ -202,9 +202,9 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
             // the moment it crossed into a closure.
             const plan = t.plan;
             return (
-            <div key={t.name} className={t.featured ? "hv-tier hv-tier--featured" : "hv-tier"} style={{ background: t.featured ? "var(--accent-deep)" : "var(--charcoal-soft)", color: t.featured ? "#fff" : "var(--ivory)", padding: "56px 36px", display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
-              {t.ribbon && (<span style={{ position: "absolute", top: 0, right: 24, background: "#fff", color: "var(--accent-deep)", font: "500 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", padding: "8px 14px", transform: "translateY(-50%)" }}>{t.ribbon}</span>)}
-              <div style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".3em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.85)" : "var(--brass)" }}>{t.name}</div>
+            <div key={t.name} className={t.featured ? "hv-tier hv-tier--featured" : "hv-tier"} style={{ background: "var(--tier-bg)", color: "var(--tier-ink)", padding: "56px 36px", display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
+              {t.ribbon && (<span style={{ position: "absolute", top: 0, right: 24, background: "var(--ivory)", color: "#17130e", font: "500 12px/1 var(--mono)", letterSpacing: ".28em", textTransform: "uppercase", padding: "8px 14px", transform: "translateY(-50%)" }}>{t.ribbon}</span>)}
+              <div style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".3em", textTransform: "uppercase", color: "var(--tier-mark)" }}>{t.name}</div>
               {/* Min, not fixed: if a price does still take two lines in a narrow
                   column the caption below is pushed, never overlapped. */}
               <div style={{ minHeight: 84 }}>
@@ -214,12 +214,12 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
                     we most want read were the two that looked broken. The price now
                     scales with the column and the unit is one unbreakable token, so it
                     can never split across the slash again. */}
-                <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(48px, 4vw, 72px)", lineHeight: 1, letterSpacing: "-.025em", color: t.featured ? "#fff" : "var(--ivory)" }}>
+                <div style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(48px, 4vw, 72px)", lineHeight: 1, letterSpacing: "-.025em", color: "var(--tier-ink)" }}>
                   {/* "₹0 / month" reads like an invoice for nothing. The free card says
                       the word instead, and keeps the same type size so the row of prices
                       still scans as one ladder. */}
                   {plan === null ? "Free" : `₹${inr(t.monthlyN)}`}
-                  <span style={{ font: "400 18px/1 var(--serif)", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)", marginLeft: 6, whiteSpace: "nowrap" }}>
+                  <span style={{ font: "400 18px/1 var(--serif)", color: "var(--tier-ink-soft)", marginLeft: 6, whiteSpace: "nowrap" }}>
                     {/* Who the plan is FOR, not how long it lasts. "For good" answered a
                         question nobody was asking — the one people do ask about a ₹0 card
                         is who is allowed on it, and the answer is: a paint shop. A walk-in
@@ -229,22 +229,22 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
                     {plan === null ? "for paint shops" : "/ month"}
                   </span>
                 </div>
-                <div style={{ marginTop: 8, font: "400 12px/1.4 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)" }}>
+                <div style={{ marginTop: 8, font: "400 12px/1.4 var(--mono)", letterSpacing: ".14em", textTransform: "uppercase", color: "var(--tier-ink-soft)" }}>
                   {plan === null ? "No card · renews every month, for good" : "Billed monthly · cancel anytime"}
                 </div>
               </div>
-              <p style={{ font: "400 17px/1.5 var(--serif)", color: t.featured ? "rgba(255,255,255,.85)" : "var(--ivory-soft)", borderTop: "1px solid " + (t.featured ? "rgba(255,255,255,.25)" : "var(--rule)"), paddingTop: 18 }}>{t.lede}</p>
+              <p style={{ font: "400 17px/1.5 var(--serif)", color: "var(--tier-ink)", borderTop: "1px solid var(--tier-rule)", paddingTop: 18 }}>{t.lede}</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
                 {t.inherits && (
-                  <div style={{ font: "italic 400 14px/1.45 var(--serif)", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)" }}>{t.inherits}</div>
+                  <div style={{ font: "italic 400 14px/1.45 var(--serif)", color: "var(--tier-ink-soft)" }}>{t.inherits}</div>
                 )}
                 {t.features.map((f) => {
                   const text = typeof f === "string" ? f : f.text;
                   const detail = typeof f === "string" ? null : f.detail;
                   const excluded = typeof f === "string" ? false : f.excluded === true;
                   return (
-                    <div key={text} style={{ display: "flex", gap: 10, font: "300 15px/1.45 var(--sans)", color: excluded ? (t.featured ? "rgba(255,255,255,.62)" : "var(--tier-ink-soft)") : (t.featured ? "#fff" : "var(--ivory-soft)") }}>
-                      <span aria-hidden style={{ color: excluded ? (t.featured ? "rgba(255,255,255,.55)" : "var(--tier-ink-soft)") : (t.featured ? "#fff" : "var(--brass)"), fontFamily: "var(--mono)", fontSize: 12, lineHeight: "22px" }}>{excluded ? "—" : "✓"}</span>
+                    <div key={text} style={{ display: "flex", gap: 10, font: "300 15px/1.45 var(--sans)", color: excluded ? "var(--tier-ink-soft)" : "var(--tier-ink)" }}>
+                      <span aria-hidden style={{ color: excluded ? "var(--tier-ink-soft)" : "var(--tier-mark)", fontFamily: "var(--mono)", fontSize: 12, lineHeight: "22px" }}>{excluded ? "—" : "✓"}</span>
                       <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
                         {excluded ? "Not included:" : "Included:"}
                       </span>
@@ -261,7 +261,7 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
                   );
                 })}
                 {t.note && (
-                  <div style={{ font: "italic 400 13px/1.5 var(--serif)", color: t.featured ? "rgba(255,255,255,.88)" : "var(--tier-ink-soft)", marginTop: 4 }}>{t.note}</div>
+                  <div style={{ font: "italic 400 13px/1.5 var(--serif)", color: "var(--tier-ink-soft)", marginTop: 4 }}>{t.note}</div>
                 )}
               </div>
               <div style={{ marginTop: "auto" }}>
@@ -280,7 +280,6 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
                       onClick={() => void handleBuy(plan)}
                       disabled={busyPlan === plan}
                       className="btn"
-                      style={t.featured ? { background: "#fff", color: "var(--accent-deep)", borderColor: "#fff" } : undefined}
                     >
                       {busyPlan === plan ? "Starting checkout…" : (<>Buy now <span className="arr">→</span></>)}
                     </button>
@@ -292,7 +291,6 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
                       <Link
                         href="/trial"
                         className="btn btn-ghost"
-                        style={t.featured ? { borderColor: "rgba(255,255,255,.55)", color: "#fff" } : undefined}
                       >
                         Start free instead
                       </Link>
@@ -303,7 +301,6 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
                   <Link
                     href="/unlock"
                     className={t.featured ? "btn" : "btn btn-ghost"}
-                    style={t.featured ? { background: "#fff", color: "var(--accent-deep)", borderColor: "#fff" } : undefined}
                   >
                     Unlock with a shop code <span className="arr">→</span>
                   </Link>

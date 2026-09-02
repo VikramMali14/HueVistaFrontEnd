@@ -46,7 +46,7 @@ export default async function AdminStudioTestPage({
   ]);
 
   return (
-    <div style={{ maxWidth: 1080 }}>
+    <div className="measure" style={{ maxWidth: 1080 }}>
       <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
         ← Admin
       </Link>

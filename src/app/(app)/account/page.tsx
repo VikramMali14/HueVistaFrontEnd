@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default async function AccountPage() {
   const { user, unavailable } = await getCurrentUserResult();
   return (
-    <div style={{ maxWidth: 640 }}>
+    <div className="measure" style={{ maxWidth: 640 }}>
       <Eyebrow>Account</Eyebrow>
       <h1 className="display" style={{ fontSize: "clamp(34px, 5vw, 56px)", margin: "12px 0 28px" }}>
         Your <i>account.</i>

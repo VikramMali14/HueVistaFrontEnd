@@ -307,7 +307,18 @@ export interface PaintShade {
   finishes: ReadonlyArray<string>;
 }
 
-export type RegionKind = "MAIN_WALL" | "ACCENT_WALL" | "TRIM" | "MANUAL";
+/**
+ * What a surface is in the scheme being painted.
+ *
+ * The same four roles the backend files under {@code RegionCategory}, plus OTHER_WALL,
+ * which used to be flattened into ACCENT_WALL on the way in. Flattening it was fine while
+ * the roles were only a naming convention; it is wrong now that the customer picks them.
+ * A room with three walls to paint is a completely ordinary job, and telling someone that
+ * their third wall is a second accent — then handing it the accent colour — is not what
+ * they asked for. An accent is the ONE wall that does the talking; another wall is
+ * another wall.
+ */
+export type RegionKind = "MAIN_WALL" | "ACCENT_WALL" | "OTHER_WALL" | "TRIM" | "MANUAL";
 
 export interface Region {
   id: string;
@@ -358,6 +369,14 @@ export interface RegionDetail {
   /** True for walls the user drew by hand (vs. AI-detected). Only these may be
    *  deleted. Survives reload independently of the region's category. */
   manual?: boolean;
+  /**
+   * Whether this surface is one of the ones being painted.
+   *
+   * Absent on an older backend, and absent means IN — every region behaved that way
+   * before the flag existed, and a room that silently stopped painting its walls because
+   * a field was missing would be the worst possible reading of a gap.
+   */
+  inPlan?: boolean;
 }
 
 /** Options sent with a segmentation request. maskMode is a real product choice
@@ -760,6 +779,23 @@ export interface RegionColorUpdate {
   regionId: number;
   shadeCode?: string | null;
   hexCode?: string | null;
+}
+
+/**
+ * One line of the paint plan (backend RegionPlanUpdate).
+ *
+ * PATCH per field — an omitted category, label or inPlan leaves that field alone. The
+ * studio sends the whole plan when it changes, so a customer who only re-labelled one
+ * wall does not also have that write reset the two fields they never touched.
+ */
+export interface RegionPlanUpdate {
+  regionId: number;
+  /** What the surface is in the scheme. Omitted = leave it. */
+  category?: RegionCategory;
+  /** What it is called on screen and on the board. Omitted/blank = leave it. */
+  label?: string;
+  /** Whether it is being painted at all. Omitted = leave it. */
+  inPlan?: boolean;
 }
 
 /** A time-limited public share link for a project (backend ShareResponse). */

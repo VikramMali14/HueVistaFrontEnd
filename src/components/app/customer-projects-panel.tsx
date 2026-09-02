@@ -51,7 +51,7 @@ function PanelStyles() {
         border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.8);
         padding: 30px;
         background:
-          radial-gradient(110% 80% at 0% 0%, rgba(124,92,255,.07), transparent 60%),
+          radial-gradient(110% 80% at 0% 0%, rgba(192,139,78,.07), transparent 60%),
           var(--surface);
       }
       .hv-cpp::before {
@@ -147,8 +147,18 @@ function Pips({ count }: { count: number }) {
  *                  counts what the account holds, and something bought elsewhere on the
  *                  page changes that. See {@code ProjectsAndCredits}.
  */
+/**
+ * @param describe whether this panel also has to say WHAT a project is.
+ *
+ * True on a screen where it stands alone. False on Projects &amp; credits, whose header
+ * defines a project and a credit once, as a pair — and where this panel repeating it in
+ * slightly different words was two thirds of what made the page read as a wall of text
+ * rather than as a statement of account. What is left here is what the header cannot
+ * know: how many you hold, where they came from, and how long they last.
+ */
 export function CustomerProjectsPanel(
-  { showBuy = true, reloadKey = 0 }: { showBuy?: boolean; reloadKey?: number } = {},
+  { showBuy = true, describe = true, reloadKey = 0 }:
+    { showBuy?: boolean; describe?: boolean; reloadKey?: number } = {},
 ) {
   // undefined = loading, null = no shop behind this account, "error" = fetch failed
   const [ent, setEnt] = useState<CustomerEntitlement | null | "error" | undefined>(undefined);
@@ -207,8 +217,8 @@ export function CustomerProjectsPanel(
         <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch", margin: "0 0 16px" }}>
           {credits > 0 ? (
             <>
-              Each one opens a room you can photograph, repaint and save — a project stays
-              open for {validityPhrase(options?.validDays)} once you begin it.{" "}
+              {describe && "Each one opens a room you can photograph, repaint and save. "}
+              Open for {validityPhrase(options?.validDays)} once you begin it.{" "}
               {/* The link matters: this is the one panel that tells a customer with no
                   shop that they hold something, and it used to name every route out of
                   the page except the one that spends it. */}
@@ -218,23 +228,27 @@ export function CustomerProjectsPanel(
             </>
           ) : (
             <>
-              You pay per room rather than by the month. Buy a project below and it stays
-              open for {validityPhrase(options?.validDays)} once you begin it. If a paint
-              shop gave you an access code, unlock with that instead and the room is on them.
+              {describe && "You pay per room rather than by the month. "}
+              Buy one and it stays open for {validityPhrase(options?.validDays)} once you
+              begin it.
             </>
           )}
         </p>
         {showBuy && <BuyProjects options={options} onBought={setOptions} />}
+        {/* The two routes that cost nothing, on one line. Both belong on the panel that
+            tells a customer with no shop what they hold: one of them is how a shop's
+            customer gets here at all, and the other is the answer for somebody who wants
+            to try the studio before paying for a room of their own. */}
         <p style={{ marginTop: 14, font: "400 13.5px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
-          Got a code from a paint shop?{" "}
+          Got a shop code?{" "}
           <Link href="/unlock" style={{ color: "var(--accent)" }}>
             Unlock with it →
           </Link>{" "}
-          · The{" "}
+          ·{" "}
           <Link href="/library" style={{ color: "var(--accent)" }}>
-            ready-made rooms
+            Ready-made rooms
           </Link>{" "}
-          are free and cost no project at all.
+          are free.
         </p>
       </div>
     );
@@ -310,7 +324,7 @@ export function CustomerProjectsPanel(
         <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch" }}>
           {/* Said whenever anything is spendable, including the case this panel used to
               get wrong: the code is finished but a bought project is sitting there. */}
-          Each one opens a room you can photograph, repaint and save.{" "}
+          {describe && "Each one opens a room you can photograph, repaint and save. "}
           {/* The line above has already said the window closed; this only has to say
               what survives it, or it says the same thing twice in one card. */}
           {ent.expired && (
@@ -325,9 +339,8 @@ export function CustomerProjectsPanel(
         </p>
       )}
       <p style={{ marginTop: 14, font: "400 13.5px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
-        The{" "}
         <Link href="/library" style={{ color: "var(--accent)" }}>
-          ready-made rooms
+          Ready-made rooms
         </Link>{" "}
         are free and use none of your projects.
       </p>

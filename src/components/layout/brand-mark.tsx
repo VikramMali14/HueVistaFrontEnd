@@ -29,8 +29,8 @@ export function BrandMark({ height = 22, className }: { height?: number; classNa
     >
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="var(--accent-soft, #a080ff)" />
-          <stop offset="1" stopColor="var(--accent-deep, #5a3fcc)" />
+          <stop offset="0" stopColor="var(--accent-soft, #d6a66e)" />
+          <stop offset="1" stopColor="var(--accent-deep, #9a6a33)" />
         </linearGradient>
       </defs>
       <path

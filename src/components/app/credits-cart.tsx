@@ -509,7 +509,7 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
           position: relative; overflow: hidden;
           border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.8);
           background:
-            radial-gradient(120% 90% at 100% 0%, rgba(124,92,255,.07), transparent 62%),
+            radial-gradient(120% 90% at 100% 0%, rgba(192,139,78,.07), transparent 62%),
             var(--surface);
           padding: 30px;
         }
@@ -532,7 +532,7 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
           flex-wrap: wrap;
           border: 1px solid var(--rule-brass); border-radius: calc(var(--radius) * 1.5);
           background:
-            linear-gradient(135deg, rgba(124,92,255,.13), rgba(124,92,255,.03) 55%),
+            linear-gradient(135deg, rgba(192,139,78,.13), rgba(192,139,78,.03) 55%),
             var(--surface-soft);
         }
         .hv-cart-special-text { flex: 1 1 280px; min-width: 0; }
