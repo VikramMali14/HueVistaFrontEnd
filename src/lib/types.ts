@@ -1697,3 +1697,68 @@ export interface AiCreditOrder {
   currency: string;
   razorpayKeyId: string;
 }
+
+
+/**
+ * Where an admin decided a room's masks belong on its canvas.
+ *
+ * A REGISTRATION, not a mask: it says where to put the drawing wall detection
+ * already made, and carries no pixels of its own. The backend re-splits the
+ * stored colour-coded mask through it and re-lands each detected surface, so
+ * region ids, labels and applied colours all survive and only the mask under
+ * them moves.
+ *
+ * Geometry matches the backend's MaskAligner.Fit exactly, because it becomes
+ * one. Forward, per axis, both frames normalised to 0..1 of their own size:
+ *
+ *     u_canvas = 0.5 + (u_mask - 0.5) * scale + offset   [ + warp there ]
+ *
+ * Offsets and warp displacements are SHARES OF THE FRAME, never pixels — so a
+ * registration placed against a 900px preview stays correct when the backend
+ * applies it at full canvas resolution.
+ */
+export interface MaskRegistration {
+  /** Whole-frame size correction about the centre; 1 leaves the size alone. */
+  scaleX: number;
+  scaleY: number;
+  /** Whole-frame shift. Positive moves the mask right and down. */
+  offsetX: number;
+  offsetY: number;
+  /** The local lattice, when one rigid answer could not land the whole frame —
+   *  a facade whose parapet drifted up while its boundary wall drifted down has
+   *  no single scale and offset that fits both. Absent for a purely rigid
+   *  registration, which is the common case and the one to prefer. */
+  warpCols?: number | null;
+  warpRows?: number | null;
+  /** (warpCols + 1) x (warpRows + 1) displacements, row-major; node (i,j) sits
+   *  at u = i/cols, v = j/rows of the canvas. Interpolated bilinearly, so
+   *  neighbouring regions cannot be pulled apart into an unpainted seam. */
+  warpDu?: number[] | null;
+  warpDv?: number[] | null;
+  /** What the person was looking at when they placed this. Goes into the log
+   *  line beside the fit, so a registration that later looks strange can be
+   *  read next to the reason it was made. */
+  note?: string | null;
+}
+
+/**
+ * What applying a registration actually did.
+ *
+ * `moved` and `skipped` are the point: a room whose model mask carried no trim,
+ * or whose accent wall never got a region, silently registers two surfaces out
+ * of three — and somebody who has just spent five minutes placing the trim needs
+ * to be told it went nowhere rather than shown a success tick.
+ */
+export interface MaskRegistrationResult {
+  projectId: string;
+  /** Split parts whose region was re-landed: "main", "accent", "trim". */
+  moved: string[];
+  /** Parts that could not be, each carrying its reason in brackets. */
+  skipped: string[];
+  /** The frame the masks were written at. A mismatch with what the bench
+   *  previewed against explains a result that did not match the preview. */
+  canvasWidth: number;
+  canvasHeight: number;
+  /** The registration as the aligner prints it, for showing back. */
+  fit: string;
+}

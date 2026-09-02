@@ -10,7 +10,7 @@ import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult,
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import { canUseFeature, planWithholds } from "./features";
-import type { AdminProjectRow, AppFeatureKey, AuthResponse, AuthUser, MaskReport, MaskReportStatus, MyAccess, NetworkReport, ProjectDetail, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary } from "./types";
+import type { AdminProjectRow, AppFeatureKey, AuthResponse, AuthUser, MaskRegistration, MaskRegistrationResult, MaskReport, MaskReportStatus, MyAccess, NetworkReport, ProjectDetail, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -818,6 +818,52 @@ export async function loadAdminProjectAction(
   } catch (err) {
     if (err instanceof HttpError) return { error: err.message };
     return { error: "Could not open that room. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: where somebody last hand-placed this room's masks, or null when nobody
+ * has — which is nearly every room, and tells the bench to open on the mask as
+ * the automatic fit left it rather than on an earlier session.
+ */
+export async function loadMaskRegistrationAction(
+  projectId: string,
+): Promise<{ registration?: MaskRegistration | null; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { registration: (await adminApi.getMaskRegistration(token, projectId)) ?? null };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not read this room's registration. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: put this room's detected masks where the bench says they belong.
+ *
+ * Re-splits the stored colour-coded mask and re-lands each surface — region rows,
+ * ids, labels and applied colours all survive, hand-drawn walls are left alone,
+ * and nothing here spends a credit or runs a model.
+ *
+ * The backend's own message is passed straight through on failure. Every refusal
+ * it makes says something specific and actionable ("the trim mask keeps only 900
+ * pixels — it has been pushed off the canvas"), and replacing that with a house
+ * string would throw away the one thing the person needs to fix their placement.
+ */
+export async function applyMaskRegistrationAction(
+  projectId: string,
+  registration: MaskRegistration,
+): Promise<{ result?: MaskRegistrationResult; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  try {
+    return { result: await adminApi.applyMaskRegistration(token, projectId, registration) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "Could not apply the registration. Please try again." };
   }
 }
 

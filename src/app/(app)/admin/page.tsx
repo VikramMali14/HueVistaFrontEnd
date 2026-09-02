@@ -123,6 +123,13 @@ export default async function AdminPage() {
           Mask viewer →
         </Link>
         <Link
+          href="/admin/mask-align"
+          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}
+          title="Put a drifted mask back on its walls by hand — drag the whole frame, then pull a grid over the parts still off. Moves the model's drawing without reshaping it; costs no credit."
+        >
+          Align bench →
+        </Link>
+        <Link
           href="/admin/studio-test"
           style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}
           title="Paint any room's masks with the studio's own engine and compare against the untouched canvas. Nothing is saved."

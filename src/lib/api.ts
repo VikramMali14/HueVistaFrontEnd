@@ -514,6 +514,27 @@ export const adminApi = {
       `/api/admin/projects/${encodeURIComponent(projectId)}`,
       { accessToken },
     ),
+  // --- Putting a drifted mask back on its walls (the align bench) ---
+  // Reading is 204 when nobody has hand-placed one, which is nearly every room —
+  // serverFetch gives back undefined for an empty body, and the bench reads that
+  // as "open on the automatic fit" rather than on somebody's earlier session.
+  getMaskRegistration: (accessToken: string, projectId: string) =>
+    serverFetch<import("./types").MaskRegistration | undefined>(
+      `/api/admin/projects/${encodeURIComponent(projectId)}/mask-registration`,
+      { accessToken },
+    ),
+  /** Re-splits the stored colour-coded mask and re-lands every detected surface at
+   *  this registration. Moves the model's drawing; never reshapes it, never touches
+   *  a hand-drawn wall, and spends no credit. */
+  applyMaskRegistration: (
+    accessToken: string,
+    projectId: string,
+    body: import("./types").MaskRegistration,
+  ) =>
+    serverFetch<import("./types").MaskRegistrationResult>(
+      `/api/admin/projects/${encodeURIComponent(projectId)}/mask-registration`,
+      { accessToken, method: "POST", body: JSON.stringify(body) },
+    ),
   // --- Marketing-site images (see lib/site-assets.ts for the slot registry) ---
   listSiteAssets: (accessToken: string) =>
     serverFetch<SiteAsset[]>("/api/admin/site-assets", { accessToken }),
