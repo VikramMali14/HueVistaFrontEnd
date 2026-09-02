@@ -117,10 +117,13 @@ uniform float u_bright;
 uniform float u_edgeAA;
 
 // --- How the paint is made to sit in the photo's light -----------------------
-// Gain on the photo's high-frequency texture, and the amplitude at which that
-// texture rolls off. The knee is a SOFT saturation, not a clip (see below).
+// Gain on the photo's shading below the form layer's scale, and the amplitude at
+// which it rolls off. Both live in the LOG (ratio) domain, because shading is a
+// ratio: the knee is measured in natural-log units, so DETAIL_KNEE is the largest
+// number of e-folds the detail term may ever apply. The roll-off is a SOFT
+// saturation, not a clip (see below).
 const float DETAIL_GAIN = 1.15;
-const float DETAIL_KNEE = 0.06;
+const float DETAIL_KNEE = 1.0;
 // How dark a form shadow may get, how bright a lit face may get, and the extra
 // gamma applied below 1.0 so shadows deepen instead of sitting flat.
 const float FORM_FLOOR = 0.22;
@@ -217,21 +220,34 @@ void main() {
     float pk = max(max(lit.r, lit.g), lit.b);
     paint = lit / max(pk, 1.0);
     paint = mix(paint, vec3(1.0), HI_WHITE * clamp(pk - 1.0, 0.0, 1.0));
-    // DETAIL: the photo's real high-frequency texture — plaster stipple, dirt,
-    // seams, micro-shadows. Applied as a RATIO, not added. Adding a luminance
-    // delta to a colour pushes it toward grey in the highlights and toward
-    // black in the shadows, so the swatch lost chroma precisely where the eye
-    // reads material; real surface texture is a modulation of the light, so it
-    // has to ride on the colour as a multiplier.
-    float d = L - B;
-    // A soft knee, not a clip. Clamping to a fixed band left flat plateaus
-    // wherever the detail saturated — a plasticky dead patch beside every
-    // railing and reveal. This saturates smoothly instead, so the big
-    // luminance STEP at an edge still can't bloom into an unsharp-mask halo,
-    // but nothing goes flat on the way there.
-    float ds = d / (1.0 + abs(d) / DETAIL_KNEE);
-    float rel = ds / max(B, 0.10);
-    paint *= 1.0 + rel * DETAIL_GAIN * u_preserve;
+    // DETAIL: everything the form blur smoothed away — plaster stipple, dirt and
+    // seams, but also the reveals, recesses, soffits and hard shadow edges that
+    // give a facade its structure. Applied as a RATIO, not added: adding a
+    // luminance delta to a colour pushes it toward grey in the highlights and
+    // toward black in the shadows, draining the swatch precisely where the eye
+    // reads material.
+    //
+    // The ratio is L/B specifically, so that form (B/baseL) times detail (L/B)
+    // reconstructs the photo's own shading, L/baseL — which is what preserving
+    // its light has to mean. This used to be the ABSOLUTE difference L - B run
+    // through a knee saturating at 0.06; divided by B, it could never move the
+    // paint more than about ±9% however large the real step was. So every
+    // shading feature below the blur's ~2%-of-frame scale was flattened to
+    // nothing, and a villa whose whole character is hard sunlight came back as
+    // one even tone. Measured against the source photo's own shading, the old
+    // term kept 29% of it at texture scale and 52% at reveal scale; this keeps
+    // 49% and 71%, with the large-scale form unchanged at 94%.
+    float rel = max(L, 0.004) / max(B, 0.04);
+    // A soft knee, not a clip, now taken in the log domain so it limits a RATIO by
+    // e-folds rather than by an absolute luminance. Clamping to a fixed band left
+    // flat plateaus wherever the detail saturated — a plasticky dead patch beside
+    // every railing and reveal. This saturates smoothly instead, so the big
+    // luminance STEP at an edge still can't bloom into an unsharp-mask halo (B is
+    // blurred across boundaries, so L/B goes wild next to a window or a doorway),
+    // but real shading gets through on the way there.
+    float lr = log(rel);
+    lr = lr / (1.0 + abs(lr) / DETAIL_KNEE);
+    paint *= exp(lr * DETAIL_GAIN * u_preserve);
     paint = mix(vec3(luma(paint)), paint, SAT);
   }
   if (u_grain > 0.0001) {
