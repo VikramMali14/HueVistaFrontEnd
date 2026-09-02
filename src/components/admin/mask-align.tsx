@@ -11,9 +11,12 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   ACCENT, IDENTITY, MAIN, MAX_MANUAL_OFFSET, MAX_MANUAL_SCALE, MIN_MANUAL_SCALE, NONE, TRIM, WHITE,
   classify, clamp, clampNode, displace, emptyLattice, latticeMoved, latticeWithinCaps,
-  maxShift, resampleLattice,
+  maxShift, resampleLattice, rulerInterval,
   type Lattice, type Rigid,
 } from "@/lib/mask-registration";
+import {
+  EDGE_GRID, autoFitLattice, edgeMap, type AutoFitResult, type CellStatus,
+} from "@/lib/mask-autofit";
 
 /**
  * Admin align bench: put a drifted mask back on its walls by hand.
@@ -140,6 +143,10 @@ export function MaskAlign({
     main: true, accent: true, trim: true, white: true,
   });
   const [peek, setPeek] = useState(false);
+  const [showRulers, setShowRulers] = useState(false);
+  const [searchRadius, setSearchRadius] = useState(0.04);
+  const [autoFitting, setAutoFitting] = useState(false);
+  const [fitReport, setFitReport] = useState<AutoFitResult | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ u: 0, v: 0 });
 
@@ -151,6 +158,10 @@ export function MaskAlign({
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const baseRef = useRef<HTMLImageElement | null>(null);
+  /** The photo's blurred gradient on a coarse grid — what a cell's placement is
+   *  scored against. Built once per room: it depends on the canvas alone, not on
+   *  where anybody has since put the mask. */
+  const edgesRef = useRef<{ edges: Float32Array; gw: number; gh: number } | null>(null);
   const draggingRef = useRef<
     | { kind: "frame"; startU: number; startV: number; fromOx: number; fromOy: number }
     | { kind: "node"; index: number; grabU: number; grabV: number; fromDu: number; fromDv: number }
@@ -182,6 +193,8 @@ export function MaskAlign({
     setSaveError(null);
     setLabels(null);
     setDetail(null);
+    setFitReport(null);
+    edgesRef.current = null;
     setRigid(IDENTITY);
     setLattice(null);
     setActiveNode(null);
@@ -211,6 +224,8 @@ export function MaskAlign({
       const base = await loadImage(canvasUrl);
       baseRef.current = base;
       setCanvasDims({ w: base.naturalWidth, h: base.naturalHeight });
+
+      edgesRef.current = buildEdges(base);
 
       const maskImg = await loadImage(resolveMediaUrl(project.rawMaskUrl)!);
       setLabels(buildLabels(maskImg));
@@ -327,9 +342,14 @@ export function MaskAlign({
     }
 
     if (mode === "grid" && lattice && !peek) {
+      if (fitReport) drawCellStatus(ctx, W, H, lattice, zoom, pan, fitReport);
       drawLattice(ctx, W, H, lattice, zoom, pan, activeNode);
     }
-  }, [labels, rigid, lattice, mode, opacity, show, peek, zoom, pan, isDragging, activeNode]);
+    if (showRulers) drawRulers(ctx, W, H, zoom, pan, canvasDims);
+  }, [
+    labels, rigid, lattice, mode, opacity, show, peek, zoom, pan, isDragging, activeNode,
+    fitReport, showRulers, canvasDims,
+  ]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -526,6 +546,43 @@ export function MaskAlign({
     });
   };
 
+  // ─── auto-fit ───────────────────────────────────────────────────────────
+
+  /**
+   * Measure every cell against the photo's own edges and propose the field that
+   * lines each part of the mask up.
+   *
+   * <p>Runs on top of whatever the whole-frame stage has already done, because
+   * that is what takes out the bulk of the drift — measuring cells from where it
+   * put them keeps each search about its own surface rather than a hunt across
+   * the frame. The result is a PROPOSAL: every node it sets is still a node you
+   * can drag, and the per-cell colours say which answers it actually measured
+   * and which it inherited from neighbours.
+   */
+  const autoFit = () => {
+    const edges = edgesRef.current;
+    if (!labels || !edges) return;
+    setAutoFitting(true);
+    setSaveError(null);
+    // Yield a frame so the button repaints as busy before the search blocks.
+    setTimeout(() => {
+      try {
+        const l = ensureLattice();
+        const result = autoFitLattice({
+          labels: labels.data, lw: labels.w, lh: labels.h,
+          edges: edges.edges, gw: edges.gw, gh: edges.gh,
+          rigid, cols: l.cols, rows: l.rows, searchRadius,
+        });
+        setLattice(result.lattice);
+        setFitReport(result);
+        setActiveNode(null);
+        setMode("grid");
+      } finally {
+        setAutoFitting(false);
+      }
+    }, 20);
+  };
+
   // ─── save ───────────────────────────────────────────────────────────────
 
   const dirty = rigid.sx !== 1 || rigid.sy !== 1 || rigid.ox !== 0 || rigid.oy !== 0
@@ -704,6 +761,14 @@ export function MaskAlign({
               <Button type="button" variant="ghost" onClick={() => { setZoom(1); setPan({ u: 0, v: 0 }); }}>
                 Fit
               </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                aria-pressed={showRulers}
+                onClick={() => setShowRulers((r) => !r)}
+              >
+                {showRulers ? "Rulers on" : "Rulers"}
+              </Button>
               <span style={{ marginLeft: "auto" }}>
                 hold <b>space</b> to hide the mask · <b>shift-drag</b> to pan · <b>arrows</b> nudge 1px
               </span>
@@ -803,6 +868,52 @@ export function MaskAlign({
                       `${fmt(lattice.du[activeNode] ?? 0)},${fmt(lattice.dv[activeNode] ?? 0)}`}
                 </p>
               )}
+
+              <div className="field" style={{ marginTop: 12 }}>
+                <label className="field-label" htmlFor="ma-radius">
+                  Search radius <span style={{ font: "400 11px/1 var(--mono)" }}>
+                    {(searchRadius * 100).toFixed(1)}% of frame
+                  </span>
+                </label>
+                <input
+                  id="ma-radius" type="range" min={10} max={100}
+                  value={Math.round(searchRadius * 1000)}
+                  onChange={(e) => setSearchRadius(Number(e.target.value) / 1000)}
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <Button type="button" onClick={autoFit} disabled={autoFitting || !labels}>
+                {autoFitting ? "Measuring cells…" : "Auto-fit cells"}
+              </Button>
+              <p style={{ font: "400 11.5px/1.5 var(--sans)", color: "var(--ink-soft)", marginTop: 6 }}>
+                Measures every cell against the photo&rsquo;s own edges and proposes where each
+                part of the mask belongs. It is a proposal — every node it sets is still one
+                you can drag. Widen the radius when a surface is a long way out; keep it tight
+                when the mask is close, so a cell cannot reach some other wall&rsquo;s edge.
+              </p>
+
+              {fitReport && (
+                <div style={{ marginTop: 8, font: "400 11.5px/1.6 var(--mono)", color: "var(--ink-soft)" }}>
+                  <div style={{ color: fitReport.score > fitReport.baseScore ? "var(--accent-soft)" : "inherit" }}>
+                    edge score {fitReport.score.toFixed(4)} vs {fitReport.baseScore.toFixed(4)}
+                    {" "}({(fitReport.baseScore > 0 ? fitReport.score / fitReport.baseScore : 1).toFixed(2)}×)
+                  </div>
+                  <div>
+                    {countStatus(fitReport, "measured")} measured ·
+                    {" "}{countStatus(fitReport, "partial")} one axis ·
+                    {" "}{countStatus(fitReport, "inherited")} inherited ·
+                    {" "}{countStatus(fitReport, "empty")} nothing to measure
+                  </div>
+                  {fitReport.foldRepaired && (
+                    <div>cells disagreed enough to fold — the field was eased back</div>
+                  )}
+                  <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
+                    <StatusKey tint={CELL_TINT.measured} label="measured" />
+                    <StatusKey tint={CELL_TINT.partial} label="one axis" />
+                    <StatusKey tint={CELL_TINT.inherited} label="inherited" />
+                  </div>
+                </div>
+              )}
             </section>
 
             <section>
@@ -856,6 +967,22 @@ export function MaskAlign({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** One key in the cell-status legend. */
+function StatusKey({ tint, label }: { tint: string; label: string }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+      <span style={{
+        width: 11, height: 11, borderRadius: 2, background: tint,
+        outline: "1px solid var(--line)",
+      }} />
+      {label}
+    </span>
+  );
+}
+
+const countStatus = (r: AutoFitResult, status: CellStatus) =>
+  r.cells.filter((c) => c.status === status).length;
+
 const fmt = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(4)}`;
 
 /**
@@ -889,6 +1016,127 @@ function buildLabels(img: HTMLImageElement): Labels {
     }
   }
   return { data, w, h };
+}
+
+/** What each cell's answer is worth, as a wash under the lattice. Measured cells
+ *  read warm; a cell that inherited from its neighbours reads cool, so a patch of
+ *  the frame the search could say nothing about is visible rather than looking
+ *  like a confident answer. */
+const CELL_TINT: Record<CellStatus, string> = {
+  measured: "rgba(255, 209, 102, 0.30)",
+  partial: "rgba(255, 209, 102, 0.14)",
+  inherited: "rgba(74, 125, 255, 0.16)",
+  empty: "rgba(0, 0, 0, 0)",
+};
+
+function drawCellStatus(
+  ctx: CanvasRenderingContext2D, W: number, H: number, l: Lattice,
+  zoom: number, pan: { u: number; v: number }, report: AutoFitResult,
+) {
+  const span = 1 / zoom;
+  const px = (u: number) => ((u - pan.u) / span) * W;
+  const py = (v: number) => ((v - pan.v) / span) * H;
+  ctx.save();
+  for (const c of report.cells) {
+    const fill = CELL_TINT[c.status];
+    if (fill === CELL_TINT.empty) continue;
+    ctx.fillStyle = fill;
+    const x0 = px(c.col / l.cols), x1 = px((c.col + 1) / l.cols);
+    const y0 = py(c.row / l.rows), y1 = py((c.row + 1) / l.rows);
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  }
+  ctx.restore();
+}
+
+/**
+ * Pixel rulers in the CANVAS's own coordinates — the numbers a mask is actually
+ * stored against, so a problem can be named ("the trim at 1400,300 is 12px high")
+ * instead of described.
+ *
+ * <p>The interval follows the zoom rather than being fixed: at 1x a 100px grid on
+ * a 2000px canvas is 20 lines, and at 8x it would be 160 of them with the labels
+ * on top of each other. It steps 25 / 50 / 100 / 250 / 500 / 1000 and picks the
+ * first that leaves majors far enough apart to read.
+ */
+function drawRulers(
+  ctx: CanvasRenderingContext2D, W: number, H: number,
+  zoom: number, pan: { u: number; v: number }, dims: { w: number; h: number } | null,
+) {
+  if (!dims) return;
+  const span = 1 / zoom;
+  const major = rulerInterval(dims.w, W, zoom);
+  const minor = major / 4;
+
+  const u0 = pan.u * dims.w, u1 = (pan.u + span) * dims.w;
+  const v0 = pan.v * dims.h, v1 = (pan.v + span) * dims.h;
+  const toX = (cx: number) => ((cx / dims.w - pan.u) / span) * W;
+  const toY = (cy: number) => ((cy / dims.h - pan.v) / span) * H;
+
+  ctx.save();
+  ctx.lineWidth = 1;
+
+  ctx.strokeStyle = "rgba(74, 125, 255, 0.35)";
+  ctx.beginPath();
+  for (let x = Math.ceil(u0 / minor) * minor; x <= u1; x += minor) {
+    if (x % major === 0) continue;
+    ctx.moveTo(Math.round(toX(x)) + 0.5, 0);
+    ctx.lineTo(Math.round(toX(x)) + 0.5, H);
+  }
+  for (let y = Math.ceil(v0 / minor) * minor; y <= v1; y += minor) {
+    if (y % major === 0) continue;
+    ctx.moveTo(0, Math.round(toY(y)) + 0.5);
+    ctx.lineTo(W, Math.round(toY(y)) + 0.5);
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(226, 66, 46, 0.75)";
+  ctx.beginPath();
+  for (let x = Math.ceil(u0 / major) * major; x <= u1; x += major) {
+    ctx.moveTo(Math.round(toX(x)) + 0.5, 0);
+    ctx.lineTo(Math.round(toX(x)) + 0.5, H);
+  }
+  for (let y = Math.ceil(v0 / major) * major; y <= v1; y += major) {
+    ctx.moveTo(0, Math.round(toY(y)) + 0.5);
+    ctx.lineTo(W, Math.round(toY(y)) + 0.5);
+  }
+  ctx.stroke();
+
+  ctx.font = "600 10px ui-monospace, SFMono-Regular, Menlo, monospace";
+  ctx.textBaseline = "top";
+  for (let x = Math.ceil(u0 / major) * major; x <= u1; x += major) {
+    const label = String(x);
+    const w = ctx.measureText(label).width + 6;
+    ctx.fillStyle = "rgba(226, 66, 46, 0.9)";
+    ctx.fillRect(Math.round(toX(x)) + 1, 1, w, 13);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(label, Math.round(toX(x)) + 4, 3);
+  }
+  for (let y = Math.ceil(v0 / major) * major; y <= v1; y += major) {
+    const label = String(y);
+    const w = ctx.measureText(label).width + 6;
+    ctx.fillStyle = "rgba(226, 66, 46, 0.9)";
+    ctx.fillRect(1, Math.round(toY(y)) + 1, w, 13);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(label, 4, Math.round(toY(y)) + 3);
+  }
+  ctx.restore();
+}
+
+/** The photo's edge map, rasterised once per room onto the coarse grid the
+ *  per-cell search scores against. */
+function buildEdges(img: HTMLImageElement) {
+  const ar = img.naturalWidth / img.naturalHeight;
+  let gw: number, gh: number;
+  if (ar >= 1) { gw = Math.min(EDGE_GRID, img.naturalWidth); gh = Math.max(1, Math.round(gw / ar)); }
+  else { gh = Math.min(EDGE_GRID, img.naturalHeight); gw = Math.max(1, Math.round(gh * ar)); }
+
+  const c = document.createElement("canvas");
+  c.width = gw; c.height = gh;
+  const x = c.getContext("2d", { willReadFrequently: true })!;
+  x.imageSmoothingEnabled = true;
+  x.imageSmoothingQuality = "high";
+  x.drawImage(img, 0, 0, gw, gh);
+  return { edges: edgeMap(x.getImageData(0, 0, gw, gh).data, gw, gh), gw, gh };
 }
 
 /** The lattice on top of the picture: cell edges where the mask now sits, and

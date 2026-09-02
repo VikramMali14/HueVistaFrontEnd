@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACCENT, FOLD_MARGIN, IDENTITY, MAIN, MAX_MANUAL_OFFSET, NONE, TRIM, WHITE,
   classify, clampNode, displace, emptyLattice, inverseUV, latticeFolds, latticeMoved,
-  latticeWithinCaps, maxShift, resampleLattice, type Lattice, type Rigid,
+  latticeWithinCaps, maxShift, resampleLattice, rulerInterval, type Lattice, type Rigid,
 } from "../mask-registration";
 
 /**
@@ -198,5 +198,29 @@ describe("inverseUV", () => {
     const out: [number, number] = [0, 0];
     // Far left of the canvas, with the mask pushed right: nothing there.
     expect(inverseUV(rigid, null, 0.01, 0.5, out)).toBe(false);
+  });
+});
+
+describe("rulerInterval", () => {
+  it("keeps labelled lines far enough apart to read", () => {
+    // A 2000px canvas shown 900px wide at 1x: 100px steps land 45px apart, too
+    // close, so it steps up.
+    const step = rulerInterval(2000, 900, 1);
+    expect((step * 900) / 2000).toBeGreaterThanOrEqual(70);
+  });
+
+  it("gets finer as you zoom in", () => {
+    const out = rulerInterval(2000, 900, 1);
+    const inn = rulerInterval(2000, 900, 8);
+    expect(inn).toBeLessThan(out);
+  });
+
+  it("never goes finer than the smallest interval people read in", () => {
+    expect(rulerInterval(200, 900, 20)).toBe(25);
+  });
+
+  it("falls back to the coarsest step rather than dividing by nothing", () => {
+    expect(rulerInterval(0, 900, 1)).toBe(2500);
+    expect(rulerInterval(2000, 900, 0)).toBe(2500);
   });
 });

@@ -252,3 +252,22 @@ export function inverseUV(
   out[0] = u; out[1] = v;
   return true;
 }
+
+/**
+ * How far apart the coordinate rulers' labelled lines should be, in canvas
+ * pixels, for a canvas of {@code canvasPx} across shown {@code displayPx} wide
+ * at {@code zoom}.
+ *
+ * <p>A fixed interval fails at both ends: 100px on a 2000px canvas is twenty
+ * readable lines at 1x and a hundred and sixty overlapping ones at 8x. So it
+ * steps through the intervals people actually read in and takes the first that
+ * leaves labels far enough apart, which keeps the rulers legible at every zoom
+ * without the numbers on them changing meaning.
+ */
+export function rulerInterval(canvasPx: number, displayPx: number, zoom: number): number {
+  const steps = [25, 50, 100, 250, 500, 1000, 2500];
+  const MIN_LABEL_GAP_PX = 70;
+  if (!(canvasPx > 0) || !(displayPx > 0) || !(zoom > 0)) return steps[steps.length - 1]!;
+  const perCanvasPx = (displayPx * zoom) / canvasPx;
+  return steps.find((s) => s * perCanvasPx >= MIN_LABEL_GAP_PX) ?? steps[steps.length - 1]!;
+}
