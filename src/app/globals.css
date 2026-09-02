@@ -686,6 +686,9 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   .r-cols-lg-3 { grid-template-columns: repeat(3, 1fr) !important; }
   .r-cols-lg-4 { grid-template-columns: repeat(4, 1fr) !important; }
 }
+/* ----- The sign-in / create-account form (see app/sign-in/form.tsx) ----- */
+.hv-auth-form { display: flex; flex-direction: column; gap: 28px; margin-top: 48px; }
+
 @media (max-width: 1024px) {
   .r-cols-md-1 { grid-template-columns: 1fr !important; }
   .r-cols-md-2 { grid-template-columns: repeat(2, 1fr) !important; }
@@ -738,9 +741,38 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
   .brand { font-size: 20px; }
   .btn { padding: 14px 24px; font-size: 14px; }
   .btn-lg { padding: 16px 28px; font-size: 15px; }
-  .auth-shell { grid-template-columns: 1fr !important; }
-  .auth-art { padding: 32px !important; min-height: 240px; border-right: none !important; border-bottom: 1px solid var(--rule); }
-  .auth-form-wrap { padding: 48px 24px !important; }
+  /* ── Signing in on a phone: the form comes first ──────────────────────
+     One column, and the decorative panel used to take the top of it. Measured on
+     a 390x664 screen that put the email field 1202px down the page — the better
+     part of two screens of artwork before the one thing anybody opens /sign-in
+     to do, with the password and the button below that again. Somebody arriving
+     to sign in had to scroll past a picture to find out the form was there.
+
+     So the form is ordered first and the art follows it. Nothing is removed: the
+     wall keeps drifting through its shades for anyone who scrolls, and the brand
+     is on screen either way — the site header carries the wordmark directly
+     above this. The panel just stops standing in the doorway.
+
+     `order` on a grid item, and the shell is a grid at every width, so the two
+     panels swap without the markup changing (which keeps the tab order right:
+     the form is first in the DOM's reading order too, because it is first here). */
+  .auth-shell { grid-template-columns: 1fr !important; min-height: 0 !important; }
+  .auth-form-wrap { order: 1; padding: 28px var(--gutter) 36px !important; }
+  .auth-art {
+    order: 2;
+    padding: 36px var(--gutter) !important;
+    min-height: 0;
+    border-right: none !important;
+    border-bottom: none;
+    border-top: 1px solid var(--rule);
+  }
+  /* Desktop's airy 48/28 put the password field and the Sign in button below the
+     fold on a 568px screen — three fields and a button that would not fit together
+     on the smallest phone anybody signs in on. Tightened, the whole form does.
+     (The heading and footer sizes are tightened alongside this, in the page's own
+     style block — its base rules for them are later in the document than this
+     file, so an override here would lose the cascade to them.) */
+  .hv-auth-form { gap: 20px; margin-top: 24px; }
 }
 @media (max-width: 640px) {
   :root { --gutter: 18px; --band-tight: 34px; --band-pad: 48px; --band-air: 68px; }
@@ -789,11 +821,27 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
     position: fixed; top: 64px; left: 0; right: 0;
     flex-direction: column; gap: 0;
     background: var(--nav-bg-strong);
+    /* The drawer sits over the page, and .92 alpha alone was not enough to read
+       uppercase mono against a room photograph — the tab labels and whatever was
+       behind them competed on the same pixels. The blur puts the page out of
+       focus so only the menu is legible. */
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
     border-bottom: 1px solid var(--rule);
     padding: 8px 0;
     z-index: 60;
     transform-origin: top;
     box-shadow: 0 16px 32px -16px rgba(0,0,0,.3);
+    /* The list was as tall as its contents, the page behind it is scroll-locked
+       while it is open, and nothing capped either: an eleven-tab admin account on
+       a 320x568 phone pushed Sign out 83px past the bottom of the screen with no
+       way left to reach it. Cap the drawer to what is actually below the bar and
+       let the list carry its own scroll. dvh, not vh, so the mobile browser's
+       collapsing address bar doesn't hide the last row. */
+    max-height: calc(100dvh - 96px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
   .app-tabs.is-mobile .app-tab { padding: 14px var(--gutter); border: none; border-top: 1px solid var(--rule); }
   .app-tabs.is-mobile .app-tab:first-child { border-top: none; }
@@ -2684,7 +2732,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 @media (max-width: 900px) {
   .cnav-links { display: none; }
   .cnav-burger { display: inline-flex; }
-  .cnav-signin { display: none; }
+  .cnav-signin { display: none; 
 }
 @media (max-width: 480px) {
   .cnav-cta { padding: 9px 14px; font-size: 12px; }
@@ -5085,8 +5133,20 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
      screen, and a floating bar would sit on the corner of the photograph — over
      Maximise — every time somebody scrolled up. On the studio the room owns the top
      of the screen; the nav is one flick away at the top of the page, which is how the
-     desktop studio has always treated it (there it is an overlay that hides itself). */
-  .app-header-studio .app-nav-inner { position: static; }
+     desktop studio has always treated it (there it is an overlay that hides itself).
+
+     `relative` and not `static`, which is the whole of a bug worth writing down.
+     z-index only applies to a POSITIONED box. Making the bar static dropped its
+     `z-index: 60` on the floor, and the drawer hanging off it — which the scrim is
+     deliberately kept below, see the note beside .mobile-scrim — went down with it:
+     the scrim (z-index 55, and positioned) painted over the entire open menu. In the
+     studio on a phone that meant the menu came up dimmed and blurred behind the
+     scrim, and every tab in it, Dashboard included, was untappable — the tap landed
+     on the scrim and only closed the menu again. There was no way out of the studio
+     but the browser's own back button. `relative` lays out identically (no offsets,
+     still in flow, still scrolls away with the page) and keeps the stacking context
+     the drawer needs. */
+  .app-header-studio .app-nav-inner { position: relative; }
   body:has(.hv-studio-page) .cnav-wrap { position: static; }
   /* Not a grid on a phone — a plain block, so the room above can be pinned.
 
@@ -5113,6 +5173,10 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
     min-height: 0;
     border-bottom: 1px solid var(--rule);
   }
+  /* The signed-in studio pins its "← Dashboard" bar to the top edge (see AppNav), so
+     the room pins below it rather than sliding under it. Scoped to the atelier: the
+     guest studio has no navbar of its own and keeps the top of the screen. */
+  .hv-atelier-page .hv-studio-canvas-wrap { top: var(--studio-bar-h); }
   /* THE PICTURE GETS A FIXED SLICE OF THE PHONE, and only the picture is in it.
      Roughly two fifths of the screen: enough to judge a wall colour, little enough
      that the colours you are choosing from are one thumb-scroll away. Everything

@@ -27,15 +27,6 @@ export default async function SignInPage({ searchParams }: PageProps) {
     <>
       <SiteHeader showSignIn={false} />
       <div className="auth-shell">
-        <AuthArt>
-          <div style={{ display: "flex", flexDirection: "column", gap: "clamp(20px, 4vw, 36px)", padding: "28px 0" }}>
-            <Logo size="lg" />
-            <p style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(21px, 4.5vw, 30px)", lineHeight: 1.15, color: "var(--ivory)", maxWidth: "18ch", letterSpacing: "-.02em", margin: 0 }}>
-              See the colour on the wall before the can opens.
-            </p>
-          </div>
-        </AuthArt>
-
         <section className="auth-form-wrap">
           <Eyebrow>{register ? "Create account" : "Sign in"}</Eyebrow>
           <h1>{register ? <>Create your <i>account.</i></> : <>Welcome <i>back.</i></>}</h1>
@@ -66,6 +57,19 @@ export default async function SignInPage({ searchParams }: PageProps) {
             Have a code from your paint shop? <Link href="/unlock">Unlock your projects — no password needed.</Link>
           </p>
         </section>
+
+        {/* Second in the DOM, and on a wide screen `order` puts it back on the left.
+            The form is what this page is for, so it comes first for a keyboard and a
+            screen reader at every width — and on a phone, where the shell is a single
+            column, first is also where it is drawn. See the .auth-shell rules. */}
+        <AuthArt>
+          <div style={{ display: "flex", flexDirection: "column", gap: "clamp(20px, 4vw, 36px)", padding: "28px 0" }}>
+            <Logo size="lg" />
+            <p style={{ fontFamily: "var(--serif)", fontWeight: 600, fontSize: "clamp(21px, 4.5vw, 30px)", lineHeight: 1.15, color: "var(--ivory)", maxWidth: "18ch", letterSpacing: "-.02em", margin: 0 }}>
+              See the colour on the wall before the can opens.
+            </p>
+          </div>
+        </AuthArt>
       </div>
 
       <style>{`
@@ -83,6 +87,19 @@ export default async function SignInPage({ searchParams }: PageProps) {
         .auth-foot a { color: var(--accent-soft); border-bottom: 1px solid var(--rule-brass); }
         .auth-foot a:hover { color: var(--accent); }
         @media (max-width: 1100px) { .auth-shell { grid-template-columns: 1fr; } .auth-art { padding: 48px; min-height: 280px; border-right: none; border-bottom: 1px solid var(--rule); } .auth-form-wrap { padding: 64px 40px; } }
+        /* The form is first in the DOM (see the note beside it); above the phone
+           breakpoint the art takes its place back — the left column on a wide screen,
+           the top of the stack on a tablet. Confined to a min-width query on purpose:
+           below it, globals.css orders the form first and this must not outrank it. */
+        @media (min-width: 769px) { .auth-art { order: -1; } }
+        /* Phone sizing for the two things this block sets above — a heading built for
+           a half-screen panel, and a 40px gap before a pair of footnotes. Both live
+           here rather than in globals.css with the rest of the phone layout, because
+           this style block is later in the document and would otherwise win. */
+        @media (max-width: 768px) {
+          .auth-form-wrap h1 { font-size: clamp(32px, 9vw, 44px); margin: 10px 0 8px; }
+          .auth-foot { margin-top: 24px; font-size: 16px; }
+        }
       `}</style>
     </>
   );

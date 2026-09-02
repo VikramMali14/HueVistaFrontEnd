@@ -331,9 +331,9 @@ export function AppNav({ user, access = null, libraryLive = false, hasShop = fal
           ))}
           <div className="app-drawer-meta">
             {isCustomer && <NavBalance />}
-            {/* The minibar the button normally lives on is desktop-only — below 900px
-                the studio stacks and that bar is hidden — so the drawer carries it
-                there. Studio only: everywhere else the support bubble is on screen. */}
+            {/* Below 900px the minibar keeps only the two ways out (there is no room
+                for a third link on a narrow phone), so the drawer carries this one.
+                Studio only: everywhere else the support bubble is on screen. */}
             {studioMode && <BugReportButton className="app-tab tap-row studio-minibar-bug" />}
             <HomeLink />
             <ThemeToggle />
@@ -505,11 +505,63 @@ export function AppNav({ user, access = null, libraryLive = false, hasShop = fal
         .studio-nav-handle:hover { color: var(--fg); border-color: var(--rule-strong); }
         .studio-nav-handle:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
         /* Below the desktop workspace breakpoint the studio stacks and scrolls
-           like any page — keep the navbar in normal flow there. */
+           like any page — keep the navbar in normal flow there.
+
+           The minibar STAYS on a phone, which it did not use to. Hiding it left the
+           mobile studio with no navigation of its own at all: the navbar scrolls away
+           with the page (see globals.css beside .app-header-studio .app-nav-inner),
+           the workspace is a couple of screens tall, and the colour panel is what you
+           spend the whole session scrolling through — so the only way back to the
+           dashboard sat 800-odd pixels above the top of the screen, reachable only by
+           scrolling the entire page back up first. That is the one thing a phone
+           should never have to do to leave a screen. Fixed to the top edge, "←
+           Dashboard" is one tap from anywhere in the studio. */
         @media (max-width: 900px) {
-          .app-header-studio { position: static; pointer-events: auto; }
-          .app-header-studio .app-header-slide { transform: none; }
-          .studio-nav-hotzone, .studio-minibar { display: none; }
+          /* 32px is a comfortable bar for a mouse and too thin for a thumb. Only the
+             ≤900px studio rules read this — every other use of it is inside a
+             (min-width: 901px) block. */
+          :root { --studio-bar-h: 44px; }
+          /* The bar is out of flow, so the header reserves its height rather than
+             letting the nav pill start underneath it. */
+          .app-header-studio { position: static; pointer-events: auto; padding-top: var(--studio-bar-h); }
+          /* Both of these exist to slide the revealed nav down over the desktop
+             minibar. Nothing slides here, and left in place the negative margin
+             dragged the bar back up under the fixed one. */
+          .app-header-studio .app-header-slide { transform: none; margin-top: 0; padding-top: 0; }
+          .studio-nav-hotzone { display: none; }
+          /* Fixed rather than sticky, and the distinction is load-bearing: a sticky
+             box is bounded by its parent, and this one's parent is a header no taller
+             than the bar itself — an area with no travel in it, so it would have
+             scrolled away with everything else. */
+          .studio-minibar {
+            position: fixed; top: 0; left: 0; right: 0;
+            z-index: 70;
+            padding: 0 8px;
+            /* Opaque, where the desktop bar is glass at .72. A grid of colour
+               swatches scrolls under this one for the whole session, and at any
+               alpha at all the swatch edges travelled through the two links —
+               on the one control somebody needs to find without looking. */
+            background: var(--bg);
+            -webkit-backdrop-filter: none;
+            backdrop-filter: none;
+          }
+          .studio-minibar-links { gap: 2px; height: 100%; }
+          /* Full-height rather than padded to roughly the bar: padding around an 11px
+             line came out 35px, a target a pixel under the 36px floor on the one
+             control that has to be hit reliably. Filling the bar makes it 44. */
+          .studio-minibar-link {
+            display: inline-flex; align-items: center;
+            height: 100%; padding: 0 12px;
+            letter-spacing: .12em;
+          }
+          /* The bar carries the two ways OUT and nothing else — on the narrowest
+             phone there is room for little more, and "Report a problem" already has
+             its place in the drawer below (and in the workspace's own ⋯ menu). */
+          .studio-minibar .studio-minibar-bug { display: none; }
+          /* The full tab list is behind the hamburger on the bar below. A second
+             control opening the same menu is two buttons doing one job, and it was
+             sized for a cursor. */
+          .studio-nav-handle { display: none; }
         }
         /* Wide tab sets (ADMIN): tighten the row so 8 tabs + the user block fit
            on one line down to ~1200px… */
