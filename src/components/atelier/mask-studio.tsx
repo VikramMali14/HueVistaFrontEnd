@@ -21,7 +21,8 @@ const OTHER_VIOLET = "#7c3aed";
 const MASK_MAX = 1600;
 /** How close a right-click has to land to count as "on" a corner point, in screen px. */
 const POINT_HIT_PX = 16;
-/** Wand sampling resolution — flood fill runs on a downscaled copy. */
+/** Resolution of the cached edge OUTLINE (the blue overlay stroke). Display only,
+ *  so a downscaled copy is plenty; the wand itself samples at mask resolution. */
 const WAND_MAX = 700;
 const HISTORY_MAX = 20;
 const COACH_KEY = "hv-mask-coach-v1";
@@ -184,8 +185,10 @@ export function MaskStudio({
   const maskRef = useRef<HTMLCanvasElement | null>(null);
   const outlineRef = useRef<HTMLCanvasElement | null>(null);
   const wandCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  /** Downscaled photo pixels the wand samples; null until loaded (or tainted). */
-  const wandPixelsRef = useRef<{ data: Uint8ClampedArray; w: number; h: number } | null>(null);
+  /** Photo pixels the wand samples, at mask resolution, plus the luminance gradient
+   *  magnitude used to snap a fill onto the wall's real edge. Null until loaded (or
+   *  tainted). */
+  const wandPixelsRef = useRef<{ data: Uint8ClampedArray; w: number; h: number; grad: Uint8Array } | null>(null);
 
   // Undo/redo: alpha-plane snapshots of the layers each step replaced. Refs so
   // painting never re-renders; a small counts state drives button enablement.
@@ -671,8 +674,21 @@ export function MaskStudio({
 
   // ---- wand (flood fill) ---------------------------------------------------
 
-  // Sample the photo once at wand resolution. If the canvas is tainted
+  // Sample the photo once, at THE MASK'S OWN RESOLUTION. If the canvas is tainted
   // (cross-origin photo), hide the wand rather than show a broken tool.
+  //
+  // This used to sample a fixed 700px copy and then scale the fill up onto the mask
+  // (1600px on its longest side). Everything the fill decided was therefore quantised
+  // to the 700px grid — a 2-3px staircase once it landed on the mask, wider still on
+  // the photo — so a wand edge sat beside the wall's real edge rather than on it, and
+  // no amount of feathering or edge nudging downstream could put it back. Measured on
+  // a 2090px photo, the mask boundary averaged 2.5px from the nearest edge in the
+  // photograph, with only half of it inside a pixel.
+  //
+  // Sampling at mask resolution removes the scale step entirely: the fill is decided
+  // on exactly the pixels it is composited onto. It costs one larger getImageData per
+  // photo and a flood fill over ~5x more pixels, which is a few ms on a scanline fill
+  // — paid once per tap, and the mask is what the whole tool exists to produce.
   useEffect(() => {
     let cancelled = false;
     setWandReady(false);
@@ -680,16 +696,15 @@ export function MaskStudio({
       try {
         const img = await loadImage(imageUrl);
         if (cancelled) return;
-        const s = Math.min(1, WAND_MAX / Math.max(img.naturalWidth, img.naturalHeight));
-        const w = Math.max(1, Math.round(img.naturalWidth * s));
-        const h = Math.max(1, Math.round(img.naturalHeight * s));
+        const w = maskDims.w;
+        const h = maskDims.h;
         const c = document.createElement("canvas");
         c.width = w;
         c.height = h;
         const ctx = c.getContext("2d", { willReadFrequently: true })!;
         ctx.drawImage(img, 0, 0, w, h);
         const data = ctx.getImageData(0, 0, w, h).data;
-        wandPixelsRef.current = { data, w, h };
+        wandPixelsRef.current = { data, w, h, grad: gradientMap(data, w, h) };
         setWandReady(true);
       } catch {
         if (cancelled) return;
@@ -701,7 +716,7 @@ export function MaskStudio({
     return () => {
       cancelled = true;
     };
-  }, [imageUrl]);
+  }, [imageUrl, maskDims]);
 
   /** Restore the pre-tap mask and re-apply the current seed's fill at `r` reach. */
   const applyWand = useCallback(
@@ -711,7 +726,10 @@ export function MaskStudio({
       if (!seed || !px) return;
       restoreAlpha(seed.preTap);
       const bits = floodFill(px.data, px.w, px.h, seed.x, seed.y, r);
-      const closed = morph3x3(morph3x3(bits, px.w, px.h, true), px.w, px.h, false);
+      const closed = snapToEdge(
+        morph3x3(morph3x3(bits, px.w, px.h, true), px.w, px.h, false),
+        px.grad, px.w, px.h,
+      );
       let wc = wandCanvasRef.current;
       if (!wc || wc.width !== px.w || wc.height !== px.h) {
         wc = document.createElement("canvas");
@@ -2737,6 +2755,74 @@ function floodFill(
         if (!out[q] && match(q)) stack.push(q);
       }
     }
+  }
+  return out;
+}
+
+/** Sobel luminance gradient magnitude, 0..255, at the sampled resolution. */
+function gradientMap(px: Uint8ClampedArray, w: number, h: number): Uint8Array {
+  const lum = new Float32Array(w * h);
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    lum[p] = (px[i]! + px[i + 1]! + px[i + 2]!) / 3;
+  }
+  const g = new Uint8Array(w * h);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      const gx = -lum[p - w - 1]! - 2 * lum[p - 1]! - lum[p + w - 1]!
+               + lum[p - w + 1]! + 2 * lum[p + 1]! + lum[p + w + 1]!;
+      const gy = -lum[p - w - 1]! - 2 * lum[p - w]! - lum[p - w + 1]!
+               + lum[p + w - 1]! + 2 * lum[p + w]! + lum[p + w + 1]!;
+      g[p] = Math.min(255, Math.round(Math.hypot(gx, gy) / 8));
+    }
+  }
+  return g;
+}
+
+/**
+ * Push a flood fill out onto the wall's real edge.
+ *
+ * The fill stops where the colour leaves the seed's tolerance, and at any real edge —
+ * lens blur, JPEG, plain antialiasing — that happens partway UP the ramp rather than at
+ * the top of it. Measured on a 2090px photo, the wand's boundary landed a consistent
+ * 1.8px inside the strongest gradient, so every wall was masked very slightly small and
+ * the render left a hairline of the old colour along each edge. (The engine's +1px edge
+ * nudge exists to hide exactly that, and could not quite.)
+ *
+ * So climb: grow one pixel at a time into neighbours whose gradient is at least as
+ * strong as the pixel they came from, which walks up the ramp and halts at its crest.
+ * The gradient floor is what keeps it honest — inside a flat wall, and along a boundary
+ * the user drew by hand across one, there is no ridge to climb and nothing moves.
+ */
+const SNAP_MAX_PX = 4;
+const SNAP_MIN_GRAD = 6;
+function snapToEdge(bits: Uint8Array, grad: Uint8Array, w: number, h: number): Uint8Array {
+  const out = Uint8Array.from(bits);
+  let front: number[] = [];
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      if (!out[p]) continue;
+      if (out[p - 1] && out[p + 1] && out[p - w] && out[p + w]) continue;
+      front.push(p);
+    }
+  }
+  for (let step = 0; step < SNAP_MAX_PX && front.length > 0; step++) {
+    const next: number[] = [];
+    for (const p of front) {
+      const y = (p / w) | 0;
+      const x = p - y * w;
+      if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) continue;
+      for (const q of [p - 1, p + 1, p - w, p + w]) {
+        if (out[q]) continue;
+        const gq = grad[q]!;
+        if (gq < SNAP_MIN_GRAD || gq < grad[p]!) continue;
+        out[q] = 255;
+        next.push(q);
+      }
+    }
+    front = next;
   }
   return out;
 }

@@ -82,7 +82,7 @@ export class Canvas2DRecolor implements RecolorEngine {
   private reliefSource: RecolorSource | null = null;
   /** Mask source → alpha-converted mask (alpha = red channel × mask alpha), built once.
    *  `null` marks a mask we could not read (tainted) so we don't retry every frame. */
-  private alphaMaskCache = new Map<RecolorSource, HTMLCanvasElement | null>();
+  private alphaMaskCache = new Map<RecolorSource, { off: number; canvas: HTMLCanvasElement | null }>();
   // Scratch layers reused across frames (resized lazily) to avoid per-frame allocations.
   private layer: HTMLCanvasElement;
   private layerCtx: CanvasRenderingContext2D;
@@ -159,7 +159,7 @@ export class Canvas2DRecolor implements RecolorEngine {
     // the same blend the GL engine uses: SRC_ALPHA / ONE_MINUS_SRC_ALPHA).
     for (const r of regions) {
       if (!r.mask) continue;
-      const alphaMask = this.alphaMask(r.mask);
+      const alphaMask = this.alphaMask(r.mask, r.edgeOffset ?? this.edgeOffsetPx);
       if (!alphaMask) continue;
       const layer = this.buildRegionLayer(r, alphaMask, w, h);
       ctx.globalAlpha = clamp01(r.strength ?? 1);
@@ -334,19 +334,19 @@ export class Canvas2DRecolor implements RecolorEngine {
    * `texture(u_mask).r` coverage signal). Returns null for a mask whose pixels
    * cannot be read (tainted canvas) — the caller skips that region.
    */
-  private alphaMask(mask: RecolorSource): HTMLCanvasElement | null {
+  private alphaMask(mask: RecolorSource, edgeOffsetPx: number): HTMLCanvasElement | null {
     const cached = this.alphaMaskCache.get(mask);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined && cached.off === edgeOffsetPx) return cached.canvas;
     let result: HTMLCanvasElement | null = null;
     let source: CanvasImageSource = mask as CanvasImageSource;
     const { w, h } = sourceSize(mask);
     if (w > 0 && h > 0) {
       // The user's uniform edge nudge: grow or shrink every region
       // boundary by a few photo px (rescaled to this mask's resolution).
-      if (this.edgeOffsetPx !== 0) {
+      if (edgeOffsetPx !== 0) {
         const photoW = this.source ? sourceSize(this.source).w : 0;
-        const off = featherRadiusInMaskPx(Math.abs(this.edgeOffsetPx), w, photoW)
-          * Math.sign(this.edgeOffsetPx);
+        const off = featherRadiusInMaskPx(Math.abs(edgeOffsetPx), w, photoW)
+          * Math.sign(edgeOffsetPx);
         const shifted = offsetMaskCanvas(source, w, h, off);
         if (shifted) source = shifted;
       }
@@ -381,7 +381,7 @@ export class Canvas2DRecolor implements RecolorEngine {
         }
       }
     }
-    this.alphaMaskCache.set(mask, result);
+    this.alphaMaskCache.set(mask, { off: edgeOffsetPx, canvas: result });
     return result;
   }
 }

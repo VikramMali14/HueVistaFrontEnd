@@ -161,8 +161,11 @@ const MAX_CUSTOM_MASKS = 3;
 // painted. What is left is the photograph's own light, treated well:
 //  - shadows ON (85%): the paint follows the photo's own light;
 //  - soft edges OFF: crisp borders, no feathering;
-//  - edge nudge +1px: masks tend to sit slightly inside the real surface,
-//    so growing every painted edge a touch hides unpainted seams.
+//  - edge nudge +1px: DETECTION's masks tend to sit slightly inside the real
+//    surface, so growing those edges a touch hides unpainted seams. Masks marked
+//    by hand carry no nudge — the wand now snaps its own boundary onto the edge
+//    in the photograph, and nudging an accurate mask paints past it (see
+//    RegionPaint.edgeOffset, set per region below).
 const SHADOW_ON = true;
 const SHADOW_STRENGTH = 0.85;
 const SOFT_EDGE_ON = false;
@@ -1181,6 +1184,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
           preserve: SHADOW_ON ? SHADOW_STRENGTH : 0,
           baseL,
           anchor: canvasCleaned,
+          // A wall marked in the Mask Studio needs no edge nudge: the wand snaps
+          // its own boundary onto the edge in the photograph, so growing it again
+          // would put a pixel of wall colour on the sky. Detection's masks keep
+          // the nudge until someone measures them the same way.
+          edgeOffset: r.custom ? 0 : EDGE_NUDGE_PX,
         });
       }
       if (cancelled) return;
