@@ -2732,7 +2732,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 @media (max-width: 900px) {
   .cnav-links { display: none; }
   .cnav-burger { display: inline-flex; }
-  .cnav-signin { display: none; 
+  .cnav-signin { display: none; }
 }
 @media (max-width: 480px) {
   .cnav-cta { padding: 9px 14px; font-size: 12px; }
