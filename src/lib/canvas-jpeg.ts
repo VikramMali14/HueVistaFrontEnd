@@ -17,10 +17,16 @@ import { loadCrossOriginImage } from "./load-image";
 
 /**
  * Render the recoloured `source` canvas to a JPEG data URL, downscaled so its
- * longest edge is at most `maxEdge` px. The studio canvas is drawn at up to 4K ×
- * devicePixelRatio, so a raw PNG export is many megabytes; a bounded JPEG keeps
- * both the single-image download and the PDF small. Returns "" if a 2D context
- * or the source dimensions aren't available.
+ * longest edge is at most `maxEdge` px. The studio canvas is the stored image's own
+ * size × devicePixelRatio — a ~2K canvas on a retina screen is already ~4096px — so a
+ * raw PNG export is many megabytes; a bounded JPEG keeps both the single-image
+ * download and the PDF small. Returns "" if a 2D context or the source dimensions
+ * aren't available.
+ *
+ * Only ever DOWNSCALES: the scale is clamped at 1, so a source smaller than `maxEdge`
+ * passes through at its own size rather than being interpolated up to the cap. That is
+ * deliberate — `maxEdge` is a ceiling on file size, not a target resolution, and
+ * inventing pixels to reach it would add bytes and no detail.
  */
 export function canvasToJpegDataUrl(
   source: HTMLCanvasElement,
