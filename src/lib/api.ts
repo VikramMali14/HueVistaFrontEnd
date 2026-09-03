@@ -535,6 +535,24 @@ export const adminApi = {
       `/api/admin/projects/${encodeURIComponent(projectId)}/mask-registration`,
       { accessToken, method: "POST", body: JSON.stringify(body) },
     ),
+  // --- Mask lab: run one photo through each way of producing a mask ---
+  /** Multipart, because the image is uploaded rather than taken from a project:
+   *  a lab run belongs to no room and must never appear in one. The settings ride
+   *  along as a JSON string so the backend can keep one union type for them. */
+  runMaskLab: (
+    accessToken: string,
+    file: File,
+    request: import("./types").MaskLabRequest,
+  ) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("request", JSON.stringify(request));
+    return serverFetch<import("./types").MaskLabResult>("/api/admin/mask-lab", {
+      method: "POST",
+      accessToken,
+      body: form,
+    });
+  },
   // --- Marketing-site images (see lib/site-assets.ts for the slot registry) ---
   listSiteAssets: (accessToken: string) =>
     serverFetch<SiteAsset[]>("/api/admin/site-assets", { accessToken }),

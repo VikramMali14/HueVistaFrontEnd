@@ -123,6 +123,13 @@ export default async function AdminPage() {
           Mask viewer →
         </Link>
         <Link
+          href="/admin/mask-lab"
+          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}
+          title="Run one cleaned photo through each way of producing a mask — the generative model, colour extraction, SAM, or any Replicate model — and compare them side by side. Touches no project and spends no credit."
+        >
+          Mask lab →
+        </Link>
+        <Link
           href="/admin/mask-align"
           style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}
           title="Put a drifted mask back on its walls by hand — drag the whole frame, then pull a grid over the parts still off. Moves the model's drawing without reshaping it; costs no credit."
