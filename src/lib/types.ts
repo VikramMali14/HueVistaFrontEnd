@@ -1762,3 +1762,69 @@ export interface MaskRegistrationResult {
   /** The registration as the aligner prints it, for showing back. */
   fit: string;
 }
+
+/** The ways of turning a cleaned photo into a mask that the lab can run. They
+ *  differ in one thing that matters more than accuracy: whether the model
+ *  REDRAWS the photo or READS it. */
+export type MaskLabApproach =
+  /** What ships today: an image model repaints the photo into flat category
+   *  colours. Knows what a wall IS — and redraws, which is where drift comes
+   *  from. */
+  | "GENERATIVE"
+  /** Reads the surfaces the CLEAN already repainted, out of the pixels. Free,
+   *  instant, no drift — and cannot tell wall from trim, because the clean
+   *  paints both the same white on purpose. */
+  | "PAINTED_SURFACE"
+  /** SAM 2, prompted with clicked points. Exact, unnamed, one surface a run. */
+  | "SAM_POINTS"
+  /** Any Replicate model, with its input body typed by hand — for trying a
+   *  segmenter nobody has written an adapter for yet. */
+  | "CUSTOM_REPLICATE";
+
+/** One lab run's settings. A union: each approach reads what means something to
+ *  it and ignores the rest. */
+export interface MaskLabRequest {
+  approach: MaskLabApproach;
+  /** GENERATIVE (checked against the model catalogue) and CUSTOM_REPLICATE
+   *  (deliberately not). */
+  model?: string | null;
+  /** GENERATIVE: INDOOR forces an accent surface. */
+  scene?: "INDOOR" | "OUTDOOR" | null;
+  /** CUSTOM_REPLICATE: the model's input body as JSON, with {{image}} where the
+   *  image URL goes. */
+  inputTemplate?: string | null;
+  /** SAM_POINTS: click positions normalised 0–1 against the uploaded image. */
+  points?: number[][] | null;
+  /** SAM_POINTS: 1 to include a point's surface, 0 to push the boundary off it. */
+  pointLabels?: number[] | null;
+  /** PAINTED_SURFACE: how far a pixel may sit from the repaint colour, 0–255. */
+  tolerance?: number | null;
+  /** PAINTED_SURFACE: drop blobs under this share of the frame, 0–1. */
+  minBlobShare?: number | null;
+}
+
+/** What a run produced. `kind` says how to READ each image, which the screen
+ *  cannot infer: a colour-coded one has to be split by category first, a binary
+ *  one is already a single surface, and a raw one is whatever an unknown model
+ *  chose to return. */
+export interface MaskLabOutput {
+  label: string;
+  url: string;
+  kind: "COLOUR_CODED" | "BINARY" | "RAW";
+}
+
+export interface MaskLabResult {
+  approach: MaskLabApproach;
+  model?: string | null;
+  /** Wall-clock milliseconds. Part of the comparison: an exact mask that takes
+   *  40 seconds is a different product decision from an approximate one that
+   *  takes 200 ms. */
+  ms: number;
+  /** The uploaded image, stored — so every run on this photo draws against the
+   *  same pixels. */
+  canvasUrl: string;
+  outputs: MaskLabOutput[];
+  /** What the run needs to say for itself: coverage figures, a model that
+   *  returned several masks, what an approach structurally cannot do. */
+  note?: string | null;
+}

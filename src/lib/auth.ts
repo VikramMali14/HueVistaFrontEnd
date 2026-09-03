@@ -10,7 +10,7 @@ import type { AdminUserRow, AuditLogRow, DataResetResult, DeleteAllShadesResult,
 import { clientIpFromHeaders } from "./client-ip";
 import { config } from "./config";
 import { canUseFeature, planWithholds } from "./features";
-import type { AdminProjectRow, AppFeatureKey, AuthResponse, AuthUser, MaskRegistration, MaskRegistrationResult, MaskReport, MaskReportStatus, MyAccess, NetworkReport, ProjectDetail, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary } from "./types";
+import type { AdminProjectRow, AppFeatureKey, AuthResponse, AuthUser, MaskLabRequest, MaskLabResult, MaskRegistration, MaskRegistrationResult, MaskReport, MaskReportStatus, MyAccess, NetworkReport, ProjectDetail, RetailerBrandOption, RetailerFeatureOption, SubscriptionSummary } from "./types";
 
 const cookieDefaults = {
   httpOnly: true,
@@ -864,6 +864,43 @@ export async function applyMaskRegistrationAction(
   } catch (err) {
     if (err instanceof HttpError) return { error: err.message };
     return { error: "Could not apply the registration. Please try again." };
+  }
+}
+
+/**
+ * ADMIN: run one uploaded photo through one way of producing a mask.
+ *
+ * Writes to no project and spends no credit — the lab exists so the approaches
+ * can be compared on a real facade before anything in the pipeline changes.
+ *
+ * The backend's own message is passed straight through on failure. Every refusal
+ * it makes is specific and actionable ("the body has no {{image}} placeholder",
+ * "that model is not in the catalogue"), and replacing those with a house string
+ * would throw away the one thing the person needs to fix their run.
+ */
+export async function runMaskLabAction(
+  formData: FormData,
+): Promise<{ result?: MaskLabResult; error?: string }> {
+  "use server";
+  const token = await getAccessToken();
+  if (!token) return { error: "Your session expired — please sign in again." };
+  const file = formData.get("file");
+  const raw = formData.get("request");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a cleaned image to run against." };
+  }
+  if (typeof raw !== "string") return { error: "The run settings were missing." };
+  let request: MaskLabRequest;
+  try {
+    request = JSON.parse(raw) as MaskLabRequest;
+  } catch {
+    return { error: "The run settings could not be read." };
+  }
+  try {
+    return { result: await adminApi.runMaskLab(token, file, request) };
+  } catch (err) {
+    if (err instanceof HttpError) return { error: err.message };
+    return { error: "That run could not be started. Please try again." };
   }
 }
 
