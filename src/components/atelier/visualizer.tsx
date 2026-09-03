@@ -2316,8 +2316,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
   }, [projectId]);
 
   // Download the current recoloured canvas as a bounded JPEG (not a full-res
-  // PNG): the studio canvas renders at up to 4K × devicePixelRatio, so the raw
-  // PNG export was many megabytes. A capped JPEG is a fraction of the size.
+  // PNG): the canvas is the stored image's size × devicePixelRatio, which on a
+  // retina screen is several thousand pixels a side, so the raw PNG export was many
+  // megabytes. A capped JPEG is a fraction of the size. The cap only ever
+  // downscales, so a smaller canvas is saved at its own size rather than
+  // interpolated up to 2200.
   const downloadCurrentImage = useCallback(() => {
     const engine = recolorRef.current;
     if (!engine) return;
