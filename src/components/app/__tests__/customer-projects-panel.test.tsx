@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import type { CustomerEntitlement, ProjectPurchaseOptions } from "@/lib/types";
 import { CustomerProjectsPanel } from "../customer-projects-panel";
 import { api } from "@/lib/api";
@@ -69,10 +69,14 @@ describe("CustomerProjectsPanel — a customer who has both a shop and a receipt
 
     render(<CustomerProjectsPanel showBuy={false} />);
 
-    expect(await screen.findByText("2")).toBeInTheDocument();
-    expect(screen.getByText("ready to use")).toBeInTheDocument();
+    // Scoped to the headline figure: the breakdown below it now carries a "2" of
+    // its own (the projects bought), so a bare getByText("2") matches both.
+    const unit = await screen.findByText("ready to use");
+    await waitFor(() => expect(unit.closest("p")).toHaveTextContent("2"));
     // Broken down rather than folded together: the two came from different places.
-    expect(screen.getByText(/2 you bought/)).toBeInTheDocument();
+    // The breakdown is a labelled row now, so the label and its value are asserted
+    // together — "2" alone also matches the headline figure directly above it.
+    expect(screen.getByText("You bought").closest("div")).toHaveTextContent("2");
     // And the dead end is gone — there is something to spend, so the panel says so.
     expect(screen.getByRole("link", { name: /Start one/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Ask my shop/ })).not.toBeInTheDocument();
@@ -106,8 +110,9 @@ describe("CustomerProjectsPanel — a customer who has both a shop and a receipt
     render(<CustomerProjectsPanel showBuy={false} />);
 
     // Three, not four: the one left on the lapsed code is not spendable.
-    expect(await screen.findByText("3")).toBeInTheDocument();
-    expect(screen.getByText(/access window has closed/)).toBeInTheDocument();
+    const figure = await screen.findByText("ready to use");
+    await waitFor(() => expect(figure.closest("p")).toHaveTextContent("3"));
+    expect(screen.getByText("Access").closest("div")).toHaveTextContent("Closed");
     // …and the body says what survives the closure, without repeating that it closed.
     expect(screen.getByText(/yours to keep either way/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Start one/ })).toBeInTheDocument();

@@ -30,7 +30,7 @@ beforeEach(() => {
 
 async function open() {
   render(<BugReportButton />);
-  await userEvent.click(screen.getByRole("button", { name: /bug/i }));
+  await userEvent.click(screen.getByRole("button", { name: /feedback/i }));
 }
 
 describe("BugReportButton", () => {
@@ -100,7 +100,7 @@ describe("BugReportButton", () => {
     const bar = document.createElement("div");
     document.body.appendChild(bar);
     render(<BugReportButton />, { container: bar });
-    await userEvent.click(screen.getByRole("button", { name: /bug/i }));
+    await userEvent.click(screen.getByRole("button", { name: /feedback/i }));
 
     const dialog = screen.getByRole("dialog", { name: "Report a bug" });
     expect(bar.contains(dialog)).toBe(false);

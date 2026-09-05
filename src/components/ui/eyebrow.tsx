@@ -9,8 +9,24 @@ interface BaseProps {
 export function Eyebrow({ children, style, className }: BaseProps) {
   return <span className={`eyebrow${className ? " " + className : ""}`} style={style}>{children}</span>;
 }
-export function Mono({ children, style, brass, className }: BaseProps & { brass?: boolean }) {
-  return <span className={`mono${brass ? " brass" : ""}${className ? " " + className : ""}`} style={style}>{children}</span>;
+/**
+ * A label in the mono face: letter-spaced small capitals.
+ *
+ * @param literal keeps the text's own case. The uppercasing is a label treatment,
+ * and it is wrong for anything the reader is meant to copy or type back — a web
+ * address most of all. "APP.HUEVISTA.ORG/UNLOCK" is not the address: a path is
+ * case-sensitive, so a shop reading that one off the screen to a customer is
+ * reading out something that need not work.
+ */
+export function Mono({ children, style, brass, literal, className }: BaseProps & { brass?: boolean; literal?: boolean }) {
+  return (
+    <span
+      className={`mono${brass ? " brass" : ""}${literal ? " literal" : ""}${className ? " " + className : ""}`}
+      style={style}
+    >
+      {children}
+    </span>
+  );
 }
 /**
  * A system message — a count, an empty state, a hint, a status.

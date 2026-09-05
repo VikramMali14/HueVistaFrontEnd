@@ -460,6 +460,9 @@ section + section { border-top: var(--hairline) solid var(--rule); }
 .small { font: 400 13px/1.55 var(--sans); color: var(--fg-mute); }
 .mono { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-mute); }
 .mono.brass { color: var(--fg); }
+/* Keeps its own case — for addresses and anything else meant to be copied or
+   typed back, where the label treatment's capitals would misstate the value. */
+.mono.literal { text-transform: none; letter-spacing: .04em; }
 /* Anywhere a shade code is printed. Inherits size, weight and colour from
    whatever it sits in and changes only the face and the figures — see --code
    above for why the mono zero cannot be used for a code. */
@@ -875,7 +878,14 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
 }
 
 /* ----- Touch-friendly form controls ----- */
-input[type="checkbox"], input[type="radio"] { min-width: 18px; min-height: 18px; }
+/* The app's own accent, not the browser's. Two components set accent-color
+   locally; the other twenty-eight checkboxes and radios rendered in system
+   blue, which on a cream-and-brass page is the one colour nothing else uses
+   and reads as a control nobody styled. */
+input[type="checkbox"], input[type="radio"] {
+  min-width: 18px; min-height: 18px;
+  accent-color: var(--accent);
+}
 input[type="range"] { -webkit-appearance: none; appearance: none; background: transparent; }
 input[type="range"]::-webkit-slider-runnable-track { background: var(--rule-strong); height: 2px; }
 input[type="range"]::-moz-range-track { background: var(--rule-strong); height: 2px; }
@@ -3277,48 +3287,42 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 
 /* ----- On-canvas shade legend (glass, bottom-left): name + code of every
    painted surface, readable straight off the preview / a screenshot. ----- */
+/* Which colour is on which wall — kept, and moved off the picture.
+   It was a dark glass panel pinned over the bottom-left of the room, one of six
+   things layered on the one image the customer is trying to judge. The
+   information is worth having at a counter; covering the product with it is
+   not. Now it reads as a line under the photo, in the page's own colours. */
 .hv-studio-legend {
-  position: absolute;
-  left: 14px;
-  /* Anchored to the top of the notes block, i.e. the bottom edge of the photo —
-     so it clears the report row underneath instead of sitting on it. */
-  bottom: 100%;
-  margin-bottom: 14px;
-  z-index: 8;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: min(46%, 340px);
-  padding: 10px 12px;
-  background: rgba(10,9,15,.72);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 11px;
-  box-shadow: 0 16px 40px -22px rgba(0,0,0,.6);
-  pointer-events: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  padding: 8px 14px 0;
+  border: none;
+  background: none;
 }
+/* These read on the page now, not on dark glass, so the colours come from the
+   theme instead of being hard-coded near-white — on the light theme the old
+   values were white text on a cream ground. */
 .hv-studio-legend-row {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font: 400 12px/1.2 var(--sans);
-  color: rgba(247,247,245,.92);
+  font: 400 12.5px/1.2 var(--sans);
+  color: var(--fg);
 }
 .hv-studio-legend-chip {
   flex: 0 0 auto;
   width: 14px;
   height: 14px;
   border-radius: 4px;
-  border: 1px solid rgba(255,255,255,.28);
+  border: 1px solid var(--rule-strong);
 }
 .hv-studio-legend-region {
   flex: 0 0 auto;
-  font: 500 12px/1 var(--mono);
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: rgba(247,247,245,.55);
+  font: 500 12.5px/1 var(--sans);
+  color: var(--fg-mute);
 }
 .hv-studio-legend-name {
   overflow: hidden;
@@ -3329,38 +3333,8 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   flex: 0 0 auto;
   font: 500 12px/1 var(--code);
   font-variant-numeric: tabular-nums;
-  letter-spacing: .08em;
-  color: rgba(247,247,245,.72);
-}
-
-/* Indicative-colour disclaimer. Mirrors the line printed on the colour-board PDF
-   so the expectation is set on-screen too.
-   It used to render as a static block inside `.hv-studio-canvas` — a full-height
-   `overflow: hidden` box whose <canvas> is absolutely positioned — so it laid out
-   from the TOP of that box rather than under the preview: across the photo,
-   beneath the Maximise and Hold-to-compare buttons, and cut off mid-sentence at
-   "...may look different on your". The one line that sets expectations about
-   screens versus real paint was the one line nobody could finish reading.
-   Anchored opposite the legend now, sharing its backdrop so it stays legible
-   over any photo — and on a phone it leaves the photo altogether. */
-.hv-studio-disclaimer {
-  position: absolute;
-  right: 14px;
-  bottom: 100%;
-  z-index: 8;
-  margin: 0 0 14px;
-  max-width: min(46%, 340px);
-  padding: 10px 12px;
-  text-align: right;
-  font: 400 12px/1.45 var(--sans);
-  color: rgba(247,247,245,.82);
-  background: rgba(10,9,15,.72);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 11px;
-  box-shadow: 0 16px 40px -22px rgba(0,0,0,.6);
-  pointer-events: none;
+  letter-spacing: .04em;
+  color: var(--fg-soft);
 }
 
 /* "Not right? Report a problem" — the channel for an AI run that came out wrong.
@@ -3405,6 +3379,9 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 /* ----- "Add to PDF" colour board (glass tray, overlaid bottom-centre) -----
    Collapsed by default to the .hv-pdf-fab below: the tray is at its tallest
    exactly when the customer most wants to see the room behind it. */
+/* A pill with its name on it, not a bare circle. It sits on the customer's own
+   room, and an unlabelled icon there is a thing to wonder about rather than a
+   thing to press. */
 .hv-pdf-fab {
   position: absolute;
   left: 50%;
@@ -3414,18 +3391,22 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 46px;
-  padding: 0;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
   background: rgba(10,9,15,.72);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   backdrop-filter: blur(14px) saturate(140%);
   border: 1px solid rgba(255,255,255,.14);
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   color: rgba(247,247,245,.94);
   cursor: pointer;
   box-shadow: 0 16px 40px -22px rgba(0,0,0,.6);
   transition: background .15s var(--ease), border-color .15s var(--ease);
+}
+.hv-pdf-fab-label {
+  font: 500 13px/1 var(--sans);
+  white-space: nowrap;
 }
 .hv-pdf-fab:hover { background: rgba(10,9,15,.86); border-color: rgba(255,255,255,.30); }
 /* The count rides on the icon — the one fact about the board that has to survive
@@ -3798,52 +3779,51 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-left: none;
   height: 100%;
 }
-/* No photo yet: the panel stays visible so the shop can see what is coming,
-   but everything except the gate and the dock's call to action is dimmed and
-   inert. Dimming without inert would be the same silent no-op in a paler
-   colour; inert without dimming would look broken. */
-.hv-studio-gate {
+/* No photo yet. The panel shows what is coming and offers nothing to press —
+   see the note in shade-grid.tsx on why a dimmed-but-drawn workshop read as a
+   step the customer had missed. */
+.hv-studio-panel-await {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--rule);
-  background: var(--surface-soft);
-  /* Sticks to the top of the panel: the library below it is several screens
-     long, and scrolling away from the one sentence explaining why nothing
-     responds is what made the panel read as broken. */
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  justify-content: center;
+  padding: 28px 20px;
 }
-.hv-studio-gate-text {
+.hv-studio-await {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  max-width: 44ch;
+}
+.hv-studio-await-title {
   margin: 0;
-  font: 400 13.5px/1.45 var(--sans);
+  font: 600 18px/1.25 var(--sans);
+  color: var(--fg);
+}
+.hv-studio-await-text {
+  margin: 0;
+  font: 400 14.5px/1.55 var(--sans);
   color: var(--fg-soft);
-  max-width: 42ch;
 }
-/* Waiting reads through the gate banner above, the not-allowed cursor and real
-   `inert` — never by draining the colour out of the product.
-   Dimming the container cannot be walked back per-child: `opacity` composites
-   the whole subtree as one group, so no descendant can opt back in. At .38 and
-   then at .62 the pale end of the library blended into the surface behind it
-   until Air Breeze (#F3EDE8), White Clay, Pink Mist and Day Lily were one muddy
-   grey — a paint shop's first screen showing twelve thousand shades that all
-   look alike. So the chrome dims and the paint does not. */
-.hv-studio-panel.is-awaiting-photo [inert] { cursor: not-allowed; }
-.hv-studio-panel.is-awaiting-photo [inert] * { pointer-events: none; }
-.hv-studio-panel.is-awaiting-photo .hv-studio-tabs,
-.hv-studio-panel.is-awaiting-photo .hv-studio-filter-bar,
-.hv-studio-panel.is-awaiting-photo .hv-studio-swatch-name,
-.hv-studio-panel.is-awaiting-photo .hv-studio-swatch-code { opacity: .62; }
-@media (prefers-reduced-transparency: reduce) {
-  .hv-studio-panel.is-awaiting-photo .hv-studio-tabs,
-  .hv-studio-panel.is-awaiting-photo .hv-studio-filter-bar,
-  .hv-studio-panel.is-awaiting-photo .hv-studio-swatch-name,
-  .hv-studio-panel.is-awaiting-photo .hv-studio-swatch-code { opacity: .8; }
+/* A still row of the range, not a picker. */
+.hv-studio-await-swatches {
+  display: flex;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
 }
+.hv-studio-await-swatches li {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  border: 1px solid var(--rule-strong);
+}
+@media (max-width: 640px) {
+  .hv-studio-panel-await { padding: 22px 16px; }
+  .hv-studio-await-swatches li { width: 30px; height: 30px; }
+}
+
 .hv-studio-tabs {
   display: flex;
   border-bottom: 1px solid var(--rule);
@@ -4121,12 +4101,32 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-bottom: 1px solid var(--rule);
   background: var(--bg);
 }
+/* Scrolling chips on the left, a pinned "+ Wall" on the right. */
+.hv-studio-region-strip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 10px;
+}
+.hv-studio-region-strip-row > .hv-studio-add-wall-chip { flex-shrink: 0; }
 .hv-studio-region-strip-scroll {
   display: flex;
   align-items: center;
   gap: 6px;
   overflow-x: auto;
   padding: 8px 10px;
+  /* Takes the space the pinned add button leaves, and no more. */
+  flex: 1 1 auto;
+  min-width: 0;
+  scrollbar-width: none;
+}
+.hv-studio-region-strip-scroll::-webkit-scrollbar { display: none; }
+/* On the desktop workspace the panel has vertical room and no touch scrolling, so
+   the chips wrap onto a second line rather than sliding a wall's name half off the
+   edge. A phone keeps the horizontal scroll: there, a wrapped row would eat the
+   photograph, which is the thing the screen is short of. */
+@media (min-width: 901px) {
+  .hv-studio-region-strip-scroll { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; }
 }
 /* More chips off-screen to the right (set by RegionStrip): fade the clipped
    edge so a half-cut "+ Wall" reads as "scroll for more", not broken layout. */
@@ -4166,13 +4166,17 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* WCAG 2.5.8 wants 24x24 CSS px of target. The padding alone left this 23px wide
-     and its sibling 17px — small enough to miss on a phone, on the two controls that
-     remove a wall and reshape one. Tall enough already (44px); this is the width. */
+  /* 24px clears WCAG 2.5.8's floor, which is enough for a mouse. What it was not
+     enough for was a fingertip: the pencil and this ✕ sat flush against each
+     other at the minimum size, one of them destructive, so the miss that lands
+     on the wrong one deletes the wall the customer just finished colouring. The
+     real widening happens under (pointer: coarse) below — done here as well it
+     cost the chip row 72px and pushed "Trim" off the edge of the desktop panel,
+     which is a clipped label to fix a mis-tap that a mouse does not make. */
   min-width: 24px;
   flex-shrink: 0;
-  padding: 6px 10px 6px 2px;
-  margin-left: -4px;
+  padding: 6px 5px;
+  margin-left: 1px;
   background: transparent;
   border: none;
   color: var(--fg-mute);
@@ -4186,10 +4190,11 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Matches the ✕ beside it — see the note there. */
   min-width: 24px;
   flex-shrink: 0;
-  padding: 6px 4px 6px 2px;
-  margin-left: -4px;
+  padding: 6px 5px;
+  margin-left: 1px;
   background: transparent;
   border: none;
   color: var(--fg-mute);
@@ -4199,6 +4204,13 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-region-chip-edit:hover { color: var(--accent); }
 .hv-studio-region-chip-edit:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
+/* A fingertip is about 45px across; a mouse cursor is one pixel. Only the
+   touch screens pay the width for a 44px target, which is also the only place
+   the mis-tap on ✕ actually happens. */
+@media (pointer: coarse) {
+  .hv-studio-region-chip-edit,
+  .hv-studio-region-chip-del { min-width: 44px; }
+}
 .hv-studio-region-chip-dot {
   width: 13px; height: 13px;
   border-radius: 50%;
@@ -4378,15 +4390,16 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
    unusable: names arrived as "Bright Lim…", "Zinnia Blo…", "Shocking …", and
    the code — the thing that goes on the bill — was not on the tile at all.
    Four columns, two lines of name, and the code always printed. */
+/* The column count follows the code, not a fixed number. A shade code is the
+   one string on the tile that has to survive the trip to the counter — it goes
+   on the bill — so the track floor is the width a full code needs (MPHVK-N101
+   measures ~91px at this size). Four columns held on a phone gave each tile
+   84px and clipped EVERY code to "MPHVK-N…"; auto-fill drops to three there
+   and keeps four on the desktop panel, without a breakpoint to maintain. */
 .hv-studio-swatches {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 14px 10px;
-}
-/* Very narrow panels (stacked mobile layout) would make four columns thinner
-   than a readable name; drop to three there rather than clipping again. */
-@media (max-width: 380px) {
-  .hv-studio-swatches { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .hv-studio-swatch {
   display: flex;
@@ -4436,7 +4449,10 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 .hv-studio-swatch-code {
   font: 400 12px/1 var(--code);
   font-variant-numeric: tabular-nums;
-  letter-spacing: .06em;
+  /* Tightened from .06em: at four columns the tracking alone was costing the
+     code its last character. The ellipsis below is a safety net, not the
+     expected rendering — a clipped code is useless to the shop. */
+  letter-spacing: .03em;
   color: var(--fg-mute);
   white-space: nowrap;
   overflow: hidden;
@@ -5227,14 +5243,22 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
      The markup stays; only the display goes, so a wide screen is untouched. */
   .hv-studio-canvas-notes { display: none; }
   /* The colour board sits out of the middle of the wall somebody is judging. */
+  /* On a phone it goes back to the icon alone, pinned to the corner: a labelled
+     pill anchored to the right edge ran off it. The name is on the button's
+     accessible label and its tooltip, and the phone's ⋯ menu lists the colour
+     board in words. */
   .hv-pdf-fab {
     left: auto;
     right: 12px;
     bottom: 12px;
     transform: none;
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
+    min-height: 0;
+    padding: 0;
+    border-radius: 50%;
   }
+  .hv-pdf-fab-label { display: none; }
   /* One button in place of Share / Download / Report / Close project. */
   .hv-studio-actions-full { display: none; }
   .hv-studio-more { display: inline-flex; }
@@ -5261,18 +5285,27 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
      to show — three lines of a pinned dock spent saying nothing, on the screen with
      the least room for it. It comes back the moment there is a colour in it. */
   .hv-studio-dock-recent:not(:has(.hv-studio-dock-recent-list)) { display: none; }
-  /* The gate sticks to the top of the panel's own scroller on a desktop. With no
-     scroller here it would stick to the VIEWPORT instead and follow the reader down
-     the page, over the nav. */
-  .hv-studio-gate { position: static; }
+  /* The room photo is the product, and on a phone it was getting 293px of an
+     844px screen with 284px of bars stacked above it. This row was 125px of
+     that: a title line, then the status pills pushed onto a full-width second
+     line of their own. They share the title's line now and the padding is
+     tighter — the pills wrap only if they genuinely cannot fit. */
+  /* The room photo is the product, and on a phone it was getting 293px of an
+     844px screen with 284px of bars stacked above it. This row was 125px of
+     that: the project title took the full width, so the ⋯ button wrapped onto a
+     second 44px line of its own. One line now — the title ellipsises, which it
+     was already built to do, and the button keeps its place at the end. */
   .hv-studio-topbar {
-    padding: 12px var(--gutter);
-    gap: 12px;
+    padding: 8px var(--gutter);
+    gap: 8px;
+    flex-wrap: nowrap;
   }
+  .hv-studio-project { flex: 1 1 auto; min-width: 0; }
+  .hv-studio-actions { flex: 0 0 auto; }
   .hv-studio-status {
-    order: 3;
-    flex-basis: 100%;
-    justify-content: flex-start;
+    justify-content: flex-end;
+    flex: 0 1 auto;
+    min-width: 0;
   }
   .hv-studio-actions { margin-left: auto; }
   .hv-studio-floatbar {

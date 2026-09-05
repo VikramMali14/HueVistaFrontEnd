@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { AiImagesStrip } from "@/components/app/ai-images-strip";
 import { ProjectsAndCredits } from "@/components/app/projects-and-credits";
 
 export const metadata: Metadata = {
@@ -35,31 +34,15 @@ export default async function MyProjectsPage() {
         <Eyebrow className="hv-rise">Your account</Eyebrow>
         <h1 className="display hv-mp-title hv-rise hv-rise-1">Projects &amp; credits</h1>
 
-        {/* The two things this page counts and sells, defined ONCE and in a form that is
-            scanned rather than read.
-
-            They used to be a paragraph under the title and then again, in slightly
-            different words, inside each of the three cards below — the same two facts
-            stated three times, which is most of what made the screen read as a wall of
-            text rather than as a statement of account. Said once, as a pair, they also
-            answer the only question a customer really has here: which of these two do I
-            need for the thing I want to do? */}
-        <dl className="hv-mp-key hv-rise hv-rise-2">
-          <div>
-            <dt>A project</dt>
-            <dd>
-              One room — your photo, its walls marked, every colour you try, and the colour
-              board at the end.
-            </dd>
-          </div>
-          <div>
-            <dt>An AI credit</dt>
-            <dd>
-              One photorealistic picture of that room in the colours you chose. No project
-              includes one.
-            </dd>
-          </div>
-        </dl>
+        {/* The definitions used to live here, as a two-column glossary between the
+            title and the content: a reader had to be taught the vocabulary before
+            being shown their own balance in it. They now sit where each thing is
+            sold, which is the only place the distinction is actually load-bearing
+            — nobody needs "what is a credit" explained twice before being told
+            they hold four. */}
+        <p className="hv-mp-sub hv-rise hv-rise-2">
+          What you hold, what it has made, and what else you can add.
+        </p>
       </header>
 
       {/* The two counters and the counter that sells, wired together so a purchase on
@@ -67,13 +50,6 @@ export default async function MyProjectsPage() {
           fetch-once panels, which meant buying credits left the balance directly above
           the cart still reading its pre-payment number. */}
       <ProjectsAndCredits />
-
-      {/* And what those credits actually bought. Renders nothing until there is a
-          picture to show, so the page is unchanged for an account that has not made
-          one yet. */}
-      <div className="hv-mp-strip">
-        <AiImagesStrip />
-      </div>
 
       {/* Deliberately says "the counter" rather than "any HueVista shop": which is
           true depends on the issuing shop's numbering, and this page has no scheme
@@ -93,34 +69,21 @@ export default async function MyProjectsPage() {
            grander. Every column of TEXT on the page keeps its own measure below. */
         .hv-mp { position: relative; max-width: 1120px; }
 
-        .hv-mp-head, .hv-mp-strip, .hv-mp-foot { position: relative; z-index: 1; }
+        .hv-mp-head, .hv-mp-foot { position: relative; z-index: 1; }
         .hv-mp-title {
           font-size: clamp(36px, 5.4vw, 60px); margin: 14px 0 22px; letter-spacing: -.02em;
         }
 
-        /* The two definitions, side by side on anything wider than a phone. A pair reads
-           as a pair — "one of these, or the other" — which is the actual relationship;
-           stacked in a column they would read as the first two items of a list that
-           carries on below, and nothing below them is a definition. */
-        .hv-mp-key {
-          display: grid; gap: 18px 32px; margin: 0; max-width: 72ch;
-          grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-        }
-        .hv-mp-key > div { padding-left: 14px; border-left: 2px solid var(--rule-brass); }
-        .hv-mp-key dt {
-          font: 500 11px/1.5 var(--sans); letter-spacing: .14em; text-transform: uppercase;
-          color: var(--accent-text); margin-bottom: 5px;
-        }
-        .hv-mp-key dd {
-          margin: 0; font: 400 14.5px/1.65 var(--sans); color: var(--fg-soft);
+        .hv-mp-sub {
+          margin: 0; max-width: 54ch;
+          font: 400 16px/1.65 var(--sans); color: var(--fg-soft);
         }
 
-        .hv-mp-strip { margin-top: 44px; }
         /* The rule spans the page; the sentence keeps its measure. They were the same
            element, so the rule stopped at 58ch — a line ending a third of the way across
            reads as a border that failed rather than as one closing the page. */
         .hv-mp-foot {
-          margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--rule);
+          margin-top: 52px; padding-top: 24px; border-top: 1px solid var(--rule);
         }
         .hv-mp-foot p {
           margin: 0; font: 400 14px/1.7 var(--sans); color: var(--fg-mute); max-width: 58ch;

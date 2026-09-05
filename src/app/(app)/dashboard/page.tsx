@@ -211,14 +211,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         )}
       </header>
-      {/* The counter's first tool, at the top of the page, for every shop rather than
-          only those that set up a pattern: a customer walks in holding an HV code and
-          this is the only thing that turns it into a tin of paint. */}
-      {!unavailable && (user?.role === "RETAILER" || user?.role === "ADMIN") && <HvCodeConverter />}
-      {/* And below it, the older pattern debugger — still shown only to shops that
-          run their own numbering, because it answers a different question (what does
-          MY prefix/suffix pattern make of this) that most shops never ask. */}
-      {!unavailable && (user?.role === "RETAILER" || user?.role === "ADMIN") && <DashboardCodeChecker />}
       {/* Not for a customer. They hold no subscription and never will — the plan is a
           shop's thing — so the banner could only ever render nothing, and the request
           behind it could only ever 404. Asking anyway filled the console of every
@@ -230,6 +222,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       {/* A customer with nothing left is told what it costs to carry on, not to
           upload a photo the studio will refuse. */}
       <DashboardProjects isCustomer={user?.role === "CUSTOMER"} />
+
+      {/* The code tools sit under the rooms, not over them.
+          Reading a customer's code IS the counter's first tool and it has not moved
+          off the dashboard — but it was the first thing under "Pick up a saved
+          project, or start a new one", ahead of the projects that sentence promises,
+          and with a six-line explanation attached. On a phone that put the first
+          room about 1,600px down a page nearly six screens tall, so the common act
+          (open yesterday's room) paid for the occasional one (decode a code a
+          customer is holding) on every single visit. Same page, one scroll, in the
+          order the greeting already describes. */}
+      {!unavailable && (user?.role === "RETAILER" || user?.role === "ADMIN") && <HvCodeConverter />}
+      {/* And below it, the older pattern debugger — still shown only to shops that
+          run their own numbering, because it answers a different question (what does
+          MY prefix/suffix pattern make of this) that most shops never ask. */}
+      {!unavailable && (user?.role === "RETAILER" || user?.role === "ADMIN") && <DashboardCodeChecker />}
 
       <style>{`
         .hv-dash-head { position: relative; }

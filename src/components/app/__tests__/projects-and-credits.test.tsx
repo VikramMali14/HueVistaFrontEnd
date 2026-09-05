@@ -1,14 +1,18 @@
 // @vitest-environment jsdom
 /**
- * The order of the customer's billing page.
+ * The order of the customer's billing page: what you hold, what it made, then the shop.
  *
- * The counter that SELLS used to sit third, under the two that COUNT, on the reasoning
- * that somebody arriving here answers "what do I have" before "what do I want". That is
- * true of a first visit and of almost no other: every route into this page — the "buy
- * another project" link in the studio, an empty balance, a room that has run out — is
- * somebody who has already answered the first question. Two full-width cards of counting
- * above the thing they came to do is a shop that makes you walk past the stockroom to
- * reach the till.
+ * This has been round both ways. The till was moved to the top on the reasoning that
+ * every route in — the studio's "buy another project" link, an empty balance, a room
+ * that ran out — is somebody who has already answered "what do I have". But the page is
+ * also what the navbar's own balance links to, it is titled "Projects & credits", and
+ * following a buy link does not stop anybody wanting to know where they stand. What that
+ * order actually produced was a 1,400px price list with four boxed options ahead of the
+ * two figures the page exists to report, and on a phone the shop ran for two full screens
+ * before the account appeared at all.
+ *
+ * So: the balances first, the pictures those credits bought second, the counter last.
+ * Nothing was removed — the page answers before it asks.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -22,6 +26,8 @@ vi.mock("@/lib/api", () => ({
     getProjectPurchaseOptions: vi.fn(),
     getAiCredits: vi.fn(),
     requestMoreProjects: vi.fn(),
+    // The pictures those credits bought now sit between the balances and the till.
+    listMyRenders: vi.fn(),
   },
 }));
 vi.mock("@/lib/payments", () => ({
@@ -89,19 +95,20 @@ beforeEach(() => {
   api.getMyEntitlement.mockResolvedValue(null);
   api.getProjectPurchaseOptions.mockResolvedValue(OPTIONS);
   api.getAiCredits.mockResolvedValue(WALLET);
+  api.listMyRenders.mockResolvedValue([]);
 });
 
 describe("ProjectsAndCredits", () => {
-  it("puts the counter that sells above the two that count", async () => {
+  it("counts what the account holds before it sells anything", async () => {
     render(<ProjectsAndCredits />);
 
     const till = await screen.findByRole("heading", { name: "Buy projects & credits" });
     const projects = await screen.findByText("Your projects");
 
-    expect(till.compareDocumentPosition(projects)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(projects.compareDocumentPosition(till)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it("still shows both balances, below the till rather than instead of it", async () => {
+  it("still shows the till, below both balances rather than instead of them", async () => {
     render(<ProjectsAndCredits />);
 
     await screen.findByRole("heading", { name: "Buy projects & credits" });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Mono } from "@/components/ui/eyebrow";
+import { Note } from "@/components/ui/eyebrow";
 import { api } from "@/lib/api";
 import { isUnlimited, projectsAvailable } from "@/lib/plan-quota";
 import { PROJECT_VALID_DAYS } from "@/lib/project-validity";
@@ -59,24 +59,27 @@ export function AssignableProjects({ reloadKey = 0 }: { reloadKey?: number } = {
   const extras = bought + ledger;
 
   if (unlimited) {
-    return <Mono>Unlimited projects on your plan — assign as many as you like.</Mono>;
+    return <Note>Unlimited projects on your plan — assign as many as you like.</Note>;
   }
 
   if (left === 0) {
     return (
-      <Mono>
+      <Note>
         Nothing left to assign this cycle. Buy another project in the studio — it stays
         open for {options?.validDays ?? PROJECT_VALID_DAYS} days and can be assigned here.
-      </Mono>
+      </Note>
     );
   }
 
+  // <Note>, not <Mono>: with the parenthetical this runs past a hundred
+  // characters, and letter-spaced capitals turn a sentence that long into
+  // texture to be decoded. It was the longest all-caps string in the app.
   return (
-    <Mono>
+    <Note>
       {left} project{left === 1 ? "" : "s"} available to assign
       {extras > 0
         ? ` · includes ${extras} you bought (these never expire, and can go to any customer)`
         : ""}
-    </Mono>
+    </Note>
   );
 }

@@ -72,50 +72,19 @@ function PanelStyles() {
         font: 500 11px/1.5 var(--sans); letter-spacing: .14em; text-transform: uppercase;
         color: var(--fg-mute);
       }
-      /* One pip per project the account can spend, up to a row's worth. A number says
-         how many; a row of them says it at a glance and gives the card something that
-         is not a paragraph — which on a screen of three text cards is most of what
-         makes this one findable. Purely decorative, so the count above stays the
-         accessible answer and this is hidden from the reader. */
-      .hv-cpp-pips { display: flex; gap: 6px; margin: 0 0 16px; }
-      .hv-cpp-pip {
-        width: 26px; height: 6px; border-radius: var(--radius-pill);
-        background: var(--accent); opacity: .85;
-        animation: hv-cpp-pip .4s var(--ease) both;
+      /* Label left, value right, on a ruled row — a small statement of account. */
+      .hv-cpp-facts { margin: 0 0 18px; display: grid; gap: 0; }
+      .hv-cpp-facts > div {
+        display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+        padding: 9px 0; border-top: 1px solid var(--rule-soft, var(--rule));
       }
-      .hv-cpp-pip.is-rest {
-        width: 6px; background: var(--fg-mute); opacity: .5;
+      .hv-cpp-facts > div:first-child { border-top: none; }
+      .hv-cpp-facts dt { font: 400 13.5px/1.4 var(--sans); color: var(--fg-mute); }
+      .hv-cpp-facts dd {
+        margin: 0; font: 500 13.5px/1.4 var(--sans); color: var(--fg);
+        font-variant-numeric: tabular-nums; white-space: nowrap;
       }
-      @keyframes hv-cpp-pip {
-        from { opacity: 0; transform: scaleX(.2); transform-origin: left; }
-      }
-      @media (prefers-reduced-motion: reduce) { .hv-cpp-pip { animation: none; } }
     `}</style>
-  );
-}
-
-/** How many pips a row shows before it stops counting and says "and more". */
-const MAX_PIPS = 8;
-
-/**
- * The spendable count, drawn.
- *
- * Hidden from assistive tech on purpose — the figure directly above says the same thing
- * in a word, and a screen reader hearing eight identical blank spans is being read a
- * decoration.
- */
-function Pips({ count }: { count: number }) {
-  if (count <= 0) return null;
-  const shown = Math.min(count, MAX_PIPS);
-  return (
-    <p className="hv-cpp-pips" aria-hidden>
-      {Array.from({ length: shown }, (_, i) => (
-        <span key={i} className="hv-cpp-pip" style={{ animationDelay: `${i * 45}ms` }} />
-      ))}
-      {count > MAX_PIPS && (
-        <span className="hv-cpp-pip is-rest" style={{ animationDelay: `${shown * 45}ms` }} />
-      )}
-    </p>
   );
 }
 
@@ -214,7 +183,6 @@ export function CustomerProjectsPanel(
           <CountUp className="hv-cpp-figure-n" value={credits} />
           <span className="hv-cpp-figure-w">ready to use</span>
         </p>
-        <Pips count={credits} />
         <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch", margin: "0 0 16px" }}>
           {credits > 0 ? (
             <>
@@ -292,21 +260,42 @@ export function CustomerProjectsPanel(
         <CountUp className="hv-cpp-figure-n" value={usable} />
         <span className="hv-cpp-figure-w">ready to use</span>
       </p>
-      <Pips count={usable} />
+      {/* The pip row that used to sit here — one dash per project, plus a wider
+          "and more" dash — read as a progress bar that had stalled, in the accent,
+          directly under the figure it was restating. The number is the number. */}
       {/* The deduction, not just the remainder: "1 of 3 used" says the shop assigned
           three and one is gone, which a bare "2 left" doesn't. Bought projects are named
           separately rather than folded in — they came from a different place, they
           outlive the shop's window, and a customer who paid for one should be able to
           see it sitting there. */}
-      <p style={{ font: "400 14px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "0 0 16px" }}>
-        {ent.projectsCreated} of {ent.projectAllowance} used on your code
-        {bought > 0 ? ` · ${bought} you bought` : ""}
-        {accessOver
-          ? " · your access window has closed"
-          : daysLeft !== null
-            ? ` · ${daysLeft} day${daysLeft === 1 ? "" : "s"} of access left`
-            : ""}
-      </p>
+      {/* Three facts about the same balance, as a breakdown rather than one
+          line joined by interpuncts. "1 of 2 used on your code · 2 you bought ·
+          92 days of access left" is a statement's worth of information set as a
+          sentence, and the reader has to parse where each fact ends; a shop
+          reads its own account this way in every other ledger it keeps. */}
+      <dl className="hv-cpp-facts">
+        <div>
+          <dt>Used on your code</dt>
+          <dd>{ent.projectsCreated} of {ent.projectAllowance}</dd>
+        </div>
+        {bought > 0 && (
+          <div>
+            <dt>You bought</dt>
+            <dd>{bought}</dd>
+          </div>
+        )}
+        {accessOver ? (
+          <div>
+            <dt>Access</dt>
+            <dd>Closed</dd>
+          </div>
+        ) : daysLeft !== null ? (
+          <div>
+            <dt>Access left</dt>
+            <dd>{daysLeft} day{daysLeft === 1 ? "" : "s"}</dd>
+          </div>
+        ) : null}
+      </dl>
 
       {accessOver && bought === 0 ? (
         <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch" }}>

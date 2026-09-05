@@ -23,7 +23,6 @@ const DEFAULT_PRICE_UNIT = "20 L";
 const PRICE_UNITS: string[] = [DEFAULT_PRICE_UNIT, "10 L", "4 L", "1 L"];
 /** Brightness runs on a 1–10 scale. */
 const BRIGHTNESS_MAX = 10;
-const tierStars = (t?: QualityTier | null) => (t === "LUXURY" ? 5 : t === "PREMIUM" ? 4 : 2);
 const tierBrightness = (t: QualityTier) => (t === "LUXURY" ? 10 : t === "PREMIUM" ? 8 : 4);
 const tierLabel = (t?: QualityTier | null) =>
   t ? t.charAt(0) + t.slice(1).toLowerCase() : "—";
@@ -400,7 +399,11 @@ export function ProductManager() {
 
       {/* STEP 1 — BRAND */}
       <section style={{ border: "1px solid var(--rule)", borderRadius: "var(--radius)", padding: 20, marginBottom: 20 }}>
-        <Mono brass>1 · Company</Mono>
+        {/* "1 ·" on its own asks somebody to start a sequence without saying how
+            long it is — steps 2 and 3 only appear as each one is answered, so on
+            arrival the page shows a step 1 of an unknown number. Three is not a
+            lot; saying so is the difference between a form and a commitment. */}
+        <Mono brass>1 of 3 · Company</Mono>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
           <select
             value={brandId ?? ""}
@@ -427,7 +430,7 @@ export function ProductManager() {
       {/* STEP 2 — CATEGORY */}
       {brandId != null && (
         <section style={{ border: "1px solid var(--rule)", borderRadius: "var(--radius)", padding: 20, marginBottom: 20 }}>
-          <Mono brass>2 · Surface</Mono>
+          <Mono brass>2 of 3 · Surface</Mono>
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             {(["INTERIOR", "EXTERIOR"] as ProductCategory[]).map((c) => (
               <button key={c} type="button" onClick={() => setCategory(c)} aria-pressed={category === c}
@@ -442,7 +445,7 @@ export function ProductManager() {
       {/* STEP 3 — LINES */}
       {brandId != null && category && (
         <section style={{ border: "1px solid var(--rule)", borderRadius: "var(--radius)", padding: 20, marginBottom: 20 }}>
-          <Mono brass>3 · Product lines</Mono>
+          <Mono brass>3 of 3 · Product lines</Mono>
           {linesLoading ? (
             <div style={{ marginTop: 12 }}><Mono>Loading lines…</Mono></div>
           ) : (
@@ -496,7 +499,11 @@ export function ProductManager() {
 
       {/* SAVED PRODUCTS */}
       <section style={{ marginTop: 32 }}>
-        <h2 className="display" style={{ fontSize: 40, marginBottom: 16 }}>Your products</h2>
+        {/* Not "Your products": the page above it is already titled "Your paint
+            products", and two headings 340px apart differing by one word leave a
+            reader working out which list is which. This section is the shelf —
+            the lines the shop actually stocks — which is what the intro calls it. */}
+        <h2 className="display" style={{ fontSize: 40, marginBottom: 16 }}>What you stock</h2>
 
         {/* Open editors (full width, one per product being edited) */}
         {editingList.map((p) => {
@@ -727,15 +734,29 @@ function ProductCard({ product, editing, onEdit, onDelete }: { product: ShopProd
     <div style={{ border: "1px solid " + (editing ? "var(--accent)" : "var(--rule)"), borderRadius: "var(--radius)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       {/* A 4:3 block in a three-up grid made one product fill a quarter of the
           screen, and an empty one was 320px of the words "no image". Capped, and
-          the placeholder shrinks further than a real photo needs to. */}
-      <div style={{ aspectRatio: "4/3", maxHeight: img ? 190 : 96, background: "var(--surface)", overflow: "hidden" }}>
-        {img ? (
-          // eslint-disable-next-line @next/next/no-img-element
+          the placeholder shrinks further than a real photo needs to.
+          Smaller again, and it now names the next action rather than the gap: a
+          shelf of four cards each carrying a grey band reading "NO IMAGE" is a
+          page announcing four times over what it has not got, on the one screen
+          whose whole job is filling those in. */}
+      {img ? (
+        <div style={{ aspectRatio: "4/3", maxHeight: 190, background: "var(--surface)", overflow: "hidden" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={img} alt={product.lineName ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Mono>no image</Mono></div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            height: 52, display: "flex", alignItems: "center", gap: 8,
+            padding: "0 14px", background: "var(--surface)",
+            borderBottom: "1px dashed var(--rule-strong)",
+            font: "400 13px/1 var(--sans)", color: "var(--fg-mute)",
+          }}
+        >
+          <span aria-hidden style={{ font: "400 15px/1 var(--sans)", color: "var(--accent-text)" }}>+</span>
+          Add a photo with Edit
+        </div>
+      )}
       <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
         <Mono>{product.brandName} · {product.category === "INTERIOR" ? "Interior" : "Exterior"}</Mono>
         <div style={{ font: "400 20px/1.1 var(--sans)", color: "var(--fg)" }}>{product.lineName}</div>
@@ -746,12 +767,24 @@ function ProductCard({ product, editing, onEdit, onDelete }: { product: ShopProd
         {/* Quality + brightness. Both are drawn only when the product actually
             carries them — a blank brightness used to render as a filled bar
             reading "0/10", which is a claim about the paint, not an absence. */}
+        {/* The tier, as a chip. It used to be five stars derived from the tier
+            standing next to the tier's own name — the same fact twice, once as a
+            picture and once as a word. Worse, stars are how a rating is drawn, and
+            this is not a rating: nobody scored the paint, the shop filed it under a
+            band its maker sells it in. Two of them (LUXURY, PREMIUM, and the rest at
+            two stars) also sat above a ten-block brightness meter, so one card
+            carried two different scales in two different metaphors. The band has a
+            name; the name is the honest form of it. */}
         {product.qualityTier && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-            <span aria-hidden style={{ color: "var(--accent-text)", letterSpacing: 2 }}>
-              {"★".repeat(tierStars(product.qualityTier))}{"☆".repeat(5 - tierStars(product.qualityTier))}
-            </span>
-            <Mono>{tierLabel(product.qualityTier)}</Mono>
+            <Mono
+              style={{
+                border: "1px solid var(--rule-brass)", borderRadius: "var(--radius-pill)",
+                padding: "3px 9px", color: "var(--accent-text)",
+              }}
+            >
+              {tierLabel(product.qualityTier)}
+            </Mono>
           </div>
         )}
         {bright != null && (
@@ -771,8 +804,13 @@ function ProductCard({ product, editing, onEdit, onDelete }: { product: ShopProd
         {product.description && (
           <p style={{ font: "400 13px/1.45 var(--sans)", color: "var(--fg-mute)", margin: "2px 0 0" }}>{product.description}</p>
         )}
-        <div style={{ marginTop: "auto", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-          <span style={{ font: "600 22px/1 var(--serif)", color: "var(--fg)" }}>
+        {/* The unit belongs to the price, so it must not be what breaks: at card
+            width "₹6,200 /20 L" and "EDIT REMOVE" together overflow, and the
+            wrap fell inside the price, orphaning "/20 L" on a line of its own
+            under every card on the shelf. The price stays whole; the actions
+            take the second line when there isn't room for both. */}
+        <div style={{ marginTop: "auto", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "6px 8px", flexWrap: "wrap" }}>
+          <span style={{ font: "600 22px/1 var(--serif)", color: "var(--fg)", whiteSpace: "nowrap" }}>
             {product.price != null ? `₹${product.price.toLocaleString("en-IN")}` : "—"}{product.priceUnit ? <span style={{ fontSize: 13, color: "var(--fg-mute)" }}> /{product.priceUnit}</span> : null}
           </span>
           <div style={{ display: "flex", gap: 14, alignItems: "baseline" }}>

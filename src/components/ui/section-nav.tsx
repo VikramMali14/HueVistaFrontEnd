@@ -74,16 +74,35 @@ export function SectionNav({ items }: { items: SectionNavItem[] }) {
       ref={navRef}
       aria-label="Jump to section"
       className={`hv-sidenav${open ? " is-open" : ""}`}
-      onMouseEnter={reveal}
-      onMouseLeave={scheduleClose}
+      // Hover-to-open is for pointers that can actually hover. A tap does not
+      // stop at touch events: the browser follows it with a synthesised mouse
+      // sequence, and the real order on a phone is
+      //   pointerdown → touchend → mouseover → mouseenter → mousedown → focus → click
+      // so an unguarded onMouseEnter opened the menu three events before the
+      // tap's own click arrived and toggled it shut again. The whole first tap
+      // then looked like a dead control, and only the second one appeared to
+      // work. Gating on pointerType leaves the mouse behaviour untouched and
+      // hands touch devices to the button's click, which toggles correctly.
+      onPointerEnter={(e) => {
+        if (e.pointerType === "mouse") reveal();
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === "mouse") scheduleClose();
+      }}
     >
       <button
         type="button"
         className="hv-sidenav-tab"
         aria-expanded={open}
         aria-controls="hv-sidenav-panel"
+        // Click alone owns the toggle. An onFocus={reveal} here used to open the
+        // menu on the focus that a tap delivers first, and then this handler
+        // toggled that fresh `true` straight back to `false` — so on a phone the
+        // first tap opened and shut it in one motion and read as a dead control,
+        // and only a second tap (the button already focused, no new focus event)
+        // appeared to work. Mouse users get the menu from the wrapper's hover,
+        // and keyboard users from Enter/Space, which arrive here as a click.
         onClick={() => setOpen((v) => !v)}
-        onFocus={reveal}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden>
           <path d="M4 6h16M4 12h16M4 18h16" />
@@ -203,15 +222,17 @@ export function SectionNav({ items }: { items: SectionNavItem[] }) {
           display: flex;
           justify-content: space-between;
           gap: 8px;
-          font: 400 12px/1.2 var(--mono);
-          letter-spacing: .14em;
-          text-transform: uppercase;
+          /* Section names, not labels on something else — read, not scanned. */
+          font: 500 14px/1.25 var(--sans);
           color: var(--fg);
         }
         .hv-sidenav-link-arrow { color: var(--accent-text); }
         .hv-sidenav-link-hint { font: 300 13px/1.4 var(--serif); color: var(--fg-mute); }
         @media (max-width: 640px) {
-          .hv-sidenav-tab { padding: 12px 6px; }
+          /* Was 12px/6px, which made the whole tab a 30px-wide strip — under the
+             44px a fingertip needs, on the only jump-to-section control on a page
+             that runs to eleven phone screens. */
+          .hv-sidenav-tab { padding: 14px 12px; min-width: 44px; }
           .hv-sidenav-tab-label { letter-spacing: .2em; }
         }
         @media (prefers-reduced-motion: reduce) {

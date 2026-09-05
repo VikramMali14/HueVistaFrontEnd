@@ -68,8 +68,8 @@ export default async function PortalPage() {
           { id: "what-they-see", label: "What they see", hint: "The customer's side of it" },
         ]}
       />
-      <section id="active-codes" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
-        <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>Active codes</h2>
+      <section id="active-codes" className="hv-portal-sec">
+        <h2 className="display hv-portal-h">Active codes</h2>
         {/* Both halves of the old sentence were wrong about the form directly below it.
             "One project" is whatever count you set when you issue the code (and can top
             up later), and the window is a fixed ten days rather than one you choose —
@@ -78,19 +78,19 @@ export default async function PortalPage() {
             HueVista ACCOUNT, so a walk-in with no account signs up before entering it.
             Leaving that out is what turns a code handed over the counter into a
             customer standing at a page that asks for something nobody mentioned. */}
-        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
-          Issue a code and share it with a customer. They sign in at <Mono>{site.unlockLabel}</Mono> —
+        <p className="hv-portal-intro">
+          Issue a code and share it with a customer. They sign in at <Mono literal>{site.unlockLabel}</Mono> —
           creating a free account if they haven&rsquo;t one — and enter it there to start
           visualising, with the number of projects you assign, for ten days. You can add
           projects or another ten days to a code they are already holding.
         </p>
         <AccessCodes org={shopOrg} />
       </section>
-      <section id="paint-companies" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
-        <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
+      <section id="paint-companies" className="hv-portal-sec">
+        <h2 className="display hv-portal-h">
           Paint companies
         </h2>
-        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+        <p className="hv-portal-intro">
           Your distributor decides which companies you may carry. This is the other half: of
           those, the ones you actually stock and want shown. It applies in one go — your own
           studio, your kiosk link, every access code you issue and every customer you onboard —
@@ -98,19 +98,19 @@ export default async function PortalPage() {
         </p>
         <ShopBrandsPanel org={shopOrg} />
       </section>
-      <section id="suggested-combos" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
-        <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
+      <section id="suggested-combos" className="hv-portal-sec">
+        <h2 className="display hv-portal-h">
           Suggested combinations
         </h2>
-        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+        <p className="hv-portal-intro">
           Predefine three-shade combinations — main wall, accent, trim — for interiors and
           exteriors. Everyone visualising under your shop sees them in the studio&apos;s AI Suggest
           tab as soon as their photo is up, labelled with your shop&apos;s name.
         </p>
         <ShopCombos shades={shades} org={shopOrg} />
       </section>
-      <section id="shade-codes" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
-        <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
+      <section id="shade-codes" className="hv-portal-sec">
+        <h2 className="display hv-portal-h">
           Shade codes your customers see
         </h2>
         {/* The old wording promised more than the product can deliver: "customers see
@@ -119,7 +119,7 @@ export default async function PortalPage() {
             anyone, signed in or not. A customer who can read the paint's NAME can
             search it there and get the number back. Hiding names is therefore not a
             second, optional switch — it is the half that makes the numbering hold. */}
-        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+        <p className="hv-portal-intro">
           One pattern instead of a custom code per shade. Add a prefix (up to 4 characters), a pair
           inserted after the first two characters of the real code, and a suffix (up to 4) — shade
           L124 with prefix AB, pair XY and suffix CD reads ABL1XY24CD. Your customers see the coded
@@ -130,8 +130,8 @@ export default async function PortalPage() {
         </p>
         <ShadeCodePanel shades={shades} org={shopOrg} />
       </section>
-      <section id="store-kiosk" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
-        <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
+      <section id="store-kiosk" className="hv-portal-sec">
+        <h2 className="display hv-portal-h">
           Store kiosk &amp; wallet
         </h2>
         {/* Describes the model the kiosk panel actually implements. This said the
@@ -139,7 +139,7 @@ export default async function PortalPage() {
             cash in a wallet to redeem by UPI — two rewards for one sale, neither of
             which the panel below offers. There is no price field and no payout form:
             the walk-in pays HueVista one flat price, and the shop earns points. */}
-        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+        <p className="hv-portal-intro">
           Publish a public link where walk-in customers order like at a kiosk: they pay the flat
           price, upload one room photo and pick colours. You set no price and handle no money —
           every sale earns your shop points, and points buy extra projects and fresh windows on
@@ -147,8 +147,8 @@ export default async function PortalPage() {
         </p>
         <StoreKioskPanel org={shopOrg} />
       </section>
-      <section id="customers" style={{ marginBottom: 56, scrollMarginTop: 100 }}>
-        <h2 className="display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 8 }}>
+      <section id="customers" className="hv-portal-sec">
+        <h2 className="display hv-portal-h">
           Customers &amp; projects
         </h2>
         {/* "Or they can pay for one themselves" is the opposite of what the product does:
@@ -156,7 +156,7 @@ export default async function PortalPage() {
             they get names this shop and asks them to request one, and the app carries that
             message to you. Telling a shop the customer can self-serve leaves the request
             sitting unanswered. */}
-        <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
+        <p className="hv-portal-intro">
           Each customer holds the projects you assigned on their code. When they want another
           room they cannot buy one — their projects are yours to give. They ask from inside
           the app, we email you, and you grant it on their row here in one click.
@@ -168,7 +168,7 @@ export default async function PortalPage() {
           logo upload, and the customer lands on HueVista's own pages. This describes
           what the shop actually gets today: their codes, and none of them shown to
           the customer. */}
-      <section id="what-they-see" style={{ marginTop: 56, borderTop: "1px solid var(--rule)", paddingTop: 48, scrollMarginTop: 100 }}>
+      <section id="what-they-see" className="hv-portal-sec">
         <Mono style={{ marginBottom: 18, display: "block" }}>What they see</Mono>
         <h2 className="display" style={{ fontSize: "clamp(32px, 4.5vw, 52px)", marginBottom: 20 }}>Simple. Yours.</h2>
         {/* "They never see shade codes" contradicted the Shade codes section higher up
@@ -176,6 +176,32 @@ export default async function PortalPage() {
             screen. The distinction that matters is whose number it is. */}
         <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "44ch" }}>The customer enters your code and gets a single instruction: upload a photo. They pick by eye, and every colour they keep carries your shade number — never the manufacturer&rsquo;s. Only you can read it back.</p>
       </section>
+
+      {/* Seven sections, 6,111px on a desktop and 9,477px on a phone, and until now
+          nothing but a heading between one and the next — so the page read as one
+          undifferentiated scroll rather than as seven jobs a shop does. A rule and a
+          consistent measure of air turn it into chapters, and the same three values
+          are now declared once instead of being retyped inline on every section. */}
+      <style>{`
+        .hv-portal-sec {
+          margin-top: 64px;
+          padding-top: 44px;
+          border-top: 1px solid var(--rule);
+          scroll-margin-top: 100px;
+        }
+        /* The first one follows the page's own header, which already closed. */
+        .hv-portal-sec:first-of-type { margin-top: 40px; padding-top: 0; border-top: none; }
+        .hv-portal-h { font-size: clamp(28px, 4vw, 44px); margin-bottom: 8px; }
+        .hv-portal-intro {
+          font: 300 17px/1.6 var(--serif);
+          color: var(--fg-soft);
+          max-width: 52ch;
+          margin-bottom: 28px;
+        }
+        @media (max-width: 640px) {
+          .hv-portal-sec { margin-top: 44px; padding-top: 32px; }
+        }
+      `}</style>
     </>
   );
 }

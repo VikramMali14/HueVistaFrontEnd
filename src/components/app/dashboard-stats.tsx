@@ -1,6 +1,6 @@
 "use client";
 
-import { Mono } from "@/components/ui/eyebrow";
+import { Mono, Note } from "@/components/ui/eyebrow";
 import { CountUp } from "@/components/ui/count-up";
 import type { ProjectSummary } from "@/lib/types";
 
@@ -39,7 +39,7 @@ export function DashboardStats({ projects }: DashboardStatsProps) {
   if (loading) {
     return (
       <section
-        className="r-cols-md-2 r-cols-xs-1"
+        className="r-cols-md-2 hv-kpi-row"
         aria-hidden
         style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, marginBottom: 64 }}
       >
@@ -61,13 +61,13 @@ export function DashboardStats({ projects }: DashboardStatsProps) {
   const cards: ReadonlyArray<{ n: number; l: string; sub: string }> = [
     { n: total, l: "Projects saved", sub: "in your suite" },
     { n: ready, l: "Ready", sub: "projects with walls found" },
-    { n: surfaces, l: "Walls & surfaces", sub: "regions across all projects" },
+    { n: surfaces, l: "Walls & surfaces", sub: "across all your rooms" },
     { n: attention, l: "Needs attention", sub: "no walls found — reopen in Studio" },
   ];
 
   return (
     <section
-      className="r-cols-md-2 r-cols-xs-1"
+      className="r-cols-md-2 hv-kpi-row"
       style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, marginBottom: 64 }}
     >
       {cards.map((m, i) => (
@@ -80,7 +80,12 @@ export function DashboardStats({ projects }: DashboardStatsProps) {
           <div className="display hv-kpi-n">
             <CountUp value={m.n} />
           </div>
-          <Mono style={{ marginTop: 8 }}>{m.sub}</Mono>
+          {/* The label above the number is two or three words and wears the
+              label treatment well. This line is a sentence explaining the
+              figure — "no walls found — reopen in Studio" — and letter-spaced
+              caps turn a sentence into texture to be decoded. Same reasoning as
+              <Note>'s own note. */}
+          <Note style={{ marginTop: 8, display: "block", fontSize: 13 }}>{m.sub}</Note>
         </div>
       ))}
       <Styles />
@@ -104,6 +109,18 @@ export function DashboardStats({ projects }: DashboardStatsProps) {
 function Styles() {
   return (
     <style>{`
+      /* Two across on a phone, not four down. Stacked full-width these four tiles
+         ran to about 520px, and they sit between the greeting — "Pick up a saved
+         project, or start a new one" — and the projects it is talking about. A
+         summary that has to be scrolled past to reach the thing it summarises is
+         costing more than it tells. */
+      @media (max-width: 720px) {
+        .hv-kpi-row { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+        .hv-kpi { padding: 16px 16px 18px; }
+      }
+      @media (max-width: 360px) {
+        .hv-kpi-row { grid-template-columns: 1fr !important; }
+      }
       /* hv-kpi, not hv-stat: that name already belongs to the marketing site's stats
          band, which centres its text and rules between its siblings. Borrowing it here
          centred every label in this row and hung a divider off each tile. */

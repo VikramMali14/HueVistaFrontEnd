@@ -42,7 +42,7 @@ export function PortalSubdomain({ slug: slugProp }: { slug?: string | null }) {
       title="White-label subdomains are rolling out — contact us to switch yours on early."
       style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}
     >
-      <Mono brass>{slug}.{site.whiteLabelDomain}</Mono>
+      <Mono brass literal>{slug}.{site.whiteLabelDomain}</Mono>
       <Mono>· coming soon</Mono>
     </span>
   );

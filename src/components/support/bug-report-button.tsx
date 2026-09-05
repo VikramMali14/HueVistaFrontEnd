@@ -70,10 +70,15 @@ export function BugReportButton({ className }: { className?: string }) {
         type="button"
         className={className}
         onClick={() => setOpen(true)}
-        title="Something broken? Tell us what happened"
+        title="Tell us what happened — it comes to us with the details already attached"
       >
         <BugIcon />
-        <span>Bug</span>
+        {/* The channel is worth keeping in the studio's permanent chrome — see the
+            note at its use site. The word is not: "🐞 BUG" sitting in the primary
+            navigation of a paid product announces to a shop, before they have done
+            anything, that faults are expected here. Same button, same dialog, and
+            it now invites the report a working product also wants. */}
+        <span>Feedback</span>
       </button>
       {open && <BugReportDialog onClose={() => setOpen(false)} />}
     </>
