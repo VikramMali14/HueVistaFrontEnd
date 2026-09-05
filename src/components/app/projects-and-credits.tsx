@@ -86,55 +86,77 @@ export function ProjectsAndCredits() {
           margin-top: 36px;
         }
 
-        /* The statement: two columns, one baseline, one rule under the pair. */
+        /* ── The statement ────────────────────────────────────────────
+           One panel, split down the middle. Stripping the two cards off
+           these balances fixed the right problem — they were two competing
+           boxes in a rail — but replacing them with nothing left the two
+           figures the page exists to report floating in open cream with no
+           edge, no ground and no weight, which reads as unfinished rather
+           than as restrained. A statement of account is a document: it has
+           a boundary, and the halves sit inside it under one rule. */
         .hv-pac-statement {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-          gap: 32px 48px;
-          padding-bottom: 34px;
-          border-bottom: 1px solid var(--rule);
+          grid-template-columns: 1fr 1fr;
+          border: 1px solid var(--rule);
+          border-radius: calc(var(--radius) * 1.5);
+          background: var(--surface);
+          overflow: hidden;
         }
-        /* Deliberately no border, radius or fill on these. The figures are large
-           and the labels are small, which is already a hierarchy; boxing each one
-           adds a second, competing one and turns a statement into a dashboard. */
-        .hv-pac-stat { min-width: 0; }
+        .hv-pac-stat { padding: 30px 32px; min-width: 0; }
+        /* The divider is the panel's own, not a card edge on each half. */
+        .hv-pac-stat + .hv-pac-stat { border-left: 1px solid var(--rule); }
         .hv-pac-stat > * { margin-top: 0; }
 
         /* Both panels are written to stand alone elsewhere (the wallet also
-           appears on /plan), so they arrive carrying a card. Here they are
-           columns of a statement and the card comes off. */
+           appears on /plan), so they arrive carrying a card of their own.
+           Inside this one they are columns, and that card comes off. */
         .hv-pac-stat :is(.hv-cpp, .hv-aiw) {
           border: none; border-radius: 0; background: none; padding: 0; box-shadow: none;
         }
         .hv-pac-stat :is(.hv-cpp, .hv-aiw)::before { display: none; }
 
         /* ── Making the pair a pair ────────────────────────────────────
-           The two panels were built at different times and head themselves
-           differently: projects puts a small label over a big figure, credits
-           puts a serif heading on the left with the figure pushed to the right
-           margin. Side by side that is not a comparison, it is two designs — and
-           it was the loudest reason this page read as assembled rather than
-           drawn. Same eyebrow, same figure, same baseline, both columns. */
-        .hv-pac-stat .hv-aiw-head {
-          display: block;
-        }
+           The two were built at different times and head themselves
+           differently: projects puts a small label over a big figure,
+           credits puts a serif heading on the left with the figure pushed
+           to the right margin. Side by side that is not a comparison, it is
+           two designs. Same eyebrow, same figure, same baseline, both. */
+        .hv-pac-stat .hv-aiw-head { display: block; }
         .hv-pac-stat .hv-aiw-title {
-          font: 500 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase;
-          color: var(--fg-mute); margin: 0 0 12px;
+          font: 500 11px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase;
+          color: var(--fg-mute); margin: 0 0 14px;
         }
+        .hv-pac-stat .hv-cpp > .mono { margin-bottom: 14px !important; }
+
+        /* The figures ARE the page. At 40px in brass on cream they were the
+           quietest thing on a screen whose entire job is reporting them —
+           a price list below shouted louder than the balance above it. Big,
+           and in the page's own ink so they carry. */
+        .hv-pac-stat :is(.hv-cpp-figure-n, .hv-aiw-balance-n) {
+          font-size: clamp(46px, 6vw, 64px);
+          color: var(--fg);
+          line-height: .95;
+        }
+        .hv-pac-stat :is(.hv-cpp-figure, .hv-aiw-balance) { margin-bottom: 14px; gap: 12px; }
+        .hv-pac-stat :is(.hv-cpp-figure-w, .hv-aiw-balance-w) { color: var(--fg-soft); }
+
         .hv-pac-stat .hv-aiw-lead,
         .hv-pac-stat .hv-aiw-expiry { max-width: 46ch; }
 
-        /* The ledger is history, not a headline. It is the tallest thing in the
-           statement and was set at the same weight as the balance above it, so
-           five ±1 rows outranked the two numbers the page exists to show. */
-        .hv-pac-stat .hv-aiw-log {
-          margin-top: 20px; padding-top: 16px;
-          border-top: 1px solid var(--rule-soft, var(--rule));
-        }
+        /* History, not a headline. It is the tallest thing in the statement
+           and was set at the same weight as the balance above it, so five
+           ±1 rows outranked the two numbers the panel is for. */
         .hv-pac-stat .hv-aiw-log-note { font-size: 12.5px; color: var(--fg-soft); }
         .hv-pac-stat .hv-aiw-log-n { font-size: 12.5px; }
         .hv-pac-stat .hv-aiw-log-bal { font-size: 11.5px; }
+
+        /* One column below the point where two halves stop being readable —
+           and then the divider is the seam between them, not a left edge. */
+        @media (max-width: 760px) {
+          .hv-pac-statement { grid-template-columns: 1fr; }
+          .hv-pac-stat { padding: 24px 20px; }
+          .hv-pac-stat + .hv-pac-stat { border-left: none; border-top: 1px solid var(--rule); }
+        }
 
         @media (max-width: 640px) {
           .hv-pac { gap: 40px; margin-top: 28px; }

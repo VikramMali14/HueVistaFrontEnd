@@ -72,6 +72,18 @@ function PanelStyles() {
         font: 500 11px/1.5 var(--sans); letter-spacing: .14em; text-transform: uppercase;
         color: var(--fg-mute);
       }
+      /* Label left, value right, on a ruled row — a small statement of account. */
+      .hv-cpp-facts { margin: 0 0 18px; display: grid; gap: 0; }
+      .hv-cpp-facts > div {
+        display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+        padding: 9px 0; border-top: 1px solid var(--rule-soft, var(--rule));
+      }
+      .hv-cpp-facts > div:first-child { border-top: none; }
+      .hv-cpp-facts dt { font: 400 13.5px/1.4 var(--sans); color: var(--fg-mute); }
+      .hv-cpp-facts dd {
+        margin: 0; font: 500 13.5px/1.4 var(--sans); color: var(--fg);
+        font-variant-numeric: tabular-nums; white-space: nowrap;
+      }
     `}</style>
   );
 }
@@ -256,15 +268,34 @@ export function CustomerProjectsPanel(
           separately rather than folded in — they came from a different place, they
           outlive the shop's window, and a customer who paid for one should be able to
           see it sitting there. */}
-      <p style={{ font: "400 14px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "0 0 16px" }}>
-        {ent.projectsCreated} of {ent.projectAllowance} used on your code
-        {bought > 0 ? ` · ${bought} you bought` : ""}
-        {accessOver
-          ? " · your access window has closed"
-          : daysLeft !== null
-            ? ` · ${daysLeft} day${daysLeft === 1 ? "" : "s"} of access left`
-            : ""}
-      </p>
+      {/* Three facts about the same balance, as a breakdown rather than one
+          line joined by interpuncts. "1 of 2 used on your code · 2 you bought ·
+          92 days of access left" is a statement's worth of information set as a
+          sentence, and the reader has to parse where each fact ends; a shop
+          reads its own account this way in every other ledger it keeps. */}
+      <dl className="hv-cpp-facts">
+        <div>
+          <dt>Used on your code</dt>
+          <dd>{ent.projectsCreated} of {ent.projectAllowance}</dd>
+        </div>
+        {bought > 0 && (
+          <div>
+            <dt>You bought</dt>
+            <dd>{bought}</dd>
+          </div>
+        )}
+        {accessOver ? (
+          <div>
+            <dt>Access</dt>
+            <dd>Closed</dd>
+          </div>
+        ) : daysLeft !== null ? (
+          <div>
+            <dt>Access left</dt>
+            <dd>{daysLeft} day{daysLeft === 1 ? "" : "s"}</dd>
+          </div>
+        ) : null}
+      </dl>
 
       {accessOver && bought === 0 ? (
         <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch" }}>

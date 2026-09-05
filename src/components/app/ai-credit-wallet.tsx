@@ -218,6 +218,10 @@ export function AiCreditWallet({
       {/* The statement. Hidden while empty rather than shown as an empty table — a wallet
           nobody has spent from has nothing to account for. */}
       {!compact && wallet.recentActivity.length > 0 && (
+        <>
+        {/* Five rows of "-1 … 5 left" arriving with no heading read as a table that
+            had lost its top. It is the account's history; say so. */}
+        <p className="hv-aiw-log-title">Recent activity</p>
         <ul className="hv-aiw-log">
           {wallet.recentActivity.slice(0, 6).map((row) => (
             <li key={row.id}>
@@ -230,6 +234,7 @@ export function AiCreditWallet({
             </li>
           ))}
         </ul>
+        </>
       )}
 
       <style>{`
@@ -274,7 +279,12 @@ export function AiCreditWallet({
         .hv-aiw-fine { font: 400 12.5px/1.5 var(--sans); color: var(--fg-mute); margin: 12px 0 0; }
         .hv-aiw-note { font: 400 14px/1.55 var(--sans); color: var(--fg); margin: 14px 0 0; }
         .hv-aiw-error { font: 400 14px/1.55 var(--sans); color: var(--danger, #b3261e); margin: 14px 0 0; }
-        .hv-aiw-log { list-style: none; margin: 22px 0 0; padding: 18px 0 0; border-top: 1px solid var(--rule); display: grid; gap: 11px; }
+        .hv-aiw-log-title {
+          margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--rule);
+          font: 500 11px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase;
+          color: var(--fg-mute);
+        }
+        .hv-aiw-log { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 11px; }
         .hv-aiw-log li { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; }
         .hv-aiw-log-n { font: 600 14px/1.3 var(--sans); color: var(--accent-text); font-variant-numeric: tabular-nums; }
         .hv-aiw-log-n.is-out { color: var(--fg-mute); }
