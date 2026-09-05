@@ -144,7 +144,11 @@ export function AiCreditWallet({
               combination from your colour boards. They work on any room.
             </>
           )}
-          {tierNote(wallet).trim()}
+          {/* tierNote carries a leading space so it joins the sentence above it.
+              Trimming unconditionally removed exactly that space and printed
+              "…any room.Premium is 1 credit." Trim only when it is standing on
+              its own, which is the case the trim was added for. */}
+          {describe ? tierNote(wallet) : tierNote(wallet).trim()}
         </p>
       )}
 

@@ -505,22 +505,24 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
       )}
 
       <style>{`
+        /* Not a card. This is the lower half of the page — at full width it ran to
+           about 1,400px, and a rounded rectangle that tall is a section wearing a
+           card's clothes. Every option inside it was then a card too, inside a card,
+           inside a rail: four levels of the same border-radius-fill treatment, so
+           nothing on the page could be more important than anything else. The shop
+           is now a titled section, and the emphasis is spent once, on the offer. */
         .hv-cart {
-          position: relative; overflow: hidden;
-          border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.8);
-          background:
-            radial-gradient(120% 90% at 100% 0%, rgba(192,139,78,.07), transparent 62%),
-            var(--surface);
-          padding: 30px;
+          position: relative;
+          /* A price list needs the price near the thing it prices. Stretched to the
+             page's full 1120px, every row put its description on the left margin and
+             its stepper on the right with a hand's width of nothing between them, so
+             reading one line meant crossing the screen twice. */
+          max-width: 760px;
         }
-        /* A single hairline of light along the top edge. The whole panel is one purchase,
-           and a lit edge reads as a card rather than as a form. */
-        .hv-cart::before {
-          content: ""; position: absolute; inset: 0 0 auto; height: 1px;
-          background: linear-gradient(90deg, transparent, var(--rule-brass), transparent);
+        .hv-cart-title {
+          font: 600 26px/1.2 var(--serif); color: var(--fg); margin: 0; letter-spacing: -.015em;
         }
-        .hv-cart-title { font: 600 22px/1.25 var(--serif); color: var(--fg); margin: 0; letter-spacing: -.01em; }
-        .hv-cart-lead { font: 400 14.5px/1.65 var(--sans); color: var(--fg-soft); margin: 10px 0 0; max-width: 58ch; }
+        .hv-cart-lead { font: 400 15px/1.65 var(--sans); color: var(--fg-soft); margin: 10px 0 0; max-width: 58ch; }
 
         /* ── The special offer ───────────────────────────────────────────────
            Deliberately the loudest thing on the panel and the only gradient on it.
@@ -536,10 +538,14 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
             var(--surface-soft);
         }
         .hv-cart-special-text { flex: 1 1 280px; min-width: 0; }
+        /* Cream on --brass (#c08b4e) measured 2.69:1 — the one badge on the page
+           that failed AA, and it is the label on the thing the page most wants
+           read. --brass-deep clears it at 4.23; this is a touch deeper again so
+           the small caps hold up at 10.5px, where AA's 4.5 is the honest bar. */
         .hv-cart-special-flag {
           display: inline-block; padding: 3px 10px; border-radius: var(--radius-pill);
           font: 600 10.5px/1.5 var(--sans); letter-spacing: .12em; text-transform: uppercase;
-          color: var(--bg); background: var(--brass);
+          color: var(--bg); background: #8a5f28;
         }
         .hv-cart-special-name {
           font: 600 19px/1.3 var(--serif); color: var(--fg); margin: 12px 0 0;
@@ -563,7 +569,7 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
            reads as two halves rather than as one list with an odd row at the top. */
         .hv-cart-group {
           display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
-          margin: 26px 0 0;
+          margin: 30px 0 0; padding-bottom: 4px;
           font: 500 11px/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase;
           color: var(--fg-mute);
         }
@@ -571,22 +577,25 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
           font: 400 12.5px/1.5 var(--sans); letter-spacing: 0; text-transform: none;
           color: var(--fg-mute);
         }
-        /* The combo wears the offer's shape at a lower volume: same card, no gradient, the
-           quieter rule. Same family, different weight. */
+        /* The combo is the same row as the singles, marked. It used to be a second
+           card in the offer's shape, which put two "pick me" blocks side by side and
+           split the emphasis the offer above it was supposed to own. */
         .hv-cart-special.is-combo {
-          margin-top: 12px;
-          border-color: var(--rule);
-          background: var(--surface-soft);
+          margin-top: 4px; padding: 20px 0;
+          border: none; border-top: 1px solid var(--rule-soft, var(--rule));
+          border-radius: 0; background: none;
         }
 
-        .hv-cart-lines { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
+        /* Rows on a ruled list, the way a price list is actually set. As bordered,
+           filled, rounded boxes they read as four competing offers; the two of them
+           are simply the two things sold on their own. */
+        .hv-cart-lines { list-style: none; margin: 4px 0 0; padding: 0; display: block; }
         .hv-cart-line {
           display: flex; gap: 16px; align-items: center; justify-content: space-between;
-          padding: 18px; border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.4);
-          background: var(--surface-soft); flex-wrap: wrap;
-          transition: border-color .25s var(--ease), transform .25s var(--ease);
+          padding: 20px 0; border-top: 1px solid var(--rule-soft, var(--rule));
+          background: none; flex-wrap: wrap;
         }
-        .hv-cart-line:hover { border-color: var(--rule-strong); }
+        .hv-cart-lines > .hv-cart-line:first-child { border-top: none; }
         .hv-cart-line-text { flex: 1 1 260px; min-width: 0; }
         .hv-cart-tag {
           display: inline-block; margin-bottom: 8px; padding: 2px 9px; border-radius: var(--radius-pill);
@@ -600,25 +609,34 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
         .hv-cart-offers { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--rule); }
         .hv-cart-offers-title { font: 500 11px/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-mute); margin: 0 0 12px; }
         .hv-cart-offers-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        /* A dashed grey outline at 50% opacity is how this app draws a thing that is
+           broken or switched off, and these are offers the customer has not reached
+           yet — three of them side by side made the bottom of the shop look like a
+           failed render. An unearned offer is now simply quiet and solid, and says
+           what it is waiting for; the one in reach is drawn in the accent. */
         .hv-cart-offer {
           display: grid; gap: 3px; text-align: left; cursor: pointer;
-          padding: 11px 15px; border: 1px dashed var(--rule-strong); border-radius: var(--radius);
+          padding: 11px 15px; border: 1px solid var(--rule); border-radius: var(--radius);
           background: transparent; color: var(--fg);
           transition: border-color .25s var(--ease), background .25s var(--ease);
         }
         .hv-cart-offer:hover:not(:disabled) { background: var(--surface-soft); }
         .hv-cart-offer.is-on {
-          border-style: solid; border-color: var(--brass); background: var(--surface-soft);
+          border-color: var(--brass); background: var(--surface-soft);
         }
-        .hv-cart-offer.is-locked { opacity: .5; cursor: not-allowed; }
+        .hv-cart-offer:not(.is-locked):not(.is-on) { border-color: var(--rule-brass); }
+        .hv-cart-offer.is-locked { cursor: not-allowed; color: var(--fg-mute); }
+        .hv-cart-offer.is-locked .hv-cart-offer-state { color: var(--fg-mute); }
         .hv-cart-offer-code { font: 600 13px/1.2 var(--mono, var(--sans)); letter-spacing: .06em; }
         .hv-cart-offer-terms { font: 400 12.5px/1.45 var(--sans); color: var(--fg-soft); }
         .hv-cart-offer-state { font: 500 11.5px/1.45 var(--sans); color: var(--accent-text); }
         .hv-cart-nudge { font: 400 13px/1.55 var(--sans); color: var(--fg-soft); margin: 12px 0 0; }
 
+        /* The bill stays boxed — it is a receipt, and the one place on the page
+           where a container means "these figures belong together and total below". */
         .hv-cart-bill {
-          margin-top: 24px; padding: 18px; display: grid; gap: 7px;
-          border: 1px solid var(--rule); border-radius: calc(var(--radius) * 1.4);
+          margin-top: 28px; padding: 18px 20px; display: grid; gap: 7px;
+          border: 1px solid var(--rule); border-radius: var(--radius);
           background: var(--surface-soft);
         }
         .hv-cart-bill-row { display: flex; justify-content: space-between; gap: 16px; font: 400 14px/1.5 var(--sans); color: var(--fg-soft); margin: 0; }
@@ -630,7 +648,7 @@ export function CreditsCart({ onPurchased }: { onPurchased?: () => void }) {
         .hv-cart-note { font: 400 14px/1.55 var(--sans); color: var(--fg); margin: 16px 0 0; }
         .hv-cart-error { font: 400 14px/1.55 var(--sans); color: var(--danger, #b3261e); margin: 16px 0 0; }
         @media (max-width: 560px) {
-          .hv-cart { padding: 20px; }
+          .hv-cart-title { font-size: 22px; }
           .hv-cart-line, .hv-cart-special { align-items: flex-start; }
         }
         @media (prefers-reduced-motion: reduce) {

@@ -139,7 +139,13 @@ export function FilterBar({
         @media (max-width: 620px) {
           .hv-filter-controls { width: 100%; }
           .hv-filter-search { max-width: none; }
-          .hv-filter-facet, .hv-filter-facet select { flex: 1 1 140px; max-width: none; }
+          /* The facet is a flex item of the controls ROW, so a 140px basis on it is
+             a width. The select inside it is a flex item of the facet, which is a
+             COLUMN — so the same basis there set its HEIGHT, and every dropdown on
+             a phone rendered 140px tall with its value stranded at the bottom of an
+             empty box. Size the facet; let the select fill it. */
+          .hv-filter-facet { flex: 1 1 140px; max-width: none; }
+          .hv-filter-facet select { width: 100%; max-width: none; }
         }
       `}</style>
     </div>

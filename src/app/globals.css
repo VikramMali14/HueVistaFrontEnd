@@ -4111,6 +4111,13 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   scrollbar-width: none;
 }
 .hv-studio-region-strip-scroll::-webkit-scrollbar { display: none; }
+/* On the desktop workspace the panel has vertical room and no touch scrolling, so
+   the chips wrap onto a second line rather than sliding a wall's name half off the
+   edge. A phone keeps the horizontal scroll: there, a wrapped row would eat the
+   photograph, which is the thing the screen is short of. */
+@media (min-width: 901px) {
+  .hv-studio-region-strip-scroll { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; }
+}
 /* More chips off-screen to the right (set by RegionStrip): fade the clipped
    edge so a half-cut "+ Wall" reads as "scroll for more", not broken layout. */
 .hv-studio-region-strip-scroll[data-overflow-right] {
@@ -4149,15 +4156,17 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* 24px cleared WCAG 2.5.8's floor, but the pencil and this ✕ were then two
-     bare-minimum targets sitting flush against each other, one of them
-     destructive: the miss that lands on the wrong one deletes the wall the
-     customer just finished colouring. Wider, and with real space between them,
-     so a fingertip that drifts hits nothing rather than the ✕. */
-  min-width: 34px;
+  /* 24px clears WCAG 2.5.8's floor, which is enough for a mouse. What it was not
+     enough for was a fingertip: the pencil and this ✕ sat flush against each
+     other at the minimum size, one of them destructive, so the miss that lands
+     on the wrong one deletes the wall the customer just finished colouring. The
+     real widening happens under (pointer: coarse) below — done here as well it
+     cost the chip row 72px and pushed "Trim" off the edge of the desktop panel,
+     which is a clipped label to fix a mis-tap that a mouse does not make. */
+  min-width: 24px;
   flex-shrink: 0;
-  padding: 6px 8px;
-  margin-left: 2px;
+  padding: 6px 5px;
+  margin-left: 1px;
   background: transparent;
   border: none;
   color: var(--fg-mute);
@@ -4171,11 +4180,11 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Matches the ✕ beside it — see the note there on why 24px was not enough. */
-  min-width: 34px;
+  /* Matches the ✕ beside it — see the note there. */
+  min-width: 24px;
   flex-shrink: 0;
-  padding: 6px 8px;
-  margin-left: 2px;
+  padding: 6px 5px;
+  margin-left: 1px;
   background: transparent;
   border: none;
   color: var(--fg-mute);
