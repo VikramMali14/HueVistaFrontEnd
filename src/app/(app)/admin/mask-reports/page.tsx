@@ -34,7 +34,7 @@ export default async function AdminMaskReportsPage({
 
   return (
     <div className="measure" style={{ maxWidth: 1080 }}>
-      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
         ← Admin
       </Link>
       <Eyebrow style={{ marginTop: 16 }}>Admin · reported runs</Eyebrow>
@@ -58,11 +58,11 @@ export default async function AdminMaskReportsPage({
       <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
         <Link
           href={includeResolved ? "/admin/mask-reports" : "/admin/mask-reports?resolved=1"}
-          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}
+          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}
         >
           {includeResolved ? "Open reports only →" : "Include resolved →"}
         </Link>
-        <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Mask viewer →
         </Link>
       </p>

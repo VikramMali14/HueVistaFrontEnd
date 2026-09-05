@@ -604,7 +604,7 @@ function Chip({
         borderRadius: 999,
         padding: "6px 12px",
         cursor: "pointer",
-        color: active ? "var(--accent)" : "var(--fg-soft)",
+        color: active ? "var(--accent-text)" : "var(--fg-soft)",
         font: "400 12px/1 var(--mono)",
         letterSpacing: ".16em",
         textTransform: "uppercase",

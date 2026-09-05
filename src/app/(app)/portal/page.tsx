@@ -74,9 +74,14 @@ export default async function PortalPage() {
             "One project" is whatever count you set when you issue the code (and can top
             up later), and the window is a fixed ten days rather than one you choose —
             what you control is whether to give it another ten. */}
+        {/* And the third thing the sentence was wrong about: the code is added to a
+            HueVista ACCOUNT, so a walk-in with no account signs up before entering it.
+            Leaving that out is what turns a code handed over the counter into a
+            customer standing at a page that asks for something nobody mentioned. */}
         <p style={{ font: "300 17px/1.6 var(--serif)", color: "var(--fg-soft)", maxWidth: "52ch", marginBottom: 28 }}>
-          Issue a code and share it with a customer. They enter it at <Mono>{site.unlockLabel}</Mono> to start
-          visualising — with the number of projects you assign, for ten days. You can add
+          Issue a code and share it with a customer. They sign in at <Mono>{site.unlockLabel}</Mono> —
+          creating a free account if they haven&rsquo;t one — and enter it there to start
+          visualising, with the number of projects you assign, for ten days. You can add
           projects or another ten days to a code they are already holding.
         </p>
         <AccessCodes org={shopOrg} />

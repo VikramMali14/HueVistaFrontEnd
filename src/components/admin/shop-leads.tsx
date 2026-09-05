@@ -115,7 +115,7 @@ export function ShopLeads({ initial, distributors, approveAction, dismissAction 
                   font: "400 12px/1 var(--mono)",
                   letterSpacing: ".22em",
                   textTransform: "uppercase",
-                  color: actionable ? "var(--accent)" : "var(--fg-mute)",
+                  color: actionable ? "var(--accent-text)" : "var(--fg-mute)",
                 }}
               >
                 {STATUS_LABEL[l.status] ?? l.status}

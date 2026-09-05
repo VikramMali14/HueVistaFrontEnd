@@ -67,7 +67,7 @@ function FilterDropdown({ id, label, value, options, onChange, soon, openId, set
         style={{ width: "100%", height: "100%", padding: "18px 20px", background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, font: "400 12px/1 var(--mono)", letterSpacing: ".26em", textTransform: "uppercase", color: "var(--fg-soft)" }}
       >
         <span>{label}</span>
-        <span style={{ color: "var(--accent)", fontFamily: "var(--serif)", fontSize: 15, letterSpacing: ".01em", textTransform: "none" }}>{value}</span>
+        <span style={{ color: "var(--accent-text)", fontFamily: "var(--serif)", fontSize: 15, letterSpacing: ".01em", textTransform: "none" }}>{value}</span>
         <span style={{ color: "var(--fg-mute)", fontSize: 12 }} aria-hidden>▾</span>
       </button>
       {open && (
@@ -398,7 +398,7 @@ export function CatalogueToolbar({ shades }: { shades: ReadonlyArray<PaintShade>
                       aria-pressed={comparing}
                       aria-label={comparing ? `Remove ${nameOf(s)} from compare` : `Compare ${nameOf(s)} with other shades`}
                       title={comparing ? "Remove from compare" : compareCodes.length >= COMPARE_MAX ? `Compare is full (${COMPARE_MAX})` : "Add to compare"}
-                      style={comparing ? { color: "var(--accent)", borderColor: "var(--accent)" } : undefined}
+                      style={comparing ? { color: "var(--accent-text)", borderColor: "var(--accent)" } : undefined}
                     >
                       <CompareIcon />
                     </button>

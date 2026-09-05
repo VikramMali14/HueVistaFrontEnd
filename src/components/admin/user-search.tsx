@@ -104,7 +104,7 @@ export function UserSearch({ searchAction }: UserSearchProps) {
                   font: "400 12px/1 var(--mono)",
                   letterSpacing: ".2em",
                   textTransform: "uppercase",
-                  color: u.emailVerified ? "var(--accent)" : "var(--fg-mute)",
+                  color: u.emailVerified ? "var(--accent-text)" : "var(--fg-mute)",
                 }}
               >
                 {u.emailVerified ? "verified" : "unverified"}

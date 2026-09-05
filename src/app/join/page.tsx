@@ -45,14 +45,14 @@ export default async function JoinPage({ searchParams }: PageProps) {
           Already have an account?{" "}
           <Link
             href={`/sign-in?next=${encodeURIComponent(safeNext)}`}
-            style={{ color: "var(--accent-soft)", borderBottom: "1px solid var(--rule-brass)" }}
+            style={{ color: "var(--accent-text)", borderBottom: "1px solid var(--rule-brass)" }}
           >
             Sign in.
           </Link>
         </p>
         <p style={{ marginTop: 16, font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
           Run a paint shop?{" "}
-          <Link href="/trial" style={{ color: "var(--accent-soft)" }}>
+          <Link href="/trial" style={{ color: "var(--accent-text)" }}>
             Request a shop account
           </Link>{" "}
           and we&apos;ll set you up.

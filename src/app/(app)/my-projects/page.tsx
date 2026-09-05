@@ -125,7 +125,7 @@ export default async function MyProjectsPage() {
         .hv-mp-foot p {
           margin: 0; font: 400 14px/1.7 var(--sans); color: var(--fg-mute); max-width: 58ch;
         }
-        .hv-mp-foot a { color: var(--accent); }
+        .hv-mp-foot a { color: var(--accent-text); }
       `}</style>
     </div>
   );

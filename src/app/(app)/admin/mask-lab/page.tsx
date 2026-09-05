@@ -21,7 +21,7 @@ export default async function AdminMaskLabPage() {
 
   return (
     <div className="measure" style={{ maxWidth: 1180 }}>
-      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
         ← Admin
       </Link>
       <Eyebrow style={{ marginTop: 16 }}>Admin · diagnostics</Eyebrow>
@@ -37,10 +37,10 @@ export default async function AdminMaskLabPage() {
       </Lead>
 
       <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
-        <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Mask viewer — is it on the wall? →
         </Link>
-        <Link href="/admin/mask-align" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/mask-align" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Align bench — move a drifted mask →
         </Link>
       </p>

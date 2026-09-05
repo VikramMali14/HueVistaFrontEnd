@@ -6,6 +6,7 @@ import { Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
 import { api, HttpError } from "@/lib/api";
 import { buyOneProject } from "@/lib/payments";
+import { hasPassed } from "@/lib/dates";
 import type { CustomerEntitlement, ProjectPurchaseOptions } from "@/lib/types";
 
 /** Paise → a rupee figure for a sentence ("₹99", "₹9", "₹49.50"). */
@@ -29,7 +30,7 @@ const bannerStyle = (highlight: boolean): React.CSSProperties => ({
 const unlockLink = (
   <Link
     href="/unlock"
-    style={{ color: "var(--accent)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+    style={{ color: "var(--accent-text)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
   >
     Unlock with a code →
   </Link>
@@ -96,7 +97,7 @@ export function CustomerAccessBanner() {
     );
   }
 
-  if (ent.expired) {
+  if (ent.expired || hasPassed(ent.accessExpiresAt, now)) {
     return (
       <div style={bannerStyle(true)}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -110,8 +111,12 @@ export function CustomerAccessBanner() {
     );
   }
 
+  // Unclamped is safe here only because the guard above has already sent every
+  // closed window to the "Access ended" branch — see hasPassed. Before that guard
+  // read the date, a stale `expired: false` landed here and printed "0 days of
+  // access" beside a working Add-a-code button.
   const daysLeft = ent.accessExpiresAt
-    ? Math.max(0, Math.ceil((new Date(ent.accessExpiresAt).getTime() - now) / 86_400_000))
+    ? Math.ceil((new Date(ent.accessExpiresAt).getTime() - now) / 86_400_000)
     : null;
 
   // Show the deduction, not just the remainder: "1 of 3 projects used" tells the
@@ -195,7 +200,7 @@ function BuyProjectButton({
           padding: "8px 14px",
           border: "1px solid var(--accent)",
           background: "transparent",
-          color: "var(--accent)",
+          color: "var(--accent-text)",
           font: "400 12px/1 var(--mono)",
           letterSpacing: ".18em",
           textTransform: "uppercase",

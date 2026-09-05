@@ -186,7 +186,7 @@ export function PricingTiers({ isCustomer = false, signedIn = false }: PricingTi
           style={{ marginTop: 20, padding: "12px 16px", border: "1px solid var(--rule-strong)", background: "var(--surface-soft)", borderRadius: 8, font: "300 16px/1.5 var(--serif)", color: "var(--fg-soft)", maxWidth: 620 }}
         >
           These plans are for paint shops. Visualising your own room?{" "}
-          <Link href="/unlock" style={{ color: "var(--accent-soft)" }}>Unlock with the access code</Link>{" "}
+          <Link href="/unlock" style={{ color: "var(--accent-text)" }}>Unlock with the access code</Link>{" "}
           from your paint shop instead — it&apos;s free for you.
         </div>
       )}

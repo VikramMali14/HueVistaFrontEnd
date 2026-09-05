@@ -99,7 +99,7 @@ export function ForgotForm() {
   if (step === "done") {
     return (
       <div style={{ marginTop: 40 }}>
-        <span aria-hidden style={{ fontSize: 40, color: "var(--accent)" }}>✓</span>
+        <span aria-hidden style={{ fontSize: 40, color: "var(--accent-text)" }}>✓</span>
         <h2 style={{ font: "400 28px/1.2 var(--serif)", color: "var(--fg)", margin: "12px 0 16px" }}>
           Password reset.
         </h2>

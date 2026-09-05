@@ -143,7 +143,7 @@ function Row({
         {value && <span style={{ font: "400 14px/1 var(--sans, system-ui)", color: "var(--fg)" }}>{value}</span>}
         <div style={{ flex: 1 }} />
         {verified ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent)" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent-text)" }}>
             <span aria-hidden>✓</span>
             <Mono brass>Verified</Mono>
           </span>

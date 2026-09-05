@@ -104,7 +104,13 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
     <>
       <section
         className="r-cols-md-2 r-cols-xs-1"
-        style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, alignItems: "start" }}
+        /* stretch, not start: a card carrying an AI-image row is 48px taller than one
+           without, so with `start` the row went ragged and the New-project tile — which
+           reserves a caption but no AI row — ended short of its neighbours. Stretching
+           the row and dropping the meta line to the bottom of each card (margin-top:
+           auto, below) makes every card in a row one height and puts every date on one
+           line across the shelf, whatever each card happens to carry. */
+        style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, alignItems: "stretch" }}
       >
         {/* New-project tile: 4/5 media + an invisible caption spacer so its total
             height matches a project card exactly (every card is one size). */}
@@ -119,7 +125,7 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
               justifyContent: "center",
               gap: 12,
               aspectRatio: "4 / 5",
-              color: "var(--accent)",
+              color: "var(--accent-text)",
               textDecoration: "none",
               background: "var(--surface-soft)",
               borderRadius: "calc(var(--radius) * 1.4)",
@@ -239,7 +245,7 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
                     <span className="arr" aria-hidden>→</span>
                   </Link>
                 )}
-                <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                <div className="hv-proj-meta" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                   <Mono>
                     {p.regionCount} region{p.regionCount === 1 ? "" : "s"}
                   </Mono>
@@ -260,13 +266,16 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
             border-radius: calc(var(--radius) * 1.4);
             transition: border-color .2s var(--ease), background .2s var(--ease);
           }
-          .hv-proj-new:hover { border-color: var(--accent); }
+          .hv-proj-new:hover { border-color: var(--accent-text); }
 
           /* The room, in the card language the rest of the app uses. The photograph is
              the whole card rather than a bordered rectangle sitting on the page ground,
              which is what a shelf of rooms should look like — and it lifts a hair under
              the pointer so a grid of a dozen answers the one being aimed at. */
-          .hv-proj-card { animation: hv-proj-in .5s var(--ease) both; }
+          /* A column, so the caption can take the slack a shorter card leaves and the
+             meta line can sit on the card's floor rather than wherever the content
+             above it happened to end. */
+          .hv-proj-card { animation: hv-proj-in .5s var(--ease) both; display: flex; flex-direction: column; }
           @keyframes hv-proj-in {
             from { opacity: 0; transform: translateY(12px); }
             to   { opacity: 1; transform: none; }
@@ -281,7 +290,11 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
             border-color: var(--rule-strong); transform: translateY(-3px);
           }
           .hv-proj-thumb a:hover img { transform: scale(1.04); }
-          .hv-proj-caption { margin-top: 14px; }
+          .hv-proj-caption { margin-top: 14px; display: flex; flex-direction: column; flex: 1; }
+          /* The floor. margin-top:auto eats the difference between a card carrying an
+             AI-image row and one without, which is what lines the dates up across the
+             shelf however much each caption above them holds. */
+          .hv-proj-meta { margin-top: auto; padding-top: 8px; }
           /* Fixed font + a reserved two-line clamp so every card's caption is the
              same height — cards stay one uniform size regardless of title length. */
           .hv-proj-title {
@@ -294,7 +307,7 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
             min-height: 2.4em;
             transition: color .2s var(--ease);
           }
-          a:hover .hv-proj-title { color: var(--accent); }
+          a:hover .hv-proj-title { color: var(--accent-text); }
           /* The AI-image row. Sits under the caption as its own tappable strip rather
              than inside the title link, so "open the room" and "open the picture" stay
              two separate targets on a phone. */
@@ -305,7 +318,7 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
             text-decoration: none; color: var(--fg-soft);
             transition: border-color .2s var(--ease), background .2s var(--ease), color .2s var(--ease);
           }
-          .hv-proj-ai:hover { border-color: var(--accent); background: var(--surface-soft); color: var(--fg); }
+          .hv-proj-ai:hover { border-color: var(--accent-text); background: var(--surface-soft); color: var(--fg); }
           .hv-proj-ai:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
           .hv-proj-ai img {
             width: 26px; height: 26px; border-radius: 50%;

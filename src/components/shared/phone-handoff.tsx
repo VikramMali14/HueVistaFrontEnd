@@ -150,7 +150,7 @@ export function PhoneHandoff({ onImage }: { onImage: (file: File) => void }) {
 
             {phase === "received" ? (
               <>
-                <span aria-hidden style={{ fontSize: 40, color: "var(--accent)" }}>✓</span>
+                <span aria-hidden style={{ fontSize: 40, color: "var(--accent-text)" }}>✓</span>
                 <p style={{ font: "400 18px/1.3 var(--serif)", margin: 0 }}>Photo received.</p>
               </>
             ) : phase === "error" ? (
@@ -168,7 +168,7 @@ export function PhoneHandoff({ onImage }: { onImage: (file: File) => void }) {
                     role="alert"
                     style={{
                       font: "500 12px/1.45 var(--sans, system-ui)",
-                      color: "var(--terracotta)",
+                      color: "var(--terracotta-text)",
                       background: "rgba(var(--fg-rgb), .05)",
                       border: "1px solid var(--rule-strong)",
                       padding: "8px 10px",

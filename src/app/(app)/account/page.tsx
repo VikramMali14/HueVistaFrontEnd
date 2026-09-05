@@ -50,7 +50,7 @@ export default async function AccountPage() {
             background: "rgba(var(--fg-rgb), .02)",
           }}
         >
-          <h2 style={{ font: "600 18px/1.2 var(--serif)", color: "var(--terracotta)", margin: "0 0 8px" }}>
+          <h2 style={{ font: "600 18px/1.2 var(--serif)", color: "var(--terracotta-text)", margin: "0 0 8px" }}>
             Delete account
           </h2>
           <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", margin: "0 0 18px", maxWidth: "54ch" }}>

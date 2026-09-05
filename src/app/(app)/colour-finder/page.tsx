@@ -48,14 +48,14 @@ export default async function ColorFinderPage() {
         {planLocked ? (
           <>
             Matching a colour you already have a code for is on every plan.{" "}
-            <Link href="/catalogue" style={{ color: "var(--accent)" }}>
+            <Link href="/catalogue" style={{ color: "var(--accent-text)" }}>
               Look a code up in the catalogue →
             </Link>
           </>
         ) : (
           <>
             Know the hex already?{" "}
-            <Link href="/catalogue" style={{ color: "var(--accent)" }}>
+            <Link href="/catalogue" style={{ color: "var(--accent-text)" }}>
               Match a colour by code on the catalogue →
             </Link>
           </>

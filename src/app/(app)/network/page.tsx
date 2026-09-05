@@ -71,7 +71,7 @@ export default async function NetworkPage() {
 
       {user.role === "ADMIN" && (
         <p style={{ marginTop: 16 }}>
-          <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
             Create distributors &amp; shops on the admin console →
           </Link>
         </p>

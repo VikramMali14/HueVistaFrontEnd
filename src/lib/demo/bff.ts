@@ -12,8 +12,13 @@ import type {
   PaintBrand,
   PaintLine,
   ProductCategory,
+  MyRender,
+  ProjectCombo,
   ProjectDetail,
+  ProjectRender,
   QualityTier,
+  RenderOptions,
+  RenderQuality,
   RegionColorUpdate,
   RegionDetail,
   ShareLink,
@@ -26,9 +31,10 @@ import type {
   VerificationStatus,
 } from "../types";
 import { SHADES } from "../shades";
+import { isUnlimited } from "../plan-quota";
 import { demoUserFromToken } from "./accounts";
-import { DEMO_UPLOAD_IMAGE_URL, demoLinesFor, toSummary } from "./data";
-import { getStore, nextId, nextSeq, retailerOrg } from "./store";
+import { DEMO_PLANS, DEMO_UPLOAD_IMAGE_URL, demoLinesFor, toSummary } from "./data";
+import { getStore, nextId, nextSeq, nextUuid, retailerOrg } from "./store";
 
 function json(data: unknown, status = 200): NextResponse {
   if (data === undefined) return new NextResponse(null, { status: status === 200 ? 204 : status });
@@ -37,6 +43,12 @@ function json(data: unknown, status = 200): NextResponse {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+/** An ISO timestamp `days` from now — negative for the past. See ./data on why the
+ *  demo dates every fixture relative to the moment it is run. */
+function inDays(days: number): string {
+  return new Date(Date.now() + days * 86_400_000).toISOString();
 }
 
 async function readJson(req: NextRequest): Promise<Record<string, unknown>> {
@@ -94,7 +106,9 @@ const verificationStatus = (channel: "EMAIL" | "PHONE", destination: string): Ve
  *  (loading a demo URL there would replace it). Walls are marked with the
  *  client-side Mask Studio, which recolours live without a backend. */
 function freshProject(name: string | undefined, roomType: string | undefined, imageId: string): ProjectDetail {
-  const id = nextId("prj");
+  // A UUID, not a prj_N — /studio validates ?project= against one before it will
+  // open a room, so a readable id here is a room the dashboard lists and cannot open.
+  const id = nextUuid();
   const project: ProjectDetail = {
     id,
     name: name?.trim() || "Untitled project",
@@ -173,6 +187,23 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   if (path === "api/projects" && method === "POST") {
     const body = await readJson(req);
     const p = freshProject(body.name as string | undefined, body.roomType as string | undefined, (body.imageId as string) ?? nextId("img"));
+    /**
+     * Spend the allowance the room costs.
+     *
+     * The counter used to sit still: a demo could create twenty rooms and the plan
+     * chip read "12 of 45" throughout, so the dashboard contradicted itself within one
+     * screen ("Projects saved 5" beside "12 of 45 used") and the whole running-out
+     * story — the nudge, the extra-project purchase, the read-only fallback — could
+     * not be reached at all. A CUSTOMER spends their shop entitlement instead, which
+     * is the same rule the backend applies.
+     */
+    if (user.role === "CUSTOMER") {
+      store.entitlement.projectsCreated += 1;
+      store.entitlement.projectsRemaining = Math.max(0, store.entitlement.projectsRemaining - 1);
+    } else {
+      store.subscription.projectsUsed += 1;
+      store.subscription.projectsRemaining = Math.max(0, (store.subscription.projectsRemaining ?? 0) - 1);
+    }
     return json(liveResponse(p));
   }
   if (seg[0] === "api" && seg[1] === "projects" && seg.length >= 3) {
@@ -222,6 +253,87 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
             trimHex: "#6d5a3f", trimShade: shade(109, "HV-7645", "Aged Brass", "#6d5a3f") },
         ],
       });
+    }
+    /**
+     * The colour boards this room handed over — the fixed set an AI image may be made
+     * from. Derived rather than stored, because the demo has no board-building step:
+     * whatever colours are on the walls right now ARE the board the customer took away.
+     */
+    if (tail === "combos" && method === "GET") {
+      return json(projectCombos(project));
+    }
+    /**
+     * Close the room. The studio's last step, and the gate in front of the render page:
+     * an open room is reached from the studio it is open in.
+     */
+    if (tail === "close" && method === "POST") {
+      if (!project.closedAt) project.closedAt = nowIso();
+      project.updatedAt = nowIso();
+      return json(project);
+    }
+    // ---------- AI renders ----------
+    if (tail === "renders" && method === "GET") {
+      return json(settleRenders(project.id));
+    }
+    /**
+     * Ask for one AI image of this room.
+     *
+     * The real backend accepts immediately as QUEUED, debits a credit, and the studio
+     * polls until READY or FAILED. The demo keeps that shape rather than answering READY
+     * on the spot — the waiting screen, the poll loop and the credit arithmetic are a
+     * third of what this flow IS, and a fixture that skips to the answer demos none of
+     * it. {@link settleRenders} is what finishes the job, on the next poll.
+     *
+     * The picture itself is the room's own photograph. A demo cannot make a real one and
+     * should not pretend to: what it can show honestly is every step around it.
+     */
+    if (tail === "renders" && method === "POST") {
+      const body = (await readJson(req)) as Record<string, unknown>;
+      const quality = (body.quality as RenderQuality) ?? "PREMIUM";
+      const cost = store.aiCredits.renderTiers?.find((t) => t.quality === quality)?.credits
+        ?? store.aiCredits.renderCost;
+      if (store.aiCredits.balance < cost) {
+        // The same 402 the backend answers with, so the buy-credits path is demoable.
+        return json({ message: `Not enough AI credits (${store.aiCredits.balance} left, ${cost} needed).` }, 402);
+      }
+      store.aiCredits.balance -= cost;
+      store.aiCredits.recentActivity.unshift({
+        id: nextId("aic"),
+        credits: -cost,
+        type: "SPENT_ON_RENDER",
+        balanceAfter: store.aiCredits.balance,
+        note: project.name,
+        createdAt: nowIso(),
+      });
+      const combo = projectCombos(project).find((c) => c.id === body.comboId) ?? projectCombos(project)[0];
+      const render: DemoRender = {
+        id: nextId("rnd"),
+        projectId: project.id,
+        projectName: project.name,
+        roomType: project.roomType ?? null,
+        status: "QUEUED",
+        imageUrl: null,
+        comboId: combo?.id ?? null,
+        comboTitle: combo?.title ?? null,
+        boardIndex: combo?.boardIndex ?? 1,
+        timeOfDay: (body.timeOfDay as MyRender["timeOfDay"]) ?? "DAY",
+        borderMode: (body.borderMode as MyRender["borderMode"]) ?? "KEEP_ORIGINAL",
+        lighting: (body.lighting as MyRender["lighting"]) ?? "NATURAL",
+        furnishing: (body.furnishing as MyRender["furnishing"]) ?? "KEEP",
+        style: (body.style as MyRender["style"]) ?? "MODERN",
+        quality,
+        note: typeof body.note === "string" ? body.note : undefined,
+        shades: combo?.shades ?? [],
+        createdAt: nowIso(),
+        completedAt: null,
+        readyAt: Date.now() + RENDER_TAKES_MS,
+      };
+      store.pendingRenders.unshift(render);
+      return json(toProjectRender(render), 202);
+    }
+    if (seg[3] === "renders" && seg.length === 5 && method === "GET") {
+      const one = settleRenders(project.id).find((r) => r.id === seg[4]);
+      return one ? json(one) : json({ message: "No such render." }, 404);
     }
     if (tail === "status" && method === "GET") {
       return json(liveResponse({ ...project, status: "SEGMENTED" }));
@@ -351,11 +463,81 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
       creditBalance: store.aiCredits.balance,
     });
   }
+  /**
+   * The tier ladder /plan offers. Without it the page said "The plans couldn't be
+   * loaded just now" under a live subscription — the one screen where the upgrade is
+   * the point.
+   */
+  if (path === "api/billing/plans" && method === "GET") {
+    return json(DEMO_PLANS);
+  }
+  /**
+   * The colour-board PDF allowance. Missing, this read as a confident "0 of 0 used"
+   * beside a Professional plan that includes 40 — a wrong number is worse than none,
+   * because nothing on screen says it is a failure rather than a quota.
+   */
+  if (path === "api/billing/pdf-allowance" && method === "GET") {
+    const limit = store.subscription.pdfDownloadsLimit ?? 0;
+    const used = store.subscription.pdfDownloadsUsed ?? 0;
+    return json({
+      imagesPerPdf: 8,
+      monthlyLimit: limit,
+      used,
+      remaining: Math.max(0, limit - used),
+      unlimited: isUnlimited(limit),
+    });
+  }
+  /** The shop's reward-point wallet, as the plan page and the kiosk panel read it. */
+  if (path === "api/billing/points" && method === "GET") {
+    if (user.role === "CUSTOMER") return json({ message: "No points wallet." }, 404);
+    return json(rewardPoints());
+  }
+  /**
+   * The paint companies THIS shop shows — the code-issuing picker's list. Its absence
+   * left "Loading your companies…" on screen for the life of the page.
+   */
+  if (path === "api/shades/mine/brands" && method === "GET") {
+    const chosen = store.visibleBrandIds;
+    return json(
+      store.brands
+        .filter((b) => chosen === null || chosen.includes(b.id))
+        .map((b) => ({
+          name: b.name,
+          slug: b.slug,
+          shadeCount: SHADES.filter((s) => s.brand === b.name).length,
+        })),
+    );
+  }
   if (path === "api/billing/ai-credits" && method === "GET") {
     return json(store.aiCredits);
   }
   if (path === "api/me/renders" && method === "GET") {
     return json(store.renders);
+  }
+  /**
+   * The rooms a NEW image can be started from — closed, and carrying at least one
+   * colour-board combination.
+   *
+   * Neither half of that is tracked by a demo project on its own, so both are inferred:
+   * a room is offered once it has colours on it, which is the same thing the combo
+   * derivation below asks for. Without this the picker fell through to the 404 at the
+   * bottom of this file and printed the words "Demo: no fixture for GET
+   * api/me/renderable-projects" on the page, under a heading offering to make a picture.
+   */
+  if (path === "api/me/renderable-projects" && method === "GET") {
+    return json(
+      store.projects
+        .filter((p) => projectCombos(p).length > 0)
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          roomType: p.roomType ?? null,
+          imageUrl: p.imageUrl || DEMO_UPLOAD_IMAGE_URL,
+          cleanedImageUrl: p.cleanedImageUrl ?? null,
+          closedAt: p.closedAt ?? p.updatedAt ?? nowIso(),
+          comboCount: projectCombos(p).length,
+        })),
+    );
   }
   if (path === "api/billing/points/pay/project-credit" && method === "POST") {
     if (store.wallet.pointsBalance < POINTS_PROJECT) {
@@ -519,6 +701,9 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
             .filter((id: number) => known.has(id));
       return json(shopBrandVisibility());
     }
+    /** Everything this shop has given away. Nothing seeded — a shop that has granted
+     *  nothing is the ordinary case, and an empty list is the honest answer for it. */
+    if (tail === "project-grants" && method === "GET") return json([]);
     if (tail === "access-codes" && method === "GET") return json(store.accessCodes);
     if (tail === "access-codes" && method === "POST") {
       const body = await readJson(req);
@@ -685,6 +870,132 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
 }
 
 // --- helpers ---
+/**
+ * The shop's reward-point wallet, in the shape GET /api/billing/points answers with.
+ *
+ * Derived from the same `store.wallet` the kiosk panel reads rather than seeded twice,
+ * so a sale credited in the demo moves BOTH screens — which is the whole point of the
+ * kiosk being demoable at all.
+ */
+function rewardPoints() {
+  const store = getStore();
+  const balance = store.wallet.pointsBalance;
+  return {
+    balance,
+    pointsPerSale: store.wallet.pointsPerSale,
+    rupeesPerPoint: 1,
+    minPurchase: 50,
+    maxPurchase: 5_000,
+    validityDays: 365,
+    expiryWarningDays: 30,
+    projectPrice: POINTS_PROJECT,
+    reopenPrice: Math.round(POINTS_PROJECT / 2),
+    nextExpiringPoints: balance > 0 ? balance : null,
+    nextExpiryAt: balance > 0 ? inDays(300) : null,
+    lots: balance > 0 ? [{ id: "lot_demo", pointsRemaining: balance, expiresAt: inDays(300) }] : [],
+    recentActivity: store.wallet.recentPayments.map((p) => ({
+      id: p.id,
+      points: p.reversed ? -p.bonusPoints : p.bonusPoints,
+      type: (p.reversed ? "KIOSK_REVERSED" : "KIOSK_EARNED") as "KIOSK_REVERSED" | "KIOSK_EARNED",
+      createdAt: p.createdAt ?? nowIso(),
+    })),
+  };
+}
+
+// --- AI renders ---
+
+/**
+ * How long a demo render "takes".
+ *
+ * Long enough that the studio's QUEUED → RUNNING → READY screen is actually seen, short
+ * enough that nobody walks away from the demo. The real thing normally lands inside a
+ * minute and is allowed up to eight.
+ */
+const RENDER_TAKES_MS = 4_000;
+
+/** A queued demo render, plus the wall-clock moment it should be declared finished. */
+type DemoRender = MyRender & { readyAt: number };
+
+/** MyRender (the /ai-images shelf shape) → ProjectRender (what the studio polls). */
+function toProjectRender(r: MyRender): ProjectRender {
+  const { id, comboId, status, imageUrl, createdAt, completedAt, ...opts } = r;
+  return {
+    ...(opts as RenderOptions),
+    id,
+    comboId: comboId ?? null,
+    status,
+    imageUrl: imageUrl ?? null,
+    failureReason: null,
+    createdAt,
+    completedAt: completedAt ?? null,
+  };
+}
+
+/**
+ * Advance every pending render for a project, then answer with all of that project's.
+ *
+ * Time is read here rather than on a timer because there is nothing to run a timer in:
+ * a demo request is the only thing that happens. So each poll asks "is it done yet",
+ * which is exactly the question the studio's poll loop is already asking — the two
+ * agree by construction, and an image is never finished by a clock nobody read.
+ *
+ * QUEUED for the first poll, RUNNING for the ones after, READY once the time is up.
+ * A finished render moves onto the account's shelf, so it appears at /ai-images too.
+ */
+function settleRenders(projectId: string): ProjectRender[] {
+  const store = getStore();
+  const now = Date.now();
+  for (const r of store.pendingRenders) {
+    if (r.status === "READY") continue;
+    if (now >= r.readyAt) {
+      const project = store.projects.find((p) => p.id === r.projectId);
+      r.status = "READY";
+      // The room's own photograph, standing in for a picture the demo cannot make.
+      r.imageUrl = project?.cleanedImageUrl || project?.imageUrl || DEMO_UPLOAD_IMAGE_URL;
+      r.completedAt = nowIso();
+      if (!store.renders.some((x) => x.id === r.id)) {
+        // Onto the account's shelf without the demo's own bookkeeping field, so
+        // /ai-images sees exactly the shape the real endpoint returns.
+        const shelf: MyRender = { ...r };
+        delete (shelf as Partial<DemoRender>).readyAt;
+        store.renders.unshift(shelf);
+      }
+    } else if (r.status === "QUEUED") {
+      r.status = "RUNNING";
+    }
+  }
+  return store.pendingRenders.filter((r) => r.projectId === projectId).map(toProjectRender);
+}
+
+/**
+ * The colour boards a room can be photographed in.
+ *
+ * The real backend stores these when the studio builds a board; the demo has no board
+ * step, so the walls as they stand are the board. One combination per room, named the
+ * way a board page is named, and no combination at all for a room with no colours on it
+ * — which is what correctly keeps an untouched room out of the render picker.
+ */
+function projectCombos(project: ProjectDetail): ProjectCombo[] {
+  const painted = project.regions.filter((r) => r.appliedHexCode);
+  if (painted.length === 0) return [];
+  return [
+    {
+      id: `cmb_${project.id.slice(0, 8)}`,
+      boardIndex: 1,
+      pageIndex: 0,
+      title: "Board 1 · Option 1",
+      rendered: getStore().renders.some((r) => r.projectId === project.id),
+      shades: painted.map((r) => ({
+        regionId: r.id,
+        regionLabel: r.label,
+        shadeCode: r.appliedShadeCode ?? null,
+        shadeName: SHADES.find((s) => s.code === r.appliedShadeCode)?.name ?? null,
+        hex: r.appliedHexCode!,
+      })),
+    },
+  ];
+}
+
 
 /** The demo's answer for GET/PUT visible-brands: the catalogue, each flagged. */
 function shopBrandVisibility() {

@@ -213,7 +213,7 @@ export function ShadeCodePanel({ shades, org: orgProp }: { shades: ReadonlyArray
 /** A highlighted scheme part inside the example line. */
 function SchemePart({ children }: { children: string }) {
   if (!children) return null;
-  return <span style={{ color: "var(--accent)", fontWeight: 600 }}>{children}</span>;
+  return <span style={{ color: "var(--accent-text)", fontWeight: 600 }}>{children}</span>;
 }
 
 function PartInput({

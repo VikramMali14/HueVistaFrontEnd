@@ -12,18 +12,22 @@ export const metadata: Metadata = {
 };
 
 /**
- * PUBLIC page, with three quite different jobs behind one code box — which is why it
- * reads the session before it renders anything.
+ * PUBLIC page, with three quite different jobs behind one box — which is why it reads
+ * the session before it renders anything.
  *
- * - Nobody signed in: the walk-in flow. The code auto-creates the customer's account
- *   (named by the shop) and signs them in.
- * - A CUSTOMER signed in: the code is added to the account they already have, so the
- *   projects, boards and credits they hold survive it. Minting a second account here
- *   was the bug — every "unlock your projects" link in the app leads to this page, and
- *   it was taking those projects away.
- * - A shop / distributor / painter / admin signed in: no code box at all. Redeeming
- *   would destroy the role on their account, and the walk-in route would silently
- *   swap a shop's till session for a customer's. They are asked to sign out first.
+ * - A CUSTOMER signed in: the code box. The code is added to the account they already
+ *   have, so the projects, boards and credits they hold survive it. Minting a second
+ *   account here was the bug — every "unlock your projects" link in the app leads to
+ *   this page, and it was taking those projects away.
+ * - Nobody signed in: NOT a code box. Since redeeming became "add this code to an
+ *   account", there is no account for it to go on, so the page does the other job a
+ *   signed-out visitor comes here for — kiosk re-entry, by email — and points a
+ *   customer holding a paper code at sign-in first. Anything that hands a shop's
+ *   customer this URL has to say so: see the portal's copy and the WhatsApp message
+ *   in access-codes, both of which promised "no sign-up needed" long after it was.
+ * - A shop / distributor / painter / admin signed in: no code box either. Redeeming
+ *   would destroy the role on their account, and it would silently swap a shop's till
+ *   session for a customer's. They are asked to sign out first.
  */
 export default async function UnlockPage() {
   const [{ user }, sessionPresent] = await Promise.all([getCurrentUserResult(), hasSession()]);
@@ -33,9 +37,9 @@ export default async function UnlockPage() {
       <main id="main" style={{ maxWidth: 760, margin: "0 auto", padding: "64px var(--gutter) 120px" }}>
         {/* A session cookie is here but the profile behind it could not be read — the
             backend is restarting, or the token is mid-refresh. Guessing "signed out" is
-            the one answer that must not be given: it runs the walk-in route and mints a
-            SECOND account for somebody who already has one. A walk-in, the visitor this
-            page is really for, carries no session cookie and never lands here. */}
+            the one answer that must not be given: it would drop somebody who HAS an
+            account into the kiosk re-entry box and ask them to prove an email address
+            they are already signed in with. */}
         {!user && sessionPresent ? (
           <SessionUnknown />
         ) : (

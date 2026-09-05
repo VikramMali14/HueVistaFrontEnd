@@ -241,7 +241,7 @@ export function ColorFinder({
             gap: 14,
           }}
         >
-          <span aria-hidden style={{ color: locked ? "var(--fg-mute)" : "var(--accent)" }}>
+          <span aria-hidden style={{ color: locked ? "var(--fg-mute)" : "var(--accent-text)" }}>
             {locked ? (
               <LockIcon size={30} />
             ) : (

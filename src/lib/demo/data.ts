@@ -3,8 +3,18 @@
  * paint-retailer values. The mutable in-memory store (./store) is seeded from
  * deep clones of these so demo writes never corrupt the seed.
  *
- * Today, for relative-date copy in the UI, is 2026-06-24 (IST). All timestamps
- * are absolute so the demo reads sensibly regardless of when it is run.
+ * DATES ARE RELATIVE, and have to be. Every timestamp here was once absolute,
+ * pinned to "today is 2026-06-24", on the theory that a fixed date reads sensibly
+ * whenever the demo is run. It reads sensibly for about a fortnight. Run it in
+ * September and the trial ended two months ago, the access code a visitor is told
+ * to redeem expired in July, and the one story this demo exists to tell — issue a
+ * code, watch it count down, watch it lapse — is over before it starts.
+ *
+ * So anything the UI measures against the clock is a number of days from NOW, via
+ * {@link daysFromNow}, and the demo is the same age on every run. Most offsets below
+ * are the original June-2026 dates re-expressed against that day, so the fixture
+ * world keeps the shape it was authored with; the few that encode a STATE rather
+ * than a moment (a live trial, a lapsed code) are chosen, and say so.
  */
 import type {
   AccessCode,
@@ -23,9 +33,20 @@ import type {
   StoreLink,
   SubscriptionSummary,
   SupportConversation,
+  PlanOption,
   SupportConversationSummary,
   WalletSummary,
 } from "../types";
+
+/**
+ * An ISO timestamp `days` from the moment the demo is read — negative for the past,
+ * fractional for the same day. The fraction matters: a wallet's five sales and a
+ * ledger's five movements are ordered by these, and rounding them all to "today"
+ * turns a readable history into five identical rows.
+ */
+function daysFromNow(days: number): string {
+  return new Date(Date.now() + days * 86_400_000).toISOString();
+}
 
 export const DEMO_ORG: OrgResponse = {
   id: "org_demo",
@@ -43,10 +64,21 @@ export const DEMO_SUBSCRIPTION: SubscriptionSummary = {
   planDisplayName: "Professional",
   status: "ACTIVE",
   trial: true,
-  currentPeriodEnd: "2026-07-08T00:00:00+05:30",
+  // Chosen, not derived: a week left, so the trial banner is a live countdown
+  // rather than a date that has been in the past since July.
+  currentPeriodEnd: daysFromNow(7),
   projectsUsed: 12,
   projectsLimit: 45,
   projectsRemaining: 33,
+  // The board allowance, which Professional carries 40 of. Absent, the plan page fell
+  // back to `?? 0` on both halves and printed "0 of 0 used" — a figure that looks like
+  // a quota rather than like the missing field it was.
+  pdfDownloadsUsed: 6,
+  pdfDownloadsLimit: 40,
+  pdfDownloadsRemaining: 34,
+  // What an extra room costs this tier on the rupee rail. Absent, the plan page's
+  // "or ₹…" fell back to `?? 0` and offered the shop a free project.
+  extraProjectPricePaise: 9_900,
 };
 
 /** The CUSTOMER account's project entitlement (api/me/entitlement). */
@@ -55,12 +87,12 @@ export const DEMO_ENTITLEMENT: CustomerEntitlement = {
   customerName: "Anjali Nair",
   customerEmail: "anjali@example.in",
   retailerOrgId: "org_demo",
-  accessExpiresAt: "2026-09-24T00:00:00+05:30",
+  accessExpiresAt: daysFromNow(92),
   expired: false,
   projectAllowance: 2,
   projectsCreated: 1,
   projectsRemaining: 1,
-  updatedAt: "2026-06-24T11:05:00+05:30",
+  updatedAt: daysFromNow(0.46),
 };
 
 export const DEMO_BRANDS: PaintBrand[] = [
@@ -109,22 +141,28 @@ export function demoLinesFor(brandId: number, category: ProductCategory): PaintL
 }
 
 export const DEMO_SHOP_PRODUCTS: ShopProduct[] = [
-  { id: "prod_01", lineId: 11, brandName: "Sample palette", lineName: "Royale Luxury Emulsion", category: "INTERIOR", price: 6200, priceUnit: "20 L", packSize: "20 L", coverage: "140-160 sq ft/L", finish: "Royale", qualityTier: "LUXURY", brightness: 5, imageUrl: null, features: "Stain resistant, low VOC, Teflon surface protection", description: "Premium silky-matt interior emulsion for living spaces.", createdAt: "2026-06-01T10:00:00+05:30" },
-  { id: "prod_02", lineId: 12, brandName: "Sample palette", lineName: "Apcolite Premium Emulsion", category: "INTERIOR", price: 3400, priceUnit: "20 L", packSize: "20 L", coverage: "130-150 sq ft/L", finish: "Satin", qualityTier: "PREMIUM", brightness: 4, imageUrl: null, features: "Washable, smooth finish", description: "Everyday premium interior emulsion.", createdAt: "2026-06-02T10:00:00+05:30" },
-  { id: "prod_03", lineId: 23, brandName: "Berger", lineName: "WeatherCoat Anti Dustt", category: "EXTERIOR", price: 4100, priceUnit: "20 L", packSize: "20 L", coverage: "90-110 sq ft/L", finish: "Matt", qualityTier: "PREMIUM", brightness: 4, imageUrl: null, features: "Dust-guard, anti-algae, 7-yr warranty", description: "Exterior emulsion that keeps walls cleaner for longer.", createdAt: "2026-06-03T10:00:00+05:30" },
-  { id: "prod_04", lineId: 41, brandName: "Dulux", lineName: "Velvet Touch", category: "INTERIOR", price: 5800, priceUnit: "20 L", packSize: "20 L", coverage: "135-155 sq ft/L", finish: "Velvet", qualityTier: "LUXURY", brightness: 5, imageUrl: null, features: "Rich velvet sheen, anti-bacterial", description: "Luxury interior emulsion with a soft velvet finish.", createdAt: "2026-06-04T10:00:00+05:30" },
+  { id: "prod_01", lineId: 11, brandName: "Sample palette", lineName: "Royale Luxury Emulsion", category: "INTERIOR", price: 6200, priceUnit: "20 L", packSize: "20 L", coverage: "140-160 sq ft/L", finish: "Royale", qualityTier: "LUXURY", brightness: 5, imageUrl: null, features: "Stain resistant, low VOC, Teflon surface protection", description: "Premium silky-matt interior emulsion for living spaces.", createdAt: daysFromNow(-22.58) },
+  { id: "prod_02", lineId: 12, brandName: "Sample palette", lineName: "Apcolite Premium Emulsion", category: "INTERIOR", price: 3400, priceUnit: "20 L", packSize: "20 L", coverage: "130-150 sq ft/L", finish: "Satin", qualityTier: "PREMIUM", brightness: 4, imageUrl: null, features: "Washable, smooth finish", description: "Everyday premium interior emulsion.", createdAt: daysFromNow(-21.58) },
+  { id: "prod_03", lineId: 23, brandName: "Berger", lineName: "WeatherCoat Anti Dustt", category: "EXTERIOR", price: 4100, priceUnit: "20 L", packSize: "20 L", coverage: "90-110 sq ft/L", finish: "Matt", qualityTier: "PREMIUM", brightness: 4, imageUrl: null, features: "Dust-guard, anti-algae, 7-yr warranty", description: "Exterior emulsion that keeps walls cleaner for longer.", createdAt: daysFromNow(-20.58) },
+  { id: "prod_04", lineId: 41, brandName: "Dulux", lineName: "Velvet Touch", category: "INTERIOR", price: 5800, priceUnit: "20 L", packSize: "20 L", coverage: "135-155 sq ft/L", finish: "Velvet", qualityTier: "LUXURY", brightness: 5, imageUrl: null, features: "Rich velvet sheen, anti-bacterial", description: "Luxury interior emulsion with a soft velvet finish.", createdAt: daysFromNow(-19.58) },
 ];
 
 export const DEMO_CUSTOMERS: CustomerEntitlement[] = [
-  { customerId: "cust_anjali", customerName: "Anjali Nair", customerEmail: "anjali@example.in", retailerOrgId: "org_demo", accessExpiresAt: "2026-09-24T00:00:00+05:30", expired: false, projectAllowance: 2, projectsCreated: 1, projectsRemaining: 1, updatedAt: "2026-06-20T10:00:00+05:30" },
-  { customerId: "cust_verma", customerName: "Sunil Verma", customerEmail: "sunil.verma@gmail.com", retailerOrgId: "org_demo", accessExpiresAt: "2026-08-10T00:00:00+05:30", expired: false, projectAllowance: 1, projectsCreated: 1, projectsRemaining: 0, updatedAt: "2026-06-12T14:30:00+05:30" },
-  { customerId: "cust_das", customerName: "Priya Das", customerEmail: "priya.das@outlook.com", retailerOrgId: "org_demo", accessExpiresAt: "2026-05-01T00:00:00+05:30", expired: true, projectAllowance: 1, projectsCreated: 1, projectsRemaining: 0, updatedAt: "2026-04-20T09:00:00+05:30" },
+  { customerId: "cust_anjali", customerName: "Anjali Nair", customerEmail: "anjali@example.in", retailerOrgId: "org_demo", accessExpiresAt: daysFromNow(92), expired: false, projectAllowance: 2, projectsCreated: 1, projectsRemaining: 1, updatedAt: daysFromNow(-3.58) },
+  // Chosen, same reason as the codes: one live window, one closed, each one's date
+  // agreeing with its `expired` flag.
+  { customerId: "cust_verma", customerName: "Sunil Verma", customerEmail: "sunil.verma@gmail.com", retailerOrgId: "org_demo", accessExpiresAt: daysFromNow(5), expired: false, projectAllowance: 1, projectsCreated: 1, projectsRemaining: 0, updatedAt: daysFromNow(-12) },
+  { customerId: "cust_das", customerName: "Priya Das", customerEmail: "priya.das@outlook.com", retailerOrgId: "org_demo", accessExpiresAt: daysFromNow(-40), expired: true, projectAllowance: 1, projectsCreated: 1, projectsRemaining: 0, updatedAt: daysFromNow(-55) },
 ];
 
 export const DEMO_ACCESS_CODES: AccessCode[] = [
-  { id: "ac_01", code: "MEHTA7K2", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 7, expiresAt: "2026-07-01T00:00:00+05:30", used: false, expired: false, allowedBrands: ["Sample palette", "Berger"], createdAt: "2026-06-24T09:00:00+05:30" },
-  { id: "ac_02", code: "MEHTA9QP", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 14, expiresAt: "2026-07-08T00:00:00+05:30", used: true, expired: false, usedAt: "2026-06-20T13:00:00+05:30", createdAt: "2026-06-06T10:00:00+05:30" },
-  { id: "ac_03", code: "MEHTA3XR", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 3, expiresAt: "2026-05-01T00:00:00+05:30", used: false, expired: true, createdAt: "2026-04-28T08:00:00+05:30" },
+  // Chosen: one code per state the portal filters by, with every date agreeing with
+  // its flag. That agreement is the point — these rows used to put the contradiction
+  // on screen, "expires 1 Jul" beside the word ACTIVE, read in September. All three
+  // carry the 10 days the portal's own copy promises, rather than 7/14/3.
+  { id: "ac_01", code: "MEHTA7K2", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 10, expiresAt: daysFromNow(6), used: false, expired: false, allowedBrands: ["Sample palette", "Berger"], createdAt: daysFromNow(-4) },
+  { id: "ac_02", code: "MEHTA9QP", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 10, expiresAt: daysFromNow(3), used: true, expired: false, usedAt: daysFromNow(-5), createdAt: daysFromNow(-7) },
+  { id: "ac_03", code: "MEHTA3XR", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 10, expiresAt: daysFromNow(-12), used: false, expired: true, createdAt: daysFromNow(-22) },
 ];
 
 // --- The shop's suggested three-shade combinations ("shop picks") ---
@@ -142,7 +180,7 @@ export const DEMO_COMBOS: RetailerCombo[] = [
       { code: "HV-2215", name: "Champagne", hex: "#dac1a3" },
       { code: "HV-N101", name: "Bone China", hex: "#f3eee4" },
     ],
-    createdAt: "2026-06-18T10:00:00+05:30",
+    createdAt: daysFromNow(-5.58),
   },
   {
     id: "combo_02",
@@ -155,7 +193,7 @@ export const DEMO_COMBOS: RetailerCombo[] = [
       { code: "HV-7720", name: "Olive Branch", hex: "#5b6c5b" },
       { code: "HV-N110", name: "Linen", hex: "#e7d9c4" },
     ],
-    createdAt: "2026-06-12T15:30:00+05:30",
+    createdAt: daysFromNow(-11.35),
   },
   {
     id: "combo_03",
@@ -168,7 +206,7 @@ export const DEMO_COMBOS: RetailerCombo[] = [
       { code: "HV-2121", name: "Tan Bark", hex: "#8a5a3a" },
       { code: "HV-N101", name: "Bone China", hex: "#f3eee4" },
     ],
-    createdAt: "2026-06-05T09:00:00+05:30",
+    createdAt: daysFromNow(-18.62),
   },
 ];
 
@@ -176,11 +214,50 @@ export const DEMO_COMBOS: RetailerCombo[] = [
 // The slug matches DEMO_ORG so the URL the portal advertises (/store/<slug>)
 // actually renders in demo mode.
 export const DEMO_STORE_LINKS: StoreLink[] = [
-  { id: "sl_01", slug: "mehta-paints-7a3b", organizationId: "org_demo", organizationName: "Mehta Paints", pricePaise: 9_900, bonusPoints: 30, currency: "INR", validDays: 7, active: true, createdAt: "2026-06-10T10:00:00+05:30" },
+  { id: "sl_01", slug: "mehta-paints-7a3b", organizationId: "org_demo", organizationName: "Mehta Paints", pricePaise: 9_900, bonusPoints: 30, currency: "INR", validDays: 7, active: true, createdAt: daysFromNow(-13.58) },
 ];
 
 /** Numbers are coherent with the backend's derivation: balance = earned − pending − redeemed.
  *  Each ₹199 kiosk sale is HueVista's in full and earns the shop 30 points. */
+/**
+ * The tier ladder, as GET /api/billing/plans serves it.
+ *
+ * Figures track the public /pricing page. The demo's job here is to show the real
+ * shape of the decision — what each tier costs, how many rooms and boards it carries,
+ * what an extra room costs once they run out — and a ladder invented in this file that
+ * disagreed with the marketing page would be demoing a product nobody sells.
+ */
+export const DEMO_PLANS: PlanOption[] = [
+  {
+    plan: "FREE", displayName: "Free", purchasable: false, rank: 0,
+    priceInPaise: 0, priceInRupees: 0, taxPercent: 0, priceWithTaxInPaise: 0, priceWithTaxInRupees: 0,
+    monthlyProjectLimit: 3, pdfImageLimit: 4, monthlyPdfLimit: 2,
+    extraProjectPoints: 80, extraProjectPriceInPaise: 14_900, extraProjectPriceWithTaxInPaise: 14_900,
+    colorMatching: false,
+  },
+  {
+    plan: "STARTER", displayName: "Starter", purchasable: true, rank: 1,
+    priceInPaise: 99_900, priceInRupees: 999, taxPercent: 0, priceWithTaxInPaise: 99_900, priceWithTaxInRupees: 999,
+    monthlyProjectLimit: 15, pdfImageLimit: 6, monthlyPdfLimit: 15,
+    extraProjectPoints: 60, extraProjectPriceInPaise: 11_900, extraProjectPriceWithTaxInPaise: 11_900,
+    colorMatching: true,
+  },
+  {
+    plan: "PROFESSIONAL", displayName: "Professional", purchasable: true, rank: 2,
+    priceInPaise: 249_900, priceInRupees: 2499, taxPercent: 0, priceWithTaxInPaise: 249_900, priceWithTaxInRupees: 2499,
+    monthlyProjectLimit: 45, pdfImageLimit: 8, monthlyPdfLimit: 40,
+    extraProjectPoints: 50, extraProjectPriceInPaise: 9_900, extraProjectPriceWithTaxInPaise: 9_900,
+    colorMatching: true,
+  },
+  {
+    plan: "BUSINESS", displayName: "Business", purchasable: true, rank: 3,
+    priceInPaise: 499_900, priceInRupees: 4999, taxPercent: 0, priceWithTaxInPaise: 499_900, priceWithTaxInRupees: 4999,
+    monthlyProjectLimit: 120, pdfImageLimit: 12, monthlyPdfLimit: 120,
+    extraProjectPoints: 40, extraProjectPriceInPaise: 7_900, extraProjectPriceWithTaxInPaise: 7_900,
+    colorMatching: true,
+  },
+];
+
 export const DEMO_WALLET: WalletSummary = {
   organizationId: "org_demo",
   currency: "INR",
@@ -189,11 +266,11 @@ export const DEMO_WALLET: WalletSummary = {
   pointsPerSale: 30,
   kioskPricePaise: 9_900,
   recentPayments: [
-    { id: "sp_05", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9105", createdAt: "2026-06-23T17:40:00+05:30" },
-    { id: "sp_04", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9104", createdAt: "2026-06-22T12:15:00+05:30" },
-    { id: "sp_03", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9103", createdAt: "2026-06-20T16:05:00+05:30" },
-    { id: "sp_02", amountPaise: 9_900, bonusPoints: 30, reversed: true, code: "MEHTA9102", createdAt: "2026-06-17T11:30:00+05:30" },
-    { id: "sp_01", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9101", createdAt: "2026-06-14T13:00:00+05:30" },
+    { id: "sp_05", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9105", createdAt: daysFromNow(-0.26) },
+    { id: "sp_04", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9104", createdAt: daysFromNow(-1.49) },
+    { id: "sp_03", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9103", createdAt: daysFromNow(-3.33) },
+    { id: "sp_02", amountPaise: 9_900, bonusPoints: 30, reversed: true, code: "MEHTA9102", createdAt: daysFromNow(-6.52) },
+    { id: "sp_01", amountPaise: 9_900, bonusPoints: 30, reversed: false, code: "MEHTA9101", createdAt: daysFromNow(-9.46) },
   ],
 };
 
@@ -218,15 +295,15 @@ export const DEMO_AI_CREDITS: AiCreditSummary = {
     { quality: "PREMIUM", credits: 1 },
     { quality: "LUXURY", credits: 2 },
   ],
-  soonestExpiryAt: "2027-06-22T00:00:00+05:30",
+  soonestExpiryAt: daysFromNow(363),
   expiringCredits: 4,
   currency: "INR",
   recentActivity: [
-    { id: "aic_05", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 4, note: "Sharma residence — hall", createdAt: "2026-06-23T18:02:00+05:30" },
-    { id: "aic_04", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 5, note: "Iyer flat — master bedroom", createdAt: "2026-06-21T09:40:00+05:30" },
-    { id: "aic_03", credits: 1, type: "RENDER_REFUNDED", balanceAfter: 6, note: null, createdAt: "2026-06-20T14:12:00+05:30" },
-    { id: "aic_02", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 5, note: "Brew & Co café — facade", createdAt: "2026-06-19T11:20:00+05:30" },
-    { id: "aic_01", credits: 6, type: "PURCHASED", balanceAfter: 6, note: null, createdAt: "2026-06-18T10:05:00+05:30" },
+    { id: "aic_05", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 4, note: "Sharma residence — hall", createdAt: daysFromNow(-0.25) },
+    { id: "aic_04", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 5, note: "Iyer flat — master bedroom", createdAt: daysFromNow(-2.6) },
+    { id: "aic_03", credits: 1, type: "RENDER_REFUNDED", balanceAfter: 6, note: null, createdAt: daysFromNow(-3.41) },
+    { id: "aic_02", credits: -1, type: "SPENT_ON_RENDER", balanceAfter: 5, note: "Brew & Co café — facade", createdAt: daysFromNow(-4.53) },
+    { id: "aic_01", credits: 6, type: "PURCHASED", balanceAfter: 6, note: null, createdAt: daysFromNow(-5.58) },
   ],
 };
 
@@ -254,7 +331,7 @@ export const DEMO_CART: CartCatalogue = {
   offersApplyToPackages: false,
   availableProjects: 2,
   creditBalance: 4,
-  creditsExpireAt: "2027-06-22T00:00:00+05:30",
+  creditsExpireAt: daysFromNow(363),
   creditsExpiring: 4,
   currency: "INR",
 };
@@ -284,8 +361,8 @@ export const DEMO_RENDERS: MyRender[] = [
       { regionId: 102, regionLabel: "Accent wall", shadeCode: "2727", shadeName: "Sage Shadow", hex: "#5B6C5B" },
       { regionId: 103, regionLabel: "Trim", shadeCode: "L150", shadeName: "Chalk White", hex: "#F3EEE4" },
     ],
-    createdAt: "2026-06-23T18:02:00+05:30",
-    completedAt: "2026-06-23T18:03:30+05:30",
+    createdAt: daysFromNow(-0.25),
+    completedAt: daysFromNow(-0.25),
   },
   {
     id: "rnd_02",
@@ -307,8 +384,8 @@ export const DEMO_RENDERS: MyRender[] = [
       { regionId: 201, regionLabel: "Main wall", shadeCode: "4091", shadeName: "Morning Mist", hex: "#C9D2D0" },
       { regionId: 202, regionLabel: "Accent wall", shadeCode: "10BB", shadeName: "Indigo Hour", hex: "#3B4A6B" },
     ],
-    createdAt: "2026-06-21T09:40:00+05:30",
-    completedAt: "2026-06-21T09:41:10+05:30",
+    createdAt: daysFromNow(-2.6),
+    completedAt: daysFromNow(-2.6),
   },
   {
     id: "rnd_01",
@@ -330,8 +407,8 @@ export const DEMO_RENDERS: MyRender[] = [
       { regionId: 301, regionLabel: "Main facade", shadeCode: "7432", shadeName: "Burnt Sienna", hex: "#A4683F" },
       { regionId: 302, regionLabel: "Trim", shadeCode: "L150", shadeName: "Chalk White", hex: "#F3EEE4" },
     ],
-    createdAt: "2026-06-19T11:20:00+05:30",
-    completedAt: "2026-06-19T11:21:40+05:30",
+    createdAt: daysFromNow(-4.53),
+    completedAt: daysFromNow(-4.53),
   },
 ];
 
@@ -342,11 +419,11 @@ export const DEMO_SUPPORT_CONVERSATIONS: SupportConversation[] = [
     channel: "IN_APP",
     status: "OPEN",
     subject: "How do I recolour a room?",
-    createdAt: "2026-06-24T11:10:00+05:30",
-    updatedAt: "2026-06-24T11:10:01+05:30",
+    createdAt: daysFromNow(0.47),
+    updatedAt: daysFromNow(0.47),
     messages: [
-      { id: "m1", sender: "USER", body: "How do I recolour a room?", createdAt: "2026-06-24T11:10:00+05:30" },
-      { id: "m2", sender: "AI", body: "Hi! Open the Studio, upload a photo of the room and we detect the walls automatically — then tap any catalogue shade to paint a wall. Want me to walk you through it?", createdAt: "2026-06-24T11:10:01+05:30" },
+      { id: "m1", sender: "USER", body: "How do I recolour a room?", createdAt: daysFromNow(0.47) },
+      { id: "m2", sender: "AI", body: "Hi! Open the Studio, upload a photo of the room and we detect the walls automatically — then tap any catalogue shade to paint a wall. Want me to walk you through it?", createdAt: daysFromNow(0.47) },
     ],
   },
   {
@@ -354,19 +431,19 @@ export const DEMO_SUPPORT_CONVERSATIONS: SupportConversation[] = [
     channel: "IN_APP",
     status: "NEEDS_HUMAN",
     subject: "Exterior paint quote",
-    createdAt: "2026-06-24T10:38:00+05:30",
-    updatedAt: "2026-06-24T10:40:00+05:30",
+    createdAt: daysFromNow(0.44),
+    updatedAt: daysFromNow(0.44),
     messages: [
-      { id: "m3", sender: "USER", body: "What is the price of WeatherCoat for a 1200 sq ft house?", createdAt: "2026-06-24T10:38:00+05:30" },
-      { id: "m4", sender: "AI", body: "WeatherCoat Anti Dustt is ₹4,100 for a 20 L pack (≈90-110 sq ft/L). For 1200 sq ft with two coats you'd need roughly 25-30 L. Let me connect you to the shop for an exact quote.", createdAt: "2026-06-24T10:39:00+05:30" },
-      { id: "m5", sender: "SYSTEM", body: "Connected to the HueVista team.", createdAt: "2026-06-24T10:40:00+05:30" },
+      { id: "m3", sender: "USER", body: "What is the price of WeatherCoat for a 1200 sq ft house?", createdAt: daysFromNow(0.44) },
+      { id: "m4", sender: "AI", body: "WeatherCoat Anti Dustt is ₹4,100 for a 20 L pack (≈90-110 sq ft/L). For 1200 sq ft with two coats you'd need roughly 25-30 L. Let me connect you to the shop for an exact quote.", createdAt: daysFromNow(0.44) },
+      { id: "m5", sender: "SYSTEM", body: "Connected to the HueVista team.", createdAt: daysFromNow(0.44) },
     ],
   },
 ];
 
 export const DEMO_INBOX: SupportConversationSummary[] = [
-  { id: "conv_demo_02", channel: "IN_APP", status: "NEEDS_HUMAN", subject: "Exterior paint quote", requesterName: "Sunil Verma", requesterEmail: "sunil.verma@gmail.com", requesterRole: "CUSTOMER", lastMessage: "Connected to the HueVista team.", updatedAt: "2026-06-24T10:40:00+05:30" },
-  { id: "conv_demo_01", channel: "IN_APP", status: "OPEN", subject: "How do I recolour a room?", requesterName: "Anjali Nair", requesterEmail: "anjali@example.in", requesterRole: "CUSTOMER", lastMessage: "Want me to walk you through it?", updatedAt: "2026-06-24T11:10:01+05:30" },
+  { id: "conv_demo_02", channel: "IN_APP", status: "NEEDS_HUMAN", subject: "Exterior paint quote", requesterName: "Sunil Verma", requesterEmail: "sunil.verma@gmail.com", requesterRole: "CUSTOMER", lastMessage: "Connected to the HueVista team.", updatedAt: daysFromNow(0.44) },
+  { id: "conv_demo_01", channel: "IN_APP", status: "OPEN", subject: "How do I recolour a room?", requesterName: "Anjali Nair", requesterEmail: "anjali@example.in", requesterRole: "CUSTOMER", lastMessage: "Want me to walk you through it?", updatedAt: daysFromNow(0.47) },
 ];
 
 // --- Projects: full details are the source of truth; summaries are derived ---
@@ -381,9 +458,9 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
     imageUrl: "/demo/rooms/living-hall.svg",
     cleanedImageUrl: "/demo/rooms/living-hall-clean.svg",
     hasShareLink: true,
-    shareExpiresAt: "2026-06-29T00:00:00+05:30",
-    createdAt: "2026-06-22T10:00:00+05:30",
-    updatedAt: "2026-06-22T10:15:00+05:30",
+    shareExpiresAt: daysFromNow(5),
+    createdAt: daysFromNow(-1.58),
+    updatedAt: daysFromNow(-1.57),
     regions: [
       { id: 101, label: "Main wall", category: "MAIN_WALL", maskUrl: "/demo/masks/hall-main.svg", appliedShadeCode: "7184", appliedHexCode: "#E8DCC8", displayOrder: 0 },
       { id: 102, label: "Accent wall", category: "ACCENT_WALL", maskUrl: "/demo/masks/hall-accent.svg", appliedShadeCode: "2727", appliedHexCode: "#5B6C5B", displayOrder: 1 },
@@ -400,8 +477,8 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
     imageUrl: "/demo/rooms/bedroom.svg",
     cleanedImageUrl: "/demo/rooms/bedroom-clean.svg",
     hasShareLink: false,
-    createdAt: "2026-06-20T16:30:00+05:30",
-    updatedAt: "2026-06-20T16:40:00+05:30",
+    createdAt: daysFromNow(-3.31),
+    updatedAt: daysFromNow(-3.31),
     regions: [
       { id: 201, label: "Main wall", category: "MAIN_WALL", maskUrl: "/demo/masks/bed-main.svg", appliedShadeCode: "4091", appliedHexCode: "#C9D2D0", displayOrder: 0 },
       { id: 202, label: "Accent wall", category: "ACCENT_WALL", maskUrl: "/demo/masks/bed-accent.svg", appliedShadeCode: "10BB", appliedHexCode: "#3B4A6B", displayOrder: 1 },
@@ -417,8 +494,8 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
     imageUrl: "/demo/rooms/cafe-exterior.svg",
     cleanedImageUrl: "/demo/rooms/cafe-exterior-clean.svg",
     hasShareLink: false,
-    createdAt: "2026-06-18T09:00:00+05:30",
-    updatedAt: "2026-06-18T09:05:00+05:30",
+    createdAt: daysFromNow(-5.62),
+    updatedAt: daysFromNow(-5.62),
     regions: [
       { id: 301, label: "Main facade", category: "MAIN_WALL", maskUrl: "/demo/masks/cafe-main.svg", appliedShadeCode: "7432", appliedHexCode: "#A4683F", displayOrder: 0 },
       { id: 302, label: "Trim", category: "TRIM", maskUrl: "/demo/masks/cafe-trim.svg", appliedShadeCode: "L150", appliedHexCode: "#F3EEE4", displayOrder: 1 },
@@ -434,8 +511,8 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
     imageUrl: "/demo/rooms/kitchen.svg",
     cleanedImageUrl: null,
     failureReason: "Could not detect walls — the photo was too dark. Try a brighter, straight-on shot.",
-    createdAt: "2026-06-15T12:00:00+05:30",
-    updatedAt: "2026-06-15T12:00:00+05:30",
+    createdAt: daysFromNow(-8.5),
+    updatedAt: daysFromNow(-8.5),
     regions: [],
   },
 };

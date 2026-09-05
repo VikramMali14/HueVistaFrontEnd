@@ -66,6 +66,16 @@ export interface DemoStore {
   cart: CartCatalogue;
   /** Finished AI images across every room — what the shelf at /ai-images shows. */
   renders: MyRender[];
+  /**
+   * Renders that have been ASKED for, per project — the studio's poll target.
+   *
+   * Separate from `renders` because the two answer different questions and only one of
+   * them is allowed to be unfinished: the shelf shows finished pictures only, while the
+   * studio needs to see QUEUED and RUNNING to have anything to wait on. A render moves
+   * across (and stays here) the moment it lands. `readyAt` is the wall-clock moment the
+   * demo declares it done — see settleRenders.
+   */
+  pendingRenders: Array<MyRender & { readyAt: number }>;
   storeLinks: StoreLink[];
   wallet: WalletSummary;
   /** The shop's shade-code scheme (customer codes derive from this one pattern). */
@@ -105,6 +115,7 @@ function seed(): DemoStore {
     aiCredits: clone(DEMO_AI_CREDITS),
     cart: clone(DEMO_CART),
     renders: clone(DEMO_RENDERS),
+    pendingRenders: [],
     storeLinks: clone(DEMO_STORE_LINKS),
     wallet: clone(DEMO_WALLET),
     // Mehta Paints reads shade L124 as MPL1K24 at the counter.
@@ -133,6 +144,33 @@ export function nextSeq(): number {
 /** Short unique string id with a readable prefix. */
 export function nextId(prefix: string): string {
   return `${prefix}_${nextSeq()}`;
+}
+
+/**
+ * A UUID, for the ids the REAL backend issues as UUIDs — projects above all.
+ *
+ * A readable `prj_1003` is friendlier in a log and was wrong everywhere it mattered:
+ * `/studio` validates `?project=` against a UUID before it will call the backend
+ * (anything else is a typo or a probe, and is answered with notFound rather than a
+ * 400 the studio would have to interpret). So every project the demo created was
+ * listed on the dashboard and then 404'd when the card was clicked — the one flow a
+ * demo exists to show, broken by the shape of an id.
+ *
+ * Seeded from the store's own counter rather than crypto.randomUUID so the demo stays
+ * deterministic across a restart, and so this works on the older runtimes where
+ * randomUUID is missing outside a secure context.
+ */
+export function nextUuid(): string {
+  const n = nextSeq();
+  const hex = (v: number, len: number) => v.toString(16).padStart(len, "0").slice(-len);
+  // Version 4 / variant bits in the right places, so it satisfies a strict matcher.
+  return [
+    hex(0x9e3779b9 ^ n, 8),
+    hex(n, 4),
+    `4${hex(n, 3)}`,
+    `${"89ab"[n & 3]}${hex(n * 7, 3)}`,
+    hex(n * 0x9e37, 12),
+  ].join("-");
 }
 
 export function retailerOrg(): OrgResponse | undefined {

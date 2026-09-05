@@ -35,7 +35,7 @@ export default async function AdminMaskViewerPage({
 
   return (
     <div className="measure" style={{ maxWidth: 1080 }}>
-      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
         ← Admin
       </Link>
       <Eyebrow style={{ marginTop: 16 }}>Admin · diagnostics</Eyebrow>
@@ -50,17 +50,17 @@ export default async function AdminMaskViewerPage({
       </Lead>
 
       <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
-        <Link href="/admin/mask-reports" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/mask-reports" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Reported runs →
         </Link>
         {/* Where this screen's answer is "no, it is off the wall": the align bench
             is the only place that can move it. */}
-        <Link href="/admin/mask-align" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/mask-align" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Align bench — move a drifted mask →
         </Link>
         {/* The next question along: this screen judges the mask's shape, the bench
             judges how paint lands inside it. */}
-        <Link href="/admin/studio-test" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/studio-test" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Studio bench — paint these masks →
         </Link>
       </p>

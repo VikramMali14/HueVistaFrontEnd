@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CountUp } from "@/components/ui/count-up";
 import { Mono } from "@/components/ui/eyebrow";
 import { Spinner } from "@/components/ui/spinner";
+import { hasPassed } from "@/lib/dates";
 import { api, HttpError } from "@/lib/api";
 import { buyOneProject } from "@/lib/payments";
 import type { CustomerEntitlement, ProjectPurchaseOptions } from "@/lib/types";
@@ -222,7 +223,7 @@ export function CustomerProjectsPanel(
               {/* The link matters: this is the one panel that tells a customer with no
                   shop that they hold something, and it used to name every route out of
                   the page except the one that spends it. */}
-              <Link href="/studio" style={{ color: "var(--accent)" }}>
+              <Link href="/studio" style={{ color: "var(--accent-text)" }}>
                 Start a room →
               </Link>
             </>
@@ -241,11 +242,11 @@ export function CustomerProjectsPanel(
             to try the studio before paying for a room of their own. */}
         <p style={{ marginTop: 14, font: "400 13.5px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
           Got a shop code?{" "}
-          <Link href="/unlock" style={{ color: "var(--accent)" }}>
+          <Link href="/unlock" style={{ color: "var(--accent-text)" }}>
             Unlock with it →
           </Link>{" "}
           ·{" "}
-          <Link href="/library" style={{ color: "var(--accent)" }}>
+          <Link href="/library" style={{ color: "var(--accent-text)" }}>
             Ready-made rooms
           </Link>{" "}
           are free.
@@ -255,8 +256,12 @@ export function CustomerProjectsPanel(
   }
 
   // ── A shop onboarded this account.
+  // Whether the shop's window is still open, asked of the date as well as the flag —
+  // the flag is only as fresh as the last backend sweep, and a stale one spends an
+  // allowance the backend will refuse. See hasPassed.
+  const accessOver = ent.expired || hasPassed(ent.accessExpiresAt, now);
   const daysLeft = ent.accessExpiresAt
-    ? Math.max(0, Math.ceil((new Date(ent.accessExpiresAt).getTime() - now) / 86_400_000))
+    ? Math.ceil((new Date(ent.accessExpiresAt).getTime() - now) / 86_400_000)
     : null;
   const codeLeft = Math.max(0, ent.projectsRemaining);
   /**
@@ -275,7 +280,7 @@ export function CustomerProjectsPanel(
   // What is spendable RIGHT NOW. An expired window takes the shop's allowance with it;
   // bought projects have their own validity and outlive it, which is the whole reason
   // they cannot simply be added to the figure above.
-  const usable = (ent.expired ? 0 : codeLeft) + bought;
+  const usable = (accessOver ? 0 : codeLeft) + bought;
   const noneLeft = usable <= 0;
   const shopName = "your paint shop";
 
@@ -296,17 +301,17 @@ export function CustomerProjectsPanel(
       <p style={{ font: "400 14px/1.5 var(--sans)", color: "var(--fg-mute)", margin: "0 0 16px" }}>
         {ent.projectsCreated} of {ent.projectAllowance} used on your code
         {bought > 0 ? ` · ${bought} you bought` : ""}
-        {ent.expired
+        {accessOver
           ? " · your access window has closed"
           : daysLeft !== null
             ? ` · ${daysLeft} day${daysLeft === 1 ? "" : "s"} of access left`
             : ""}
       </p>
 
-      {ent.expired && bought === 0 ? (
+      {accessOver && bought === 0 ? (
         <p style={{ font: "400 15px/1.6 var(--sans)", color: "var(--fg-soft)", maxWidth: "56ch" }}>
           Ask {shopName} for a fresh code and your saved work comes right back —{" "}
-          <Link href="/unlock" style={{ color: "var(--accent)" }}>
+          <Link href="/unlock" style={{ color: "var(--accent-text)" }}>
             unlock with it here
           </Link>
           .
@@ -327,19 +332,19 @@ export function CustomerProjectsPanel(
           {describe && "Each one opens a room you can photograph, repaint and save. "}
           {/* The line above has already said the window closed; this only has to say
               what survives it, or it says the same thing twice in one card. */}
-          {ent.expired && (
+          {accessOver && (
             <>
               The {bought === 1 ? "project" : "projects"} you bought{" "}
               {bought === 1 ? "is" : "are"} yours to keep either way.{" "}
             </>
           )}
-          <Link href="/studio" style={{ color: "var(--accent)" }}>
+          <Link href="/studio" style={{ color: "var(--accent-text)" }}>
             Start one →
           </Link>
         </p>
       )}
       <p style={{ marginTop: 14, font: "400 13.5px/1.5 var(--sans)", color: "var(--fg-mute)" }}>
-        <Link href="/library" style={{ color: "var(--accent)" }}>
+        <Link href="/library" style={{ color: "var(--accent-text)" }}>
           Ready-made rooms
         </Link>{" "}
         are free and use none of your projects.
@@ -362,7 +367,7 @@ function AskShopButton({
 }) {
   if (state === "sent") {
     return (
-      <p role="status" style={{ font: "500 14.5px/1.5 var(--sans)", color: "var(--accent)" }}>
+      <p role="status" style={{ font: "500 14.5px/1.5 var(--sans)", color: "var(--accent-text)" }}>
         Asked — your shop has been emailed. They can add a project from their counter.
       </p>
     );
@@ -388,7 +393,7 @@ function AskShopButton({
           padding: "10px 16px",
           border: "1px solid var(--accent)",
           background: "transparent",
-          color: "var(--accent)",
+          color: "var(--accent-text)",
           font: "400 12px/1 var(--mono)",
           letterSpacing: ".18em",
           textTransform: "uppercase",
@@ -463,7 +468,7 @@ function BuyProjects({
           padding: "10px 16px",
           border: "1px solid var(--accent)",
           background: "transparent",
-          color: "var(--accent)",
+          color: "var(--accent-text)",
           font: "400 12px/1 var(--mono)",
           letterSpacing: ".18em",
           textTransform: "uppercase",

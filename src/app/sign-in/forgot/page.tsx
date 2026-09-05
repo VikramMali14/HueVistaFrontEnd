@@ -27,7 +27,7 @@ export default function ForgotPage() {
         </Lead>
         <ForgotForm />
         <p style={{ marginTop: 40, font: "400 17px/1.5 var(--serif)", color: "var(--fg-mute)" }}>
-          Remembered it? <Link href="/sign-in" style={{ color: "var(--accent-soft)", borderBottom: "1px solid var(--rule-brass)" }}>Sign in.</Link>
+          Remembered it? <Link href="/sign-in" style={{ color: "var(--accent-text)", borderBottom: "1px solid var(--rule-brass)" }}>Sign in.</Link>
         </p>
       </main>
       <Footer />

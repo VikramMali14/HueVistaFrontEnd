@@ -4729,7 +4729,7 @@ function DropZone({
       </div>
 
       {uploading && (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--accent)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--accent-text)" }}>
           <Spinner size={14} color="var(--accent)" />
           <span style={{ font: "500 13px/1 var(--sans)" }}>Uploading…</span>
         </span>

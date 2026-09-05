@@ -144,7 +144,7 @@ export function UnlockForm({ signedInAs = null }: { signedInAs?: SignedInAs | nu
           <p style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 24, maxWidth: "52ch" }}>
             Checking what a customer has chosen? You don&apos;t need their code for that —
             open{" "}
-            <Link href="/portal" style={{ color: "var(--accent-soft)" }}>
+            <Link href="/portal" style={{ color: "var(--accent-text)" }}>
               your customer portal
             </Link>{" "}
             and the rooms made against every code you issued are listed there, with the
@@ -334,7 +334,7 @@ function DoneScreen({ result }: { result: Done }) {
   if (result.kind === "added") {
     return (
       <div style={{ textAlign: "center", padding: "40px 0" }}>
-        <span aria-hidden style={{ fontSize: 44, color: "var(--accent)" }}>✓</span>
+        <span aria-hidden style={{ fontSize: 44, color: "var(--accent-text)" }}>✓</span>
         <h1 className="display" style={{ fontSize: "clamp(40px, 5vw, 64px)", margin: "12px 0 16px" }}>
           Code <i>added.</i>
         </h1>
@@ -355,7 +355,7 @@ function DoneScreen({ result }: { result: Done }) {
 
   return (
     <div style={{ textAlign: "center", padding: "40px 0" }}>
-      <span aria-hidden style={{ fontSize: 44, color: "var(--accent)" }}>✓</span>
+      <span aria-hidden style={{ fontSize: 44, color: "var(--accent-text)" }}>✓</span>
       <h1 className="display" style={{ fontSize: "clamp(40px, 5vw, 64px)", margin: "12px 0 16px" }}>
         Welcome <i>back.</i>
       </h1>

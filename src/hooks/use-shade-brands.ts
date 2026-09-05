@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { MatchBrand } from "@/hooks/use-shade-match";
+import { isDemoMode } from "@/lib/demo/flag";
 import type { PaintShade, ShadeBrandSummary } from "@/lib/types";
 
 /** The backend's own brand-slug convention (see BrandCatalogImporter): lower case,
@@ -35,6 +36,16 @@ export function useShadeBrands(catalogue: ReadonlyArray<PaintShade>): MatchBrand
   }, [catalogue]);
 
   useEffect(() => {
+    // The THIRD backend boundary, and the one the demo kept missing.
+    //
+    // `/api/shades/*` is a same-origin *rewrite* (next.config.ts) straight to the
+    // backend, so it never passes through the BFF the demo intercepts. Offline that
+    // meant a request to a server that is not running on every catalogue and
+    // colour-finder page load: a 500 in the terminal, a red line in the console, and
+    // an ECONNREFUSED stack in the dev log — none of which are real, and all of which
+    // look exactly like the failures that are. The catalogue-derived fallback below is
+    // already the right answer offline, so ask for it directly.
+    if (isDemoMode()) return;
     let cancelled = false;
     (async () => {
       try {

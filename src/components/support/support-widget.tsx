@@ -182,7 +182,7 @@ export function SupportWidget() {
         >
           <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--rule)", background: "var(--surface)" }}>
             <div style={{ font: "400 18px/1.1 var(--serif)", color: "var(--fg)" }}>HueVista support</div>
-            <div style={{ font: "400 12px/1.3 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: needsHuman ? "var(--accent)" : "var(--fg-mute)", marginTop: 4 }}>
+            <div style={{ font: "400 12px/1.3 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: needsHuman ? "var(--accent-text)" : "var(--fg-mute)", marginTop: 4 }}>
               {needsHuman ? "A team member will reply" : "AI assistant · replies instantly"}
             </div>
           </div>
@@ -257,7 +257,7 @@ function Bubble({ message }: { message: SupportMessage }) {
       }}
     >
       {message.sender === "AGENT" && (
-        <span style={{ display: "block", font: "400 12px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 4 }}>Team</span>
+        <span style={{ display: "block", font: "400 12px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--accent-text)", marginBottom: 4 }}>Team</span>
       )}
       {message.body}
     </div>

@@ -132,7 +132,7 @@ export function CodeChecker({
                 cursor: "pointer",
                 background: "transparent",
                 border: "1px solid " + (mode === id ? "var(--accent)" : "var(--rule)"),
-                color: mode === id ? "var(--accent)" : "var(--fg-mute)",
+                color: mode === id ? "var(--accent-text)" : "var(--fg-mute)",
                 font: "400 12px/1 var(--mono)",
                 letterSpacing: ".18em",
               }}
@@ -232,7 +232,7 @@ export function CodeChecker({
                 <span style={{ flex: 1, minWidth: 0, font: "400 13.5px/1.2 var(--sans)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {s.name} <Mono>· <span className="shade-code">{s.code}</span> · {s.brand}</Mono>
                 </span>
-                <span style={{ font: "600 14px/1 var(--code)", color: "var(--accent)" }}>
+                <span style={{ font: "600 14px/1 var(--code)", color: "var(--accent-text)" }}>
                   {encodeShadeCode(scheme, s.code)}
                 </span>
               </div>
@@ -270,7 +270,7 @@ export function CodeChecker({
                     background: matched ? "rgba(var(--fg-rgb), .04)" : "transparent",
                   }}
                 >
-                  <span style={{ font: "600 14px/1 var(--code)", color: matched ? "var(--accent)" : "var(--fg)" }}>
+                  <span style={{ font: "600 14px/1 var(--code)", color: matched ? "var(--accent-text)" : "var(--fg)" }}>
                     {describeScheme(period)}
                   </span>
                   {period.live && <Mono brass>In use</Mono>}
@@ -278,7 +278,7 @@ export function CodeChecker({
                     {fmtPeriod(period)}
                   </span>
                   {matched && (
-                    <span style={{ font: "500 12.5px/1.4 var(--sans)", color: "var(--accent)", width: "100%" }}>
+                    <span style={{ font: "500 12.5px/1.4 var(--sans)", color: "var(--accent-text)", width: "100%" }}>
                       This is the one that read the code above.
                     </span>
                   )}

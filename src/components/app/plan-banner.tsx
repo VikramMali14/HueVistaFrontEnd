@@ -22,7 +22,7 @@ const bannerStyle = (highlight: boolean): React.CSSProperties => ({
 });
 
 const subscribeLink = (
-  <Link href="/pricing" style={{ color: "var(--accent)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
+  <Link href="/pricing" style={{ color: "var(--accent-text)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>
     Subscribe →
   </Link>
 );
@@ -127,8 +127,13 @@ export function PlanBanner() {
   // and creation refuses after 5. Naming the holds is what closes that gap — the same
   // disclosure the subscription panel already makes.
   const held = sub.reservedProjects ?? 0;
+  // Signed, deliberately. Clamping this at zero threw away the one thing that tells
+  // "your last day" apart from "this ran out weeks ago", and both then printed "Ends
+  // today" — the second of them every day, forever, on a plan the backend had already
+  // stopped honouring. A period end in the past is a real state (a renewal in flight,
+  // a webhook that never landed) and it deserves its own word.
   const daysLeft = sub.currentPeriodEnd
-    ? Math.max(0, Math.ceil((new Date(sub.currentPeriodEnd).getTime() - now) / 86_400_000))
+    ? Math.ceil((new Date(sub.currentPeriodEnd).getTime() - now) / 86_400_000)
     : null;
   // Cancelled, or set to cancel: still fully usable, just not renewing.
   const windingDown = sub.status === "CANCELLED" || !!sub.cancelAtPeriodEnd;
@@ -169,12 +174,21 @@ export function PlanBanner() {
           <Mono brass>{sub.trial ? "Trial" : `${sub.planDisplayName} plan`}</Mono>
           <strong>
             {countsDown && daysLeft !== null
-              ? // daysLeft is 0 only when the period end has already passed while the
-                // status is still ACTIVE — "0 days left" reads broken at the exact
-                // moment the subscribe nudge matters most.
-                daysLeft === 0 ? "Ends today" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`
+              ? // Three states, not two. Zero is the last day and says so; NEGATIVE is
+                // a period that closed while the status stayed ACTIVE — a renewal still
+                // in flight, or a webhook that never arrived — and it has to read as
+                // over, because saying "ends today" every morning for a month is how a
+                // shop concludes the countdown is decorative.
+                daysLeft > 0 ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`
+                  : daysLeft === 0 ? "Ends today"
+                    : "Ended"
               : onFreePlan && daysLeft !== null
-                ? daysLeft === 0 ? "Renews today" : `Renews in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`
+                ? daysLeft > 0 ? `Renews in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`
+                  : daysLeft === 0 ? "Renews today"
+                    // A free plan renews itself, so a past date here is a renewal that
+                    // has not been written back yet — not an ending. Say the honest
+                    // thing rather than counting backwards at them.
+                    : "Renewing"
                 : "Active"}
           </strong>
         </span>

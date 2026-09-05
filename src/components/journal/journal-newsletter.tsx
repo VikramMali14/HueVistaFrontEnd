@@ -65,7 +65,7 @@ export function JournalNewsletter() {
           </p>
         )}
         {error && (
-          <p className="mono" role="alert" style={{ marginTop: 20, color: "var(--terracotta)" }}>
+          <p className="mono" role="alert" style={{ marginTop: 20, color: "var(--terracotta-text)" }}>
             {error}
           </p>
         )}

@@ -78,7 +78,7 @@ export function PipelineBar({ current, done, busy }: PipelineBarProps) {
           background: "var(--surface)",
         }}
       >
-        <Mono style={{ color: "var(--accent)" }}>✓ Ready — colours apply instantly</Mono>
+        <Mono style={{ color: "var(--accent-text)" }}>✓ Ready — colours apply instantly</Mono>
         <button
           ref={showBtnRef}
           type="button"
@@ -151,7 +151,7 @@ export function PipelineBar({ current, done, busy }: PipelineBarProps) {
                   fontSize: 13,
                   fontWeight: 500,
                   whiteSpace: "nowrap",
-                  color: isBusy ? "var(--accent)" : isDone || isCurrent ? "var(--fg)" : "var(--fg-mute)",
+                  color: isBusy ? "var(--accent-text)" : isDone || isCurrent ? "var(--fg)" : "var(--fg-mute)",
                 }}
               >
                 {s.name}

@@ -102,7 +102,7 @@ export default async function AdminPage() {
           <li>
             The <strong>public gallery</strong> is filled from your own finished rooms:
             open one in the studio, then press <strong>Add to gallery</strong> there — or
-            go straight to <Link href="/admin/free-projects" style={{ color: "var(--accent-soft)" }}>
+            go straight to <Link href="/admin/free-projects" style={{ color: "var(--accent-text)" }}>
             Gallery &amp; free projects</Link> and pick the room from the list. Only rooms
             with at least one marked wall can go up, and only your own.
           </li>
@@ -110,53 +110,53 @@ export default async function AdminPage() {
       </div>
 
       <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
-        <Link href="/network" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/network" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Network &amp; reports →
         </Link>
-        <Link href="/admin/shades" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/shades" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Upload company shades →
         </Link>
-        <Link href="/admin/migration" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/migration" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Maintenance &amp; migration →
         </Link>
-        <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Mask viewer →
         </Link>
         <Link
           href="/admin/mask-lab"
-          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}
+          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}
           title="Run one cleaned photo through each way of producing a mask — the generative model, colour extraction, SAM, or any Replicate model — and compare them side by side. Touches no project and spends no credit."
         >
           Mask lab →
         </Link>
         <Link
           href="/admin/mask-align"
-          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}
+          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}
           title="Put a drifted mask back on its walls by hand — drag the whole frame, then pull a grid over the parts still off. Moves the model's drawing without reshaping it; costs no credit."
         >
           Align bench →
         </Link>
         <Link
           href="/admin/studio-test"
-          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}
+          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}
           title="Paint any room's masks with the studio's own engine and compare against the untouched canvas. Nothing is saved."
         >
           Studio bench →
         </Link>
-        <Link href="/admin/mask-reports" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/mask-reports" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Reported runs →
         </Link>
         <Link
           href="/admin/free-projects"
-          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}
+          style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}
           title="Publish a finished room to the public gallery, and manage what is already on the shelf."
         >
           Gallery &amp; free projects →
         </Link>
-        <Link href="/admin/site-assets" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/site-assets" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Site images →
         </Link>
-        <Link href="/admin/payments" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/payments" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Payment audit →
         </Link>
       </p>
@@ -179,7 +179,7 @@ export default async function AdminPage() {
 
       <section id="shop-requests" style={{ ...SECTION_HEAD, marginTop: 56 }}>
         <h2 className="display" style={H2}>
-          1 · Shop requests {waiting > 0 && <span style={{ color: "var(--accent)" }}>· {waiting} waiting</span>}
+          1 · Shop requests {waiting > 0 && <span style={{ color: "var(--accent-text)" }}>· {waiting} waiting</span>}
         </h2>
         <p style={BLURB}>
           Shops that filled in the public form and confirmed their email. Every detail you need is
