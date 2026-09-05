@@ -105,7 +105,13 @@ const verificationStatus = (channel: "EMAIL" | "PHONE", destination: string): Ve
  *  blank so the visualizer keeps the user's just-uploaded photo on the canvas
  *  (loading a demo URL there would replace it). Walls are marked with the
  *  client-side Mask Studio, which recolours live without a backend. */
-function freshProject(name: string | undefined, roomType: string | undefined, imageId: string): ProjectDetail {
+function freshProject(
+  name: string | undefined,
+  roomType: string | undefined,
+  imageId: string,
+  ownerId: string,
+  accessCodeId?: string | null,
+): ProjectDetail {
   // A UUID, not a prj_N — /studio validates ?project= against one before it will
   // open a room, so a readable id here is a room the dashboard lists and cannot open.
   const id = nextUuid();
@@ -128,7 +134,10 @@ function freshProject(name: string | undefined, roomType: string | undefined, im
       { id: nextSeq(), label: "Trim", category: "TRIM", maskUrl: null, appliedShadeCode: null, appliedHexCode: null, displayOrder: 2 },
     ],
   };
-  getStore().projects.unshift(project);
+  const store = getStore();
+  store.projects.unshift(project);
+  // Owned by whoever asked for it, so it shows on their dashboard and nobody else's.
+  store.projectOwners[id] = { ownerId, accessCodeId: accessCodeId ?? null };
   return project;
 }
 
@@ -182,11 +191,19 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
 
   // ---------- Projects ----------
   if (path === "api/projects" && method === "GET") {
-    return json(store.projects.map(toSummary));
+    return json(visibleProjects(user).map((p) => summaryFor(p, user)));
   }
   if (path === "api/projects" && method === "POST") {
     const body = await readJson(req);
-    const p = freshProject(body.name as string | undefined, body.roomType as string | undefined, (body.imageId as string) ?? nextId("img"));
+    const p = freshProject(
+      body.name as string | undefined,
+      body.roomType as string | undefined,
+      (body.imageId as string) ?? nextId("img"),
+      user.id,
+      // A customer's room is made on the code their shop issued, which is what puts it
+      // on the shop's "Customer rooms" shelf without making it the shop's to edit.
+      user.role === "CUSTOMER" ? (store.accessCodes.find((c) => c.used)?.id ?? null) : null,
+    );
     /**
      * Spend the allowance the room costs.
      *
@@ -208,7 +225,12 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   }
   if (seg[0] === "api" && seg[1] === "projects" && seg.length >= 3) {
     const id = seg[2];
-    const project = store.projects.find((p) => p.id === id) ?? store.projects[0];
+    // Scoped, and the never-404 fallback with it: it used to reach for
+    // store.projects[0], which handed a customer the shop's first room whenever an id
+    // did not match. Falling back within the caller's OWN shelf keeps the demo
+    // forgiving about a stale link without showing anyone somebody else's room.
+    const mine = visibleProjects(user);
+    const project = mine.find((p) => p.id === id) ?? mine[0];
     if (!project) return json({ message: "No project." }, 404);
     const tail = seg.slice(3).join("/");
 
@@ -288,6 +310,18 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
      * should not pretend to: what it can show honestly is every step around it.
      */
     if (tail === "renders" && method === "POST") {
+      /**
+       * Only the owner may photograph a room.
+       *
+       * The picker already leaves a customer's room out of a shop's list, but the
+       * render page is reachable by URL — and without this the shop could open one
+       * directly, press the button, and spend a credit on an image that then lands on
+       * the CUSTOMER's shelf (the image belongs to the room's owner) and never on the
+       * shop's. Paid for, and gone. The shop reads a customer's images in the portal.
+       */
+      if (!ownsProject(project.id, user.id)) {
+        return json({ message: "That room belongs to your customer — its images are theirs to make." }, 403);
+      }
       const body = (await readJson(req)) as Record<string, unknown>;
       const quality = (body.quality as RenderQuality) ?? "PREMIUM";
       const cost = store.aiCredits.renderTiers?.find((t) => t.quality === quality)?.credits
@@ -512,7 +546,11 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
     return json(store.aiCredits);
   }
   if (path === "api/me/renders" && method === "GET") {
-    return json(store.renders);
+    // Per account, like the rooms. An image is bought with its owner's credit and
+    // belongs to their shelf — a shop reads a customer's in the portal, per code,
+    // which is exactly what the dashboard card comment already promised.
+    const mine = new Set(visibleProjects(user).filter((p) => ownsProject(p.id, user.id)).map((p) => p.id));
+    return json(store.renders.filter((r) => mine.has(r.projectId)));
   }
   /**
    * The rooms a NEW image can be started from — closed, and carrying at least one
@@ -526,8 +564,8 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
    */
   if (path === "api/me/renderable-projects" && method === "GET") {
     return json(
-      store.projects
-        .filter((p) => projectCombos(p).length > 0)
+      visibleProjects(user)
+        .filter((p) => ownsProject(p.id, user.id) && projectCombos(p).length > 0)
         .map((p) => ({
           id: p.id,
           name: p.name,
@@ -809,7 +847,12 @@ export async function demoBff(req: NextRequest, joined: string, token: string | 
   // Every room a code produced (portal "View rooms"). Single demo tenant: the
   // seeded projects stand in for whatever the code's customer created.
   if (seg[0] === "api" && seg[1] === "access-codes" && seg[3] === "projects" && method === "GET") {
-    return json(store.projects.map(liveResponse));
+    // The rooms made on THIS code — not, as before, every room in the demo, which made
+    // "View rooms" on any code open the shop's whole shelf.
+    const codeId = seg[2];
+    return json(
+      store.projects.filter((p) => store.projectOwners[p.id]?.accessCodeId === codeId),
+    );
   }
 
   // ---------- Support ----------
@@ -899,6 +942,77 @@ function rewardPoints() {
       type: (p.reversed ? "KIOSK_REVERSED" : "KIOSK_EARNED") as "KIOSK_REVERSED" | "KIOSK_EARNED",
       createdAt: p.createdAt ?? nowIso(),
     })),
+  };
+}
+
+// --- Who may see which room ---
+
+/**
+ * The rooms this account is allowed to open, newest-first order preserved.
+ *
+ * Two audiences, two rules, and they are the backend's own:
+ *
+ *  - A CUSTOMER sees the rooms they created. Nothing else. This is the rule that was
+ *    missing entirely: the demo handed every caller `store.projects`, so Anjali's
+ *    dashboard opened onto the shop's four rooms above a banner reading "1 of 2
+ *    projects used" and a card telling her to verify her email before creating her
+ *    FIRST project.
+ *  - A RETAILER or ADMIN sees their own rooms AND the rooms their customers made on
+ *    codes the shop issued — that is the whole point of the code loop, and it is what
+ *    the dashboard's "My rooms / Customer rooms" filter runs on. That filter has never
+ *    appeared in the demo, because nothing was ever marked as a customer's.
+ *
+ * Anyone else (distributor, painter) owns no rooms and is shown their own, which is
+ * none — the honest answer rather than somebody else's shelf.
+ */
+function visibleProjects(user: { id: string; role: string }): ProjectDetail[] {
+  const store = getStore();
+  const shopCodeIds = new Set(store.accessCodes.map((c) => c.id));
+  return store.projects.filter((p) => {
+    const owner = store.projectOwners[p.id];
+    // A room with no owner recorded is one this session just made; treat the caller as
+    // its owner rather than hiding a room somebody is looking at.
+    if (!owner) return true;
+    if (owner.ownerId === user.id) return true;
+    if (user.role !== "RETAILER" && user.role !== "ADMIN") return false;
+    return owner.accessCodeId != null && shopCodeIds.has(owner.accessCodeId);
+  });
+}
+
+/**
+ * Did this account CREATE the room, as opposed to merely being allowed to see it?
+ *
+ * The difference matters wherever the answer is about spending rather than reading: a
+ * shop can open a customer's room and read the shades off it, and cannot photograph it
+ * with the shop's own AI credit or find its picture on the shop's shelf.
+ */
+function ownsProject(projectId: string, userId: string): boolean {
+  const owner = getStore().projectOwners[projectId];
+  // No record means this session made it — see visibleProjects.
+  return !owner || owner.ownerId === userId;
+}
+
+/**
+ * A room as it appears on THIS reader's dashboard.
+ *
+ * `source` is the reader's word for it, not the room's: the same café facade is "mine"
+ * to Anjali and "a customer's" to the shop. A customer's room also carries who made it
+ * and on which code, because a shop's grid now holds both kinds and a card that does
+ * not say which is a card that gets opened by mistake.
+ */
+function summaryFor(p: ProjectDetail, user: { id: string }): import("../types").ProjectSummary {
+  const store = getStore();
+  const owner = store.projectOwners[p.id];
+  const base = toSummary(p);
+  if (!owner || owner.ownerId === user.id) return { ...base, source: "OWN" };
+  const code = store.accessCodes.find((c) => c.id === owner.accessCodeId);
+  const customer = store.customers.find((c) => c.customerId.replace(/^cust_/, "usr_") === owner.ownerId);
+  return {
+    ...base,
+    source: "CUSTOMER",
+    customerName: customer?.customerName ?? null,
+    accessCode: code?.code ?? null,
+    accessCodeId: owner.accessCodeId ?? null,
   };
 }
 

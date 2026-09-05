@@ -25,6 +25,7 @@ import type {
   WalletSummary,
 } from "../types";
 import type { ShadeCodeScheme } from "../shade-codes";
+import type { DemoProjectOwner } from "./data";
 import {
   DEMO_ACCESS_CODES,
   DEMO_BRANDS,
@@ -36,6 +37,7 @@ import {
   DEMO_ORG,
   DEMO_PROJECT_DETAILS,
   DEMO_PROJECT_ORDER,
+  DEMO_PROJECT_OWNERS,
   DEMO_SHOP_PRODUCTS,
   DEMO_STORE_LINKS,
   DEMO_SUBSCRIPTION,
@@ -48,6 +50,13 @@ import {
 
 export interface DemoStore {
   projects: ProjectDetail[];
+  /**
+   * Who owns each room, keyed by project id — kept BESIDE the projects rather than on
+   * them so `ProjectDetail` stays exactly the shape the wire carries. It is returned
+   * from half a dozen handlers here, and a demo-only field on it would have to be
+   * stripped in every one of them, correctly, forever.
+   */
+  projectOwners: Record<string, DemoProjectOwner>;
   brands: PaintBrand[];
   lines: Record<string, PaintLine[]>;
   products: ShopProduct[];
@@ -100,6 +109,7 @@ function clone<T>(value: T): T {
 function seed(): DemoStore {
   return {
     projects: DEMO_PROJECT_ORDER.map((id) => clone(DEMO_PROJECT_DETAILS[id]!)),
+    projectOwners: clone(DEMO_PROJECT_OWNERS),
     brands: clone(DEMO_BRANDS),
     lines: clone(DEMO_LINES),
     products: clone(DEMO_SHOP_PRODUCTS),

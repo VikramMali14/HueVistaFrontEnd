@@ -41,9 +41,16 @@ export function AccountVerification({ user }: { user: AuthUser | null }) {
         <span style={{ font: "600 22px/1 var(--serif)", color: "var(--fg)" }}>Secure your account</span>
         <Mono brass>Email unverified</Mono>
       </div>
+      {/* This card knows only that the address is unverified — never how much work the
+          account already holds — so it must not assert anything about that. It said
+          "before you create your first project", which is read by somebody looking
+          straight at the rooms they have already made: an account can be onboarded at a
+          counter, make a room on the shop's code, and still never have confirmed the
+          address. The reason to verify stands on its own and is true on day one and on
+          day ninety alike. */}
       <p style={{ font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", margin: "8px 0 20px", maxWidth: "60ch" }}>
-        Verify your email before you create your first project — it&apos;s how we reach
-        you about your work and keep your account safe.
+        Confirm your email address — it&apos;s how we reach you about your work, and how
+        you get back to it from another phone.
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

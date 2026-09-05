@@ -28,7 +28,7 @@ Shared password for all of them: **`huevista`**
 |--------------------------|----------|------------------|
 | `rajesh@mehtapaints.in`  | RETAILER | Dashboard, Studio, Colour finder, Customer portal, Products. **Start here** — it's the richest account. |
 | `admin@huevista.in`      | ADMIN    | Everything above **plus** Inbox (support) and Admin (provision shops). |
-| `anjali@example.in`      | CUSTOMER | Dashboard, Studio, redeem a code. Email left unverified so the "Secure your account" OTP card is demoable. |
+| `anjali@example.in`      | CUSTOMER | Dashboard, Studio, add a code. Sees **only her own room** (the café facade she made on `MEHTA9QP`) — rooms are scoped per account, so her "1 of 2 projects used" banner and her shelf agree. Email left unverified so the "Secure your account" OTP card is demoable. |
 
 A shop access code to add at **/unlock**: **`MEHTA7K2`** (valid for 6 more days;
 `MEHTA3XR` is a deliberately expired one, and `MEHTA9QP` one already used). Sign in
@@ -52,9 +52,15 @@ than minting one. There is no accountless redeem route: `/redeem` redirects to
   draw walls with the Mask Studio — recolouring runs entirely in your browser.
   Rooms you create here get UUID ids, because `/studio` refuses a `?project=` that
   isn't shaped like one.
-- **Customer portal** — issue access codes (3 seeded), customers list with project
-  usage + "grant project", the shop's kiosk link + reward points (seeded sales,
-  one refunded).
+- **Rooms are owned.** The shop sees its own three plus its customer's one (flagged with
+  her name and code, and separable with the dashboard's "My rooms / Customer rooms"
+  filter); the customer sees only hers. AI images follow the same rule — an image is
+  bought with its owner's credit, so a shop reads a customer's in the portal rather than
+  on its own shelf.
+- **Customer portal** — issue access codes (3 seeded: one live, one used, one expired),
+  customers list with project usage + "grant project", the shop's kiosk link + reward
+  points (seeded sales, one refunded). "View rooms" on a used code opens the rooms made
+  under **that** code, with the real shade numbers on them.
 - **In-store kiosk** — the public page at **/store/mehta-paints-7a3b** renders at the
   flat ₹99 platform price; each sale credits the shop 39 points.
 - **Products** — paint brands → lines → shop products (4 seeded); add your own.

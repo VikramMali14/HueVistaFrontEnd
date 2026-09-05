@@ -161,7 +161,11 @@ export const DEMO_ACCESS_CODES: AccessCode[] = [
   // on screen, "expires 1 Jul" beside the word ACTIVE, read in September. All three
   // carry the 10 days the portal's own copy promises, rather than 7/14/3.
   { id: "ac_01", code: "MEHTA7K2", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 10, expiresAt: daysFromNow(6), used: false, expired: false, allowedBrands: ["Sample palette", "Berger"], createdAt: daysFromNow(-4) },
-  { id: "ac_02", code: "MEHTA9QP", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 10, expiresAt: daysFromNow(3), used: true, expired: false, usedAt: daysFromNow(-5), createdAt: daysFromNow(-7) },
+  // Anjali's, and it says so: she is named on it, and its one project is spent —
+  // "View rooms" opens the café facade she made on it (see DEMO_PROJECT_OWNERS). A row
+  // reading "0 / 1" above the room it paid for is the same kind of contradiction the
+  // dates used to make.
+  { id: "ac_02", code: "MEHTA9QP", organizationId: "org_demo", organizationName: "Mehta Paints", customerName: "Anjali Nair", validDays: 10, expiresAt: daysFromNow(3), used: true, expired: false, usedAt: daysFromNow(-5), createdAt: daysFromNow(-7), projectQuota: 2, projectsUsed: 1 },
   { id: "ac_03", code: "MEHTA3XR", organizationId: "org_demo", organizationName: "Mehta Paints", validDays: 10, expiresAt: daysFromNow(-12), used: false, expired: true, createdAt: daysFromNow(-22) },
 ];
 
@@ -533,6 +537,38 @@ export const DEMO_PROJECT_ORDER = [
   "b52a06f7-91d3-4c88-a1e6-0f37d95c4a10",
   "6e08b3d5-4417-4f2a-bc93-58a1e7602d4f",
 ];
+
+/**
+ * Who each seeded room belongs to — the piece the demo never had.
+ *
+ * Without it `GET /api/projects` answered every caller with every room, so the
+ * CUSTOMER account opened its dashboard onto the retailer's four projects while the
+ * banner above them read "1 of 2 projects used" and the card beside them said "verify
+ * your email before you create your FIRST project". Three numbers, one screen, no two
+ * agreeing — and the shop's own "My rooms / Customer rooms" filter never appeared,
+ * because nothing was ever marked as a customer's.
+ *
+ * A room a customer made carries the code it was made under, which is what lets the
+ * shop see it (their code, their quota) without owning it, and what the portal's
+ * "View rooms" reads per code.
+ */
+export interface DemoProjectOwner {
+  /** The account that created the room. */
+  ownerId: string;
+  /** The shop code it was created under — set only for a customer's room. */
+  accessCodeId?: string | null;
+}
+
+export const DEMO_PROJECT_OWNERS: Record<string, DemoProjectOwner> = {
+  // The shop's own three.
+  "9f1c4a20-5b3e-4d61-8a77-1c2e5b8f0a31": { ownerId: "usr_mehta" },
+  "3c7d8e14-62af-4b09-9d55-7e40a1c6b283": { ownerId: "usr_mehta" },
+  "6e08b3d5-4417-4f2a-bc93-58a1e7602d4f": { ownerId: "usr_mehta" },
+  // Anjali's, made at the counter on the code the portal lists as unlocked — so the
+  // shop sees one customer room, she sees exactly the one her entitlement counts, and
+  // "View rooms" on MEHTA9QP opens something real.
+  "b52a06f7-91d3-4c88-a1e6-0f37d95c4a10": { ownerId: "usr_anjali", accessCodeId: "ac_02" },
+};
 
 export function toSummary(p: ProjectDetail): ProjectSummary {
   return {
