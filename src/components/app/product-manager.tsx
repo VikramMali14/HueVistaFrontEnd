@@ -496,7 +496,11 @@ export function ProductManager() {
 
       {/* SAVED PRODUCTS */}
       <section style={{ marginTop: 32 }}>
-        <h2 className="display" style={{ fontSize: 40, marginBottom: 16 }}>Your products</h2>
+        {/* Not "Your products": the page above it is already titled "Your paint
+            products", and two headings 340px apart differing by one word leave a
+            reader working out which list is which. This section is the shelf —
+            the lines the shop actually stocks — which is what the intro calls it. */}
+        <h2 className="display" style={{ fontSize: 40, marginBottom: 16 }}>What you stock</h2>
 
         {/* Open editors (full width, one per product being edited) */}
         {editingList.map((p) => {
@@ -727,15 +731,29 @@ function ProductCard({ product, editing, onEdit, onDelete }: { product: ShopProd
     <div style={{ border: "1px solid " + (editing ? "var(--accent)" : "var(--rule)"), borderRadius: "var(--radius)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
       {/* A 4:3 block in a three-up grid made one product fill a quarter of the
           screen, and an empty one was 320px of the words "no image". Capped, and
-          the placeholder shrinks further than a real photo needs to. */}
-      <div style={{ aspectRatio: "4/3", maxHeight: img ? 190 : 96, background: "var(--surface)", overflow: "hidden" }}>
-        {img ? (
-          // eslint-disable-next-line @next/next/no-img-element
+          the placeholder shrinks further than a real photo needs to.
+          Smaller again, and it now names the next action rather than the gap: a
+          shelf of four cards each carrying a grey band reading "NO IMAGE" is a
+          page announcing four times over what it has not got, on the one screen
+          whose whole job is filling those in. */}
+      {img ? (
+        <div style={{ aspectRatio: "4/3", maxHeight: 190, background: "var(--surface)", overflow: "hidden" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={img} alt={product.lineName ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Mono>no image</Mono></div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            height: 52, display: "flex", alignItems: "center", gap: 8,
+            padding: "0 14px", background: "var(--surface)",
+            borderBottom: "1px dashed var(--rule-strong)",
+            font: "400 13px/1 var(--sans)", color: "var(--fg-mute)",
+          }}
+        >
+          <span aria-hidden style={{ font: "400 15px/1 var(--sans)", color: "var(--accent-text)" }}>+</span>
+          Add a photo with Edit
+        </div>
+      )}
       <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
         <Mono>{product.brandName} · {product.category === "INTERIOR" ? "Interior" : "Exterior"}</Mono>
         <div style={{ font: "400 20px/1.1 var(--sans)", color: "var(--fg)" }}>{product.lineName}</div>
@@ -771,8 +789,13 @@ function ProductCard({ product, editing, onEdit, onDelete }: { product: ShopProd
         {product.description && (
           <p style={{ font: "400 13px/1.45 var(--sans)", color: "var(--fg-mute)", margin: "2px 0 0" }}>{product.description}</p>
         )}
-        <div style={{ marginTop: "auto", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-          <span style={{ font: "600 22px/1 var(--serif)", color: "var(--fg)" }}>
+        {/* The unit belongs to the price, so it must not be what breaks: at card
+            width "₹6,200 /20 L" and "EDIT REMOVE" together overflow, and the
+            wrap fell inside the price, orphaning "/20 L" on a line of its own
+            under every card on the shelf. The price stays whole; the actions
+            take the second line when there isn't room for both. */}
+        <div style={{ marginTop: "auto", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "6px 8px", flexWrap: "wrap" }}>
+          <span style={{ font: "600 22px/1 var(--serif)", color: "var(--fg)", whiteSpace: "nowrap" }}>
             {product.price != null ? `₹${product.price.toLocaleString("en-IN")}` : "—"}{product.priceUnit ? <span style={{ fontSize: 13, color: "var(--fg-mute)" }}> /{product.priceUnit}</span> : null}
           </span>
           <div style={{ display: "flex", gap: 14, alignItems: "baseline" }}>

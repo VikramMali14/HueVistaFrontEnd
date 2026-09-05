@@ -460,6 +460,9 @@ section + section { border-top: var(--hairline) solid var(--rule); }
 .small { font: 400 13px/1.55 var(--sans); color: var(--fg-mute); }
 .mono { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-mute); }
 .mono.brass { color: var(--fg); }
+/* Keeps its own case — for addresses and anything else meant to be copied or
+   typed back, where the label treatment's capitals would misstate the value. */
+.mono.literal { text-transform: none; letter-spacing: .04em; }
 /* Anywhere a shade code is printed. Inherits size, weight and colour from
    whatever it sits in and changes only the face and the figures — see --code
    above for why the mono zero cannot be used for a code. */
@@ -875,7 +878,14 @@ input, select, textarea { font-size: 16px; /* prevents iOS zoom on focus */ }
 }
 
 /* ----- Touch-friendly form controls ----- */
-input[type="checkbox"], input[type="radio"] { min-width: 18px; min-height: 18px; }
+/* The app's own accent, not the browser's. Two components set accent-color
+   locally; the other twenty-eight checkboxes and radios rendered in system
+   blue, which on a cream-and-brass page is the one colour nothing else uses
+   and reads as a control nobody styled. */
+input[type="checkbox"], input[type="radio"] {
+  min-width: 18px; min-height: 18px;
+  accent-color: var(--accent);
+}
 input[type="range"] { -webkit-appearance: none; appearance: none; background: transparent; }
 input[type="range"]::-webkit-slider-runnable-track { background: var(--rule-strong); height: 2px; }
 input[type="range"]::-moz-range-track { background: var(--rule-strong); height: 2px; }
