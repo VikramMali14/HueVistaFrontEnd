@@ -185,11 +185,11 @@ export function DashboardProjects({ isCustomer = false }: { isCustomer?: boolean
           isCustomer ? (
             <p style={{ margin: 0, font: "400 15px/1.5 var(--sans)", color: "var(--fg-soft)", maxWidth: "34ch" }}>
               A room needs a project to open it.{" "}
-              <Link href="/my-projects" style={{ color: "var(--accent)" }}>
+              <Link href="/my-projects" style={{ color: "var(--accent-text)" }}>
                 Buy one or check what you have
               </Link>
               , unlock with a shop&rsquo;s code, or open a{" "}
-              <Link href="/library" style={{ color: "var(--accent)" }}>
+              <Link href="/library" style={{ color: "var(--accent-text)" }}>
                 ready-made room
               </Link>{" "}
               for free.

@@ -182,7 +182,7 @@ export function SignInForm({ action, otpAction, next, mode = "signin", initialEr
             href="/sign-in/forgot"
             style={{
               font: "400 15px/1 var(--serif)",
-              color: "var(--accent-soft)",
+              color: "var(--accent-text)",
               borderBottom: "1px solid var(--rule-brass)",
               paddingBottom: 2,
             }}

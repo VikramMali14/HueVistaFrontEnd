@@ -336,7 +336,7 @@ function ProductCard({ product: p }: { product: ShopProduct }) {
           {p.coverage && <span>· {p.coverage}</span>}
         </div>
         {p.price != null && (
-          <span style={{ font: "500 15px/1 var(--sans)", color: "var(--accent)" }}>
+          <span style={{ font: "500 15px/1 var(--sans)", color: "var(--accent-text)" }}>
             ₹{p.price}{p.priceUnit ? ` / ${p.priceUnit}` : ""}
           </span>
         )}

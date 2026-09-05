@@ -146,7 +146,7 @@ export function MaskReports({ initial, updateAction }: MaskReportsProps) {
                 // admin does not own, which is every room that ever gets reported.
                 <Link
                   href={`/admin/mask-viewer?project=${encodeURIComponent(r.projectId)}`}
-                  style={{ font: "500 12px/1 var(--mono)", color: "var(--accent-soft)" }}
+                  style={{ font: "500 12px/1 var(--mono)", color: "var(--accent-text)" }}
                 >
                   Open the masks →
                 </Link>
@@ -157,7 +157,7 @@ export function MaskReports({ initial, updateAction }: MaskReportsProps) {
                 // LANDED, which is the bench's question, not the viewer's.
                 <Link
                   href={`/admin/studio-test?project=${encodeURIComponent(r.projectId)}`}
-                  style={{ font: "500 12px/1 var(--mono)", color: "var(--accent-soft)", marginLeft: 16 }}
+                  style={{ font: "500 12px/1 var(--mono)", color: "var(--accent-text)", marginLeft: 16 }}
                 >
                   Paint it →
                 </Link>

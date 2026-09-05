@@ -179,8 +179,8 @@ function statusLabel(s: SubscriptionSummary): { text: string; color: string } {
       ? { text: "Trial", color: "var(--accent-text)" }
       : { text: "Active", color: "var(--accent-text)" };
   }
-  if (s.status === "EXPIRED") return { text: "Ended", color: "var(--terracotta)" };
-  if (s.status === "HALTED") return { text: "Payment failed", color: "var(--terracotta)" };
+  if (s.status === "EXPIRED") return { text: "Ended", color: "var(--terracotta-text)" };
+  if (s.status === "HALTED") return { text: "Payment failed", color: "var(--terracotta-text)" };
   if (s.status === "CANCELLED") {
     // A cancelled plan stays usable to the end of the paid period — a bare "Cancelled"
     // read as if access had already ended. The backend gate matches on the SAME
@@ -219,7 +219,7 @@ function historyLabel(
     return { text: `${live.text} · in force now`, color: live.color };
   }
   if (notStartedYet(s)) return { text: `Starts ${fmtDate(s.currentPeriodStart)}`, color: "var(--accent-text)" };
-  if (s.status === "HALTED") return { text: "Payment failed", color: "var(--terracotta)" };
+  if (s.status === "HALTED") return { text: "Payment failed", color: "var(--terracotta-text)" };
   // Everything else is over, whatever ended it. Past tense, and never "active".
   if (s.status === "CANCELLED") return { text: "Cancelled", color: "var(--fg-mute)" };
   if (s.status === "EXPIRED") return { text: "Ended", color: "var(--fg-mute)" };
@@ -520,7 +520,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                       type="button"
                       onClick={cancel}
                       disabled={cancelling}
-                      style={{ ...buttonStyle, borderColor: "var(--terracotta)", color: "var(--terracotta)" }}
+                      style={{ ...buttonStyle, borderColor: "var(--terracotta)", color: "var(--terracotta-text)" }}
                     >
                       {cancelling ? "Ending…" : "Yes, end it"}
                     </button>
@@ -585,10 +585,18 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                 now lives in the studio, on the upload that is asking for it. */}
             {active && !isUnlimited(sub.projectsLimit) && (
               <p style={{ margin: "20px 0 0", font: "400 13px/1.6 var(--sans)", color: "var(--fg-mute)", maxWidth: "70ch" }}>
+                {/* Quote only the rail whose price is actually known. `?? 0` here put
+                    "or ₹0" in the sentence whenever the rupee price was absent — a
+                    figure that reads as a promise of a free project rather than as the
+                    missing field it is, and the one number on this line a shop would
+                    act on. Naming the points price alone is the honest short version;
+                    naming neither is right when neither has arrived. */}
                 {`Out of allowance mid-cycle? You'll be offered one extra project in the studio, `
                   + `at the moment you upload the photo that needs it`
                   + (points != null
-                      ? ` — ${points.projectPrice} points, or ${paise(sub.extraProjectPricePaise ?? 0)}`
+                      ? sub.extraProjectPricePaise
+                          ? ` — ${points.projectPrice} points, or ${paise(sub.extraProjectPricePaise)}`
+                          : ` — ${points.projectPrice} points`
                       : "")
                   + `. Each one stays open for ${projectValidDays} days from the day you buy it, `
                   + `and can be assigned to a customer from your shop portal.`}
@@ -630,7 +638,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                       type="button"
                       onClick={cancel}
                       disabled={cancelling}
-                      style={{ ...buttonStyle, borderColor: "var(--terracotta)", color: "var(--terracotta)" }}
+                      style={{ ...buttonStyle, borderColor: "var(--terracotta)", color: "var(--terracotta-text)" }}
                     >
                       {cancelling ? "Cancelling…" : "Yes, cancel"}
                     </button>
@@ -775,7 +783,7 @@ export function SubscriptionPanel({ initialSubscription, history, plans }: Subsc
                   style={{ display: "flex", gap: 12, alignItems: "baseline", font: "400 13px/1.5 var(--sans)", color: "var(--fg-soft)" }}
                 >
                   <span style={{ minWidth: 150 }}>{POINTS_LABEL[t.type] ?? t.type}</span>
-                  <span style={{ font: "500 13px/1 var(--mono)", color: t.points >= 0 ? "var(--accent)" : "var(--terracotta)" }}>
+                  <span style={{ font: "500 13px/1 var(--mono)", color: t.points >= 0 ? "var(--accent-text)" : "var(--terracotta-text)" }}>
                     {t.points >= 0 ? "+" : "−"}{Math.abs(t.points)} pts
                   </span>
                   <span style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", color: "var(--fg-mute)" }}>

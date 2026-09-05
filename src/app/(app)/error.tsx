@@ -35,7 +35,7 @@ export default function AppError({
           font: "400 12px/1 var(--mono, ui-monospace, monospace)",
           letterSpacing: ".3em",
           textTransform: "uppercase",
-          color: "var(--accent)",
+          color: "var(--accent-text)",
         }}
       >
         Something went wrong

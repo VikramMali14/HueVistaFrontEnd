@@ -88,7 +88,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               button to press, because redeeming one is the entire fix. */}
           Your products are the ones a paint shop unlocks for you, and no shop is
           behind this account yet.{" "}
-          <Link href="/unlock" style={{ color: "var(--accent-soft)" }}>
+          <Link href="/unlock" style={{ color: "var(--accent-text)" }}>
             Unlock with a shop code
           </Link>{" "}
           and they&apos;ll appear here.
@@ -128,7 +128,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           {/* The opposite of the distributor denial above: this one the shop lifts
               itself, so it names the button rather than a person to ring. */}
           {featureLabel(page)} isn&apos;t part of the free plan.{" "}
-          <Link href="/plan" style={{ color: "var(--accent)" }}>Choose a plan</Link> to switch it on —
+          <Link href="/plan" style={{ color: "var(--accent-text)" }}>Choose a plan</Link> to switch it on —
           every paid tier includes it.
         </div>
       )}

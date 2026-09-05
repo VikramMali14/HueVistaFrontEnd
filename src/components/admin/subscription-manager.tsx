@@ -66,8 +66,8 @@ function fmtDate(iso?: string | null): string {
 const fmtLimit = formatLimit;
 
 function statusColor(status: SubscriptionSummary["status"]): string {
-  if (status === "ACTIVE") return "var(--accent)";
-  if (status === "EXPIRED" || status === "HALTED") return "var(--terracotta)";
+  if (status === "ACTIVE") return "var(--accent-text)";
+  if (status === "EXPIRED" || status === "HALTED") return "var(--terracotta-text)";
   return "var(--fg-mute)";
 }
 
@@ -218,7 +218,7 @@ export function SubscriptionManager({
 
       {error && <p className="field-error" role="alert">{error}</p>}
       {notice && (
-        <p role="status" style={{ font: "400 14px/1.5 var(--sans)", color: "var(--accent)", margin: "0 0 14px" }}>
+        <p role="status" style={{ font: "400 14px/1.5 var(--sans)", color: "var(--accent-text)", margin: "0 0 14px" }}>
           {notice}
         </p>
       )}
@@ -252,7 +252,7 @@ export function SubscriptionManager({
               <span style={{ font: "500 16px/1.3 var(--serif)", color: "var(--fg)" }}>{u.name}</span>
               <Mono>{u.email}</Mono>
               <Mono brass>{u.role}</Mono>
-              <span style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--accent-soft)" }}>
+              <span style={{ marginLeft: "auto", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase", color: "var(--accent-text)" }}>
                 Manage →
               </span>
             </button>
@@ -347,7 +347,7 @@ export function SubscriptionManager({
                     <span style={fieldLabel}>Project limit (blank = plan default)</span>
                     <input type="number" min={1} value={aiLimit} onChange={(e) => setAiLimit(e.target.value)} placeholder="Plan default" style={{ ...inputStyle, width: "100%" }} />
                   </label>
-                  <button type="button" onClick={grant} disabled={pending} style={{ ...buttonStyle, borderColor: "var(--accent-soft)", color: "var(--accent-soft)" }}>
+                  <button type="button" onClick={grant} disabled={pending} style={{ ...buttonStyle, borderColor: "var(--accent-soft)", color: "var(--accent-text)" }}>
                     {pending ? "Working…" : "Grant & activate"}
                   </button>
                   <p style={{ font: "400 12px/1.5 var(--sans)", color: "var(--fg-mute)", margin: 0 }}>

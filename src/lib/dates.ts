@@ -37,6 +37,28 @@ export function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
+/**
+ * Has a deadline we are showing already gone by?
+ *
+ * Every window in the product is recorded twice — as a date, and as a boolean the
+ * backend stamps when a sweep gets round to it (`expired` on an access code, on a
+ * customer's entitlement, on a subscription period). The two drift apart, because
+ * only the boolean needs a sweep to stay true, and when they drift the screen puts
+ * both halves side by side and contradicts itself: "expires 1 Jul" next to "ACTIVE",
+ * read in September.
+ *
+ * So ask the date as well, and let either one close the window. A flag that says
+ * expired is still believed — this can only ever agree with it, never overrule it —
+ * and a missing or unparseable date leaves the flag to answer alone.
+ *
+ * `now` is a parameter so a component holding a mount-time clock stays pure across
+ * re-renders rather than reading a moving `Date.now()` mid-paint.
+ */
+export function hasPassed(iso: string | null | undefined, now: number = Date.now()): boolean {
+  const d = toDate(iso);
+  return d !== null && d.getTime() <= now;
+}
+
 function toDate(iso: string | null | undefined): Date | null {
   if (!iso) return null;
   const d = new Date(iso);

@@ -2013,7 +2013,7 @@ export function MaskStudio({
                     />
                     {m.label}
                     {layer?.dirty && (
-                      <span title="Changed — will be saved" style={{ color: "var(--accent)" }}>
+                      <span title="Changed — will be saved" style={{ color: "var(--accent-text)" }}>
                         •
                       </span>
                     )}
@@ -2404,7 +2404,7 @@ export function MaskStudio({
                     [<CornersIcon key="c" />, "Outline it", "Tap corner points for crisp, straight edges."],
                   ] as const).map(([icon, t, d]) => (
                     <div key={t} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                      <span style={{ color: "var(--accent)", flexShrink: 0, marginTop: 1 }}>{icon}</span>
+                      <span style={{ color: "var(--accent-text)", flexShrink: 0, marginTop: 1 }}>{icon}</span>
                       <span style={{ font: "400 13px/1.45 var(--sans)", color: "var(--fg-soft)" }}>
                         <strong style={{ color: "var(--fg)" }}>{t}.</strong> {d}
                       </span>

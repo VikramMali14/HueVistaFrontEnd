@@ -55,17 +55,17 @@ export default function ContactPage() {
             <span style={label}>Email</span>
             <p style={body}>
               General enquiries —{" "}
-              <a href={`mailto:${contact.general}`} style={{ color: "var(--accent)" }}>
+              <a href={`mailto:${contact.general}`} style={{ color: "var(--accent-text)" }}>
                 {contact.general}
               </a>
               <br />
               Product help —{" "}
-              <a href={`mailto:${contact.support}`} style={{ color: "var(--accent)" }}>
+              <a href={`mailto:${contact.support}`} style={{ color: "var(--accent-text)" }}>
                 {contact.support}
               </a>
               <br />
               Billing, payments and refunds —{" "}
-              <a href={`mailto:${contact.billing}`} style={{ color: "var(--accent)" }}>
+              <a href={`mailto:${contact.billing}`} style={{ color: "var(--accent-text)" }}>
                 {contact.billing}
               </a>
             </p>
@@ -74,7 +74,7 @@ export default function ContactPage() {
           <section>
             <span style={label}>Phone</span>
             <p style={body}>
-              <a href={`tel:${contact.phoneE164}`} style={{ color: "var(--accent)" }}>
+              <a href={`tel:${contact.phoneE164}`} style={{ color: "var(--accent-text)" }}>
                 {contact.phone}
               </a>
               <br />
@@ -95,7 +95,7 @@ export default function ContactPage() {
             <span style={label}>Grievances</span>
             <p style={body}>
               If something has gone wrong and a first reply has not resolved it, write to{" "}
-              <a href={`mailto:${contact.general}`} style={{ color: "var(--accent)" }}>
+              <a href={`mailto:${contact.general}`} style={{ color: "var(--accent-text)" }}>
                 {contact.general}
               </a>{" "}
               with &ldquo;Grievance&rdquo; in the subject, addressed to {contact.legalName},

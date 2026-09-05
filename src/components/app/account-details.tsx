@@ -40,7 +40,7 @@ function msg(e: unknown): string {
 
 function VerifiedChip({ verified }: { verified: boolean }) {
   return verified ? (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent)" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent-text)" }}>
       <span aria-hidden>✓</span>
       <Mono brass>Verified</Mono>
     </span>
@@ -323,7 +323,7 @@ function ChangePasswordSection({ provider }: { provider: AuthUser["provider"] })
         you&apos;ll sign back in with the new one.
       </p>
       {done ? (
-        <p role="status" style={{ font: "400 15px/1.5 var(--sans)", color: "var(--accent)", margin: 0 }}>
+        <p role="status" style={{ font: "400 15px/1.5 var(--sans)", color: "var(--accent-text)", margin: 0 }}>
           Password changed. Taking you to sign-in…
         </p>
       ) : (

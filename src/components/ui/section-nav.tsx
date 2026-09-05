@@ -197,7 +197,7 @@ export function SectionNav({ items }: { items: SectionNavItem[] }) {
           text-decoration: none;
           transition: border-color .18s var(--ease), background .18s var(--ease);
         }
-        .hv-sidenav-link:hover { border-color: var(--accent); background: var(--surface-soft); }
+        .hv-sidenav-link:hover { border-color: var(--accent-text); background: var(--surface-soft); }
         .hv-sidenav-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .hv-sidenav-link-label {
           display: flex;
@@ -208,7 +208,7 @@ export function SectionNav({ items }: { items: SectionNavItem[] }) {
           text-transform: uppercase;
           color: var(--fg);
         }
-        .hv-sidenav-link-arrow { color: var(--accent); }
+        .hv-sidenav-link-arrow { color: var(--accent-text); }
         .hv-sidenav-link-hint { font: 300 13px/1.4 var(--serif); color: var(--fg-mute); }
         @media (max-width: 640px) {
           .hv-sidenav-tab { padding: 12px 6px; }

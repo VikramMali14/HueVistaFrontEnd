@@ -13,7 +13,7 @@ const dangerBtn: React.CSSProperties = {
   padding: "12px 18px",
   borderRadius: "var(--radius-pill)",
   background: "transparent",
-  color: "var(--terracotta)",
+  color: "var(--terracotta-text)",
   border: "1px solid var(--terracotta)",
   cursor: "pointer",
 };

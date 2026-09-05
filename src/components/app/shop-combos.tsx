@@ -144,7 +144,7 @@ export function ShopCombos({ shades, org: orgProp }: { shades: ReadonlyArray<Pai
                   cursor: "pointer",
                   background: "transparent",
                   border: "1px solid " + (scope === s ? "var(--accent)" : "var(--rule)"),
-                  color: scope === s ? "var(--accent)" : "var(--fg-mute)",
+                  color: scope === s ? "var(--accent-text)" : "var(--fg-mute)",
                   font: "400 12px/1 var(--mono)",
                   letterSpacing: ".18em",
                 }}

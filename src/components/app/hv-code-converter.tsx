@@ -252,7 +252,7 @@ export function HvCodeConverter() {
             style={{
               marginTop: 10,
               font: "500 13.5px/1.5 var(--sans)",
-              color: result.brandMatch.exact ? "var(--accent)" : "var(--fg-soft)",
+              color: result.brandMatch.exact ? "var(--accent-text)" : "var(--fg-soft)",
             }}
           >
             {result.brandMatch.exact ? "Exact match — " : "Closest match — "}

@@ -18,7 +18,7 @@ export default async function AdminMigrationPage() {
   await requireRole(["ADMIN"]);
   return (
     <div className="measure" style={{ maxWidth: 820 }}>
-      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
         ← Admin
       </Link>
       <Eyebrow style={{ marginTop: 16 }}>Admin · maintenance</Eyebrow>
@@ -39,7 +39,7 @@ export default async function AdminMigrationPage() {
           Seeding, bulk-importing and wiping paint-company shades take a JSON payload, so they live
           on the shade importer rather than as one-click passes here.
         </p>
-        <Link href="/admin/shades" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/shades" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Go to shade importer →
         </Link>
       </section>

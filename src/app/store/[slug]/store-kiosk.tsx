@@ -108,7 +108,7 @@ export function StoreKiosk({ info, signedIn }: { info: StorePublicInfo; signedIn
   if (status === "done" && done) {
     return (
       <div style={{ textAlign: "center" }}>
-        <span aria-hidden style={{ fontSize: 44, color: "var(--accent)" }}>✓</span>
+        <span aria-hidden style={{ fontSize: 44, color: "var(--accent-text)" }}>✓</span>
         <h1 className="display" style={{ fontSize: "clamp(36px, 5vw, 56px)", margin: "12px 0" }}>
           Paid. You&apos;re in.
         </h1>
@@ -117,7 +117,7 @@ export function StoreKiosk({ info, signedIn }: { info: StorePublicInfo; signedIn
           pickup code — <strong>show it at the counter</strong> and the shop will mix the shades you chose.
         </Lead>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 14, border: "1px solid var(--accent)", padding: "16px 22px", marginBottom: 28 }}>
-          <span style={{ fontFamily: "var(--mono)", letterSpacing: ".22em", fontSize: 26, color: "var(--accent)" }}>
+          <span style={{ fontFamily: "var(--mono)", letterSpacing: ".22em", fontSize: 26, color: "var(--accent-text)" }}>
             {done.code}
           </span>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyCode(done.code)}>
@@ -147,7 +147,7 @@ export function StoreKiosk({ info, signedIn }: { info: StorePublicInfo; signedIn
         {done.claimable && (
           <p style={{ font: "400 14px/1.6 var(--serif)", color: "var(--fg-mute)", marginTop: 16, maxWidth: "52ch", marginInline: "auto" }}>
             Already have a HueVista account?{" "}
-            <Link href="/sign-in?next=/my-projects" style={{ color: "var(--accent-soft)" }}>
+            <Link href="/sign-in?next=/my-projects" style={{ color: "var(--accent-text)" }}>
               Sign in and we&apos;ll move this room onto it →
             </Link>
           </p>
@@ -175,7 +175,7 @@ export function StoreKiosk({ info, signedIn }: { info: StorePublicInfo; signedIn
       <ol style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "grid", gap: 12 }}>
         {STEPS.map((step, i) => (
           <li key={step} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <span aria-hidden style={{ width: 28, height: 28, borderRadius: 999, border: "1px solid var(--rule-strong)", display: "inline-flex", alignItems: "center", justifyContent: "center", font: "500 12px/1 var(--mono)", color: "var(--accent)", flexShrink: 0 }}>
+            <span aria-hidden style={{ width: 28, height: 28, borderRadius: 999, border: "1px solid var(--rule-strong)", display: "inline-flex", alignItems: "center", justifyContent: "center", font: "500 12px/1 var(--mono)", color: "var(--accent-text)", flexShrink: 0 }}>
               {i + 1}
             </span>
             <span style={{ font: "400 16px/1.5 var(--serif)", color: "var(--fg-soft)" }}>{step}</span>
@@ -246,10 +246,10 @@ export function StoreKiosk({ info, signedIn }: { info: StorePublicInfo; signedIn
       <p style={{ font: "400 14px/1.5 var(--serif)", color: "var(--fg-mute)", marginTop: 24 }}>
         {signedIn ? (
           <>Already paid on this device?{" "}
-            <Link href="/studio" style={{ color: "var(--accent-soft)" }}>Continue in the studio →</Link></>
+            <Link href="/studio" style={{ color: "var(--accent-text)" }}>Continue in the studio →</Link></>
         ) : (
           <>Bought here before?{" "}
-            <Link href="/unlock" style={{ color: "var(--accent-soft)" }}>Get a sign-in code by email →</Link></>
+            <Link href="/unlock" style={{ color: "var(--accent-text)" }}>Get a sign-in code by email →</Link></>
         )}
       </p>
     </div>

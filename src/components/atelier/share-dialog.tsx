@@ -166,7 +166,7 @@ export function ShareDialog({
 
         {error ? (
           <>
-            <p role="alert" style={{ font: "400 15px/1.45 var(--serif)", color: "var(--terracotta)", margin: 0 }}>
+            <p role="alert" style={{ font: "400 15px/1.45 var(--serif)", color: "var(--terracotta-text)", margin: 0 }}>
               {error}
             </p>
             <Button variant="ghost" size="sm" onClick={onRetry}>Try again</Button>

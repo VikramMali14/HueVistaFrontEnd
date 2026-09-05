@@ -555,7 +555,7 @@ export function FreeProjectLibrary({
         </p>
       )}
       {notice && (
-        <p role="status" style={{ marginTop: 20, font: "300 15px/1.6 var(--serif)", color: "var(--accent-soft)" }}>
+        <p role="status" style={{ marginTop: 20, font: "300 15px/1.6 var(--serif)", color: "var(--accent-text)" }}>
           {notice}
         </p>
       )}
@@ -639,7 +639,7 @@ export function FreeProjectLibrary({
               <h3 style={{ font: "400 20px/1.3 var(--serif)", margin: 0 }}>{shelf.label}</h3>
               <Mono
                 style={{
-                  color: shelf.items.length >= TARGET_PER_SHELF ? "var(--accent-soft)" : "var(--fg-mute)",
+                  color: shelf.items.length >= TARGET_PER_SHELF ? "var(--accent-text)" : "var(--fg-mute)",
                 }}
               >
                 {shelf.items.length} of {TARGET_PER_SHELF}
@@ -664,7 +664,7 @@ export function FreeProjectLibrary({
                     font: "500 12px/1 var(--mono)",
                     letterSpacing: ".1em",
                     textTransform: "uppercase",
-                    color: "var(--accent-soft)",
+                    color: "var(--accent-text)",
                   }}
                 >
                   {shelf.items.every((t) => selected.has(t.id)) ? "Deselect all" : "Select all"}
@@ -818,7 +818,7 @@ function TemplateCard({
               padding: "3px 10px",
               borderRadius: 999,
               border: "1px solid var(--rule-strong)",
-              color: template.published ? "var(--accent-soft)" : "var(--fg-mute)",
+              color: template.published ? "var(--accent-text)" : "var(--fg-mute)",
             }}
           >
             {template.published ? PLACEMENT_LABEL[placement] : `${PLACEMENT_LABEL[placement]} · hidden`}

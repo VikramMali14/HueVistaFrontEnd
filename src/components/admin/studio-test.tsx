@@ -1040,7 +1040,7 @@ function SurfaceReport({ label, m, canvasSource }: { label: string; m: SurfaceMe
                 <td style={{
                   padding: "7px 0",
                   font: "400 12px/1.5 var(--sans)",
-                  color: r.verdict?.tone === "bad" ? "var(--accent)" : "var(--fg-mute)",
+                  color: r.verdict?.tone === "bad" ? "var(--accent-text)" : "var(--fg-mute)",
                 }}>
                   {r.verdict?.text ?? ""}
                 </td>
@@ -1388,7 +1388,7 @@ function Knob({
     <div className="field" style={{ marginBottom: 18 }}>
       <label className="field-label" htmlFor={id}>
         {label} · {value}
-        {off && <span style={{ color: "var(--accent)" }}> · off the studio default</span>}
+        {off && <span style={{ color: "var(--accent-text)" }}> · off the studio default</span>}
       </label>
       {children}
     </div>

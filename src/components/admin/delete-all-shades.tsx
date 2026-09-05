@@ -141,7 +141,7 @@ export function DeleteAllShades() {
           }}
         >
           <p style={{ font: "600 15px/1.4 var(--serif)", color: "var(--fg)", margin: 0 }}>
-            <span aria-hidden style={{ color: "var(--accent)" }}>✓</span> Catalogue cleared
+            <span aria-hidden style={{ color: "var(--accent-text)" }}>✓</span> Catalogue cleared
           </p>
           <p style={{ font: "400 13px/1.5 var(--serif)", color: "var(--fg-mute)", margin: "6px 0 0" }}>
             {result.deletedShades} shade{result.deletedShades === 1 ? "" : "s"} deleted ·{" "}

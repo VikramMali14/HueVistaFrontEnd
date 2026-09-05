@@ -185,7 +185,7 @@ export default async function PricingPage() {
               </h2>
             </div>
             <div className="reveal d1" style={{ marginTop: 64 }}>
-              <p className="mono hv-matrix-hint" style={{ marginBottom: 14, color: "var(--accent-soft)" }}>
+              <p className="mono hv-matrix-hint" style={{ marginBottom: 14, color: "var(--accent-text)" }}>
                 Swipe to compare every tier →
               </p>
               {/* Overflow is lifted at >=964px (globals) so the sticky thead can
@@ -199,7 +199,7 @@ export default async function PricingPage() {
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Starter<div style={thPriceStyle}>₹999 / mo</div></th>
                     {/* Literal metallic on the always-dark band. Opaque composite
                         so the tint survives sticky overlap. */}
-                    <th style={{ ...headStyle, color: "var(--accent-soft)", background: "linear-gradient(rgba(192,139,78,.08), rgba(192,139,78,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "var(--accent-soft)" }}>₹2,499 / mo</div></th>
+                    <th style={{ ...headStyle, color: "var(--accent-text)", background: "linear-gradient(rgba(192,139,78,.08), rgba(192,139,78,.08)) var(--band)" }}>Professional<div style={{ ...thPriceStyle, color: "var(--accent-text)" }}>₹2,499 / mo</div></th>
                     <th style={{ ...headStyle, color: "var(--ivory)" }}>Business<div style={thPriceStyle}>₹4,999 / mo</div></th>
                   </tr>
                 </thead>

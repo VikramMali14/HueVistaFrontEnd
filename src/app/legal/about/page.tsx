@@ -128,19 +128,19 @@ export default async function AboutPage() {
             <span style={label}>Reaching us</span>
             <p style={body}>
               Write to{" "}
-              <a href={`mailto:${contact.general}`} style={{ color: "var(--accent)" }}>
+              <a href={`mailto:${contact.general}`} style={{ color: "var(--accent-text)" }}>
                 {contact.general}
               </a>{" "}
               or call{" "}
-              <a href={`tel:${contact.phoneE164}`} style={{ color: "var(--accent)" }}>
+              <a href={`tel:${contact.phoneE164}`} style={{ color: "var(--accent-text)" }}>
                 {contact.phone}
               </a>{" "}
               ({contact.phoneHours}). Billing and refund questions go to{" "}
-              <a href={`mailto:${contact.billing}`} style={{ color: "var(--accent)" }}>
+              <a href={`mailto:${contact.billing}`} style={{ color: "var(--accent-text)" }}>
                 {contact.billing}
               </a>
               . Full postal address, grievance process and response times are on our{" "}
-              <a href="/legal/contact" style={{ color: "var(--accent)" }}>
+              <a href="/legal/contact" style={{ color: "var(--accent-text)" }}>
                 contact page
               </a>
               .

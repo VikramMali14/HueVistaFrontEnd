@@ -57,7 +57,7 @@ export function ShopLeadForm({ action, verifyAction, resendAction }: ShopLeadFor
   if (done) {
     return (
       <div role="status" style={{ textAlign: "center", padding: "48px 0" }}>
-        <span aria-hidden style={{ fontSize: 44, color: "var(--accent)" }}>✓</span>
+        <span aria-hidden style={{ fontSize: 44, color: "var(--accent-text)" }}>✓</span>
         <h2 className="display" style={{ fontSize: "clamp(32px, 4.5vw, 52px)", margin: "12px 0 12px" }}>
           Email confirmed.
         </h2>
@@ -135,7 +135,7 @@ export function ShopLeadForm({ action, verifyAction, resendAction }: ShopLeadFor
             style={{
               background: "transparent", border: "none", padding: 0,
               cursor: cooldown > 0 ? "default" : "pointer",
-              color: cooldown > 0 ? "var(--fg-mute)" : "var(--accent-soft)",
+              color: cooldown > 0 ? "var(--fg-mute)" : "var(--accent-text)",
               font: "300 italic 16px/1.4 var(--serif)",
               borderBottom: cooldown > 0 ? "none" : "1px solid var(--rule-brass)",
             }}
@@ -307,9 +307,9 @@ const stepStyles = `
   .step { padding: 56px 0; border-top: 1px solid var(--rule); }
   .step:first-of-type { border-top: none; padding-top: 0; }
   .step-head { display: flex; align-items: baseline; gap: 24px; margin-bottom: 40px; }
-  .step-num { font: 300 italic 22px/1 var(--serif); color: var(--accent); }
+  .step-num { font: 300 italic 22px/1 var(--serif); color: var(--accent-text); }
   .step-title { font-family: var(--serif); font-weight: 300; font-size: 36px; line-height: 1; color: var(--fg); }
-  .step-title i { color: var(--accent-soft); }
+  .step-title i { color: var(--accent-text); }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
   @media (max-width: 1100px) { .form-grid { grid-template-columns: 1fr; gap: 24px; } }
 `;

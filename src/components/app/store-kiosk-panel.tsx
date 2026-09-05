@@ -203,7 +203,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
             {links.map((link) => (
               <div key={link.id} style={{ border: "1px solid var(--rule)", padding: "18px 22px", display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "var(--mono)", fontSize: 15, color: "var(--accent)", overflowWrap: "anywhere" }}>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 15, color: "var(--accent-text)", overflowWrap: "anywhere" }}>
                     {storeUrl(link)}
                   </span>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyUrl(link)}>
@@ -217,7 +217,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
                   >
                     {buildingPoster === link.id ? "Preparing…" : "Download QR"}
                   </button>
-                  <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: link.active ? "var(--accent)" : "var(--fg-mute-deep)", border: "1px solid " + (link.active ? "var(--accent)" : "var(--rule)"), borderRadius: 999, padding: "5px 10px" }}>
+                  <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: link.active ? "var(--accent-text)" : "var(--fg-mute-deep)", border: "1px solid " + (link.active ? "var(--accent)" : "var(--rule)"), borderRadius: 999, padding: "5px 10px" }}>
                     {link.active ? "Live" : "Paused"}
                   </span>
                 </div>
@@ -241,7 +241,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
                       <button
                         type="button"
                         className="btn btn-ghost btn-sm"
-                        style={{ borderColor: "var(--terracotta)", color: "var(--terracotta)" }}
+                        style={{ borderColor: "var(--terracotta)", color: "var(--terracotta-text)" }}
                         onClick={() => void deleteLink(link)}
                         disabled={savingLink === link.id}
                       >
@@ -281,7 +281,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
           <div style={{ display: "flex", gap: 28, flexWrap: "wrap", marginBottom: 20 }}>
             <div>
               <Mono>Points to spend</Mono>
-              <div style={{ font: "500 28px/1.2 var(--serif)", color: "var(--accent)", marginTop: 6 }}>
+              <div style={{ font: "500 28px/1.2 var(--serif)", color: "var(--accent-text)", marginTop: 6 }}>
                 {formatPoints(wallet.pointsBalance)}
               </div>
             </div>
@@ -326,7 +326,7 @@ export function StoreKioskPanel({ org: orgProp }: { org?: OrgResponse | null }) 
                     <Mono>
                       {p.reversed ? `refunded — ${formatPoints(p.bonusPoints)} taken back` : `+${formatPoints(p.bonusPoints)}`}
                     </Mono>
-                    {p.code && <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{p.code}</span>}
+                    {p.code && <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent-text)" }}>{p.code}</span>}
                     {p.createdAt && (
                       <Mono>{formatDate(p.createdAt)}</Mono>
                     )}

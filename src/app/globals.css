@@ -91,7 +91,16 @@
   --nav-bg:          rgba(22,19,15,.72);
   --nav-bg-strong:   rgba(16,14,12,.92);
   --surface-overlay: rgba(16,14,12,.65);
-  --terracotta:      #c2402a;   /* errors / destructive */
+  --terracotta:      #c2402a;   /* errors / destructive — FILLS, rules, marks */
+  /* Destructive as TEXT, the same split --sage/--sage-text and
+     --accent/--accent-text already make. #c2402a on the dark page is 3.7:1,
+     which is where "Delete account" and every field error were sitting.
+     Struck at the same value as --accent-warm rather than a fourth red: that
+     cut is already the palette's "warm, carrying words" one, and it clears AA
+     on the raised surfaces too (5.2:1 on --surface-soft, where a ledger's
+     minus figures sit) and not just on the page. Light keeps its own darker
+     cut, which already passes at 5.7:1. */
+  --terracotta-text: #d9705a;
   --sage:            #4e7a52;   /* success — FILLS (ivory text sits on it) */
   /* Success as TEXT. #4e7a52 on the dark surface is 3.7:1, which is what made
      "saved just now" hard to read; this lifts it clear of AA while staying the
@@ -179,6 +188,7 @@ html[data-theme="light"] {
   --nav-bg-strong:   rgba(255,255,255,.92);
   --surface-overlay: rgba(246,243,236,.65);
   --terracotta:      #a83b22;
+  --terracotta-text: #a83b22;
   --sage:            #3f6a45;
   --sage-text:       #3f6a45;
   --band:            #191612;
@@ -625,7 +635,7 @@ footer { background: var(--bg-deep); border-top: 1px solid var(--rule); padding:
 .field select { appearance: none; background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%2371716c' d='M5 6L0 0h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
 /* Darker caret in light theme so it matches the (now dark) field text. */
 html[data-theme="light"] .field select { background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%232b2823' d='M5 6L0 0h10z'/%3E%3C/svg%3E"); }
-.field-error { color: var(--terracotta); font: 500 13px/1.4 var(--sans); font-style: normal; }
+.field-error { color: var(--terracotta-text); font: 500 13px/1.4 var(--sans); font-style: normal; }
 
 /* A <select> that matches the app's own controls rather than the browser's.
    `.field select` above only reaches selects inside a .field wrapper; the app
@@ -3041,7 +3051,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-status-pill.is-accent { color: var(--accent-text); border-color: var(--rule-brass); }
 .hv-status-pill.is-success { color: var(--sage-text); border-color: rgba(78,122,82,.45); }
-.hv-status-pill.is-error { color: var(--terracotta); border-color: rgba(194,64,42,.45); cursor: pointer; }
+.hv-status-pill.is-error { color: var(--terracotta-text); border-color: rgba(194,64,42,.45); cursor: pointer; }
 .hv-status-pill.is-error:hover { background: rgba(194,64,42,.08); }
 .hv-status-pill .dot {
   width: 7px; height: 7px; border-radius: 50%; background: currentColor;
@@ -4170,7 +4180,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
   border-radius: var(--radius-pill);
   transition: color .15s var(--ease);
 }
-.hv-studio-region-chip-del:hover { color: var(--terracotta); }
+.hv-studio-region-chip-del:hover { color: var(--terracotta-text); }
 .hv-studio-region-chip-del:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
 .hv-studio-region-chip-edit {
   display: inline-flex;
@@ -4681,7 +4691,7 @@ a:hover .hv-proj-thumb img { transform: scale(1.04); }
 }
 .hv-studio-dock-tipsbtn:hover:not(:disabled) { background: var(--surface-soft); color: var(--fg); }
 .hv-studio-dock-tipsbtn:disabled { opacity: .4; cursor: default; }
-.hv-studio-dock-tipsbtn.has-warn { color: var(--terracotta); border-color: var(--terracotta); }
+.hv-studio-dock-tipsbtn.has-warn { color: var(--terracotta-text); border-color: var(--terracotta-text); }
 .hv-studio-dock-tipsbtn.is-open { background: var(--surface-soft); color: var(--fg); }
 /* "Keep this wall unpainted" — remove a region's colour so the original surface
    shows through. A quiet full-width ghost action under the selected-colour row. */

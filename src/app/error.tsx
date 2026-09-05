@@ -36,7 +36,7 @@ export default function RootError({
           font: "400 12px/1 var(--mono, ui-monospace, monospace)",
           letterSpacing: ".32em",
           textTransform: "uppercase",
-          color: "var(--accent)",
+          color: "var(--accent-text)",
         }}
       >
         Something went wrong
@@ -51,7 +51,7 @@ export default function RootError({
           maxWidth: "18ch",
         }}
       >
-        We have <i style={{ color: "var(--accent-soft)" }}>misstepped.</i>
+        We have <i style={{ color: "var(--accent-text)" }}>misstepped.</i>
       </h1>
       <p
         style={{

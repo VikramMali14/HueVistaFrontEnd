@@ -23,7 +23,7 @@ import {
   demoUserFromToken,
   type DemoRole,
 } from "./accounts";
-import { DEMO_BRANDS } from "./data";
+import { DEMO_BRANDS, DEMO_PLANS } from "./data";
 import { getStore, nextId, nextSeq } from "./store";
 
 // ── Demo hierarchy (network report + brand assignments) ──────────────────
@@ -188,6 +188,23 @@ export async function demoServerFetch<T>(path: string, init: Init = {}): Promise
     // Customers are not subscription accounts → 404 (page redirects to pricing).
     if (user.role === "CUSTOMER") throw new HttpError(404, "No subscription.");
     return getStore().subscription as T;
+  }
+
+  /**
+   * The tier ladder and this account's plan history — the other half of /plan.
+   *
+   * Both reach the backend through serverFetch rather than the BFF, which is why they
+   * were missed: the demo answered every /bff/api call and the plan page still said
+   * "The plans couldn't be loaded just now", under a live subscription, on the one
+   * screen whose entire job is choosing between tiers.
+   */
+  if (p === "/api/billing/plans") {
+    return DEMO_PLANS as T;
+  }
+  if (p === "/api/billing/subscriptions") {
+    const user = demoUserFromToken(token);
+    if (user.role === "CUSTOMER") return [] as T;
+    return [getStore().subscription] as T;
   }
 
   // --- Customer entitlement (server-side studio access gate) ---

@@ -161,7 +161,7 @@ export function ShadeUploadForm({ initialBrands }: { initialBrands: UploadBrand[
           <a
             href="/samples/shade-upload-sample.json"
             download
-            style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)", textDecoration: "underline" }}
+            style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)", textDecoration: "underline" }}
           >
             ↓ Download sample file
           </a>
@@ -297,7 +297,7 @@ export function ShadeUploadForm({ initialBrands }: { initialBrands: UploadBrand[
           }}
         >
           <p style={{ font: "600 16px/1.4 var(--serif)", color: "var(--fg)" }}>
-            <span aria-hidden style={{ color: "var(--accent)" }}>✓</span> Uploaded to {result.brand}
+            <span aria-hidden style={{ color: "var(--accent-text)" }}>✓</span> Uploaded to {result.brand}
           </p>
           <p style={{ ...hintStyle, marginTop: 6 }}>
             {result.inserted} added · {result.skipped} skipped (already present) · {result.total} in file

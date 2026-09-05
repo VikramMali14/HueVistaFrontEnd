@@ -101,13 +101,13 @@ export function MobileUpload({ sessionId }: { sessionId: string }) {
         textAlign: "center",
       }}
     >
-      <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".32em", textTransform: "uppercase", color: "var(--accent)" }}>
+      <span style={{ font: "400 12px/1 var(--mono)", letterSpacing: ".32em", textTransform: "uppercase", color: "var(--accent-text)" }}>
         HueVista · send a photo
       </span>
 
       {status === "sent" ? (
         <>
-          <span aria-hidden style={{ fontSize: 44, color: "var(--accent)" }}>✓</span>
+          <span aria-hidden style={{ fontSize: 44, color: "var(--accent-text)" }}>✓</span>
           <h1 style={{ font: "400 28px/1.2 var(--serif)", margin: 0 }}>Sent to your computer.</h1>
           <p style={{ font: "400 15px/1.5 var(--sans, system-ui)", color: "var(--fg-soft)", maxWidth: "30ch" }}>
             Head back to the browser — your photo is loading there now.

@@ -47,7 +47,7 @@ export default async function AdminStudioTestPage({
 
   return (
     <div className="measure" style={{ maxWidth: 1080 }}>
-      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
         ← Admin
       </Link>
       <Eyebrow style={{ marginTop: 16 }}>Admin · diagnostics</Eyebrow>
@@ -67,10 +67,10 @@ export default async function AdminStudioTestPage({
       </p>
 
       <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
-        <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/mask-viewer" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Mask viewer &mdash; is the mask the right shape? &rarr;
         </Link>
-        <Link href="/admin/mask-reports" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+        <Link href="/admin/mask-reports" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
           Reported runs &rarr;
         </Link>
       </p>

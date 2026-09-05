@@ -51,11 +51,11 @@ export default async function LibraryPage() {
 
       {isAdmin && (
         <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
-          <Link href="/admin/free-projects" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          <Link href="/admin/free-projects" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
             Manage the shelf →
           </Link>
           {rooms.length > 0 && (
-            <Link href="/gallery" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+            <Link href="/gallery" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
               See it as a visitor does →
             </Link>
           )}
@@ -71,7 +71,7 @@ export default async function LibraryPage() {
           {isAdmin ? (
             <>
               Publish a project that has its walls marked from{" "}
-              <Link href="/admin/free-projects" style={{ color: "var(--accent)" }}>
+              <Link href="/admin/free-projects" style={{ color: "var(--accent-text)" }}>
                 the admin console
               </Link>{" "}
               and it will appear here, and on the public gallery, straight away.

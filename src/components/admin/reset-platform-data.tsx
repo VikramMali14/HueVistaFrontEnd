@@ -261,7 +261,7 @@ export function ResetPlatformData({ previewAction, resetAction }: Props) {
           }}
         >
           <p style={{ font: "600 15px/1.4 var(--serif)", color: "var(--fg)", margin: 0 }}>
-            <span aria-hidden style={{ color: "var(--accent)" }}>✓</span> Platform reset
+            <span aria-hidden style={{ color: "var(--accent-text)" }}>✓</span> Platform reset
           </p>
           <p style={{ font: "400 13px/1.5 var(--serif)", color: "var(--fg-mute)", margin: "6px 0 0" }}>
             {done.totalDeleted.toLocaleString()} row{done.totalDeleted === 1 ? "" : "s"} removed from{" "}

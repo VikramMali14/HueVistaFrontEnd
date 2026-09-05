@@ -25,6 +25,7 @@ import type {
   WalletSummary,
 } from "../types";
 import type { ShadeCodeScheme } from "../shade-codes";
+import type { DemoProjectOwner } from "./data";
 import {
   DEMO_ACCESS_CODES,
   DEMO_BRANDS,
@@ -36,6 +37,7 @@ import {
   DEMO_ORG,
   DEMO_PROJECT_DETAILS,
   DEMO_PROJECT_ORDER,
+  DEMO_PROJECT_OWNERS,
   DEMO_SHOP_PRODUCTS,
   DEMO_STORE_LINKS,
   DEMO_SUBSCRIPTION,
@@ -48,6 +50,13 @@ import {
 
 export interface DemoStore {
   projects: ProjectDetail[];
+  /**
+   * Who owns each room, keyed by project id — kept BESIDE the projects rather than on
+   * them so `ProjectDetail` stays exactly the shape the wire carries. It is returned
+   * from half a dozen handlers here, and a demo-only field on it would have to be
+   * stripped in every one of them, correctly, forever.
+   */
+  projectOwners: Record<string, DemoProjectOwner>;
   brands: PaintBrand[];
   lines: Record<string, PaintLine[]>;
   products: ShopProduct[];
@@ -66,6 +75,16 @@ export interface DemoStore {
   cart: CartCatalogue;
   /** Finished AI images across every room — what the shelf at /ai-images shows. */
   renders: MyRender[];
+  /**
+   * Renders that have been ASKED for, per project — the studio's poll target.
+   *
+   * Separate from `renders` because the two answer different questions and only one of
+   * them is allowed to be unfinished: the shelf shows finished pictures only, while the
+   * studio needs to see QUEUED and RUNNING to have anything to wait on. A render moves
+   * across (and stays here) the moment it lands. `readyAt` is the wall-clock moment the
+   * demo declares it done — see settleRenders.
+   */
+  pendingRenders: Array<MyRender & { readyAt: number }>;
   storeLinks: StoreLink[];
   wallet: WalletSummary;
   /** The shop's shade-code scheme (customer codes derive from this one pattern). */
@@ -90,6 +109,7 @@ function clone<T>(value: T): T {
 function seed(): DemoStore {
   return {
     projects: DEMO_PROJECT_ORDER.map((id) => clone(DEMO_PROJECT_DETAILS[id]!)),
+    projectOwners: clone(DEMO_PROJECT_OWNERS),
     brands: clone(DEMO_BRANDS),
     lines: clone(DEMO_LINES),
     products: clone(DEMO_SHOP_PRODUCTS),
@@ -105,6 +125,7 @@ function seed(): DemoStore {
     aiCredits: clone(DEMO_AI_CREDITS),
     cart: clone(DEMO_CART),
     renders: clone(DEMO_RENDERS),
+    pendingRenders: [],
     storeLinks: clone(DEMO_STORE_LINKS),
     wallet: clone(DEMO_WALLET),
     // Mehta Paints reads shade L124 as MPL1K24 at the counter.
@@ -133,6 +154,33 @@ export function nextSeq(): number {
 /** Short unique string id with a readable prefix. */
 export function nextId(prefix: string): string {
   return `${prefix}_${nextSeq()}`;
+}
+
+/**
+ * A UUID, for the ids the REAL backend issues as UUIDs — projects above all.
+ *
+ * A readable `prj_1003` is friendlier in a log and was wrong everywhere it mattered:
+ * `/studio` validates `?project=` against a UUID before it will call the backend
+ * (anything else is a typo or a probe, and is answered with notFound rather than a
+ * 400 the studio would have to interpret). So every project the demo created was
+ * listed on the dashboard and then 404'd when the card was clicked — the one flow a
+ * demo exists to show, broken by the shape of an id.
+ *
+ * Seeded from the store's own counter rather than crypto.randomUUID so the demo stays
+ * deterministic across a restart, and so this works on the older runtimes where
+ * randomUUID is missing outside a secure context.
+ */
+export function nextUuid(): string {
+  const n = nextSeq();
+  const hex = (v: number, len: number) => v.toString(16).padStart(len, "0").slice(-len);
+  // Version 4 / variant bits in the right places, so it satisfies a strict matcher.
+  return [
+    hex(0x9e3779b9 ^ n, 8),
+    hex(n, 4),
+    `4${hex(n, 3)}`,
+    `${"89ab"[n & 3]}${hex(n * 7, 3)}`,
+    hex(n * 0x9e37, 12),
+  ].join("-");
 }
 
 export function retailerOrg(): OrgResponse | undefined {

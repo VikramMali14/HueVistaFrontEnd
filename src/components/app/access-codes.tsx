@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatDate } from "@/lib/dates";
+import { formatDate, hasPassed } from "@/lib/dates";
 import { Mono } from "@/components/ui/eyebrow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -14,6 +14,18 @@ import { site } from "@/lib/config";
 import { type AccessCode, type MyRender, type OrgResponse, type ProjectDetail, type ShopProduct } from "@/lib/types";
 
 const FIXED_VALID_DAYS = 10;
+
+/**
+ * Has this code's window closed — by either account of it?
+ *
+ * The backend's `expired` flag and the `expiresAt` date are the same fact recorded
+ * twice, and they drift apart because only one of them needs a sweep to stay true.
+ * Either one saying "closed" is enough; an unparseable or absent date simply leaves
+ * the flag to answer on its own.
+ */
+function isExpired(c: AccessCode): boolean {
+  return c.expired || hasPassed(c.expiresAt);
+}
 
 function slugify(name: string): string {
   const base = name
@@ -30,8 +42,11 @@ function slugify(name: string): string {
  * Retailer-facing: create your shop org (once) and issue customer access codes.
  * When you issue a code you name the customer, choose how many projects they get
  * (charged against your monthly image quota) and which companies / individual
- * products they may see. The customer unlocks it at /unlock with no login — that
- * auto-creates their account and signs them in.
+ * products they may see. The customer enters it at /unlock, which adds it to the
+ * HueVista account they are signed into — creating one first if they have none. It
+ * does NOT mint an account from the code any more: every "unlock your projects" link
+ * in the app leads to that page, and minting a second account there was taking the
+ * projects, boards and credits off the account the customer already had.
  *
  * `org` comes from the portal page's single org fetch (null = resolved, no
  * shop yet); when it's undefined (page fetch failed) the component falls back
@@ -61,6 +76,17 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
   // sell it. Empty until the shop's own list lands, because guessing here is exactly
   // the failure. Leaving none selected unlocks everything the shop itself has.
   const [companyOptions, setCompanyOptions] = useState<ReadonlyArray<string>>([]);
+  /**
+   * How the company lookup went — because "none yet" and "none, ever" and "we could
+   * not ask" are three different sentences and an empty array said all three.
+   *
+   * It said the first one: an empty list rendered "Loading your companies…", so a
+   * failed lookup, and a shop whose distributor has assigned it nothing, both sat
+   * under a spinner-in-words that would never resolve, beside a form that issues the
+   * code anyway. Whether the shop should wait, retry, or ring their distributor are
+   * different answers, and the screen could not give any of them.
+   */
+  const [companyState, setCompanyState] = useState<"loading" | "ready" | "failed">("loading");
   const [companies, setCompanies] = useState<string[]>([]);
   // Individual shop products the retailer can single out (in addition to whole companies).
   const [products, setProducts] = useState<ShopProduct[]>([]);
@@ -140,8 +166,22 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
     }
   }
 
+  /**
+   * What the row says a code is.
+   *
+   * `expired` is a flag the backend stamps, and a stamp is only as fresh as the last
+   * sweep that wrote it: a code whose window closed an hour ago still arrives with
+   * `expired: false` until something re-reads it. That put the two halves of one row
+   * in flat contradiction — "expires 1 Jul", "ACTIVE", read side by side in September
+   * — and the half a shop believes is the status, so codes were being handed to
+   * customers that the backend would refuse on sight.
+   *
+   * The date beside it is the same fact and needs no sweep, so ask both and let
+   * either one call it expired. Nothing here can wrongly revive a code: the flag
+   * still wins whenever IT is the one saying expired.
+   */
   const codeStatus = (c: AccessCode) =>
-    c.used ? "unlocked" : c.revoked ? "cancelled" : c.expired ? "expired" : "active";
+    c.used ? "unlocked" : c.revoked ? "cancelled" : isExpired(c) ? "expired" : "active";
 
   const codeCompanyOptions = useMemo(
     () => facetOptionsFrom(codes, (c) => c.allowedBrands ?? []),
@@ -208,17 +248,25 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codes]);
 
-  useEffect(() => {
+  const loadCompanies = useCallback(() => {
+    setCompanyState("loading");
     api
       .listMyShadeBrands()
       .then((brands) => {
         setCompanyOptions(brands.map((b) => b.name).filter(Boolean));
+        setCompanyState("ready");
       })
       // No static fallback. PAINT_BRANDS is every well-known company in the market,
       // which is precisely the list this shop may not offer from; showing it after a
-      // failed lookup would reintroduce the bug whenever the network hiccuped.
-      .catch(() => setCompanyOptions([]));
+      // failed lookup would reintroduce the bug whenever the network hiccuped. What
+      // changes on a failure is only what is SAID about it.
+      .catch(() => {
+        setCompanyOptions([]);
+        setCompanyState("failed");
+      });
   }, []);
+
+  useEffect(() => { loadCompanies(); }, [loadCompanies]);
 
   useEffect(() => {
     (async () => {
@@ -303,9 +351,18 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
 
   const copy = useCallback((code: string) => copyText(code), [copyText]);
 
-  // WhatsApp-ready message so the retailer never types the URL and instructions by hand.
+  /**
+   * WhatsApp-ready message so the retailer never types the URL and instructions by hand.
+   *
+   * It used to promise "no sign-up needed", which stopped being true when /unlock
+   * started adding a code to an ACCOUNT rather than minting one from the code. A
+   * customer following the old message landed on a page that asked them to sign in
+   * first — after being told in writing that they would not have to — with nothing on
+   * screen connecting the two. Saying the extra step up front costs one clause and
+   * removes the dead end.
+   */
   const copyMessage = useCallback((code: string) => {
-    const message = `Your HueVista code: ${code}. Open ${window.location.origin}/unlock and enter it — no sign-up needed. Valid ${FIXED_VALID_DAYS} days.`;
+    const message = `Your HueVista code: ${code}. Open ${window.location.origin}/unlock, sign in or create your free account, and enter it there. Valid ${FIXED_VALID_DAYS} days.`;
     copyText("whatsapp-message", message);
   }, [copyText]);
 
@@ -402,9 +459,28 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
             means everything the shop itself carries. */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <Mono>Companies</Mono>
-          {companyOptions.length === 0 && (
-            <span style={{ font: "400 12.5px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
-              Loading your companies — the code will unlock all of them unless you pick.
+          {companyOptions.length === 0 && companyState === "loading" && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, font: "400 12.5px/1.4 var(--sans)", color: "var(--fg-mute)" }}>
+              <Spinner size={12} /> Loading your companies — the code will unlock all of them unless you pick.
+            </span>
+          )}
+          {companyOptions.length === 0 && companyState === "failed" && (
+            <span role="status" style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap", font: "400 12.5px/1.4 var(--sans)", color: "var(--fg-soft)" }}>
+              We couldn&rsquo;t read your companies just now. Issuing the code still works — it
+              will unlock everything your shop carries.
+              <button
+                type="button"
+                onClick={loadCompanies}
+                style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, color: "var(--accent-text)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+              >
+                Try again
+              </button>
+            </span>
+          )}
+          {companyOptions.length === 0 && companyState === "ready" && (
+            <span style={{ font: "400 12.5px/1.4 var(--sans)", color: "var(--fg-soft)" }}>
+              Your distributor hasn&rsquo;t assigned your shop any paint companies yet — ask them
+              to, and they&rsquo;ll be pickable here. The code still works meanwhile.
             </span>
           )}
           {companyOptions.map((name) => {
@@ -420,7 +496,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                   cursor: "pointer",
                   background: on ? "var(--surface-soft)" : "transparent",
                   border: "1px solid " + (on ? "var(--accent)" : "var(--rule)"),
-                  color: on ? "var(--accent)" : "var(--fg-mute)",
+                  color: on ? "var(--accent-text)" : "var(--fg-mute)",
                   font: "500 12px/1 var(--sans)",
                   borderRadius: 999,
                 }}
@@ -452,7 +528,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                     cursor: "pointer",
                     background: on ? "var(--surface-soft)" : "transparent",
                     border: "1px solid " + (on ? "var(--accent)" : "var(--rule)"),
-                    color: on ? "var(--accent)" : "var(--fg-mute)",
+                    color: on ? "var(--accent-text)" : "var(--fg-mute)",
                     font: "500 12px/1 var(--sans)",
                     borderRadius: 999,
                   }}
@@ -473,7 +549,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
       {justIssued && (
         <div style={{ border: "1px solid var(--accent)", padding: "14px 18px", marginBottom: 20, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <Mono brass>New code</Mono>
-          <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", fontSize: 18, color: "var(--accent)" }}>{justIssued}</span>
+          <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", fontSize: 18, color: "var(--accent-text)" }}>{justIssued}</span>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => copy(justIssued)}>
             {copied === justIssued ? "Copied" : "Copy"}
           </button>
@@ -534,7 +610,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
           </div>
           {visibleCodes.map((c, i) => {
             const status = codeStatus(c);
-            const statusColor = status === "active" ? "var(--accent)" : "var(--fg-mute-deep)";
+            const statusColor = status === "active" ? "var(--accent-text)" : "var(--fg-mute-deep)";
             const last = i === visibleCodes.length - 1;
             const room = rooms[c.id];
             const expanded = openRoom === c.id;
@@ -542,7 +618,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
               <div key={c.id}>
                 <div role="row" className="hv-cust-row" style={{ display: "grid", gridTemplateColumns: "1.2fr 1.1fr 0.7fr 1fr 0.9fr 0.8fr 1.4fr", padding: "18px 20px", borderBottom: last && !expanded ? "none" : "1px solid var(--rule)", alignItems: "center" }}>
                   <span role="cell" data-label="Code" style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent)" }}>{c.code}</span>
+                    <span style={{ fontFamily: "var(--mono)", letterSpacing: ".18em", color: "var(--accent-text)" }}>{c.code}</span>
                     {status === "active" && (
                       <button type="button" onClick={() => copy(c.code)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".2em", textTransform: "uppercase" }}>
                         {copied === c.code ? "copied" : "copy"}
@@ -605,7 +681,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                             type="button"
                             onClick={() => revoke(c)}
                             disabled={revoking === c.id}
-                            style={{ background: "transparent", border: "1px solid var(--terracotta)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--terracotta)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
+                            style={{ background: "transparent", border: "1px solid var(--terracotta)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "var(--terracotta-text)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}
                           >
                             {revoking === c.id ? "…" : "Confirm"}
                           </button>
@@ -656,7 +732,7 @@ export function AccessCodes({ org: orgProp }: { org?: OrgResponse | null }) {
                             <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
                               <span style={{ font: "500 17px/1.2 var(--serif)", color: "var(--fg)" }}>{project.name}</span>
                               {project.sentToShopAt && (
-                                <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 999, padding: "5px 10px" }}>
+                                <span style={{ font: "500 12px/1 var(--mono)", letterSpacing: ".22em", textTransform: "uppercase", color: "var(--accent-text)", border: "1px solid var(--accent)", borderRadius: 999, padding: "5px 10px" }}>
                                   ✓ Sent by customer
                                 </span>
                               )}

@@ -60,7 +60,7 @@ export function AiImagesStrip() {
         <h2 id="ai-images-strip-heading" style={{ font: "600 22px/1.2 var(--serif)", margin: 0 }}>
           Your AI images
         </h2>
-        <Link href="/ai-images" style={{ color: "var(--accent-soft)", font: "400 14px/1 var(--sans)" }}>
+        <Link href="/ai-images" style={{ color: "var(--accent-text)", font: "400 14px/1 var(--sans)" }}>
           {more > 0 ? `See all ${renders.length}` : "Open the shelf"} <span className="arr" aria-hidden>→</span>
         </Link>
       </div>
@@ -140,7 +140,7 @@ export function AiImagesStrip() {
           transition: border-color .2s var(--ease);
         }
         .hv-ai-strip-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s var(--ease); }
-        .hv-ai-strip a:hover .hv-ai-strip-thumb { border-color: var(--accent); }
+        .hv-ai-strip a:hover .hv-ai-strip-thumb { border-color: var(--accent-text); }
         .hv-ai-strip a:hover .hv-ai-strip-thumb img { transform: scale(1.04); }
         .hv-ai-strip a:focus-visible .hv-ai-strip-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
         .hv-ai-strip-name {
@@ -148,7 +148,7 @@ export function AiImagesStrip() {
           font: 400 15px/1.3 var(--sans); color: var(--fg);
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
-        .hv-ai-strip a:hover .hv-ai-strip-name { color: var(--accent); }
+        .hv-ai-strip a:hover .hv-ai-strip-name { color: var(--accent-text); }
 
         /* The end slot wears the same frame as a picture, dashed and empty: obviously the
            same kind of thing as the tiles beside it, and obviously not one of them. */

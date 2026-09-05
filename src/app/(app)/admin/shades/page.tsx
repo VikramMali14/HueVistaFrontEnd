@@ -19,7 +19,7 @@ export default async function AdminShadesPage() {
   const brands = await getUploadBrands();
   return (
     <div className="measure" style={{ maxWidth: 820 }}>
-      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
         ← Admin
       </Link>
       <Eyebrow style={{ marginTop: 16 }}>Admin · catalogue</Eyebrow>

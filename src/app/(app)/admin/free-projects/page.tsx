@@ -49,7 +49,7 @@ export default async function AdminFreeProjectsPage({
 
   return (
     <div className="measure" style={{ maxWidth: 1080 }}>
-      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+      <Link href="/admin" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
         ← Admin
       </Link>
       <Eyebrow style={{ marginTop: 16 }}>Admin · free projects</Eyebrow>
@@ -64,13 +64,13 @@ export default async function AdminFreeProjectsPage({
 
       {anyPublished && (
         <p style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
-          <Link href="/library" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          <Link href="/library" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
             The library, as an account sees it →
           </Link>
-          <Link href="/work" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          <Link href="/work" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
             Our work →
           </Link>
-          <Link href="/gallery" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-soft)" }}>
+          <Link href="/gallery" style={{ font: "500 13px/1 var(--mono)", color: "var(--accent-text)" }}>
             The public gallery →
           </Link>
         </p>

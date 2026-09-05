@@ -81,11 +81,11 @@ export default async function SignInPage({ searchParams }: PageProps) {
         .auth-art .corner { display: flex; justify-content: space-between; align-items: baseline; font: 400 12px/1 var(--mono); letter-spacing: .26em; text-transform: uppercase; color: rgba(235,229,215,.6); }
         .auth-form-wrap { display: flex; flex-direction: column; justify-content: center; padding: 80px; background: var(--bg); color: var(--fg); }
         .auth-form-wrap h1 { font-family: var(--serif); font-weight: 650; font-size: clamp(40px, 4.5vw, 60px); line-height: 1; letter-spacing: -.02em; margin: 16px 0 12px; color: var(--fg); }
-        .auth-form-wrap h1 i { color: var(--accent-soft); }
+        .auth-form-wrap h1 i { color: var(--accent-text); }
         .auth-form-wrap > * { max-width: 480px; width: 100%; }
         .auth-foot { margin-top: 40px; font: 300 italic 17px/1.5 var(--serif); color: var(--fg-mute); }
-        .auth-foot a { color: var(--accent-soft); border-bottom: 1px solid var(--rule-brass); }
-        .auth-foot a:hover { color: var(--accent); }
+        .auth-foot a { color: var(--accent-text); border-bottom: 1px solid var(--rule-brass); }
+        .auth-foot a:hover { color: var(--accent-text); }
         @media (max-width: 1100px) { .auth-shell { grid-template-columns: 1fr; } .auth-art { padding: 48px; min-height: 280px; border-right: none; border-bottom: 1px solid var(--rule); } .auth-form-wrap { padding: 64px 40px; } }
         /* The form is first in the DOM (see the note beside it); above the phone
            breakpoint the art takes its place back — the left column on a wide screen,

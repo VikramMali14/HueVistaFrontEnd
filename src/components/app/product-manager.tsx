@@ -748,7 +748,7 @@ function ProductCard({ product, editing, onEdit, onDelete }: { product: ShopProd
             reading "0/10", which is a claim about the paint, not an absence. */}
         {product.qualityTier && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-            <span aria-hidden style={{ color: "var(--accent)", letterSpacing: 2 }}>
+            <span aria-hidden style={{ color: "var(--accent-text)", letterSpacing: 2 }}>
               {"★".repeat(tierStars(product.qualityTier))}{"☆".repeat(5 - tierStars(product.qualityTier))}
             </span>
             <Mono>{tierLabel(product.qualityTier)}</Mono>
@@ -776,7 +776,7 @@ function ProductCard({ product, editing, onEdit, onDelete }: { product: ShopProd
             {product.price != null ? `₹${product.price.toLocaleString("en-IN")}` : "—"}{product.priceUnit ? <span style={{ fontSize: 13, color: "var(--fg-mute)" }}> /{product.priceUnit}</span> : null}
           </span>
           <div style={{ display: "flex", gap: 14, alignItems: "baseline" }}>
-            <button type="button" onClick={onEdit} disabled={editing} style={{ background: "transparent", border: "none", cursor: editing ? "default" : "pointer", color: editing ? "var(--accent)" : "var(--fg-soft)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>{editing ? "Editing…" : "Edit"}</button>
+            <button type="button" onClick={onEdit} disabled={editing} style={{ background: "transparent", border: "none", cursor: editing ? "default" : "pointer", color: editing ? "var(--accent-text)" : "var(--fg-soft)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>{editing ? "Editing…" : "Edit"}</button>
             <button type="button" onClick={onDelete} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--fg-mute)", font: "400 12px/1 var(--mono)", letterSpacing: ".18em", textTransform: "uppercase" }}>Remove</button>
           </div>
         </div>

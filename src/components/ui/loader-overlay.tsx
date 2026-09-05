@@ -44,7 +44,7 @@ export function LoaderOverlay({ show, label, hint, progress, style }: LoaderOver
           font: "400 12px/1 var(--mono, ui-monospace, monospace)",
           letterSpacing: ".28em",
           textTransform: "uppercase",
-          color: "var(--accent)",
+          color: "var(--accent-text)",
         }}
       >
         {label}

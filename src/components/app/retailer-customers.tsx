@@ -348,7 +348,7 @@ export function RetailerCustomers({ org: orgProp }: { org?: OrgResponse | null }
               font: "400 12px/1 var(--mono)",
               letterSpacing: ".18em",
               textTransform: "uppercase",
-              color: c.expired ? "var(--fg-mute-deep)" : "var(--accent)",
+              color: c.expired ? "var(--fg-mute-deep)" : "var(--accent-text)",
             }}
           >
             {c.expired ? "expired" : formatAccessLeft(c.accessExpiresAt)}
