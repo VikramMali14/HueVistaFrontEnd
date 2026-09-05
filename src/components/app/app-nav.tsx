@@ -558,6 +558,12 @@ export function AppNav({ user, access = null, libraryLive = false, hasShop = fal
              phone there is room for little more, and "Report a problem" already has
              its place in the drawer below (and in the workspace's own ⋯ menu). */
           .studio-minibar .studio-minibar-bug { display: none; }
+          /* The studio spends its whole screen budget on chrome above the room:
+             a fixed 44px minibar, then this pill, then the project topbar — 284px
+             of an 844px phone before the photograph, which then got 293px. The
+             pill only carries the logo and the menu button here, so it does not
+             need a desktop's margin and padding around them. */
+          .app-header-studio .app-nav-inner { margin: 6px 12px; padding: 6px 12px; top: 6px; }
           /* The full tab list is behind the hamburger on the bar below. A second
              control opening the same menu is two buttons doing one job, and it was
              sized for a cursor. */

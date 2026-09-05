@@ -1466,10 +1466,18 @@ describe("Visualizer — company scope", () => {
     { code: "BG-2", name: "Sun Quartz", hex: "#cfbf7f", family: "Yellows", lrv: 60, brand: "Berger", finishes: [] },
   ];
 
+  /* The panel only draws a library once there is a wall to put paint on, so these
+     two open a room that already has its photo. They are about which company's
+     shades reach the grid, not about the empty state. */
+  async function openWithPhoto() {
+    vi.mocked(api.getProject).mockResolvedValue(projectDetail());
+    render(<Visualizer projectId="p-1" shades={TWO_BRANDS} />);
+    await screen.findAllByRole("tab");
+  }
+
   it("narrows the colour panel to the chosen company", async () => {
     const user = userEvent.setup();
-    render(<Visualizer initialName="Test room" shades={TWO_BRANDS} />);
-    await screen.findByText("Add a photo of the room");
+    await openWithPhoto();
 
     // Unscoped: both companies' shades are in the grid.
     expect(screen.queryAllByRole("button", { name: /Zephyr/ }).length).toBeGreaterThan(0);
@@ -1492,8 +1500,7 @@ describe("Visualizer — company scope", () => {
    */
   it("keeps every ticked company in the panel at once", async () => {
     const user = userEvent.setup();
-    render(<Visualizer initialName="Test room" shades={TWO_BRANDS} />);
-    await screen.findByText("Add a photo of the room");
+    await openWithPhoto();
 
     await user.click(screen.getByRole("button", { name: /Company/ }));
     await user.click(screen.getByRole("checkbox", { name: "Berger" }));

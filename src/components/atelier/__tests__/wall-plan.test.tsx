@@ -193,7 +193,7 @@ describe("Plan walls — the panel", () => {
     ]);
 
     expect(screen.getByText(/Painting/)).toHaveTextContent(
-      "Painting 2 walls of 3 · combinations come in 2 colours",
+      "Painting 2 walls of 3 · each suggestion gives you 2 colours",
     );
   });
 

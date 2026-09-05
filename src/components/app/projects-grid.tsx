@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { formatDate } from "@/lib/dates";
 import { resolveMediaUrl } from "@/lib/media";
-import { Mono } from "@/components/ui/eyebrow";
+import { Mono, Note } from "@/components/ui/eyebrow";
 import { ImageCompare } from "@/components/ui/image-compare";
 import type { MyRender, ProjectSummary } from "@/lib/types";
 
@@ -114,29 +114,16 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
       >
         {/* New-project tile: 4/5 media + an invisible caption spacer so its total
             height matches a project card exactly (every card is one size). */}
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <Link
-            href="/studio"
-            className="hv-proj-new"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-              aspectRatio: "4 / 5",
-              color: "var(--accent-text)",
-              textDecoration: "none",
-              background: "var(--surface-soft)",
-              borderRadius: "calc(var(--radius) * 1.4)",
-            }}
-          >
-            <span aria-hidden style={{ fontSize: 40, lineHeight: 1 }}>
+        {/* Styling lives in the stylesheet rather than inline so the phone can
+            override the 4/5 tile — see .hv-proj-new in the block below. */}
+        <div className="hv-proj-new-cell">
+          <Link href="/studio" className="hv-proj-new">
+            <span aria-hidden className="hv-proj-new-plus">
               +
             </span>
             <Mono brass>New project</Mono>
           </Link>
-          <div className="hv-proj-caption" aria-hidden style={{ visibility: "hidden" }}>
+          <div className="hv-proj-caption hv-proj-new-spacer" aria-hidden>
             <h3 className="hv-proj-title">&nbsp;</h3>
             <div style={{ marginTop: 8 }}>
               <Mono>&nbsp;</Mono>
@@ -246,14 +233,22 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
                   </Link>
                 )}
                 <div className="hv-proj-meta" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-                  <Mono>
-                    {p.regionCount} region{p.regionCount === 1 ? "" : "s"}
-                  </Mono>
+                  {/* "regions" is what the segmenter calls them. A paint shop
+                      calls them walls, and so does every other screen the
+                      customer sees — the studio's own chips read "Main wall",
+                      "Accent wall", "Trim".
+                      Sentence case too: this row is three values about the
+                      customer's room, and "3 REGIONS  4 SEPT 2026  READY" read
+                      as a machine's status line rather than as a card about a
+                      job they are doing. */}
+                  <Note style={{ fontSize: 13 }}>
+                    {p.regionCount} wall{p.regionCount === 1 ? "" : "s"}
+                  </Note>
                   <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10 }}>
                     {p.updatedAt ? (
-                      <Mono>{formatDate(p.updatedAt)}</Mono>
+                      <Note style={{ fontSize: 13 }}>{formatDate(p.updatedAt)}</Note>
                     ) : null}
-                    <Mono>{statusLabel(p.status, p.regionCount)}</Mono>
+                    <Note style={{ fontSize: 13 }}>{statusLabel(p.status, p.regionCount)}</Note>
                   </span>
                 </div>
               </div>
@@ -261,12 +256,43 @@ export function ProjectsGrid({ projects, error, emptyHint, rendersByProject }: P
           );
         })}
         <style>{`
+          .hv-proj-new-cell { display: flex; flex-direction: column; }
           .hv-proj-new {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            aspect-ratio: 4 / 5;
+            color: var(--accent-text);
+            text-decoration: none;
+            background: var(--surface-soft);
             border: 1px dashed var(--rule-strong);
             border-radius: calc(var(--radius) * 1.4);
             transition: border-color .2s var(--ease), background .2s var(--ease);
           }
           .hv-proj-new:hover { border-color: var(--accent-text); }
+          .hv-proj-new-plus { font-size: 40px; line-height: 1; }
+          /* An invisible caption that makes this tile exactly as tall as a room
+             card, so the shelf sits on one line. */
+          .hv-proj-new-spacer { visibility: hidden; }
+
+          /* One column on a phone, and then a 4/5 tile is about 450px of empty
+             dashed box — half a screen of nothing before the first actual room,
+             directly under a "New project" button that already does the same
+             job. Matching a card's height only buys anything while cards sit
+             side by side. */
+          @media (max-width: 720px) {
+            .hv-proj-new {
+              aspect-ratio: auto;
+              flex-direction: row;
+              gap: 10px;
+              padding: 16px;
+              border-radius: var(--radius);
+            }
+            .hv-proj-new-plus { font-size: 22px; }
+            .hv-proj-new-spacer { display: none; }
+          }
 
           /* The room, in the card language the rest of the app uses. The photograph is
              the whole card rather than a bordered rectangle sitting on the page ground,

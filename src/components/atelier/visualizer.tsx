@@ -3556,6 +3556,10 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 title="Colour board PDF"
               >
                 <PdfIcon />
+                {/* An unlabelled circle floating on the customer's room is a
+                    guess, and nobody guesses "colour board". The icon keeps the
+                    count; the words say what pressing it does. */}
+                <span className="hv-pdf-fab-label">Colour board</span>
                 {pdfPages.length > 0 && (
                   <span className="hv-pdf-fab-count" aria-hidden>{pdfPages.length}</span>
                 )}
@@ -4273,15 +4277,19 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             {imageUrl && !pendingFile && !uploading && !segmenting && onPicture.length > 0 && (
               <div className="hv-studio-legend" role="list" aria-label="Colours in this preview">
                 {onPicture.map((r) => {
-                  // A custom-picked colour is nobody's catalogue shade, so its hex
-                  // is all there is to name it by and nothing is being protected.
+                  // A custom-picked colour has no catalogue code, and the hex that
+                  // used to stand in for one — "Custom colour #E8DCC8" — is web
+                  // notation on a shop counter: it cannot be ordered, mixed or
+                  // matched against a fan deck, so it told the one person reading
+                  // it nothing they could use. "Custom colour" alone is the honest
+                  // label; the swatch beside it carries the colour itself.
                   const code = r.shade
                     ? hideRawCodes
                       ? encodeCode
                         ? encodeCode(r.shade.code)
                         : undefined
                       : r.shade.code
-                    : r.hex.toUpperCase();
+                    : undefined;
                   const name = hideNames ? "" : (r.shade?.name ?? "Custom colour");
                   return (
                     <div key={r.id} className="hv-studio-legend-row" role="listitem">
@@ -4296,15 +4304,14 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
                 })}
               </div>
             )}
-            {/* Screens and real paint never match exactly, and the preview is a
-                lighting-aware approximation — set that expectation on the page
-                itself so a colour is chosen by its shade name/code, not the pixels. */}
-            {imageUrl && !pendingFile && !uploading && !segmenting && onPicture.length > 0 && (
-              <p className="hv-studio-disclaimer" role="note">
-                Colours shown are indicative. The final painted shade may look different on your
-                wall — confirm the exact colour by its shade name and number before buying.
-              </p>
-            )}
+            {/* The "colours are indicative" caution used to be a second glass
+                panel layered over the bottom-right of the room. It is not gone —
+                the panel beside this one closes with SHADE_ACCURACY_TEXT, which
+                says the same thing in the shared wording and sits directly under
+                the shade codes, which is where the buying decision is actually
+                made. Two cautions, one of them permanently covering a quarter of
+                the customer's own room, made the product look defensive rather
+                than careful. Said once, next to the codes. */}
             {/* "The AI got this wrong." Deliberately quiet and deliberately
                 ALWAYS THERE once a run has finished — a bad mask is invisible to
                 every check the backend makes, so this button is the only way the
@@ -4399,6 +4406,11 @@ export function Visualizer({ projectId: openProjectId, shades, initialName, gues
             // could pick a shade and press Apply and absolutely nothing
             // happened, with no toast and no error.
             awaitingPhoto={!imageUrl}
+            // While the naming form is up it is the step, and it carries its own
+            // "Continue to photo". Without this the panel put a second black
+            // button beside it and the screen asked twice, in two places, for
+            // the same thing.
+            awaitingDetails={showDetailsGate}
             onNeedPhoto={needPhoto}
           />
         </div>

@@ -23,8 +23,11 @@ interface ImageCompareProps {
 export function ImageCompare({
   beforeSrc,
   afterSrc,
-  beforeLabel = "Raw",
-  afterLabel = "Cleaned",
+  // "Raw" and "Cleaned" name two stages of the image pipeline. They were sitting
+  // on the customer's own room on their own dashboard, where "Raw" reads as a
+  // remark about their house rather than as a processing step.
+  beforeLabel = "Photo",
+  afterLabel = "Tidied up",
   alt = "",
   style,
 }: ImageCompareProps) {

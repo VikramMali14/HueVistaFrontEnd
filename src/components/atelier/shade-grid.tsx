@@ -230,10 +230,13 @@ interface ShadeGridProps {
   /** Why the panel is showing only the saved selection — the studio's own view-only
    *  wording, so the two never drift apart. */
   selectionNote?: string | null;
-  /** No photo yet, so there is nothing for a colour to land on. The panel stays
-   *  on screen but goes quiet: dimmed, not operable, and saying why. */
+  /** No photo yet, so there is nothing for a colour to land on. The panel shows
+   *  what is coming instead of a workshop that cannot be worked. */
   awaitingPhoto?: boolean;
-  /** Send the user to the uploader — wired to the gate's button and to Apply. */
+  /** The project-details form is still on screen and owns the step. Only used to
+   *  keep this panel from putting a second call to action beside it. */
+  awaitingDetails?: boolean;
+  /** Send the user to the uploader — wired to the waiting panel's button. */
   onNeedPhoto?: () => void;
 }
 
@@ -312,6 +315,7 @@ export function ShadeGrid({
   selectionOnly = false,
   selectionNote,
   awaitingPhoto = false,
+  awaitingDetails = false,
   onNeedPhoto,
 }: ShadeGridProps) {
   const [family, setFamily] = useState<string>("All");
@@ -515,27 +519,57 @@ export function ShadeGrid({
   const tabIcon = (tabId: Tab) =>
     tabId === "Catalogue" ? <PaletteIcon /> : tabId === "AI Suggest" ? <SparkleIcon /> : <BookmarkIcon />;
 
-  return (
-    <div className={`hv-studio-panel${awaitingPhoto ? " is-awaiting-photo" : ""}`}>
-      {/* Before a photo exists the whole panel used to be live: search, filters,
-          the wall selector, all 10,062 shades, AI Suggest with "Apply all", the
-          custom picker. Picking Wine Sensation and pressing Apply did nothing at
-          all — no toast, no error, no hint. Now the reason is on screen and the
-          controls below it are genuinely inert, so nothing can be pressed and
-          silently ignored. */}
-      {awaitingPhoto && (
-        <div className="hv-studio-gate" role="status">
-          <p className="hv-studio-gate-text">
-            Add a photo of the room first — colours need a wall to land on.
+  /*
+   * No photo yet — so the panel shows what is coming, and nothing that can be
+   * worked.
+   *
+   * Making the full workshop inert was the previous answer to "Apply did
+   * nothing, silently": correct about the silence, but it still drew search,
+   * filters, the wall selector with its ✕ buttons, the whole library and a dock
+   * reading "Tap any swatch — it paints the active wall" over a room that does
+   * not exist. Someone who is sure of themselves reads past it. Someone who is
+   * not reads a screen full of controls that refuse them and concludes they
+   * have missed a step — which is the opposite of what a first screen should
+   * say, and it landed on exactly the customers this is meant to serve.
+   *
+   * The intent it replaces is kept: the shop still sees that colours are
+   * coming, as a still row of the range rather than as a catalogue that
+   * pretends to be usable. Everything below returns the moment there is a wall
+   * to put paint on.
+   */
+  if (awaitingPhoto) {
+    return (
+      <div className="hv-studio-panel hv-studio-panel-await">
+        <div className="hv-studio-await" role="status">
+          <p className="hv-studio-await-title">Your colours are ready</p>
+          <p className="hv-studio-await-text">
+            Add a photo of the room and the walls get picked out for you. Then every
+            shade here goes on with one tap.
           </p>
-          {onNeedPhoto && (
-            <button type="button" className="btn btn-sm" onClick={onNeedPhoto}>
+          {/* Not a picker: no handlers, no selection, no codes to misread as an
+              order. It is here to answer "what am I getting?" while the photo is
+              still being taken. */}
+          <ul className="hv-studio-await-swatches" aria-hidden>
+            {catalogue.slice(0, 8).map((s) => (
+              <li key={s.code} style={{ background: s.hex }} />
+            ))}
+          </ul>
+          {/* One call to action on the screen, and only when the photo is the
+              next thing needed. While the details form is still up it owns the
+              step, and a second black button beside it just splits the choice. */}
+          {onNeedPhoto && !awaitingDetails && (
+            <button type="button" className="btn" onClick={onNeedPhoto}>
               Add a photo
             </button>
           )}
         </div>
-      )}
-      <div className="hv-studio-tabs" role="tablist" inert={awaitingPhoto || undefined}>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hv-studio-panel">
+      <div className="hv-studio-tabs" role="tablist">
         {tabs.map((tabId) => {
           const isActive = tab === tabId;
           return (
@@ -555,7 +589,7 @@ export function ShadeGrid({
       </div>
 
       {tab === "Catalogue" && (
-        <div className="hv-studio-filter-bar" inert={awaitingPhoto || undefined}>
+        <div className="hv-studio-filter-bar">
           <div className="hv-studio-filter-row">
             <div className="hv-studio-search">
               <span aria-hidden style={{ color: "var(--fg-mute)", display: "inline-flex" }}>
@@ -642,7 +676,7 @@ export function ShadeGrid({
       {/* A real box (not display:contents) so the dimming below can apply to it.
           RegionStrip renders nothing when there are no walls, which is exactly
           the case this gate covers, so the wrapper collapses to zero height. */}
-      <div inert={awaitingPhoto || undefined}>
+      <div>
       <RegionStrip
         regions={regions}
         activeRegionId={activeRegionId}
@@ -656,7 +690,7 @@ export function ShadeGrid({
       />
       </div>
 
-      <div className="hv-studio-scroll" ref={scrollRef} inert={awaitingPhoto || undefined}>
+      <div className="hv-studio-scroll" ref={scrollRef}>
         {tab === "Catalogue" && (
           <>
             {resolvedRef && (
@@ -746,7 +780,6 @@ export function ShadeGrid({
         catalogue={catalogue}
         outdoor={outdoor}
         onSelectShade={onSelect}
-        onApply={activeShade ? () => onSelect(activeShade) : undefined}
         onKeepOriginal={onKeepOriginal}
         canKeepOriginal={activeApplied}
         activeRegionLabel={activeRegionLabel}
@@ -757,8 +790,6 @@ export function ShadeGrid({
         recentShades={recentShades}
         triedShades={triedShades}
         selectedCode={selected}
-        awaitingPhoto={awaitingPhoto}
-        onNeedPhoto={onNeedPhoto}
       />
     </div>
   );
@@ -1027,7 +1058,6 @@ function SelectionDock({
   catalogue,
   outdoor = false,
   onSelectShade,
-  onApply,
   onKeepOriginal,
   canKeepOriginal = false,
   activeRegionLabel,
@@ -1038,15 +1068,12 @@ function SelectionDock({
   recentShades,
   triedShades,
   selectedCode,
-  awaitingPhoto = false,
-  onNeedPhoto,
 }: {
   shade?: PaintShade;
   catalogue: ReadonlyArray<PaintShade>;
   outdoor?: boolean;
   /** Applies any shade (steppers, warning alternatives and the recent strip use this). */
   onSelectShade: (shade: PaintShade) => void;
-  onApply?: () => void;
   /** Remove the colour from the active region so it renders unpainted. */
   onKeepOriginal?: () => void;
   /** Only offer "Keep original" when the active region actually has a colour. */
@@ -1059,9 +1086,6 @@ function SelectionDock({
   recentShades?: ReadonlyArray<PaintShade>;
   triedShades?: ReadonlyArray<PaintShade>;
   selectedCode?: string;
-  /** No photo yet — Apply becomes the way to go and get one. */
-  awaitingPhoto?: boolean;
-  onNeedPhoto?: () => void;
 }) {
   const [tipsOpen, setTipsOpen] = useState(false);
 
@@ -1104,13 +1128,12 @@ function SelectionDock({
   );
 
   const shiftsInLamplight = Boolean(shift && shift.score >= LIGHT_SHIFT_BADGE);
-  const tipCount =
-    (clashNote ? 1 : 0) +
-    (darkRoomAlts.length > 0 ? 1 : 0) +
-    (fadeRisky ? 1 : 0) +
-    ((pairing.ceiling || pairing.trim) ? 1 : 0) +
-    (shiftsInLamplight ? 1 : 0);
-  const hasWarning = Boolean(clashNote) || darkRoomAlts.length > 0 || fadeRisky;
+  // Cautions the customer should act on, kept apart from advice they can enjoy.
+  // Both still open the same drawer; only these are allowed to put a number
+  // next to a warning triangle.
+  const warnCount =
+    (clashNote ? 1 : 0) + (darkRoomAlts.length > 0 ? 1 : 0) + (fadeRisky ? 1 : 0);
+  const hasWarning = warnCount > 0;
   const canOpenTips = Boolean(shade) || Boolean(clashNote);
 
   const codeLabel = (code: string) => (hideCodes ? (encodeCode ? encodeCode(code) : null) : code);
@@ -1265,18 +1288,13 @@ function SelectionDock({
             title={canOpenTips ? "Advice for this colour: pairings, light and warnings" : "Pick a colour to see tips"}
             className={`hv-studio-dock-tipsbtn ${hasWarning ? "has-warn" : ""} ${tipsOpen ? "is-open" : ""}`}
           >
-            {hasWarning ? "⚠ " : ""}Tips{tipCount > 0 ? ` (${tipCount})` : ""}
-          </button>
-          {/* With no photo this button used to be fully enabled and do nothing
-              when pressed. It now says what is missing and goes and gets it. */}
-          <button
-            type="button"
-            onClick={awaitingPhoto ? onNeedPhoto : onApply}
-            disabled={awaitingPhoto ? !onNeedPhoto : !onApply}
-            title={awaitingPhoto ? "Add a photo of the room, then colours can go on its walls" : "Apply this shade to the active wall"}
-            className="btn btn-sm"
-          >
-            {awaitingPhoto ? "Add a photo first" : "Apply"}
+            {/* The number beside a ⚠ has to mean "things to check", and only
+                that. It used to be the total tip count, which folds in the
+                friendly half — a ceiling pairing, how the shade reads under a
+                bulb — so picking a better colour made a red counter climb from
+                (1) to (3) and read as three mistakes. Warnings are counted;
+                suggestions are found inside. */}
+            {hasWarning ? `⚠ Tips (${warnCount})` : "Tips"}
           </button>
         </div>
       </div>
@@ -2491,6 +2509,12 @@ function RegionStrip({
   const addDisabled = masksRemaining !== undefined && masksRemaining <= 0;
   return (
     <div className="hv-studio-region-strip">
+      {/* The chips scroll; "+ Wall" does not. On a 390px phone the three seeded
+          walls already measure 504px, so an add button living at the end of the
+          scroller sat ~100px past the right edge — the only way to add a surface
+          was to swipe a row that gives little sign it can be swiped. Pinning it
+          outside the scrolling track keeps it on screen at every width. */}
+      <div className="hv-studio-region-strip-row">
       <div
         className="hv-studio-region-strip-scroll"
         ref={scrollerRef}
@@ -2583,6 +2607,7 @@ function RegionStrip({
             </div>
           );
         })}
+      </div>
         {/* No handler, no chip — same rule the ✕ and the refine pencil already follow.
             It used to render whatever it was given and call `onAddWall?.()`, so a room
             whose walls are fixed (off the library shelf, or a locked project) showed a
@@ -2607,9 +2632,21 @@ function RegionStrip({
           for a one-wall job. */}
       {canPlan && (
         <div className="hv-studio-plan-bar">
+          {/* "Painting 3 walls of 3 · combinations come in 3 colours" said three
+              in three places, each meaning something different, and asked the
+              reader to work out which was which. Two plain clauses instead, and
+              the second one only when it is not simply restating the first. */}
           <p className="hv-studio-plan-sum">
-            Painting <strong>{wallCount(painting.length)}</strong> of {list.length} ·
-            combinations come in {colourCount(painting.length)}
+            {painting.length === list.length ? (
+              <>
+                Painting <strong>all {wallCount(list.length)}</strong>
+              </>
+            ) : (
+              <>
+                Painting <strong>{wallCount(painting.length)}</strong> of {list.length}
+              </>
+            )}
+            {painting.length > 1 && <> · each suggestion gives you {colourCount(painting.length)}</>}
           </p>
           <button
             type="button"
